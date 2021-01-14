@@ -70,6 +70,7 @@ function ScanAppMod:GetScanAppearance(t)
 end
 
 function ScanAppMod:ChangeScanAppearanceTo(t, newAppearance)
+	t:PrefetchAppearanceChange(newAppearance)
 	t:ScheduleAppearanceChange(newAppearance)
 end
 
