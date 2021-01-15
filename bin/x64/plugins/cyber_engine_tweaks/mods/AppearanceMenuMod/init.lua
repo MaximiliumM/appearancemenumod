@@ -3,7 +3,7 @@ Settings = require("AppearanceMenuMod.Settings.settings")
 Settings.Log("Current Keybind: "..Settings.GetCurrentKeybind()[1])
 
 -- Debug Menu --
-debugMenu = true
+debugMenu = false
 debugIDs = {}
 sortedDebugIDs = {}
 
@@ -51,7 +51,7 @@ end
 
 function ScanAppMod:GetAppearanceOptions(t)
 	scanID = tostring(t:GetRecordID()):match("= (%g+),")
-	
+
 	if t:IsNPC() then
 		if self.npcs[scanID] ~= nil then
 			return self.npcs[scanID] -- array of appearances names
@@ -106,7 +106,7 @@ end)
 registerForEvent("onConsoleOpen", function()
     drawWindow = true
   end)
-  
+
 registerForEvent("onConsoleClose", function()
     drawWindow = false
 end)
@@ -117,7 +117,7 @@ registerForEvent("onDraw", function()
 
 	-- Target Setup --
 	target = NewTarget()
-	
+
 	if debugMenu == true then
 		ImGui.SetNextWindowSize(800, 400)
 	elseif (target.options ~= nil) or (settings == true) then
@@ -164,7 +164,7 @@ registerForEvent("onDraw", function()
 	    		-- Tab Constructor --
 	    		tabOrder = {"NPC", "Vehicles"}
 
-	    		for _, tab in ipairs(tabOrder) do 
+	    		for _, tab in ipairs(tabOrder) do
 		    		if (ImGui.BeginTabItem(tab)) then
 		    			settings = false
 
@@ -174,7 +174,7 @@ registerForEvent("onDraw", function()
 			                halfButtonWidth = ((ImGui.GetWindowContentRegionWidth() / 2) - 4.3)
 			            }
 
-						if target ~= nil and target.type == tab then	
+						if target ~= nil and target.type == tab then
 				    		ImGui.TextColored(1, 0, 0, 1,tabs[tab].currentTitle)
 				    		ImGui.Text(target.appearance)
 				    		x, y = ImGui.CalcTextSize(target.appearance)
@@ -185,7 +185,7 @@ registerForEvent("onDraw", function()
 				    		if (ImGui.Button(tabs[tab].buttonTitle, style.buttonWidth, style.buttonHeight)) then
 				    			ScanApp:ChangeScanAppearanceTo(target.handle, 'Cycle')
 				    		end
-				    	
+
 
 					    	ImGui.NewLine()
 
@@ -203,7 +203,7 @@ registerForEvent("onDraw", function()
 							    end
 
 							    ImGui.EndChild()
-							end	
+							end
 						else
 				    		ImGui.PushTextWrapPos()
 				    		ImGui.TextColored(1, 0, 0, 1, tabs[tab].errorMessage)
@@ -212,7 +212,7 @@ registerForEvent("onDraw", function()
 					ImGui.EndTabItem()
 					end
 				end
-				-- End of Tab Constructor -- 
+				-- End of Tab Constructor --
 
 				if (ImGui.BeginTabItem("Settings")) then
 					settings = true
@@ -231,7 +231,7 @@ registerForEvent("onDraw", function()
 					ImGui.EndTabItem()
 				end
 
-				-- DEBUG Tab -- 
+				-- DEBUG Tab --
 				if debugMenu then
 					if (ImGui.BeginTabItem("Debug")) then
 					settings = false
@@ -293,4 +293,3 @@ registerForEvent("onDraw", function()
 	    ImGui.PopStyleColor(13)
 	end
 end)
-
