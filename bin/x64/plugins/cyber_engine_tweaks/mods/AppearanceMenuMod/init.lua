@@ -120,7 +120,7 @@ registerForEvent("onDraw", function()
 
 	if debugMenu == true then
 		ImGui.SetNextWindowSize(800, 400)
-	elseif (target.options ~= nil) or (settings == true) then
+	elseif (target ~= nil) and (target.options ~= nil) or (settings == true) then
 		ImGui.SetNextWindowSize(windowWidth, 400)
 	else
 		ImGui.SetNextWindowSize(windowWidth, 160)
