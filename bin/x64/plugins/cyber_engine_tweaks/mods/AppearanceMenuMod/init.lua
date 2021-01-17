@@ -51,9 +51,8 @@ function ScanAppMod:CheckSavedAppearance()
 	local player = Game.GetPlayer()
 	if player ~= nil and next(self.savedApps) ~= nil then
 		local qm = player:GetQuickSlotsManager()
-		local entityID = qm.PlayerVehicleID
-		if entityID ~= nil then
-			local vehicleHandle = Game.FindEntityByID(entityID)
+		local vehicleHandle = qm:GetVehicleObject()
+		if vehicleHandle ~= nil then
 			local vehicleID = tostring(vehicleHandle:GetRecordID()):match("= (%g+),")
 			local vehicleApp = self:GetScanAppearance(vehicleHandle)
 			local savedApp = self.savedApps[vehicleID]
