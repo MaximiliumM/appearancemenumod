@@ -11,10 +11,11 @@ sortedDebugIDs = {}
 Target = {}
 Target.__index = Target
 
-function Target:new(handle, targetType, name, app, options)
+function Target:new(handle, targetType, id, name, app, options)
 	local obj = {}
 	setmetatable(obj, Target)
 	obj.handle = handle
+	obj.id = id
 	obj.name = name
 	obj.appearance = app
 	obj.type = targetType
@@ -32,12 +33,65 @@ function ScanAppMod:new()
    local obj = {}
    setmetatable(obj, self)
    obj.npcs, obj.vehicles = obj:GetDB()
+   obj.savedApps = obj:GetSavedAppearances()
    return obj
 end
 
 function ScanAppMod:GetDB()
 	local db = require("AppearanceMenuMod.Database.database")
 	return db[1], db[2]
+end
+
+function ScanAppMod:GetSavedAppearances()
+	local db = require("AppearanceMenuMod.Database.user")
+	return db
+end
+
+function ScanAppMod:CheckSavedAppearance()
+	local player = Game.GetPlayer()
+	if player ~= nil and next(self.savedApps) ~= nil then
+		local qm = player:GetQuickSlotsManager()
+		local vehicleHandle = qm:GetVehicleObject()
+		if vehicleHandle ~= nil then
+			local vehicleID = tostring(vehicleHandle:GetRecordID()):match("= (%g+),")
+			local vehicleApp = self:GetScanAppearance(vehicleHandle)
+			local savedApp = self.savedApps[vehicleID]
+			if savedApp ~= nil and savedApp ~= vehicleApp then
+				vehicleHandle:ScheduleAppearanceChange(savedApp)
+			end
+		end
+	end
+end
+
+function ScanAppMod:ClearAllSavedAppearances()
+	self.savedApps = {}
+	data = 'return {}'
+	self:SaveToFile(data)
+end
+
+function ScanAppMod:SaveAppearance(t)
+	print('[AMM] Saving...')
+	local targetID = self:GetScanID(t)
+	local currentApp = self:GetScanAppearance(t)
+
+	self.savedApps[targetID] = currentApp
+
+	data = 'return {\n'
+
+	for k,v in pairs(self.savedApps) do
+		data = data.."['"..k.."']".." = '"..v.."',\n"
+	end
+
+	data = data.."}"
+
+	self:SaveToFile(data)
+end
+
+function ScanAppMod:SaveToFile(data)
+	local output = io.open("AppearanceMenuMod/Database/user.lua", "w")
+
+	output:write(data)
+	output:close()
 end
 
 function ScanAppMod:GetNPCName(t)
@@ -49,8 +103,12 @@ function ScanAppMod:GetVehicleName(t)
 	return tostring(t:GetDisplayName())
 end
 
+function ScanAppMod:GetScanID(t)
+	return tostring(t:GetRecordID()):match("= (%g+),")
+end
+
 function ScanAppMod:GetAppearanceOptions(t)
-	scanID = tostring(t:GetRecordID()):match("= (%g+),")
+	scanID = self:GetScanID(t)
 
 	if t:IsNPC() then
 		if self.npcs[scanID] ~= nil then
@@ -87,9 +145,9 @@ function NewTarget()
 		target = Game.GetTargetingSystem():GetLookAtObject(Game.GetPlayer(),false,false)
 		if target ~= nil then
 			if target:IsNPC() then
-				return Target:new(target, "NPC", ScanApp:GetNPCName(target),ScanApp:GetScanAppearance(target), ScanApp:GetAppearanceOptions(target))
+				return Target:new(target, "NPC", ScanApp:GetScanID(target), ScanApp:GetNPCName(target),ScanApp:GetScanAppearance(target), ScanApp:GetAppearanceOptions(target))
 			elseif target:IsVehicle() then
-				return Target:new(target, "Vehicles", ScanApp:GetVehicleName(target),ScanApp:GetScanAppearance(target), ScanApp:GetAppearanceOptions(target))
+				return Target:new(target, "Vehicles", ScanApp:GetScanID(target), ScanApp:GetVehicleName(target),ScanApp:GetScanAppearance(target), ScanApp:GetAppearanceOptions(target))
 			end
 		end
 	end
@@ -101,11 +159,16 @@ registerForEvent("onUpdate", function(deltaTime)
     if (ImGui.IsKeyPressed(Settings.GetCurrentKeybind()[2], false)) then
       drawWindow = not drawWindow
     end
+
+		-- Load Saved Appearance --
+		if not drawWindow then
+			ScanApp:CheckSavedAppearance()
+		end
 end)
 
 registerForEvent("onConsoleOpen", function()
     drawWindow = true
-  end)
+end)
 
 registerForEvent("onConsoleClose", function()
     drawWindow = false
@@ -114,9 +177,6 @@ end)
 registerForEvent("onDraw", function()
 
 	ImGui.SetNextWindowPos(500, 500, ImGuiCond.FirstUseEver)
-
-	-- Target Setup --
-	target = NewTarget()
 
 	if debugMenu == true then
 		ImGui.SetNextWindowSize(800, 400)
@@ -128,19 +188,22 @@ registerForEvent("onDraw", function()
 
 	if(drawWindow) then
 
-		ImGui.PushStyleColor(ImGuiCol.Border, 0.56, 0.06, 0.03, 1)
-		ImGui.PushStyleColor(ImGuiCol.Tab, 1, 0.2, 0.2, 0.5)
-        ImGui.PushStyleColor(ImGuiCol.TabHovered, 1, 0.2, 0.2, 0.85)
-        ImGui.PushStyleColor(ImGuiCol.TabActive, 1, 0.2, 0.2, 1)
-        ImGui.PushStyleColor(ImGuiCol.TitleBg, 0.56, 0.06, 0.03, 0.5)
-        ImGui.PushStyleColor(ImGuiCol.TitleBgActive, 0.56, 0.06, 0.03, 1)
-        ImGui.PushStyleColor(ImGuiCol.TitleBgCollapsed, 0.56, 0.06, 0.03, 0.25)
-        ImGui.PushStyleColor(ImGuiCol.Button, 0.56, 0.06, 0.03, 0.6)
-        ImGui.PushStyleColor(ImGuiCol.ButtonHovered, 0.56, 0.06, 0.03, 0.75)
-        ImGui.PushStyleColor(ImGuiCol.ButtonActive, 0.56, 0.06, 0.03, 1)
-        ImGui.PushStyleColor(ImGuiCol.ResizeGrip, 0.56, 0.06, 0.03, 0.6)
-        ImGui.PushStyleColor(ImGuiCol.ResizeGripHovered, 0.56, 0.06, 0.03, 0.75)
-        ImGui.PushStyleColor(ImGuiCol.ResizeGripActive, 0.56, 0.06, 0.03, 1)
+			-- Target Setup --
+			target = NewTarget()
+
+			ImGui.PushStyleColor(ImGuiCol.Border, 0.56, 0.06, 0.03, 1)
+			ImGui.PushStyleColor(ImGuiCol.Tab, 1, 0.2, 0.2, 0.5)
+	    ImGui.PushStyleColor(ImGuiCol.TabHovered, 1, 0.2, 0.2, 0.85)
+	    ImGui.PushStyleColor(ImGuiCol.TabActive, 1, 0.2, 0.2, 1)
+	    ImGui.PushStyleColor(ImGuiCol.TitleBg, 0.56, 0.06, 0.03, 0.5)
+	    ImGui.PushStyleColor(ImGuiCol.TitleBgActive, 0.56, 0.06, 0.03, 1)
+	    ImGui.PushStyleColor(ImGuiCol.TitleBgCollapsed, 0.56, 0.06, 0.03, 0.25)
+	    ImGui.PushStyleColor(ImGuiCol.Button, 0.56, 0.06, 0.03, 0.6)
+	    ImGui.PushStyleColor(ImGuiCol.ButtonHovered, 0.56, 0.06, 0.03, 0.75)
+	    ImGui.PushStyleColor(ImGuiCol.ButtonActive, 0.56, 0.06, 0.03, 1)
+	    ImGui.PushStyleColor(ImGuiCol.ResizeGrip, 0.56, 0.06, 0.03, 0.6)
+	    ImGui.PushStyleColor(ImGuiCol.ResizeGripHovered, 0.56, 0.06, 0.03, 0.75)
+	    ImGui.PushStyleColor(ImGuiCol.ResizeGripActive, 0.56, 0.06, 0.03, 1)
 
 	    if (ImGui.Begin("Appearance Menu Mod")) then
 
@@ -148,15 +211,38 @@ registerForEvent("onDraw", function()
 
 	    	if (ImGui.BeginTabBar("TABS")) then
 
+					local style = {
+									buttonWidth = -1,
+									buttonHeight = 20,
+									halfButtonWidth = ((ImGui.GetWindowContentRegionWidth() / 2) - 12)
+							}
+
 	    		local tabs = {
 	    			['NPC'] = {
 	    				currentTitle = "Current Appearance:",
-	    				buttonTitle = "Cycle Appearance",
+	    				buttons = {
+								{
+									title = "Cycle Appearance",
+									width = style.buttonWidth,
+									action = "Cycle"
+								}
+							},
 	    				errorMessage = "No NPC Found! Look at NPC to begin"
 	    			},
 	    			['Vehicles'] = {
 	    				currentTitle = "Current Model:",
-	    				buttonTitle = "Cycle Model",
+	    				buttons = {
+								{
+									title = "Cycle Model",
+									width = style.halfButtonWidth,
+									action = "Cycle"
+								},
+								{
+									title = "Save Appearance",
+									width = style.halfButtonWidth,
+									action = "Save"
+								},
+							},
 	    				errorMessage = "No Vehicle Found! Look at Vehicle to begin"
 	    			}
 	    		}
@@ -168,43 +254,44 @@ registerForEvent("onDraw", function()
 		    		if (ImGui.BeginTabItem(tab)) then
 		    			settings = false
 
-				    	local style = {
-			                buttonWidth = -1,
-			                buttonHeight = 20,
-			                halfButtonWidth = ((ImGui.GetWindowContentRegionWidth() / 2) - 4.3)
-			            }
+							if target ~= nil and target.type == tab then
+					    		ImGui.TextColored(1, 0, 0, 1,tabs[tab].currentTitle)
+					    		ImGui.Text(target.appearance)
+					    		x, y = ImGui.CalcTextSize(target.appearance)
+					    		windowWidth = x + 40
 
-						if target ~= nil and target.type == tab then
-				    		ImGui.TextColored(1, 0, 0, 1,tabs[tab].currentTitle)
-				    		ImGui.Text(target.appearance)
-				    		x, y = ImGui.CalcTextSize(target.appearance)
-				    		windowWidth = x + 40
+									ImGui.Spacing()
 
-				    		ImGui.Spacing()
+									for _, button in ipairs(tabs[tab].buttons) do
+										ImGui.SameLine()
+						    		if (ImGui.Button(button.title, button.width, style.buttonHeight)) then
+						    			if button.action == "Cycle" then
+												ScanApp:ChangeScanAppearanceTo(target.handle, 'Cycle')
+											elseif button.action == "Save" then
+												ScanApp:SaveAppearance(target.handle)
+											end
+						    		end
+									end
 
-				    		if (ImGui.Button(tabs[tab].buttonTitle, style.buttonWidth, style.buttonHeight)) then
-				    			ScanApp:ChangeScanAppearanceTo(target.handle, 'Cycle')
-				    		end
+						    	ImGui.NewLine()
+									ImGui.Separator()
 
+						    	if target.options ~= nil then
+						    		ImGui.TextColored(1, 0, 0, 1, target.name)
+							    	if (ImGui.BeginChild("Scrolling")) then
+								    	for i, appearance in ipairs(target.options) do
+								    		x, y = ImGui.CalcTextSize(appearance)
+								    		if (x > windowWidth) then windowWidth = x + 40 end
+								    		if (ImGui.Button(appearance)) then
+								    			ScanApp:ChangeScanAppearanceTo(target.handle, appearance)
+								    		end
+								    	end
 
-					    	ImGui.NewLine()
+								    end
 
-					    	if target.options ~= nil then
-					    		ImGui.TextColored(1, 0, 0, 1, target.name)
-						    	if (ImGui.BeginChild("Scrolling")) then
-							    	for i, appearance in ipairs(target.options) do
-							    		x, y = ImGui.CalcTextSize(appearance)
-							    		if (x > windowWidth) then windowWidth = x + 40 end
-							    		if (ImGui.Button(appearance)) then
-							    			ScanApp:ChangeScanAppearanceTo(target.handle, appearance)
-							    		end
-							    	end
-
-							    end
-
-							    ImGui.EndChild()
-							end
-						else
+								    ImGui.EndChild()
+								end
+							else
 				    		ImGui.PushTextWrapPos()
 				    		ImGui.TextColored(1, 0, 0, 1, tabs[tab].errorMessage)
 				    		ImGui.PopTextWrapPos()
@@ -216,6 +303,7 @@ registerForEvent("onDraw", function()
 
 				if (ImGui.BeginTabItem("Settings")) then
 					settings = true
+
 					allItems = Settings.GetAllKeybinds()
 					if(ImGui.ListBoxHeader("Keybind", Settings.GetNumberOfKeys())) then
 						for key, code in pairs(allItems) do
@@ -228,6 +316,16 @@ registerForEvent("onDraw", function()
 					end
 
 					ImGui.ListBoxFooter()
+
+					ImGui.Separator()
+					ImGui.Spacing()
+
+					if (ImGui.Button("Clear All Saved Appearances")) then
+						ScanApp:ClearAllSavedAppearances()
+					end
+
+					ImGui.Spacing()
+
 					ImGui.EndTabItem()
 				end
 
@@ -236,22 +334,22 @@ registerForEvent("onDraw", function()
 					if (ImGui.BeginTabItem("Debug")) then
 					settings = false
 
-					if (ImGui.Button("Cycle")) then
-						scanID = tostring(target.handle:GetRecordID()):match("= (%g+),")
+						if (ImGui.Button("Cycle")) then
+							scanID = target.id
 				    	ScanApp:ChangeScanAppearanceTo(target.handle, 'Cycle')
 				    	app = ScanApp:GetScanAppearance(target.handle)
-						debugIDs[app] = scanID
-						-- Add new ID
-						output = {}
-						for i,v in pairs(debugIDs) do
-	   						if output[v] == nil then
-	        					output[v] = {}
-	    					end
+							debugIDs[app] = scanID
+							-- Add new ID
+							output = {}
+							for i,v in pairs(debugIDs) do
+		   						if output[v] == nil then
+		        					output[v] = {}
+		    					end
 
-	    					table.insert(output[v], i)
-						end
+		    					table.insert(output[v], i)
+							end
 
-						sortedDebugIDs = output
+							sortedDebugIDs = output
 				    end
 
 				    ImGui.Spacing()
@@ -261,32 +359,32 @@ registerForEvent("onDraw", function()
 
 				    ImGui.Spacing()
 
-					if (ImGui.Button('Save IDs to file')) then
-						print("Scan ID: "..scanID.." -- Added to clipboard")
-						ImGui.SetClipboardText(scanID)
-						Settings.LogToFile(sortedDebugIDs)
-					end
+						if (ImGui.Button('Save IDs to file')) then
+							print("Scan ID: "..scanID.." -- Added to clipboard")
+							ImGui.SetClipboardText(scanID)
+							Settings.LogToFile(sortedDebugIDs)
+						end
 
-					ImGui.Spacing()
+						ImGui.Spacing()
 
-					if (ImGui.BeginChild("Scrolling")) then
-						for id, appArray in pairs(sortedDebugIDs) do
-				    		if(ImGui.CollapsingHeader(id)) then
-				    			for _, app in pairs(appArray) do
-				    				if (ImGui.Button(app)) then
-				    					print("AppString: "..app.." -- Added to clipboard")
-				    					ImGui.SetClipboardText(app)
-				    				end
-				    			end
-				    		end
-				    	end
-					end
+						if (ImGui.BeginChild("Scrolling")) then
+							for id, appArray in pairs(sortedDebugIDs) do
+					    		if(ImGui.CollapsingHeader(id)) then
+					    			for _, app in pairs(appArray) do
+					    				if (ImGui.Button(app)) then
+					    					print("AppString: "..app.." -- Added to clipboard")
+					    					ImGui.SetClipboardText(app)
+					    				end
+					    			end
+					    		end
+					    	end
+						end
 
-					ImGui.EndChild()
-					ImGui.EndTabItem()
+						ImGui.EndChild()
+						ImGui.EndTabItem()
 					end
 				end
-		    end
+		   end
 		end
 
 	    ImGui.End()
