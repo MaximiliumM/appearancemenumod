@@ -193,7 +193,7 @@ end
 ScanApp = ScanAppMod:new()
 drawWindow = false
 settings = false
-windowWidth = 265
+windowWidth = 320
 currentItem = Settings.GetCurrentKeybind()[1]
 
 -- Helper methods
