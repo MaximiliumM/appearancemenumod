@@ -45,19 +45,21 @@ AMM_Keybind = %s -- %s Key
 
 -- If you need to add your own, the full list is available from
 -- https://docs.microsoft.com/en-us/windows/win32/inputdev/virtual-key-codes
+
+require AMM_Keybind
 ]], keycode, key)
 end
 
 function Settings.Save(key, keycode)
 	local data = getTutorialString(key, keycode)
-	local output = io.open("AppearanceMenuMod/Settings/keybind.lua", "w")
+	local output = io.open("keybind.lua", "w")
 
 	output:write(data)
 	output:close()
 end
 
 function Settings.GetCurrentKeybind()
-	dofile("AppearanceMenuMod/Settings/keybind.lua")
+	local AMM_Keybind = require("AppearanceMenuMod.Settings.keybind")
 	local keyString = getKeyStringFromKeycode(AMM_Keybind)
 	return {keyString, AMM_Keybind}
 end
@@ -100,7 +102,7 @@ function Settings.LogToFile(input)
 	local data = ''
 
 	for i,v in pairs(input) do
-	    data = data.."['"..i.."']".." = {'"..table.concat(v,"', '").."'}\n"
+	    data = data.."['"..i.."']".." = {"..table.concat(v,", ").."}\n"
 	end
 
 	local output = io.open("AppearanceMenuMod/debug_ids.lua", "a")
