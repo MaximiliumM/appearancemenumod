@@ -23,10 +23,10 @@ local function getTutorialString(key, keycode)
 -- To change the keybind, replace the text "115 -- F4 Key "
 -- by copy and pasting the code from the list below.
 -- For example, to use the G key, copy and paste
--- the text "0x47 -- G key" over "115 -- F4 Key", 
+-- the text "0x47 -- G key" over "115 -- F4 Key",
 -- changing it to AMM_Keybind = 0x47 -- G key
 --------------------------------------------------------
-AMM_Keybind = %s -- %s Key 
+AMM_Keybind = %s -- %s Key
 --------------------------------------------------------
 -- 115 -- F4 Key
 --------------------------------------------------------
@@ -51,7 +51,7 @@ end
 function Settings.Save(key, keycode)
 	local data = getTutorialString(key, keycode)
 	local output = io.open("AppearanceMenuMod/Settings/keybind.lua", "w")
-	
+
 	output:write(data)
 	output:close()
 end
@@ -100,11 +100,11 @@ function Settings.LogToFile(input)
 	local data = ''
 
 	for i,v in pairs(input) do
-	    data = data.."['"..i.."']".." = {"..table.concat(v,", ").."}\n"
+	    data = data.."['"..i.."']".." = {'"..table.concat(v,"', '").."'}\n"
 	end
 
 	local output = io.open("AppearanceMenuMod/debug_ids.lua", "a")
-	
+
 	output:write(data)
 	output:close()
 end
