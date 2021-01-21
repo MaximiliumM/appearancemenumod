@@ -24,9 +24,10 @@ function ScanApp:new()
 	 ScanApp.debugIDs = {}
 	 ScanApp.sortedDebugIDs = {}
 
+	 -- Main Properties --
    ScanApp.npcs, ScanApp.vehicles = ScanApp:GetDB()
    ScanApp.savedApps = ScanApp:GetSavedAppearances()
-	 ScanApp.currentTarget = nil
+	 ScanApp.currentTarget = ''
 	 ScanApp.allowedNPCs = {
 		 '0xB1B50FFA', '0xC67F0E01', '0x73C44EBA', '0xAD1FC6DE', '0x7F65F7F7',
 		 '0x7B2CB67C', '0x3024F03E', '0x3B6EF8F9', '0x413F60A6', '0x62B8D0FA',
@@ -35,19 +36,21 @@ function ScanApp:new()
 
 
 	 registerForEvent("onUpdate", function(deltaTime)
-		 if (ImGui.IsKeyPressed(ScanApp.Settings.GetCurrentKeybind()[2], false)) then
-			 drawWindow = not drawWindow
-		 end
+			 if (ImGui.IsKeyPressed(ScanApp.Settings.GetCurrentKeybind()[2], false)) then
+				 drawWindow = not drawWindow
+			 end
 
-	 		-- Load Saved Appearance --
-	 		if not drawWindow then
-	 			target = ScanApp:GetTarget()
-	 			ScanApp:CheckSavedAppearance(target)
-	 		end
+		 		-- Load Saved Appearance --
+		 		if not drawWindow then
+		 			target = ScanApp:GetTarget()
+		 			ScanApp:CheckSavedAppearance(target)
+		 		end
 	 end)
 
 	 registerForEvent("onConsoleOpen", function()
+		 if self:ShouldDraw() then
 	     drawWindow = true
+		 end
 	 end)
 
 	 registerForEvent("onConsoleClose", function()
@@ -173,7 +176,7 @@ function ScanApp:new()
 	 									if savedApp ~= nil then
 	 										ImGui.TextColored(1, 0, 0, 1, "Saved Appearance:")
 	 						    		ImGui.Text(savedApp)
-	 										drawButton("Clear Saved Appearance", style.buttonWidth, style.buttonHeight, "Clear", target)
+	 										ScanApp:DrawButton("Clear Saved Appearance", style.buttonWidth, style.buttonHeight, "Clear", target)
 	 									end
 
 	 						    	ImGui.NewLine()
@@ -327,8 +330,7 @@ function ScanApp:CheckSavedAppearance(t)
 			currentApp = t.appearance
 			savedApp = self.savedApps[t.type][t.id]
 		else
-			local player = Game.GetPlayer()
-			local qm = player:GetQuickSlotsManager()
+			local qm = Game.GetPlayer():GetQuickSlotsManager()
 			handle = qm:GetVehicleObject()
 			if handle ~= nil then
 				local vehicleID = tostring(handle:GetRecordID()):match("= (%g+),")
@@ -344,7 +346,7 @@ function ScanApp:CheckSavedAppearance(t)
 end
 
 function ScanApp:ClearSavedAppearance(t)
-	if self.currentTarget ~= nil then
+	if self.currentTarget ~= '' then
 		if t.appearance ~= self.currentTarget.appearance then
 			t.handle:ScheduleAppearanceChange(self.currentTarget.appearance)
 		end
@@ -399,7 +401,12 @@ function ScanApp:SaveToFile()
 
 	data = data.."}"
 
-	local output = io.open("AppearanceMenuMod/Database/user.lua", "w")
+	if self.debugMenu == true then
+		print(data)
+	end
+
+	local currentDir = io.popen"cd":read'*l'
+	local output = io.open(currentDir.."\\plugins\\cyber_engine_tweaks\\mods\\AppearanceMenuMod\\Database\\user.lua", "w")
 
 	output:write(data)
 	output:close()
@@ -419,12 +426,14 @@ function ScanApp:GetScanID(t)
 end
 
 function ScanApp:SetCurrentTarget(t)
-	if self.currentTarget ~= nil then
-		if t.id ~= self.currentTarget.id then
+	if t ~= nil then
+		if self.currentTarget ~= '' then
+			if t.id ~= self.currentTarget.id then
+				self.currentTarget = t
+			end
+		else
 			self.currentTarget = t
 		end
-	else
-		self.currentTarget = t
 	end
 end
 
@@ -454,7 +463,7 @@ function ScanApp:ChangeScanAppearanceTo(t, newAppearance)
 end
 
 function ScanApp:GetTarget()
-	if Game.GetPlayer() ~= nil then
+	if Game.GetPlayer() then
 		target = Game.GetTargetingSystem():GetLookAtObject(Game.GetPlayer(),false,false)
 		if target ~= nil then
 			if target:IsNPC() then
@@ -477,6 +486,24 @@ function ScanApp:DrawButton(title, width, height, action, target)
 			ScanApp:SaveAppearance(target)
 		elseif action == "Clear" then
 			ScanApp:ClearSavedAppearance(target)
+		end
+	end
+end
+
+function ScanApp:ShouldDraw()
+	if Game.GetPlayer() then
+		newVelocity = Game.GetPlayer():GetVelocity().z
+		if newVelocity == oldVelocity and newVelocity ~= 0 then -- pause menu
+			oldVelocity = newVelocity
+			return false
+		elseif math.abs(newVelocity) < 0.00001 and newVelocity ~= 0 then -- main menu
+			oldVelocity = newVelocity
+			return false
+		else
+			oldVelocity = newVelocity
+			if Game.GetTargetingSystem():GetLookAtObject(Game.GetPlayer(),false,false) then
+				return true
+			end
 		end
 	end
 end
