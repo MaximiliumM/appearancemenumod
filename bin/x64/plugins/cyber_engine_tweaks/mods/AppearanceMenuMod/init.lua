@@ -20,7 +20,7 @@ function ScanApp:new()
 	 ScanApp.currentItem = ScanApp.Settings.GetCurrentKeybind()[1]
 
 	 -- Debug Menu --
-	 ScanApp.debugMenu = true
+	 ScanApp.debugMenu = false
 	 ScanApp.debugIDs = {}
 	 ScanApp.sortedDebugIDs = {}
 
