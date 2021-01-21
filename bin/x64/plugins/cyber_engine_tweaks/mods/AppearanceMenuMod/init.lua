@@ -15,6 +15,7 @@ function ScanApp:new()
 	 ScanApp.Settings.Log("Current Keybind: "..ScanApp.Settings.GetCurrentKeybind()[1])
 
 	 -- Configs
+	 ScanApp.currentDir = io.popen"cd":read'*l'
 	 ScanApp.settings = false
 	 ScanApp.windowWidth = 320
 	 ScanApp.currentItem = ScanApp.Settings.GetCurrentKeybind()[1]
@@ -188,7 +189,7 @@ function ScanApp:new()
 	 							    	if (ImGui.BeginChild("Scrolling")) then
 	 								    	for i, appearance in ipairs(target.options) do
 	 								    		x, y = ImGui.CalcTextSize(appearance)
-	 								    		if (x > windowWidth) then windowWidth = x + 40 end
+	 								    		if (x > self.windowWidth) then self.windowWidth = x + 40 end
 	 								    		if (ImGui.Button(appearance)) then
 	 								    			ScanApp:ChangeScanAppearanceTo(target.handle, appearance)
 	 								    		end
@@ -406,8 +407,7 @@ function ScanApp:SaveToFile()
 		print(data)
 	end
 
-	local currentDir = io.popen"cd":read'*l'
-	local output = io.open(currentDir.."\\plugins\\cyber_engine_tweaks\\mods\\AppearanceMenuMod\\Database\\user.lua", "w")
+	local output = io.open(self.currentDir.."\\plugins\\cyber_engine_tweaks\\mods\\AppearanceMenuMod\\Database\\user.lua", "w")
 
 	output:write(data)
 	output:close()
