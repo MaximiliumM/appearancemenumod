@@ -15,10 +15,14 @@ function ScanApp:new()
 	 ScanApp.Settings.Log("Current Keybind: "..ScanApp.Settings.GetCurrentKeybind()[1])
 
 	 -- Configs
-	 ScanApp.currentDir = io.popen"cd":read'*l'
+	 ScanApp.currentDir = ScanApp:GetFolderPath()
 	 ScanApp.settings = false
 	 ScanApp.windowWidth = 320
 	 ScanApp.currentItem = ScanApp.Settings.GetCurrentKeybind()[1]
+	 ScanApp.roleComp = ''
+	 ScanApp.spawnID = ''
+	 ScanApp.maxSpawns = 6
+	 ScanApp.spawnsCounter = 0
 
 	 -- Debug Menu --
 	 ScanApp.debugMenu = false
@@ -29,6 +33,8 @@ function ScanApp:new()
    ScanApp.npcs, ScanApp.vehicles = ScanApp:GetDB()
    ScanApp.savedApps = ScanApp:GetSavedAppearances()
 	 ScanApp.currentTarget = ''
+	 ScanApp.spawnedNPCs = {}
+	 ScanApp.spawnIDs = {'Judy', 'Panam', 'Rogue', 'Alt', 'Claire', 'Evelyn', 'Jackie', 'Nancy', 'Denny', 'Henry', 'Kerry', 'Tbug'}
 	 ScanApp.allowedNPCs = {
 		 '0xB1B50FFA', '0xC67F0E01', '0x73C44EBA', '0xAD1FC6DE', '0x7F65F7F7',
 		 '0x7B2CB67C', '0x3024F03E', '0x3B6EF8F9', '0x413F60A6', '0x62B8D0FA',
@@ -37,7 +43,7 @@ function ScanApp:new()
 	 }
 
 	 registerForEvent("onInit", function()
-		 roleComp = nil
+		 waitTimer = 0.0
 	 end)
 
 	 registerForEvent("onUpdate", function(deltaTime)
@@ -50,12 +56,27 @@ function ScanApp:new()
 		 			target = ScanApp:GetTarget()
 		 			ScanApp:CheckSavedAppearance(target)
 		 		end
+
+				if drawWindow then
+					if ScanApp:ShouldDraw() and ScanApp.roleComp == '' then
+						ScanApp:GetFollowerRole()
+					end
+				end
+
+				if ScanApp.spawnID ~= '' then
+					waitTimer = waitTimer + deltaTime
+					print('trying to set companion')
+					if waitTimer > 0.2 then
+						local npcHandle = Game.FindEntityByID(ScanApp.spawnID)
+						if npcHandle then
+							ScanApp:SetNPCAsCompanion(npcHandle)
+						end
+					end
+				end
 	 end)
 
 	 registerForEvent("onConsoleOpen", function()
-		 if self:ShouldDraw() then
 	     drawWindow = true
-		 end
 	 end)
 
 	 registerForEvent("onConsoleClose", function()
@@ -120,11 +141,6 @@ function ScanApp:new()
 	 									width = style.halfButtonWidth,
 	 									action = "Save"
 	 								},
-									{
-	 									title = "Set As Companion",
-	 									width = style.halfButtonWidth,
-	 									action = "Companion"
-	 								},
 	 							},
 	 	    				errorMessage = "No NPC Found! Look at NPC to begin"
 	 	    			},
@@ -166,7 +182,7 @@ function ScanApp:new()
 	 									-- Check if Save button should be drawn
 	 									local drawSaveButton = ScanApp:ShouldDrawSaveButton(target.handle)
 
-	 									for i, button in ipairs(tabs[tab].buttons) do
+	 									for _, button in ipairs(tabs[tab].buttons) do
 	 										ImGui.SameLine()
 
 	 										if drawSaveButton == false then
@@ -176,11 +192,6 @@ function ScanApp:new()
 	 												ScanApp:DrawButton(button.title, button.width, style.buttonHeight, button.action, target)
 	 											end
 	 										else
-												if i == 3 then
-													ImGui.NewLine()
-													button.width = style.buttonWidth
-												end
-
 	 											ScanApp:DrawButton(button.title, button.width, style.buttonHeight, button.action, target)
 	 										end
 	 									end
@@ -221,6 +232,27 @@ function ScanApp:new()
 	 					end
 	 				end
 	 				-- End of Tab Constructor --
+
+
+					if (ImGui.BeginTabItem("Spawn NPC")) then
+						ScanApp.settings = true
+						ImGui.TextColored(1, 0, 0, 1, "Select NPC to spawn:")
+
+						for _, char in ipairs(ScanApp.spawnIDs) do
+							if ScanApp.spawnedNPCs[char] == nil then
+								ScanApp:DrawButton(char, style.buttonWidth, style.buttonHeight, "Spawn", char)
+							end
+						end
+
+						if next(ScanApp.spawnedNPCs) ~= nil then
+							ImGui.TextColored(1, 0, 0, 1, "Select NPC to despawn:")
+							for npcName, npcID in pairs(ScanApp.spawnedNPCs) do
+								ScanApp:DrawButton(npcName, style.buttonWidth, style.buttonHeight, "Despawn", npcID)
+							end
+						end
+
+						ImGui.EndTabItem()
+					end
 
 	 				if (ImGui.BeginTabItem("Settings")) then
 	 					ScanApp.settings = true
@@ -327,14 +359,49 @@ function ScanApp:NewTarget(handle, targetType, id, name, app, options)
 	return obj
 end
 
+function ScanApp:GetFolderPath()
+	local path = io.popen"cd":read'*l'
+	if not string.find(path, "plugins") then
+		return path.."\\plugins\\cyber_engine_tweaks\\mods"
+	else
+		return path
+	end
+end
+
 function ScanApp:GetDB()
 	local db = require("AppearanceMenuMod.Database.database")
 	return db[1], db[2]
 end
 
+function ScanApp:GetNPCTweakDBID(npc)
+	return TweakDBID.new('Character.'..npc)
+end
+
+function ScanApp:SpawnNPC(npcName)
+	if self.spawnsCounter ~= self.maxSpawns then
+		local player = Game.GetPlayer()
+		local heading = player:GetWorldForward()
+		local offsetDir = Vector3.new(heading.x, heading.y, heading.z)
+		local spawnTransform = player:GetWorldTransform()
+		local spawnPosition = spawnTransform.Position:ToVector4(spawnTransform.Position)
+		spawnTransform:SetPosition(spawnTransform, Vector4.new(spawnPosition.x - offsetDir.x, spawnPosition.y - offsetDir.y, spawnPosition.z, spawnPosition.w))
+		self.spawnID = Game.GetPreventionSpawnSystem():RequestSpawn(self:GetNPCTweakDBID(npcName), 1, spawnTransform)
+		self.spawnedNPCs[npcName] = self.spawnID
+		self.spawnsCounter = self.spawnsCounter + 1
+	else
+		Game.GetPlayer():SetWarningMessage("Spawn limit reached!")
+	end
+end
+
+function ScanApp:DespawnNPC(npcName, spawnID)
+	Game.GetPlayer():SetWarningMessage(npcName.." will despawn once you look away")
+	self.spawnedNPCs[npcName] = nil
+	self.spawnsCounter = self.spawnsCounter - 1
+	Game.GetPreventionSpawnSystem():RequestDespawn(spawnID)
+end
+
 function ScanApp:GetSavedAppearances()
-	local db = require("AppearanceMenuMod.Database.user")
-	return db
+		return require("AppearanceMenuMod.Database.user")
 end
 
 function ScanApp:CheckSavedAppearance(t)
@@ -420,7 +487,7 @@ function ScanApp:SaveToFile()
 		print(data)
 	end
 
-	local output = io.open(self.currentDir.."\\plugins\\cyber_engine_tweaks\\mods\\AppearanceMenuMod\\Database\\user.lua", "w")
+	local output = io.open(self.currentDir.."\\AppearanceMenuMod\\Database\\user.lua", "w")
 
 	output:write(data)
 	output:close()
@@ -492,39 +559,49 @@ function ScanApp:GetTarget()
 end
 
 -- Companion methods -- original code by Catmino
-function ScanApp:SetTargetAsCompanion(t)
-	while roleComp == nil do
-		local ssc = Game.GetScriptableSystemsContainer()
-		local scs = ssc:Get(CName.new('SubCharacterSystem'))
-		local gcs = Game.GetCompanionSystem()
-		scs:AddFlathead()
-		Game.SpawnFlathead()
-		local flathead = scs:GetFlathead()
-		local flatheadAIC = flathead:GetAIControllerComponent()
-		local flatheadAIR = flatheadAIC:GetCurrentRole()
-		roleComp = flatheadAIR
-		Game.DespawnFlathead()
+function ScanApp:GetFollowerRole()
+	print('getting follower role')
+	local ssc = Game.GetScriptableSystemsContainer()
+	local scs = ssc:Get(CName.new('SubCharacterSystem'))
+	local gcs = Game.GetCompanionSystem()
+	scs:AddFlathead()
+	Game.SpawnFlathead()
+	local flathead = scs:GetFlathead()
+	local flatheadAIC = flathead:GetAIControllerComponent()
+	local flatheadAIR = flatheadAIC:GetCurrentRole()
+	self.roleComp = flatheadAIR
+	Game.DespawnFlathead()
+	print('get follower role succeded')
+	print(self.roleComp)
+end
+
+function ScanApp:SetNPCAsCompanion(npcHandle)
+	if self.roleComp == '' then
+		self:GetFollowerRole()
 	end
 
-	local targCompanion = t.handle
+	waitTimer = 0.0
+	self.spawnID = ''
+
+	local targCompanion = npcHandle
 	local AIC = targCompanion:GetAIControllerComponent()
 	local targetAttAgent = targCompanion:GetAttitudeAgent()
 	local currTime = targCompanion.isPlayerCompanionCachedTimeStamp + 11
 
 	if targCompanion.isPlayerCompanionCached == false then
-		roleComp:SetFollowTarget(Game:GetPlayerSystem():GetLocalPlayerControlledGameObject())
-		roleComp:OnRoleSet(targCompanion)
-		roleComp.followerRef = Game.CreateEntityReference("#player", {})
-		--Game['AIHumanComponent::SetCurrentRole;GameObjectAIRole'](targCompanion, roleComp)
+		self.roleComp:SetFollowTarget(Game:GetPlayerSystem():GetLocalPlayerControlledGameObject())
+		self.roleComp:OnRoleSet(targCompanion)
+		self.roleComp.followerRef = Game.CreateEntityReference("#player", {})
+		--Game['AIHumanComponent::SetCurrentRole;GameObjectAIRole'](targCompanion, self.roleComp)
 		targetAttAgent:SetAttitudeGroup(CName.new("player"))
-		roleComp.attitudeGroupName = CName.new("player")
+		self.roleComp.attitudeGroupName = CName.new("player")
 		Game['senseComponent::RequestMainPresetChange;GameObjectString'](targCompanion, "Follower")
 		Game['senseComponent::ShouldIgnoreIfPlayerCompanion;EntityEntity'](targCompanion, Game:GetPlayer())
 		Game['NPCPuppet::ChangeStanceState;GameObjectgamedataNPCStanceState'](targCompanion, "Relaxed")
 		targCompanion.isPlayerCompanionCached = true
 		targCompanion.isPlayerCompanionCachedTimeStamp = currTime
 
-		AIC:SetAIRole(roleComp)
+		AIC:SetAIRole(self.roleComp)
 	end
 end
 
@@ -537,8 +614,10 @@ function ScanApp:DrawButton(title, width, height, action, target)
 			ScanApp:SaveAppearance(target)
 		elseif action == "Clear" then
 			ScanApp:ClearSavedAppearance(target)
-		elseif action == "Companion" then
-			ScanApp:SetTargetAsCompanion(target)
+		elseif action == "Spawn" then
+			ScanApp:SpawnNPC(target)
+		elseif action == "Despawn" then
+			ScanApp:DespawnNPC(title, target)
 		end
 	end
 end
@@ -554,9 +633,7 @@ function ScanApp:ShouldDraw()
 			return false
 		else
 			oldVelocity = newVelocity
-			if Game.GetTargetingSystem():GetLookAtObject(Game.GetPlayer(),false,false) then
-				return true
-			end
+			return true
 		end
 	end
 end
