@@ -2,10 +2,10 @@
 -- To change the keybind, replace the text "115 -- F4 Key "
 -- by copy and pasting the code from the list below.
 -- For example, to use the G key, copy and paste
--- the text "0x47 -- G key" over "115 -- F4 Key", 
+-- the text "0x47 -- G key" over "115 -- F4 Key",
 -- changing it to AMM_Keybind = 0x47 -- G key
 --------------------------------------------------------
-AMM_Keybind = 115 -- F4 Key 
+AMM_Keybind = 115 -- F4 Key
 --------------------------------------------------------
 -- 115 -- F4 Key
 --------------------------------------------------------
@@ -24,3 +24,5 @@ AMM_Keybind = 115 -- F4 Key
 
 -- If you need to add your own, the full list is available from
 -- https://docs.microsoft.com/en-us/windows/win32/inputdev/virtual-key-codes
+
+return AMM_Keybind

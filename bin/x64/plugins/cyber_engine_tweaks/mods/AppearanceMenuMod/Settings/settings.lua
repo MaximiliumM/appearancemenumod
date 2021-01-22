@@ -45,6 +45,8 @@ AMM_Keybind = %s -- %s Key
 
 -- If you need to add your own, the full list is available from
 -- https://docs.microsoft.com/en-us/windows/win32/inputdev/virtual-key-codes
+
+return AMM_Keybind
 ]], keycode, key)
 end
 
@@ -57,7 +59,7 @@ function Settings.Save(key, keycode)
 end
 
 function Settings.GetCurrentKeybind()
-	dofile("AppearanceMenuMod/Settings/keybind.lua")
+	local AMM_Keybind = require("AppearanceMenuMod.Settings.keybind")
 	local keyString = getKeyStringFromKeycode(AMM_Keybind)
 	return {keyString, AMM_Keybind}
 end
