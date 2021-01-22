@@ -44,6 +44,8 @@ function ScanApp:new()
 
 	 registerForEvent("onInit", function()
 		 waitTimer = 0.0
+		 spamTimer = 0.0
+		 buttonPressed = false
 	 end)
 
 	 registerForEvent("onUpdate", function(deltaTime)
@@ -63,9 +65,18 @@ function ScanApp:new()
 					end
 				end
 
+				if buttonPressed then
+					spamTimer = spamTimer + deltaTime
+
+					if spamTimer > 0.5 then
+						buttonPressed = false
+						spamTimer = 0.0
+					end
+				end
+
 				if ScanApp.spawnID ~= '' then
 					waitTimer = waitTimer + deltaTime
-					print('trying to set companion')
+					-- print('trying to set companion')
 					if waitTimer > 0.2 then
 						local npcHandle = Game.FindEntityByID(ScanApp.spawnID)
 						if npcHandle then
@@ -378,7 +389,7 @@ function ScanApp:GetNPCTweakDBID(npc)
 end
 
 function ScanApp:SpawnNPC(npcName)
-	if self.spawnsCounter ~= self.maxSpawns then
+	if self.spawnsCounter ~= self.maxSpawns and not buttonPressed then
 		local player = Game.GetPlayer()
 		local heading = player:GetWorldForward()
 		local offsetDir = Vector3.new(heading.x, heading.y, heading.z)
@@ -560,7 +571,7 @@ end
 
 -- Companion methods -- original code by Catmino
 function ScanApp:GetFollowerRole()
-	print('getting follower role')
+	-- print('getting follower role')
 	local ssc = Game.GetScriptableSystemsContainer()
 	local scs = ssc:Get(CName.new('SubCharacterSystem'))
 	local gcs = Game.GetCompanionSystem()
@@ -571,8 +582,7 @@ function ScanApp:GetFollowerRole()
 	local flatheadAIR = flatheadAIC:GetCurrentRole()
 	self.roleComp = flatheadAIR
 	Game.DespawnFlathead()
-	print('get follower role succeded')
-	print(self.roleComp)
+	-- print('get follower role succeded')
 end
 
 function ScanApp:SetNPCAsCompanion(npcHandle)
@@ -616,6 +626,7 @@ function ScanApp:DrawButton(title, width, height, action, target)
 			ScanApp:ClearSavedAppearance(target)
 		elseif action == "Spawn" then
 			ScanApp:SpawnNPC(target)
+			buttonPressed = true
 		elseif action == "Despawn" then
 			ScanApp:DespawnNPC(title, target)
 		end
