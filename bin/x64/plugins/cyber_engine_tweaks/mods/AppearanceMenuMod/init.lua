@@ -36,6 +36,9 @@ function ScanApp:new()
 		 '0x8DD8F2E0', '0x4106744C', '0xB98FDBB8'
 	 }
 
+	 registerForEvent("onInit", function()
+		 roleComp = nil
+	 end)
 
 	 registerForEvent("onUpdate", function(deltaTime)
 			 if (ImGui.IsKeyPressed(ScanApp.Settings.GetCurrentKeybind()[2], false)) then
@@ -117,6 +120,11 @@ function ScanApp:new()
 	 									width = style.halfButtonWidth,
 	 									action = "Save"
 	 								},
+									{
+	 									title = "Set As Companion",
+	 									width = style.halfButtonWidth,
+	 									action = "Companion"
+	 								},
 	 							},
 	 	    				errorMessage = "No NPC Found! Look at NPC to begin"
 	 	    			},
@@ -158,7 +166,7 @@ function ScanApp:new()
 	 									-- Check if Save button should be drawn
 	 									local drawSaveButton = ScanApp:ShouldDrawSaveButton(target.handle)
 
-	 									for _, button in ipairs(tabs[tab].buttons) do
+	 									for i, button in ipairs(tabs[tab].buttons) do
 	 										ImGui.SameLine()
 
 	 										if drawSaveButton == false then
@@ -168,6 +176,11 @@ function ScanApp:new()
 	 												ScanApp:DrawButton(button.title, button.width, style.buttonHeight, button.action, target)
 	 											end
 	 										else
+												if i == 3 then
+													ImGui.NewLine()
+													button.width = style.buttonWidth
+												end
+
 	 											ScanApp:DrawButton(button.title, button.width, style.buttonHeight, button.action, target)
 	 										end
 	 									end
@@ -478,6 +491,43 @@ function ScanApp:GetTarget()
 	return nil
 end
 
+-- Companion methods -- original code by Catmino
+function ScanApp:SetTargetAsCompanion(t)
+	while roleComp == nil do
+		local ssc = Game.GetScriptableSystemsContainer()
+		local scs = ssc:Get(CName.new('SubCharacterSystem'))
+		local gcs = Game.GetCompanionSystem()
+		scs:AddFlathead()
+		Game.SpawnFlathead()
+		local flathead = scs:GetFlathead()
+		local flatheadAIC = flathead:GetAIControllerComponent()
+		local flatheadAIR = flatheadAIC:GetCurrentRole()
+		roleComp = flatheadAIR
+		Game.DespawnFlathead()
+	end
+
+	local targCompanion = t.handle
+	local AIC = targCompanion:GetAIControllerComponent()
+	local targetAttAgent = targCompanion:GetAttitudeAgent()
+	local currTime = targCompanion.isPlayerCompanionCachedTimeStamp + 11
+
+	if targCompanion.isPlayerCompanionCached == false then
+		roleComp:SetFollowTarget(Game:GetPlayerSystem():GetLocalPlayerControlledGameObject())
+		roleComp:OnRoleSet(targCompanion)
+		roleComp.followerRef = Game.CreateEntityReference("#player", {})
+		--Game['AIHumanComponent::SetCurrentRole;GameObjectAIRole'](targCompanion, roleComp)
+		targetAttAgent:SetAttitudeGroup(CName.new("player"))
+		roleComp.attitudeGroupName = CName.new("player")
+		Game['senseComponent::RequestMainPresetChange;GameObjectString'](targCompanion, "Follower")
+		Game['senseComponent::ShouldIgnoreIfPlayerCompanion;EntityEntity'](targCompanion, Game:GetPlayer())
+		Game['NPCPuppet::ChangeStanceState;GameObjectgamedataNPCStanceState'](targCompanion, "Relaxed")
+		targCompanion.isPlayerCompanionCached = true
+		targCompanion.isPlayerCompanionCachedTimeStamp = currTime
+
+		AIC:SetAIRole(roleComp)
+	end
+end
+
 -- Helper methods
 function ScanApp:DrawButton(title, width, height, action, target)
 	if (ImGui.Button(title, width, height)) then
@@ -487,6 +537,8 @@ function ScanApp:DrawButton(title, width, height, action, target)
 			ScanApp:SaveAppearance(target)
 		elseif action == "Clear" then
 			ScanApp:ClearSavedAppearance(target)
+		elseif action == "Companion" then
+			ScanApp:SetTargetAsCompanion(target)
 		end
 	end
 end
