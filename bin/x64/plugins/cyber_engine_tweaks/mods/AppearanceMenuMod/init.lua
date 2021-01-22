@@ -34,7 +34,10 @@ function ScanApp:new()
    ScanApp.savedApps = ScanApp:GetSavedAppearances()
 	 ScanApp.currentTarget = ''
 	 ScanApp.spawnedNPCs = {}
-	 ScanApp.spawnIDs = {'Judy', 'Panam', 'Rogue', 'Alt', 'Claire', 'Evelyn', 'Jackie', 'Nancy', 'Denny', 'Henry', 'Kerry', 'Tbug'}
+	 ScanApp.spawnIDs = {
+		 'Judy', 'Panam', 'Rogue', 'Alt', 'Claire', 'Evelyn',
+		 'Jackie', 'Nancy', 'Denny', 'Henry', 'Kerry', 'Tbug',
+		 'Saul', 'Misty', 'Nix', 'Mitch'}
 	 ScanApp.allowedNPCs = {
 		 '0xB1B50FFA', '0xC67F0E01', '0x73C44EBA', '0xAD1FC6DE', '0x7F65F7F7',
 		 '0x7B2CB67C', '0x3024F03E', '0x3B6EF8F9', '0x413F60A6', '0x62B8D0FA',
