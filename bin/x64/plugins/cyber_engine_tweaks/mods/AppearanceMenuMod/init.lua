@@ -29,6 +29,7 @@ function ScanApp:new()
    ScanApp.npcs, ScanApp.vehicles = ScanApp:GetDB()
    ScanApp.savedApps = ScanApp:GetSavedAppearances()
 	 ScanApp.currentTarget = ''
+	 ScanApp.spawnIDs = {'Judy', 'Panam'}
 	 ScanApp.allowedNPCs = {
 		 '0xB1B50FFA', '0xC67F0E01', '0x73C44EBA', '0xAD1FC6DE', '0x7F65F7F7',
 		 '0x7B2CB67C', '0x3024F03E', '0x3B6EF8F9', '0x413F60A6', '0x62B8D0FA',
@@ -209,6 +210,16 @@ function ScanApp:new()
 	 				end
 	 				-- End of Tab Constructor --
 
+
+					if (ImGui.BeginTabItem("Spawn NPC")) then
+						ScanApp.settings = false
+						ImGui.TextColored(1, 0, 0, 1, "Select NPC to spawn:")
+
+						for _, char in ipairs(ScanApp.spawnIDs) do
+							ScanApp:DrawButton(char, style.buttonWidth, style.buttonHeight, "Spawn", char)
+						end
+					end
+
 	 				if (ImGui.BeginTabItem("Settings")) then
 	 					ScanApp.settings = true
 
@@ -317,6 +328,14 @@ end
 function ScanApp:GetDB()
 	local db = require("AppearanceMenuMod.Database.database")
 	return db[1], db[2]
+end
+
+function ScanApp:SpawnNPC(spawnID)
+	local npcTweakDBID = TweakDBID.new('Character.'..spawnID)
+	local spawnTransform = Game.GetPlayer():GetWorldTransform()
+	local spawnPosition = spawnTransform.Position:ToVector4(spawnTransform.Position)
+	spawnTransform:SetPosition(spawnTransform, Vector4.new(spawnPosition.x + 1, spawnPosition.y, spawnPosition.z, spawnPosition.w))
+	Game.GetPreventionSpawnSystem():RequestSpawn(npcTweakDBID, 1, spawnTransform)
 end
 
 function ScanApp:GetSavedAppearances()
@@ -487,6 +506,8 @@ function ScanApp:DrawButton(title, width, height, action, target)
 			ScanApp:SaveAppearance(target)
 		elseif action == "Clear" then
 			ScanApp:ClearSavedAppearance(target)
+		elseif action == "Spawn" then
+			ScanApp:SpawnNPC(target)
 		end
 	end
 end
