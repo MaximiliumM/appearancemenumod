@@ -30,17 +30,22 @@ function ScanApp:new()
 	 ScanApp.spawnID = ''
 	 ScanApp.maxSpawns = 6
 	 ScanApp.spawnsCounter = 0
+	 ScanApp.spawnAsCompanion = true
 
 	 -- Main Properties --
    ScanApp.npcs, ScanApp.vehicles = ScanApp:GetDB()
    ScanApp.savedApps = ScanApp:GetSavedAppearances()
 	 ScanApp.currentTarget = ''
+	 ScanApp.spawnedHistory = {}
 	 ScanApp.spawnedNPCs = {}
 	 ScanApp.spawnIDs = {
 		 'Judy', 'Panam', 'Rogue', 'Alt', 'Claire', 'Evelyn',
-		 'Jackie', 'Nancy', 'Denny', 'Henry', 'Kerry', 'Tbug',
-		 'Saul', 'Misty', 'Nix', 'Mitch', 'Carol', 'Cassidy',
-		 'Ozob'}
+		 'Jackie', {'River', 'Sobchak'}, {'Lizzy', 'Lizzy_Wizzy'},
+		 'Takemura', 'Hanako', 'Yorinobu','Nancy', 'Denny', 'Henry',
+		 'Tbug', 'Kerry', 'Misty', 'Nix', 'Saul', 'Mitch', 'Carol',
+		 'Cassidy', 'Ozob', {'Blue Moon', 'sq017_blue_moon'},
+		 {'Red Menace', 'sq017_red_menace'}, {'Purple Force', 'sq017_purple_force'}
+		}
 	 ScanApp.allowedNPCs = {
 		 '0xB1B50FFA', '0xC67F0E01', '0x73C44EBA', '0xAD1FC6DE', '0x7F65F7F7',
 		 '0x7B2CB67C', '0x3024F03E', '0x3B6EF8F9', '0x413F60A6', '0x62B8D0FA',
@@ -82,7 +87,7 @@ function ScanApp:new()
 					end
 				end
 
-				if ScanApp.spawnID ~= '' then
+				if ScanApp.spawnID ~= '' and ScanApp.spawnAsCompanion then
 					waitTimer = waitTimer + deltaTime
 					-- print('trying to set companion')
 					if waitTimer > 0.2 then
@@ -91,6 +96,8 @@ function ScanApp:new()
 							ScanApp:SetNPCAsCompanion(npcHandle)
 						end
 					end
+				else
+					self.spawnID = ''
 				end
 	 end)
 
@@ -252,14 +259,21 @@ function ScanApp:new()
 	 				end
 	 				-- End of Tab Constructor --
 
-
+					-- Spawn Tab --
 					if (ImGui.BeginTabItem("Spawn NPC")) then
 						ScanApp.settings = true
 						ImGui.TextColored(1, 0, 0, 1, "Select NPC to spawn:")
 
 						for _, char in ipairs(ScanApp.spawnIDs) do
-							if ScanApp.spawnedNPCs[char] == nil then
-								ScanApp:DrawButton(char, style.buttonWidth, style.buttonHeight, "Spawn", char)
+							if type(char) == 'table' then
+								charName = char[1]
+								charID = char[2]
+							else
+								charName, charID = char, char
+							end
+
+							if ScanApp.spawnedNPCs[charName] == nil then
+								ScanApp:DrawButton(charName, style.buttonWidth, style.buttonHeight, "Spawn", {charName, charID})
 							end
 						end
 
@@ -273,10 +287,21 @@ function ScanApp:new()
 						ImGui.EndTabItem()
 					end
 
+					-- Settings Tab --
 	 				if (ImGui.BeginTabItem("Settings")) then
 	 					ScanApp.settings = true
 
 	 					ImGui.Spacing()
+
+						ScanApp.spawnAsCompanion = ImGui.Checkbox("Spawn As Companion", ScanApp.spawnAsCompanion)
+
+						ImGui.Spacing()
+						ImGui.Separator()
+
+						if (ImGui.Button("Force Despawn All")) then
+	 						ScanApp:DespawnAll()
+	 					end
+
 
 	 					if (ImGui.Button("Clear All Saved Appearances")) then
 	 						ScanApp:ClearAllSavedAppearances()
@@ -331,17 +356,19 @@ function ScanApp:GetNPCTweakDBID(npc)
 	return TweakDBID.new('Character.'..npc)
 end
 
-function ScanApp:SpawnNPC(npcName)
+function ScanApp:SpawnNPC(npcArray)
 	if self.spawnsCounter ~= self.maxSpawns and not buttonPressed then
+		local npcName, npcID = npcArray[1], npcArray[2]
 		local player = Game.GetPlayer()
 		local heading = player:GetWorldForward()
 		local offsetDir = Vector3.new(heading.x, heading.y, heading.z)
 		local spawnTransform = player:GetWorldTransform()
 		local spawnPosition = spawnTransform.Position:ToVector4(spawnTransform.Position)
 		spawnTransform:SetPosition(spawnTransform, Vector4.new(spawnPosition.x - offsetDir.x, spawnPosition.y - offsetDir.y, spawnPosition.z, spawnPosition.w))
-		self.spawnID = Game.GetPreventionSpawnSystem():RequestSpawn(self:GetNPCTweakDBID(npcName), 1, spawnTransform)
+		self.spawnID = Game.GetPreventionSpawnSystem():RequestSpawn(self:GetNPCTweakDBID(npcID), 1, spawnTransform)
 		self.spawnedNPCs[npcName] = self.spawnID
 		self.spawnsCounter = self.spawnsCounter + 1
+		table.insert(self.spawnedHistory, self.spawnID)
 	else
 		Game.GetPlayer():SetWarningMessage("Spawn limit reached!")
 	end
@@ -352,6 +379,15 @@ function ScanApp:DespawnNPC(npcName, spawnID)
 	self.spawnedNPCs[npcName] = nil
 	self.spawnsCounter = self.spawnsCounter - 1
 	Game.GetPreventionSpawnSystem():RequestDespawn(spawnID)
+end
+
+function ScanApp:DespawnAll()
+	Game.GetPlayer():SetWarningMessage("All NPCs will despawn once you look away")
+  for _, npc in ipairs(self.spawnedHistory) do
+	   Game.GetPreventionSpawnSystem():RequestDespawn(npc)
+  end
+
+  self.spawnedHistory = {}
 end
 
 function ScanApp:GetSavedAppearances()
