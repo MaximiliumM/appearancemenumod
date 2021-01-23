@@ -108,7 +108,7 @@ end
 
 function Debug.SpawnNPC(tdbid)
   local id = TweakDBID.new(tdbid)
-  print("[AMM Debug] "..id)
+  print("[AMM Debug] "..tostring(id))
 	local player = Game.GetPlayer()
 	local heading = player:GetWorldForward()
 	local offsetDir = Vector3.new(heading.x, heading.y, heading.z)
