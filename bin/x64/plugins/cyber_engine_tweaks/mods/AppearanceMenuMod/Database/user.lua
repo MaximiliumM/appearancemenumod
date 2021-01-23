@@ -1,4 +1,4 @@
 return {
-NPC = {},
 Vehicles = {},
+NPC = {},
 }

@@ -12,13 +12,11 @@ function ScanApp:new()
 
 	 -- Load Settings
 	 ScanApp.Settings = require(ScanApp.rootPath.."Settings.settings")
-	 ScanApp.Settings.Log("Current Keybind: "..ScanApp.Settings.GetCurrentKeybind()[1])
 
 	 -- Configs
 	 ScanApp.currentDir = ScanApp:GetFolderPath()
 	 ScanApp.settings = false
 	 ScanApp.windowWidth = 320
-	 ScanApp.currentItem = ScanApp.Settings.GetCurrentKeybind()[1]
 	 ScanApp.roleComp = ''
 	 ScanApp.spawnID = ''
 	 ScanApp.maxSpawns = 6
@@ -52,10 +50,12 @@ function ScanApp:new()
 		 buttonPressed = false
 	 end)
 
+	 -- Keybinds
+	 registerHotkey("amm_open_overlay", "Open Appearance Menu", function()
+	 	drawWindow = not drawWindow
+	 end)
+
 	 registerForEvent("onUpdate", function(deltaTime)
-			 if (ImGui.IsKeyPressed(ScanApp.Settings.GetCurrentKeybind()[2], false)) then
-				 drawWindow = not drawWindow
-			 end
 
 		 		-- Load Saved Appearance --
 		 		if not drawWindow then
@@ -90,11 +90,11 @@ function ScanApp:new()
 				end
 	 end)
 
-	 registerForEvent("onConsoleOpen", function()
+	 registerForEvent("onOverlayOpen", function()
 	     drawWindow = true
 	 end)
 
-	 registerForEvent("onConsoleClose", function()
+	 registerForEvent("onOverlayClose", function()
 	     drawWindow = false
 	 end)
 
@@ -272,20 +272,6 @@ function ScanApp:new()
 	 				if (ImGui.BeginTabItem("Settings")) then
 	 					ScanApp.settings = true
 
-	 					allItems = ScanApp.Settings.GetAllKeybinds()
-	 					if(ImGui.ListBoxHeader("Keybind", ScanApp.Settings.GetNumberOfKeys())) then
-	 						for key, code in pairs(allItems) do
-	 							if (currentItem == key) then selected = true else selected = false end
-	 							if(ImGui.Selectable(key, selected)) then
-	 								currentItem = key
-	 								ScanApp.Settings.Save(key, code)
-	 							end
-	 						end
-	 					end
-
-	 					ImGui.ListBoxFooter()
-
-	 					ImGui.Separator()
 	 					ImGui.Spacing()
 
 	 					if (ImGui.Button("Clear All Saved Appearances")) then
