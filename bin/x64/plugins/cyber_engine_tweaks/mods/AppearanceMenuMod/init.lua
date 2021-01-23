@@ -5,13 +5,22 @@ ScanApp = {
 	rootPath = "AppearanceMenuMod."
 }
 
+function loadrequire(module)
+    success, result = pcall(require, module)
+    if success then
+			return result
+    else
+			return ''
+		end
+end
+
 function ScanApp:new()
 
    setmetatable(ScanApp, self)
 	 self.__index = self
 
 	 -- Load Settings
-	 ScanApp.Settings = require(ScanApp.rootPath.."Settings.settings")
+	 ScanApp.Debug = loadrequire(ScanApp.rootPath.."debug")
 
 	 -- Configs
 	 ScanApp.currentDir = ScanApp:GetFolderPath()
@@ -21,11 +30,6 @@ function ScanApp:new()
 	 ScanApp.spawnID = ''
 	 ScanApp.maxSpawns = 6
 	 ScanApp.spawnsCounter = 0
-
-	 -- Debug Menu --
-	 ScanApp.debugMenu = false
-	 ScanApp.debugIDs = {}
-	 ScanApp.sortedDebugIDs = {}
 
 	 -- Main Properties --
    ScanApp.npcs, ScanApp.vehicles = ScanApp:GetDB()
@@ -102,7 +106,7 @@ function ScanApp:new()
 
 	 	ImGui.SetNextWindowPos(500, 500, ImGuiCond.FirstUseEver)
 
-	 	if ScanApp.debugMenu == true then
+	 	if ScanApp.Debug ~= '' then
 	 		ImGui.SetNextWindowSize(800, 400)
 	 	elseif (target ~= nil) and (target.options ~= nil) or (ScanApp.settings == true) then
 	 		ImGui.SetNextWindowSize(ScanApp.windowWidth, 400)
@@ -284,61 +288,10 @@ function ScanApp:new()
 	 				end
 
 	 				-- DEBUG Tab --
-	 				if ScanApp.debugMenu then
-	 					if (ImGui.BeginTabItem("Debug")) then
-	 					ScanApp.settings = false
-
-	 						if (ImGui.Button("Cycle")) then
-	 							scanID = target.id
-	 				    	ScanApp:ChangeScanAppearanceTo(target.handle, 'Cycle')
-	 				    	app = ScanApp:GetScanAppearance(target.handle)
-	 							ScanApp.debugIDs[app] = scanID
-	 							-- Add new ID
-	 							output = {}
-	 							for i,v in pairs(ScanApp.debugIDs) do
-	 		   						if output[v] == nil then
-	 		        					output[v] = {}
-	 		    					end
-
-	 		    					table.insert(output[v], i)
-	 							end
-
-	 							ScanApp.sortedDebugIDs = output
-	 				    end
-
-	 				    ImGui.Spacing()
-
-	 				    ImGui.InputText("ID", scanID, 100, ImGuiInputTextFlags.ReadOnly)
-	 				    ImGui.InputText("AppString", app, 100, ImGuiInputTextFlags.ReadOnly)
-
-	 				    ImGui.Spacing()
-
-	 						if (ImGui.Button('Save IDs to file')) then
-	 							print("Scan ID: "..scanID.." -- Added to clipboard")
-	 							ImGui.SetClipboardText(scanID)
-	 							ScanApp.Settings.LogToFile(ScanApp.sortedDebugIDs)
-	 						end
-
-	 						ImGui.Spacing()
-
-	 						if (ImGui.BeginChild("Scrolling")) then
-	 							for id, appArray in pairs(ScanApp.sortedDebugIDs) do
-	 					    		if(ImGui.CollapsingHeader(id)) then
-	 					    			for _, app in pairs(appArray) do
-	 					    				if (ImGui.Button(app)) then
-	 					    					print("AppString: "..app.." -- Added to clipboard")
-	 					    					ImGui.SetClipboardText(app)
-	 					    				end
-	 					    			end
-	 					    		end
-	 					    	end
-	 						end
-
-	 						ImGui.EndChild()
-	 						ImGui.EndTabItem()
-	 					end
+	 				if ScanApp.Debug ~= '' then
+						ScanApp.Debug.CreateTab(ScanApp, target)
 	 				end
-	 		   end
+				end
 	 		end
 
 	 	    ImGui.End()
@@ -483,10 +436,6 @@ function ScanApp:SaveToFile()
 	end
 
 	data = data.."}"
-
-	if self.debugMenu == true then
-		print(data)
-	end
 
 	local output = io.open(self.currentDir.."\\AppearanceMenuMod\\Database\\user.lua", "w")
 
