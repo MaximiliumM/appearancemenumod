@@ -397,6 +397,7 @@ function ScanApp:DespawnAll()
 	   Game.GetPreventionSpawnSystem():RequestDespawn(npc)
   end
 
+	self.spawnsCounter = 0
 	self.spawnedNPCs = {}
   self.spawnedHistory = {}
 end
@@ -521,7 +522,13 @@ function ScanApp:GetAppearanceOptions(t)
 	scanID = self:GetScanID(t)
 
 	if t:IsNPC() then
-		if self.npcs[scanID] ~= nil then
+		if t:GetRecord():CrowdAppearanceNames()[1] ~= nil then
+			local options = {}
+			for _, app in ipairs(t:GetRecord():CrowdAppearanceNames()) do
+				table.insert(options, tostring(app):match("%[ (%g+) -"))
+			end
+			return options
+		elseif self.npcs[scanID] ~= nil then
 			return self.npcs[scanID] -- array of appearances names
 		end
 	elseif t:IsVehicle() then

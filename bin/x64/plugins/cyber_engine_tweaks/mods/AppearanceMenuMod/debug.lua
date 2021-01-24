@@ -81,6 +81,18 @@ function Debug.CreateTab(ScanApp, target)
       ImGui.SetClipboardText(tostring(target.handle:GetTweakDBFullDisplayName(true)))
     end
 
+    ImGui.Spacing()
+
+    if (ImGui.Button('Get Appearances')) then
+      local array = target.handle:GetRecord():CrowdAppearanceNames()
+      if array[1] ~= nil then
+        print("First appearance: "..tostring(array[1]):match("%[ (%g+) -"))
+        print("Number of appearances: "..tostring(target.handle:GetRecord():GetCrowdAppearanceNamesCount()))
+      else
+        print("This NPC has no crowd appearances.")
+      end
+    end
+
     ImGui.SameLine()
     if (ImGui.Button('Dump Properties')) then
       print("IsRevealed:"..tostring(target.handle:IsRevealed()))
