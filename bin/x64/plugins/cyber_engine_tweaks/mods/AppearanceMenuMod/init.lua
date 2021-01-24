@@ -5,6 +5,14 @@ ScanApp = {
 	rootPath = "AppearanceMenuMod."
 }
 
+-- Hack: Forces required lua files to reload when using hot reload
+-- Thanks, Architect!
+for k, _ in pairs(package.loaded) do
+    if string.match(k, ScanApp.rootPath .. ".*") then
+        package.loaded[k] = nil
+    end
+end
+
 function loadrequire(module)
     success, result = pcall(require, module)
     if success then
@@ -24,8 +32,9 @@ function ScanApp:new()
 
 	 -- Configs
 	 ScanApp.currentDir = ScanApp:GetFolderPath()
+	 ScanApp.openWithOverlay = true
 	 ScanApp.settings = false
-	 ScanApp.windowWidth = 320
+	 ScanApp.windowWidth = 500
 	 ScanApp.roleComp = ''
 	 ScanApp.spawnID = ''
 	 ScanApp.maxSpawns = 6
@@ -33,19 +42,11 @@ function ScanApp:new()
 	 ScanApp.spawnAsCompanion = true
 
 	 -- Main Properties --
-   ScanApp.npcs, ScanApp.vehicles = ScanApp:GetDB()
+   ScanApp.npcs, ScanApp.vehicles, ScanApp.spawnIDs = ScanApp:GetDB()
    ScanApp.savedApps = ScanApp:GetSavedAppearances()
 	 ScanApp.currentTarget = ''
 	 ScanApp.spawnedHistory = {}
 	 ScanApp.spawnedNPCs = {}
-	 ScanApp.spawnIDs = {
-		 'Judy', 'Panam', 'Rogue', 'Alt', 'Claire', 'Evelyn',
-		 'Jackie', {'River', 'Sobchak'}, {'Lizzy', 'Lizzy_Wizzy'},
-		 'Takemura', 'Hanako', 'Yorinobu','Nancy', 'Denny', 'Henry',
-		 'Tbug', 'Kerry', 'Misty', 'Nix', 'Saul', 'Mitch', 'Carol',
-		 'Cassidy', 'Ozob', {'Blue Moon', 'sq017_blue_moon'},
-		 {'Red Menace', 'sq017_red_menace'}, {'Purple Force', 'sq017_purple_force'}
-		}
 	 ScanApp.allowedNPCs = {
 		 '0xB1B50FFA', '0xC67F0E01', '0x73C44EBA', '0xAD1FC6DE', '0x7F65F7F7',
 		 '0x7B2CB67C', '0x3024F03E', '0x3B6EF8F9', '0x413F60A6', '0x62B8D0FA',
@@ -102,11 +103,11 @@ function ScanApp:new()
 	 end)
 
 	 registerForEvent("onOverlayOpen", function()
-	     drawWindow = true
+		 if ScanApp.openWithOverlay then drawWindow = true end
 	 end)
 
 	 registerForEvent("onOverlayClose", function()
-	     drawWindow = false
+		 drawWindow = false
 	 end)
 
 	 registerForEvent("onDraw", function()
@@ -127,29 +128,34 @@ function ScanApp:new()
 	 			target = ScanApp:GetTarget()
 	 			ScanApp:SetCurrentTarget(target)
 
-	 			ImGui.PushStyleColor(ImGuiCol.Border, 0.56, 0.06, 0.03, 1)
-	 			ImGui.PushStyleColor(ImGuiCol.Tab, 1, 0.2, 0.2, 0.5)
-	 	    ImGui.PushStyleColor(ImGuiCol.TabHovered, 1, 0.2, 0.2, 0.85)
-	 	    ImGui.PushStyleColor(ImGuiCol.TabActive, 1, 0.2, 0.2, 1)
-	 	    ImGui.PushStyleColor(ImGuiCol.TitleBg, 0.56, 0.06, 0.03, 0.5)
-	 	    ImGui.PushStyleColor(ImGuiCol.TitleBgActive, 0.56, 0.06, 0.03, 1)
+				ImGui.PushStyleColor(ImGuiCol.Text, 0.8, 0.7, 0.3, 0.7)
+				ImGui.PushStyleColor(ImGuiCol.WindowBg, 0.06, 0.04, 0.06, 0.85)
+				ImGui.PushStyleColor(ImGuiCol.FrameBg, 0.57, 0.17, 0.16, 0.5)
+	 			ImGui.PushStyleColor(ImGuiCol.Border, 0.8, 0.7, 0.2, 0.4)
+	 			ImGui.PushStyleColor(ImGuiCol.Tab, 0.8, 0.54, 0.2, 0.55)
+	 	    ImGui.PushStyleColor(ImGuiCol.TabHovered, 0.66, 0.16, 0.13, 0.75)
+	 	    ImGui.PushStyleColor(ImGuiCol.TabActive, 0.60, 0.44, 0.2, 1)
+	 	    ImGui.PushStyleColor(ImGuiCol.TitleBg, 0.06, 0.04, 0.06, 0.8)
+	 	    ImGui.PushStyleColor(ImGuiCol.TitleBgActive, 0.8, 0.54, 0.2, 0.5)
 	 	    ImGui.PushStyleColor(ImGuiCol.TitleBgCollapsed, 0.56, 0.06, 0.03, 0.25)
-	 	    ImGui.PushStyleColor(ImGuiCol.Button, 0.56, 0.06, 0.03, 0.6)
-	 	    ImGui.PushStyleColor(ImGuiCol.ButtonHovered, 0.56, 0.06, 0.03, 0.75)
+	 	    ImGui.PushStyleColor(ImGuiCol.Button, 0.8, 0.54, 0.2, 0.5)
+	 	    ImGui.PushStyleColor(ImGuiCol.ButtonHovered, 0.66, 0.16, 0.13, 0.75)
 	 	    ImGui.PushStyleColor(ImGuiCol.ButtonActive, 0.56, 0.06, 0.03, 1)
-	 	    ImGui.PushStyleColor(ImGuiCol.ResizeGrip, 0.56, 0.06, 0.03, 0.6)
-	 	    ImGui.PushStyleColor(ImGuiCol.ResizeGripHovered, 0.56, 0.06, 0.03, 0.75)
+	 	    ImGui.PushStyleColor(ImGuiCol.ResizeGrip, 0, 0, 0, 0)
+	 	    ImGui.PushStyleColor(ImGuiCol.ResizeGripHovered, 0.8, 0.7, 0.2, 0.5)
 	 	    ImGui.PushStyleColor(ImGuiCol.ResizeGripActive, 0.56, 0.06, 0.03, 1)
+				ImGui.PushStyleColor(ImGuiCol.CheckMark, 0.70, 0.54, 0.2, 1)
+				ImGui.PushStyleVar(ImGuiStyleVar.WindowBorderSize, 1)
 
 	 	    if (ImGui.Begin("Appearance Menu Mod")) then
 
-	 	    	ImGui.SetWindowFontScale(1.2)
+	 	    	ImGui.SetWindowFontScale(1)
 
 	 	    	if (ImGui.BeginTabBar("TABS")) then
 
 	 					local style = {
 	 									buttonWidth = -1,
-	 									buttonHeight = 20,
+	 									buttonHeight = 30,
 	 									halfButtonWidth = ((ImGui.GetWindowContentRegionWidth() / 2) - 12)
 	 							}
 
@@ -196,7 +202,7 @@ function ScanApp:new()
 	 		    			ScanApp.settings = false
 
 	 							if target ~= nil and target.type == tab then
-	 					    		ImGui.TextColored(1, 0, 0, 1,tabs[tab].currentTitle)
+	 					    		ImGui.TextColored(0.3, 0.5, 0.7, 1, tabs[tab].currentTitle)
 	 					    		ImGui.Text(target.appearance)
 	 					    		x, y = ImGui.CalcTextSize(target.appearance)
 	 									if x > 150 then
@@ -226,7 +232,7 @@ function ScanApp:new()
 
 	 									local savedApp = ScanApp.savedApps[target.type][target.id]
 	 									if savedApp ~= nil then
-	 										ImGui.TextColored(1, 0, 0, 1, "Saved Appearance:")
+	 										ImGui.TextColored(0.3, 0.5, 0.7, 1, "Saved Appearance:")
 	 						    		ImGui.Text(savedApp)
 	 										ScanApp:DrawButton("Clear Saved Appearance", style.buttonWidth, style.buttonHeight, "Clear", target)
 	 									end
@@ -235,7 +241,7 @@ function ScanApp:new()
 	 									ImGui.Separator()
 
 	 						    	if target.options ~= nil then
-	 						    		ImGui.TextColored(1, 0, 0, 1, target.name)
+	 						    		ImGui.TextColored(0.3, 0.5, 0.7, 1, target.name)
 	 							    	if (ImGui.BeginChild("Scrolling")) then
 	 								    	for i, appearance in ipairs(target.options) do
 	 								    		x, y = ImGui.CalcTextSize(appearance)
@@ -251,7 +257,7 @@ function ScanApp:new()
 	 								end
 	 							else
 	 				    		ImGui.PushTextWrapPos()
-	 				    		ImGui.TextColored(1, 0, 0, 1, tabs[tab].errorMessage)
+	 				    		ImGui.TextColored(1, 0.16, 0.13, 0.75,tabs[tab].errorMessage)
 	 				    		ImGui.PopTextWrapPos()
 	 				    	end
 	 					ImGui.EndTabItem()
@@ -262,7 +268,15 @@ function ScanApp:new()
 					-- Spawn Tab --
 					if (ImGui.BeginTabItem("Spawn NPC")) then
 						ScanApp.settings = true
-						ImGui.TextColored(1, 0, 0, 1, "Select NPC to spawn:")
+
+						if next(ScanApp.spawnedNPCs) ~= nil then
+							ImGui.TextColored(0.3, 0.5, 0.7, 1, "Select NPC to despawn:")
+							for npcName, npcID in pairs(ScanApp.spawnedNPCs) do
+								ScanApp:DrawButton(npcName, style.buttonWidth, style.buttonHeight, "Despawn", npcID)
+							end
+						end
+
+						ImGui.TextColored(0.3, 0.5, 0.7, 1, "Select NPC to spawn:")
 
 						for _, char in ipairs(ScanApp.spawnIDs) do
 							if type(char) == 'table' then
@@ -277,13 +291,6 @@ function ScanApp:new()
 							end
 						end
 
-						if next(ScanApp.spawnedNPCs) ~= nil then
-							ImGui.TextColored(1, 0, 0, 1, "Select NPC to despawn:")
-							for npcName, npcID in pairs(ScanApp.spawnedNPCs) do
-								ScanApp:DrawButton(npcName, style.buttonWidth, style.buttonHeight, "Despawn", npcID)
-							end
-						end
-
 						ImGui.EndTabItem()
 					end
 
@@ -294,6 +301,7 @@ function ScanApp:new()
 	 					ImGui.Spacing()
 
 						ScanApp.spawnAsCompanion = ImGui.Checkbox("Spawn As Companion", ScanApp.spawnAsCompanion)
+						ScanApp.openWithOverlay = ImGui.Checkbox("Open With CET Overlay", ScanApp.openWithOverlay)
 
 						ImGui.Spacing()
 						ImGui.Separator()
@@ -320,7 +328,8 @@ function ScanApp:new()
 	 		end
 
 	 	    ImGui.End()
-	 	    ImGui.PopStyleColor(13)
+	 	    ImGui.PopStyleColor(17)
+				ImGui.PopStyleVar(1)
 	 	end
 	 end)
 
@@ -349,10 +358,11 @@ end
 
 function ScanApp:GetDB()
 	local db = require("AppearanceMenuMod.Database.database")
-	return db[1], db[2]
+	return db[1], db[2], db[3]
 end
 
 function ScanApp:GetNPCTweakDBID(npc)
+	if type(npc) == 'userdata' then return npc end
 	return TweakDBID.new('Character.'..npc)
 end
 
@@ -387,11 +397,14 @@ function ScanApp:DespawnAll()
 	   Game.GetPreventionSpawnSystem():RequestDespawn(npc)
   end
 
+	self.spawnedNPCs = {}
   self.spawnedHistory = {}
 end
 
 function ScanApp:GetSavedAppearances()
-		return require("AppearanceMenuMod.Database.user")
+		local userPref = loadrequire("AppearanceMenuMod.Database.user")
+		if userPref ~= '' then return userPref end
+		return {NPC = {}, Vehicles = {}}
 end
 
 function ScanApp:CheckSavedAppearance(t)
