@@ -323,6 +323,7 @@ return {{
 	{'John Lucas', TweakDBID.new(0x63AB71C4,0x15)},
 	{'Daniel Lark', TweakDBID.new(0x0A54ACEA,0x14)},
 	{'Mayor Lucius Rhyne', TweakDBID.new(0xF6CD7B81,0x1C)},
+	{'Deputy Mayor Holt', TweakDBID.new(0x1928DE24,0x1B)},
   },
 
   ['Nomad'] = {
