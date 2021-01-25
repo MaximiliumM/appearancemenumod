@@ -18,12 +18,16 @@ function Debug.CreateTab(ScanApp, target)
   if (ImGui.BeginTabItem("Debug")) then
     ScanApp.settings = false
 
-    input = ImGui.InputTextWithHint("TweakDBID", 'Insert TweakDBID to Spawn', input, 100)
+    input = ImGui.InputTextWithHint("TweakDBID", 'Insert TweakDBID to Spawn', input, 80)
     tdbid = input
 
     ImGui.SameLine()
     if (ImGui.Button('Spawn')) then
-      if string.find(input, '0x') then tdbid = load("return TweakDBID.new("..input..")")() end
+      if string.find(input, '-') then
+        local tdbidCommand = 'TweakDBID.new(0x'..input:gsub('-', ',0x')..')'
+        ImGui.SetClipboardText(tdbidCommand)
+        tdbid = load("return "..tdbidCommand)()
+      end
       Debug.SpawnNPC(tdbid)
     end
 
@@ -48,7 +52,7 @@ function Debug.CreateTab(ScanApp, target)
 
     ImGui.SameLine()
     if (ImGui.Button("Cycle")) then
-      ScanApp:ChangeScanAppearanceTo(target.handle, 'Cycle')
+      ScanApp:ChangeScanAppearanceTo(target, 'Cycle')
       app = ScanApp:GetScanAppearance(target.handle)
       Debug.debugIDs[app] = scanID
       -- Add new ID

@@ -33,6 +33,7 @@ function ScanApp:new()
 	 -- Configs
 	 ScanApp.currentDir = ScanApp:GetFolderPath()
 	 ScanApp.openWithOverlay = true
+	 ScanApp.autoResizing = true
 	 ScanApp.settings = false
 	 ScanApp.windowWidth = 500
 	 ScanApp.roleComp = ''
@@ -40,6 +41,7 @@ function ScanApp:new()
 	 ScanApp.maxSpawns = 6
 	 ScanApp.spawnsCounter = 0
 	 ScanApp.spawnAsCompanion = true
+	 ScanApp.IsJohnny = false
 
 	 -- Main Properties --
    ScanApp.npcs, ScanApp.vehicles, ScanApp.spawnIDs = ScanApp:GetDB()
@@ -65,6 +67,22 @@ function ScanApp:new()
 	 	drawWindow = not drawWindow
 	 end)
 
+	 registerHotkey("amm_cycle", "Cycle Appearance", function()
+		local target = ScanApp:GetTarget()
+		if target ~= nil then
+			ScanApp:ChangeScanAppearanceTo(target, 'Cycle')
+		end
+	 end)
+
+	 registerHotkey("amm_save", "Save Appearance", function()
+		local target = ScanApp:GetTarget()
+ 		if target ~= nil then
+			if ScanApp:ShouldDrawSaveButton(target.handle) then
+ 				ScanApp:SaveAppearance(target)
+			end
+ 		end
+	 end)
+
 	 registerForEvent("onUpdate", function(deltaTime)
 
 		 		-- Load Saved Appearance --
@@ -88,7 +106,7 @@ function ScanApp:new()
 					end
 				end
 
-				if ScanApp.spawnID ~= '' and ScanApp.spawnAsCompanion then
+				if ScanApp.spawnID ~= '' and ScanApp.spawnAsCompanion and not(ScanApp.IsJohnny) then
 					waitTimer = waitTimer + deltaTime
 					-- print('trying to set companion')
 					if waitTimer > 0.2 then
@@ -98,7 +116,8 @@ function ScanApp:new()
 						end
 					end
 				else
-					self.spawnID = ''
+					ScanApp.IsJohnny = false
+					ScanApp.spawnID = ''
 				end
 	 end)
 
@@ -114,12 +133,17 @@ function ScanApp:new()
 
 	 	ImGui.SetNextWindowPos(500, 500, ImGuiCond.FirstUseEver)
 
+		local shouldResize = ImGuiCond.None
+		if not(ScanApp.autoResizing) then
+			shouldResize = ImGuiCond.Appearing
+		end
+
 	 	if ScanApp.Debug ~= '' then
 	 		ImGui.SetNextWindowSize(800, 400)
 	 	elseif (target ~= nil) and (target.options ~= nil) or (ScanApp.settings == true) then
-	 		ImGui.SetNextWindowSize(ScanApp.windowWidth, 400)
+	 		ImGui.SetNextWindowSize(ScanApp.windowWidth, 400, shouldResize)
 	 	else
-	 		ImGui.SetNextWindowSize(ScanApp.windowWidth, 160)
+	 		ImGui.SetNextWindowSize(ScanApp.windowWidth, 160, shouldResize)
 	 	end
 
 	 	if(drawWindow) then
@@ -247,7 +271,7 @@ function ScanApp:new()
 	 								    		x, y = ImGui.CalcTextSize(appearance)
 	 								    		if (x > self.windowWidth) then self.windowWidth = x + 40 end
 	 								    		if (ImGui.Button(appearance)) then
-	 								    			ScanApp:ChangeScanAppearanceTo(target.handle, appearance)
+	 								    			ScanApp:ChangeScanAppearanceTo(target, appearance)
 	 								    		end
 	 								    	end
 
@@ -278,16 +302,27 @@ function ScanApp:new()
 
 						ImGui.TextColored(0.3, 0.5, 0.7, 1, "Select NPC to spawn:")
 
-						for _, char in ipairs(ScanApp.spawnIDs) do
-							if type(char) == 'table' then
-								charName = char[1]
-								charID = char[2]
-							else
-								charName, charID = char, char
-							end
+						categoryOrder = ScanApp.spawnIDs['Category Order']
 
-							if ScanApp.spawnedNPCs[charName] == nil then
-								ScanApp:DrawButton(charName, style.buttonWidth, style.buttonHeight, "Spawn", {charName, charID})
+						for _, category in ipairs(categoryOrder) do
+
+							if(ImGui.CollapsingHeader(category)) then
+								for _, char in ipairs(ScanApp.spawnIDs[category]) do
+									if type(char) == 'table' then
+										charName = char[1]
+										charID = char[2]
+									else
+										charName, charID = char, char
+									end
+
+									if string.find(charName, 'Johnny') or string.find(charName, 'Nibbles') then
+										ScanApp.IsJohnny = true
+									end
+
+									if ScanApp.spawnedNPCs[charName] == nil then
+										ScanApp:DrawButton(charName, style.buttonWidth, style.buttonHeight, "Spawn", {charName, charID})
+									end
+								end
 							end
 						end
 
@@ -302,6 +337,7 @@ function ScanApp:new()
 
 						ScanApp.spawnAsCompanion = ImGui.Checkbox("Spawn As Companion", ScanApp.spawnAsCompanion)
 						ScanApp.openWithOverlay = ImGui.Checkbox("Open With CET Overlay", ScanApp.openWithOverlay)
+						ScanApp.autoResizing = ImGui.Checkbox("Auto-Resizing Window", ScanApp.autoResizing)
 
 						ImGui.Spacing()
 						ImGui.Separator()
@@ -545,8 +581,10 @@ function ScanApp:GetScanAppearance(t)
 end
 
 function ScanApp:ChangeScanAppearanceTo(t, newAppearance)
-	t:PrefetchAppearanceChange(newAppearance)
-	t:ScheduleAppearanceChange(newAppearance)
+	if not(string.find(t.name, 'Mech')) then
+		t.handle:PrefetchAppearanceChange(newAppearance)
+		t.handle:ScheduleAppearanceChange(newAppearance)
+	end
 end
 
 function ScanApp:GetTarget()
@@ -614,7 +652,7 @@ end
 function ScanApp:DrawButton(title, width, height, action, target)
 	if (ImGui.Button(title, width, height)) then
 		if action == "Cycle" then
-			ScanApp:ChangeScanAppearanceTo(target.handle, 'Cycle')
+			ScanApp:ChangeScanAppearanceTo(target, 'Cycle')
 		elseif action == "Save" then
 			ScanApp:SaveAppearance(target)
 		elseif action == "Clear" then
