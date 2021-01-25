@@ -311,12 +311,13 @@ function ScanApp:new()
 									if type(char) == 'table' then
 										charName = char[1]
 										charID = char[2]
+										charNotCompanion = char[3]
 									else
-										charName, charID = char, char
+										charName, charID, charNotCompanion = char, char, false
 									end
 
 									if ScanApp.spawnedNPCs[charName] == nil then
-										ScanApp:DrawButton(charName, style.buttonWidth, style.buttonHeight, "Spawn", {charName, charID})
+										ScanApp:DrawButton(charName, style.buttonWidth, style.buttonHeight, "Spawn", {charName, charID, charNotCompanion})
 									end
 								end
 							end
@@ -400,10 +401,12 @@ end
 
 function ScanApp:SpawnNPC(npcArray)
 	if self.spawnsCounter ~= self.maxSpawns and not buttonPressed then
-		local npcName, npcID = npcArray[1], npcArray[2]
-		if string.find(charName, 'Johnny') or string.find(charName, 'Nibbles') then
+		local npcName, npcID, npcNotCompanion = npcArray[1], npcArray[2], npcArray[3]
+
+		if npcNotCompanion then
 			self.IsJohnny = true
 		end
+
 		local player = Game.GetPlayer()
 		local heading = player:GetWorldForward()
 		local offsetDir = Vector3.new(heading.x, heading.y, heading.z)

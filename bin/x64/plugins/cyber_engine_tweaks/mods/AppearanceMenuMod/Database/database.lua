@@ -268,10 +268,13 @@ return {{
 },
 -- Spawnable NPCs --
 {
-  ['Category Order'] = {'Main Characters', 'Side Characters', 'Arasaka', 'Nomad', 'Voodoo Boys', 'Tyger Claws', 'Maelstrom', 'Mox', 'Samurai', 'NCPD', 'Militech', 'Misc.'},
+  ['Category Order'] = {
+    'Main Characters', 'Side Characters', 'Arasaka', 'Nomad', 'Voodoo Boys',
+    'Tyger Claws', 'Maelstrom', 'Mox', 'Samurai', 'NCPD', 'Trauma Team', 'Militech', 'Kang Tao', 'Misc.'
+  },
 
   ['Main Characters'] = {
-    {"Johnny (can't be companion)", TweakDBID.new(0xC886A091,0x1D)},
+    {"Johnny (can't be companion)", TweakDBID.new(0xC886A091,0x1D), true},
     'Judy',
     'Panam',
     'Rogue',
@@ -279,7 +282,7 @@ return {{
     'Jackie',
     {'River', 'Sobchak'},
     {'VR River',TweakDBID.new(0x6B0544AD, 0x1A)},
-    {"Nibbles (can't be companion)", TweakDBID.new(0x5FAE2DB7, 0x12)},
+    {"Nibbles (can't be companion)", TweakDBID.new(0x5FAE2DB7, 0x12), true},
   },
 
   ['Side Characters'] = {
@@ -303,13 +306,18 @@ return {{
     {'Maiko',TweakDBID.new(0x4FA1C211,0xF)},
     {'Wakako',TweakDBID.new(0x6008CB00,0x16)},
     'Tbug',
-
     {'Viktor',TweakDBID.new(0x717263B6,0x17)},
     'Misty',
     'Carol',
     'Ozob',
+    {'Anders Hellman',TweakDBID.new(0xAE58A115,0x14)},
     {'Hal Cantos',TweakDBID.new(0x8EEB38EA,0x23)},
     {'Bryce', TweakDBID.new(0x8EB4F79A,0x1D)},
+    {'Theo Price', TweakDBID.new(0xA6DB963E,0x1A)},
+    {'Rachel', TweakDBID.new(0x40BE8F8C,0x16)},
+    {'Zuleikha', TweakDBID.new(0x38586412,0x16)},
+    {'Bill Jablonsky', TweakDBID.new(0xD34E68BB,0x1E)},
+    {'Joshua', TweakDBID.new(0x74618868,0x16)},
   },
 
   ['Nomad'] = {
@@ -340,11 +348,28 @@ return {{
     {'Barry',TweakDBID.new(0xF4219042,0x15)},
     {'Juan Mendez',TweakDBID.new(0xA2027F6A,0x19)},
     {'Nadia Petrova',TweakDBID.new(0x00540F8D,0x1B)},
+    {'Officer Vasquez', TweakDBID.new(0xF2C6B596,0x17)},
     {'Investigator', TweakDBID.new(0x00C36958,0x30)},
     {'Female Police', TweakDBID.new(0x01692221,0x26)},
     {'Male Police', TweakDBID.new(0x15203E26,0x2C)},
     {'MaxTac Soldier', TweakDBID.new(0x05548A41,0x21)},
     {'Enforcer', TweakDBID.new(0x019BEEC1,0x36)},
+    {'Studio Security', TweakDBID.new(0xDD3B5CB9,0x15)},
+  },
+
+  ['Trauma Team'] = {
+    {'Support', TweakDBID.new(0x3474F755,0x12)},
+    {'Male Medic', TweakDBID.new(0x37057A41,0x25)},
+    {'Female Medic', TweakDBID.new(0x51B3D848,0x29)},
+    {'Soldier', TweakDBID.new(0x527057F8,0x2C)},
+  },
+
+  ['Kang Tao'] = {
+    {'Soldier', TweakDBID.new(0x0123C9ED,0x30)},
+    {'Pilot', TweakDBID.new(0x672ACA9A,0x17)},
+    {'Gunner', TweakDBID.new(0x7624F97B,0x30)},
+    {'Robot', TweakDBID.new(0x2645D28F,0x1F)},
+    {'Drone', TweakDBID.new(0xB9BEC0F9,0x18)},
   },
 
   ['Samurai'] = {
@@ -367,6 +392,7 @@ return {{
     {'Oda', TweakDBID.new(0x8BA6CC2E,0x21)},
     {'Arasaka Ninja', TweakDBID.new(0x199C02DE,0x1E)},
     {'Arasaka Soldier', TweakDBID.new(0x00A1D567,0x40)},
+    {'Robot', TweakDBID.new(0xACE0C2C0,0x29)},
   },
 
   ['Maelstrom'] = {
@@ -402,10 +428,17 @@ return {{
     {'Joytoy',TweakDBID.new(0x4106744C, 0x23)},
     {'Hood Hottie',TweakDBID.new(0x4925CF51, 0x18)},
     {'Mallrat',TweakDBID.new(0x0D2DB5FB, 0x11)},
+    {'Truck Driver', TweakDBID.new(0x05382380,0x1D)},
+    {'Male Actor', TweakDBID.new(0x1A186D15,0x1B)},
+    {'Female Protester', TweakDBID.new(0x0CAC81BE,0x21)},
+    {'Client', TweakDBID.new(0xDEA07BA8,0x1F)},
+    {'Bartender', TweakDBID.new(0x87D18ADD,0x23)},
+    {'Waitress', TweakDBID.new(0xBBC503D2,0x22)},
     {'Rich Woman',TweakDBID.new(0x75544805, 0x1B)},
     {'Housekeeper',TweakDBID.new(0xADE5C599, 0x22)},
     {'Female Lowlife',TweakDBID.new(0x13A5E6F8, 0x16)},
     {'Female Creole',TweakDBID.new(0x8E59AD88, 0x15)},
     {'Female Freak',TweakDBID.new(0xF4952722, 0x15)},
+    {'Brendan', TweakDBID.new('Props.mq037_Brendan_street'), true},
   },
 }}
