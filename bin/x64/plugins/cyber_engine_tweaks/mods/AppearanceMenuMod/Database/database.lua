@@ -303,11 +303,10 @@ return {{
     {'Maiko',TweakDBID.new(0x4FA1C211,0xF)},
     {'Wakako',TweakDBID.new(0x6008CB00,0x16)},
     'Tbug',
-    'Nancy',
+
     {'Viktor',TweakDBID.new(0x717263B6,0x17)},
     'Misty',
     'Carol',
-    'Denny',
     'Ozob',
     {'Hal Cantos',TweakDBID.new(0x8EEB38EA,0x23)},
     {'Bryce', TweakDBID.new(0x8EB4F79A,0x1D)},
@@ -350,6 +349,8 @@ return {{
 
   ['Samurai'] = {
     'Henry',
+    'Nancy',
+    'Denny',
     'Kerry',
     'Nix',
     {'Queen of the Stoop', TweakDBID.new(0xC4084DBD,0x1E)},
@@ -364,7 +365,7 @@ return {{
     {'Saburo Arasaka',TweakDBID.new(0x62F914F8,0x10)},
     'Yorinobu',
     {'Oda', TweakDBID.new(0x8BA6CC2E,0x21)},
-    {'Arasaka Ninja'}, TweakDBID.new(0x199C02DE,0x1E),
+    {'Arasaka Ninja', TweakDBID.new(0x199C02DE,0x1E)},
     {'Arasaka Soldier', TweakDBID.new(0x00A1D567,0x40)},
   },
 
@@ -385,10 +386,9 @@ return {{
   },
 
   ['Mox'] = {
-    {'Anna Nox',TweakDBID.new(0x47DC5E31, 0x24)},
-    {'Mox Mox Cleaver',TweakDBID.new(0xECA9355D,0x1F)},
-    {'Mox',TweakDBID.new(0x34D463AC, 0x1D)},
-    {'Mox Bouncer',TweakDBID.new(0x469B686F, 0x1C)},
+    {'Anna Nox',TweakDBID.new(0x47DC5E31,0x24)},
+    {'Mox Cleaver',TweakDBID.new(0xECA9355D,0x1F)},
+    {'Mox Bouncer',TweakDBID.new(0x469B686F,0x1C)},
     {'Female Grunt', TweakDBID.new(0x469B686F,0x1C)},
     {'Male Grunt', TweakDBID.new(0x1F8B3CD5,0x1A)},
     {'Female Elite', TweakDBID.new(0x980E0898,0x30)},
