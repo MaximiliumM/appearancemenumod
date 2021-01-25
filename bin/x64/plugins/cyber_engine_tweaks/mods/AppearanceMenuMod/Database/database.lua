@@ -300,6 +300,7 @@ return {{
     {'Rita Wheeler', TweakDBID.new(0x8C673561, 0x19)},
     'Claire',
     {'Elizabeth Perez',TweakDBID.new(0x5F1BCDD3,0x1B)},
+	{'Jefferson Peralez', TweakDBID.new(0x7A9B1473,0x1B)},
     {'Rhino',TweakDBID.new(0x37AEC493,0x15)},
     {'Hideo Kojima',TweakDBID.new(0xD84FBA64, 0x1F)},
     {'Alanah Pearce',TweakDBID.new(0xE30BF0CF,0x1B)},
@@ -318,6 +319,10 @@ return {{
     {'Zuleikha', TweakDBID.new(0x38586412,0x16)},
     {'Bill Jablonsky', TweakDBID.new(0xD34E68BB,0x1E)},
     {'Joshua', TweakDBID.new(0x74618868,0x16)},
+	{'Donnie Carter', TweakDBID.new(0x4F11507E,0x1E)},
+	{'John Lucas', TweakDBID.new(0x63AB71C4,0x15)},
+	{'Daniel Lark', TweakDBID.new(0x0A54ACEA,0x14)},
+	{'Mayor Lucius Rhyne', TweakDBID.new(0xF6CD7B81,0x1C)},
   },
 
   ['Nomad'] = {
