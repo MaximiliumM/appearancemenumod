@@ -446,6 +446,6 @@ return {{
     {'Female Lowlife',TweakDBID.new(0x13A5E6F8, 0x16)},
     {'Female Creole',TweakDBID.new(0x8E59AD88, 0x15)},
     {'Female Freak',TweakDBID.new(0xF4952722, 0x15)},
-    {'Brendan', TweakDBID.new('Props.mq037_Brendan_street'), true},
+    {'Brendan', TweakDBID.new(0x5AE1D8C8, 0x1A), true},
   },
 }}
