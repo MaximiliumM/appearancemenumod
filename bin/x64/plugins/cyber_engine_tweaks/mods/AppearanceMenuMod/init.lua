@@ -315,10 +315,6 @@ function ScanApp:new()
 										charName, charID = char, char
 									end
 
-									if string.find(charName, 'Johnny') or string.find(charName, 'Nibbles') then
-										ScanApp.IsJohnny = true
-									end
-
 									if ScanApp.spawnedNPCs[charName] == nil then
 										ScanApp:DrawButton(charName, style.buttonWidth, style.buttonHeight, "Spawn", {charName, charID})
 									end
@@ -405,6 +401,9 @@ end
 function ScanApp:SpawnNPC(npcArray)
 	if self.spawnsCounter ~= self.maxSpawns and not buttonPressed then
 		local npcName, npcID = npcArray[1], npcArray[2]
+		if string.find(charName, 'Johnny') or string.find(charName, 'Nibbles') then
+			self.IsJohnny = true
+		end
 		local player = Game.GetPlayer()
 		local heading = player:GetWorldForward()
 		local offsetDir = Vector3.new(heading.x, heading.y, heading.z)
