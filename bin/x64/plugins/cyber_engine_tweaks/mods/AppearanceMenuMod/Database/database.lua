@@ -287,9 +287,9 @@ return {{
 
   ['Side Characters'] = {
     {'Cheri from Clouds', TweakDBID.new(0xBF76C44D, 0x1D)},
-    {'Blue Moon', 'sq017_blue_moon'},
-    {'Red Menace', 'sq017_red_menace'},
-    {'Purple Force', 'sq017_purple_force'},
+    {'Blue Moon', TweakDBID.new(0x97771D29, 0x19)},
+    {'Red Menace', TweakDBID.new(0xE4BEB074, 0x1A)},
+    {'Purple Force', TweakDBID.new(0x65C5B0CE, 0x1C)},
     'Evelyn',
     {'8ug8ear', TweakDBID.new(0x5F7049F1, 0x1F)},
     {'Meredith Stout',TweakDBID.new(0xAD1FC6DE, 0x0F)},
