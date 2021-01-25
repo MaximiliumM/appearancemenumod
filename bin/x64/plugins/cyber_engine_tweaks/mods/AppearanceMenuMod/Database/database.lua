@@ -364,6 +364,7 @@ return {{
 
   ['Trauma Team'] = {
     {'Support', TweakDBID.new(0x3474F755,0x12)},
+	{'Paramedic', TweakDBID.new(0xB05EFCA5,0x87)},
     {'Male Medic', TweakDBID.new(0x37057A41,0x25)},
     {'Female Medic', TweakDBID.new(0x51B3D848,0x29)},
     {'Soldier', TweakDBID.new(0x527057F8,0x2C)},
