@@ -328,7 +328,7 @@ function ScanApp:new()
 								for _, char in ipairs(ScanApp.spawnIDs[category]) do
 									if type(char) == 'table' then
 										charName = char[1]
-										charID = load("return TweakDBID.new("..char[2]..")")()
+										charID = char[2]
 										charNotCompanion = char[3]
 									else
 										charName, charID, charNotCompanion = char, char, false
