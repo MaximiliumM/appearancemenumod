@@ -269,7 +269,7 @@ return {{
 -- Spawnable NPCs --
 {
   ['Category Order'] = {
-    'Main Characters', 'Side Characters', 'Arasaka', 'Nomad', 'Voodoo Boys',
+    'Main Characters', 'Side Characters', 'Arasaka', 'Nomad', 'Valentinos', 'Voodoo Boys',
     'Tyger Claws', 'Maelstrom', 'Mox', 'Samurai', 'NCPD', 'Trauma Team', 'Militech', 'Kang Tao', 'Misc.'
   },
 
@@ -324,18 +324,36 @@ return {{
 	{'Daniel Lark', TweakDBID.new(0x0A54ACEA,0x14)},
 	{'Mayor Lucius Rhyne', TweakDBID.new(0xF6CD7B81,0x1C)},
 	{'Deputy Mayor Holt', TweakDBID.new(0x1928DE24,0x1B)},
+	{'Rick Martinez', TweakDBID.new(0x6E44C713,0x23)},
   },
 
   ['Nomad'] = {
     'Saul',
     'Mitch',
     'Cassidy',
-    {'Female Aldecado',TweakDBID.new(0xB10B15B0, 0x29)},
+    {'Female Aldecado',TweakDBID.new(0xB10B15B0,0x29)},
     {'Male Aldecado', TweakDBID.new(0x285B9837,0x15)},
     {'Female Grunt', TweakDBID.new(0x70DFA9B1,0x26)},
     {'Male Grunt', TweakDBID.new(0x391F5E53,0x23)},
   },
-
+  ['Valentinos'] = {
+	{'Sebastian Padre Ibarra', TweakDBID.new(0xA4DC4277,0x0F)},
+	{'Guadalupe Alejandra Welles', TweakDBID.new(0xA12192C4,0x15)},
+	{'Pepe Najarro', TweakDBID.new(0x1F388D03,0x19)},
+	{'Lucas Palmer', TweakDBID.new(0xBF4BDAD2,0x25)},
+	{'Daniel Duarte', TweakDBID.new(0x26428B68,0x25)},
+	{'Gustav', TweakDBID.new(0x466782BA,0x1F)},
+	{'Mateo Lorenzo', TweakDBID.new(0x5145BBFE,0x25)},
+	{'Irene Hermoso', TweakDBID.new(0x6B70C0A1,0x1C)},
+	{'Big Joe', TweakDBID.new(0xD4E4FADF,0x26)},
+	{'Kirk Sawyer', TweakDBID.new(0x6DB571BE,0x14)},
+	{'Camilo Castilla', TweakDBID.new(0xAAF87010,0x21)},
+	{'Sofia Rossi', TweakDBID.new(0x97C13F1F,0x19)},
+	{'Marcus Barros', TweakDBID.new(0xE999ECF0,0x19)},
+	{'Valentino Bouncer', TweakDBID.new(0xFEED554A,0x1E)},
+	{'Valentino Female', TweakDBID.new(0x5AF6ADF0,0x28)},
+	{'Valentino Male', TweakDBID.new(0x1369AE62,0x21)},
+},
   ['Voodoo Boys'] = {
     {'Placide', TweakDBID.new(0x10FD17EA,0x11)},
     {'Voodoo Boy', TweakDBID.new(0x02162680,0x1E)},
