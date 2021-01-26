@@ -27,13 +27,15 @@ function ScanApp:new()
    setmetatable(ScanApp, self)
 	 self.__index = self
 
-	 -- Load Settings
+	 -- Load Settings --
 	 ScanApp.Debug = loadrequire(ScanApp.rootPath.."debug")
 
-	 -- Configs
-	 ScanApp.currentDir = ScanApp:GetFolderPath()
+	 -- User Settings --
 	 ScanApp.openWithOverlay = true
 	 ScanApp.autoResizing = true
+
+	 -- Configs --
+	 ScanApp.currentDir = ScanApp:GetFolderPath()
 	 ScanApp.settings = false
 	 ScanApp.windowWidth = 500
 	 ScanApp.roleComp = ''
@@ -42,6 +44,7 @@ function ScanApp:new()
 	 ScanApp.spawnsCounter = 0
 	 ScanApp.spawnAsCompanion = true
 	 ScanApp.IsJohnny = false
+	 ScanApp.shouldCheckSavedAppearance = true
 
 	 -- Main Properties --
    ScanApp.npcs, ScanApp.vehicles, ScanApp.spawnIDs = ScanApp:GetDB()
@@ -70,6 +73,8 @@ function ScanApp:new()
 	 registerHotkey("amm_cycle", "Cycle Appearance", function()
 		local target = ScanApp:GetTarget()
 		if target ~= nil then
+			waitTimer = 0.0
+			ScanApp.shouldCheckSavedAppearance = false
 			ScanApp:ChangeScanAppearanceTo(target, 'Cycle')
 		end
 	 end)
@@ -83,13 +88,27 @@ function ScanApp:new()
  		end
 	 end)
 
+	 registerHotkey("amm_clear", "Clear Appearance", function()
+		local target = ScanApp:GetTarget()
+		if target ~= nil then
+			ScanApp:ClearSavedAppearance(target)
+		end
+	 end)
+
 	 registerForEvent("onUpdate", function(deltaTime)
 
 		 		-- Load Saved Appearance --
-		 		if not drawWindow then
+		 		if not drawWindow and ScanApp.shouldCheckSavedAppearance then
 		 			target = ScanApp:GetTarget()
 		 			ScanApp:CheckSavedAppearance(target)
-		 		end
+		 		elseif ScanApp.shouldCheckSavedAppearance == false then
+					waitTimer = waitTimer + deltaTime
+
+					if waitTimer > 8 then
+						waitTimer = 0.0
+						ScanApp.shouldCheckSavedAppearance = true
+					end
+				end
 
 				if drawWindow then
 					if ScanApp:ShouldDraw() and ScanApp.roleComp == '' then
@@ -150,7 +169,6 @@ function ScanApp:new()
 
 	 			-- Target Setup --
 	 			target = ScanApp:GetTarget()
-	 			ScanApp:SetCurrentTarget(target)
 
 				ImGui.PushStyleColor(ImGuiCol.Text, 0.8, 0.7, 0.3, 0.7)
 				ImGui.PushStyleColor(ImGuiCol.WindowBg, 0.06, 0.04, 0.06, 0.85)
@@ -290,17 +308,17 @@ function ScanApp:new()
 	 				-- End of Tab Constructor --
 
 					-- Spawn Tab --
-					if (ImGui.BeginTabItem("Spawn NPC")) then
+					if (ImGui.BeginTabItem("Spawn")) then
 						ScanApp.settings = true
 
 						if next(ScanApp.spawnedNPCs) ~= nil then
-							ImGui.TextColored(0.3, 0.5, 0.7, 1, "Select NPC to despawn:")
+							ImGui.TextColored(0.3, 0.5, 0.7, 1, "Select to despawn:")
 							for npcName, npcID in pairs(ScanApp.spawnedNPCs) do
 								ScanApp:DrawButton(npcName, style.buttonWidth, style.buttonHeight, "Despawn", npcID)
 							end
 						end
 
-						ImGui.TextColored(0.3, 0.5, 0.7, 1, "Select NPC to spawn:")
+						ImGui.TextColored(0.3, 0.5, 0.7, 1, "Select to spawn:")
 
 						categoryOrder = ScanApp.spawnIDs['Category Order']
 
@@ -310,14 +328,15 @@ function ScanApp:new()
 								for _, char in ipairs(ScanApp.spawnIDs[category]) do
 									if type(char) == 'table' then
 										charName = char[1]
-										charID = char[2]
+										charID = load("return TweakDBID.new("..char[2]..")")()
 										charNotCompanion = char[3]
 									else
 										charName, charID, charNotCompanion = char, char, false
 									end
 
-									if ScanApp.spawnedNPCs[charName] == nil then
-										ScanApp:DrawButton(charName, style.buttonWidth, style.buttonHeight, "Spawn", {charName, charID, charNotCompanion})
+									local charButtonLabel = charName.."##"..tostring(charID)
+									if ScanApp.spawnedNPCs[charButtonLabel] == nil then
+										ScanApp:DrawButton(charButtonLabel, style.buttonWidth, style.buttonHeight, "Spawn", {charName, charID, charNotCompanion})
 									end
 								end
 							end
@@ -402,19 +421,23 @@ end
 function ScanApp:SpawnNPC(npcArray)
 	if self.spawnsCounter ~= self.maxSpawns and not buttonPressed then
 		local npcName, npcID, npcNotCompanion = npcArray[1], npcArray[2], npcArray[3]
+		local distanceFromPlayer = 1
 
-		if npcNotCompanion then
+		if npcNotCompanion == 'Vehicle' then
+			distanceFromPlayer = -15
+			self.IsJohnny = true
+		elseif npcNotCompanion then
 			self.IsJohnny = true
 		end
 
 		local player = Game.GetPlayer()
 		local heading = player:GetWorldForward()
-		local offsetDir = Vector3.new(heading.x, heading.y, heading.z)
+		local offsetDir = Vector3.new(heading.x * distanceFromPlayer, heading.y * distanceFromPlayer, heading.z)
 		local spawnTransform = player:GetWorldTransform()
 		local spawnPosition = spawnTransform.Position:ToVector4(spawnTransform.Position)
 		spawnTransform:SetPosition(spawnTransform, Vector4.new(spawnPosition.x - offsetDir.x, spawnPosition.y - offsetDir.y, spawnPosition.z, spawnPosition.w))
 		self.spawnID = Game.GetPreventionSpawnSystem():RequestSpawn(self:GetNPCTweakDBID(npcID), 1, spawnTransform)
-		self.spawnedNPCs[npcName] = self.spawnID
+		self.spawnedNPCs[npcName.."##"..tostring(npcID)] = self.spawnID
 		self.spawnsCounter = self.spawnsCounter + 1
 		table.insert(self.spawnedHistory, self.spawnID)
 	else
@@ -423,7 +446,7 @@ function ScanApp:SpawnNPC(npcArray)
 end
 
 function ScanApp:DespawnNPC(npcName, spawnID)
-	Game.GetPlayer():SetWarningMessage(npcName.." will despawn once you look away")
+	Game.GetPlayer():SetWarningMessage(npcName:match("(.+)##(.+)").." will despawn once you look away")
 	self.spawnedNPCs[npcName] = nil
 	self.spawnsCounter = self.spawnsCounter - 1
 	Game.GetPreventionSpawnSystem():RequestDespawn(spawnID)
@@ -594,9 +617,14 @@ function ScanApp:GetTarget()
 		target = Game.GetTargetingSystem():GetLookAtObject(Game.GetPlayer(),false,false)
 		if target ~= nil then
 			if target:IsNPC() then
-				return ScanApp:NewTarget(target, "NPC", ScanApp:GetScanID(target), ScanApp:GetNPCName(target),ScanApp:GetScanAppearance(target), ScanApp:GetAppearanceOptions(target))
+				t = ScanApp:NewTarget(target, "NPC", ScanApp:GetScanID(target), ScanApp:GetNPCName(target),ScanApp:GetScanAppearance(target), ScanApp:GetAppearanceOptions(target))
 			elseif target:IsVehicle() then
-				return ScanApp:NewTarget(target, "Vehicles", ScanApp:GetScanID(target), ScanApp:GetVehicleName(target),ScanApp:GetScanAppearance(target), ScanApp:GetAppearanceOptions(target))
+				t = ScanApp:NewTarget(target, "Vehicles", ScanApp:GetScanID(target), ScanApp:GetVehicleName(target),ScanApp:GetScanAppearance(target), ScanApp:GetAppearanceOptions(target))
+			end
+
+			if t ~= nil then
+				ScanApp:SetCurrentTarget(t)
+				return t
 			end
 		end
 	end

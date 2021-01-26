@@ -4,6 +4,18 @@ local Debug = {
   spawnedIDs = {}
 }
 
+local function toHex(num)
+   local hexstr = '0123456789abcdef'
+   local s = ''
+   while num > 0 do
+       local mod = math.fmod(num, 16)
+       s = string.sub(hexstr, mod+1, mod+1) .. s
+       num = math.floor(num / 16)
+   end
+   if s == '' then s = '0' end
+   return s
+end
+
 local function getTableSize(t)
     local count = 0
     for _, __ in pairs(t) do
@@ -18,16 +30,22 @@ function Debug.CreateTab(ScanApp, target)
   if (ImGui.BeginTabItem("Debug")) then
     ScanApp.settings = false
 
+    local clipboard = ImGui.GetClipboardText()
+    if string.find(clipboard, '-') then input = clipboard end
+
     input = ImGui.InputTextWithHint("TweakDBID", 'Insert TweakDBID to Spawn', input, 80)
     tdbid = input
 
     ImGui.SameLine()
     if (ImGui.Button('Spawn')) then
       if string.find(input, '-') then
-        local tdbidCommand = 'TweakDBID.new(0x'..input:gsub('-', ',0x')..')'
+        local tdbidCommand = '0x'..input:gsub('-', ',0x')
         ImGui.SetClipboardText(tdbidCommand)
-        tdbid = load("return "..tdbidCommand)()
+        tdbid = load("return TweakDBID.new("..tdbidCommand..')')()
+      elseif string.find(input, '0x') then
+        tdbid = load("return TweakDBID.new("..input..")")()
       end
+
       Debug.SpawnNPC(tdbid)
     end
 
@@ -40,12 +58,15 @@ function Debug.CreateTab(ScanApp, target)
 
     ImGui.Separator()
 
-    scanID = target.id
-    app = ScanApp:GetScanAppearance(target.handle)
+    local recordID = tostring(target.handle:GetRecordID())
+    local hash = recordID:match("= (%g+),")
+    local length = toHex(tonumber(recordID:match("= (%g+) }")))
+    local tdbid = hash..",0x"..length
+    local app = ScanApp:GetScanAppearance(target.handle)
 
     ImGui.Spacing()
 
-    ImGui.InputText("ID", scanID, 100, ImGuiInputTextFlags.ReadOnly)
+    ImGui.InputText("ID", tdbid, 100, ImGuiInputTextFlags.ReadOnly)
     ImGui.InputText("AppString", app, 100, ImGuiInputTextFlags.ReadOnly)
 
     ImGui.Spacing()
@@ -75,8 +96,13 @@ function Debug.CreateTab(ScanApp, target)
 
     ImGui.SameLine()
     if (ImGui.Button('Get Record ID')) then
-      print(tostring(target.handle:GetRecordID()).." -- Added to clipboard")
-      ImGui.SetClipboardText(tostring(target.handle:GetRecordID()))
+      local recordID = tostring(target.handle:GetRecordID())
+      local hash = recordID:match("= (%g+),")
+      local length = toHex(tonumber(recordID:match("= (%g+) }")))
+      local tdbid = hash..",0x"..length
+      local targetName = target.handle:GetTweakDBFullDisplayName(true)
+      print(targetName..": "..tdbid.." -- Added to clipboard")
+      ImGui.SetClipboardText("{'"..targetName.."', '"..tdbid.."'},")
     end
 
     ImGui.SameLine()
@@ -194,7 +220,7 @@ function Debug.LogToFile(path)
 	local data = ''
 
 	for i,v in pairs(Debug.sortedDebugIDs) do
-	    data = data.."['"..i.."']".." = {'"..table.concat(v,"', '").."'}\n"
+	    data = data.."['"..i.."']".." = {'"..table.concat(v,"', '").."'},\n"
 	end
 
 	local output = io.open(path.."\\AppearanceMenuMod\\debug_ids.lua", "a")
