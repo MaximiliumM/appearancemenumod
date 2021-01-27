@@ -373,7 +373,7 @@ return {{
     {'Dakota Smith', 'Character.dakota_smith'},
     {'Dexter DeShawn', 'Character.Dexter'},
     -- {'Dino Dinovic', 'Character.?'},
-    -- {'Mikhail Akulov', 'Character.?'}, 
+    -- {'Mikhail Akulov', 'Character.?'},
     {'Muamar Reyes', 'Character.muamar_reyes'},
     {'Sebastian Ibarra', 'Character.Padre'},
     {'Mr. Hands', 'Character.mr_hands'},
@@ -532,6 +532,7 @@ return {{
   },
 
   ['Mox'] = {
+    {'Susanna Quinn', 'Character.q105_lizzies_boss'},
     {'Mateo Thiago', TweakDBID.new(0x54589E8C,0x1d)},
     {'Waitress', TweakDBID.new(0x223E57A7,0x15)},
     {'Mox Cleaver', 'Character.sts_wat_nid_01_lizzie'},
