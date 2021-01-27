@@ -125,13 +125,18 @@ function ScanApp:new()
 					end
 				end
 
-				if ScanApp.spawnID ~= '' and ScanApp.spawnAsCompanion and not(ScanApp.IsJohnny) then
+
+				if ScanApp.spawnID ~= '' and not(ScanApp.IsJohnny) then
 					waitTimer = waitTimer + deltaTime
 					-- print('trying to set companion')
 					if waitTimer > 0.2 then
-						local npcHandle = Game.FindEntityByID(ScanApp.spawnID)
-						if npcHandle then
-							ScanApp:SetNPCAsCompanion(npcHandle)
+						local handle = Game.FindEntityByID(ScanApp.spawnID)
+						if handle then
+							if handle:IsNPC() and ScanApp.spawnAsCompanion then
+								ScanApp:SetNPCAsCompanion(handle)
+							else
+								handle:GetVehiclePS():UnlockAllVehDoors()
+							end
 						end
 					end
 				else
@@ -329,9 +334,11 @@ function ScanApp:new()
 									if type(char) == 'table' then
 										charName = char[1]
 										charID = char[2]
-										charNotCompanion = char[3]
-									else
-										charName, charID, charNotCompanion = char, char, false
+										if category == 'Vehicles' then
+											charNotCompanion = 'Vehicle'
+										else
+											charNotCompanion = char[3]
+										end
 									end
 
 									local charButtonLabel = charName.."##"..tostring(charID)
@@ -415,7 +422,7 @@ end
 
 function ScanApp:GetNPCTweakDBID(npc)
 	if type(npc) == 'userdata' then return npc end
-	return TweakDBID.new('Character.'..npc)
+	return TweakDBID.new(npc)
 end
 
 function ScanApp:SpawnNPC(npcArray)
@@ -425,7 +432,6 @@ function ScanApp:SpawnNPC(npcArray)
 
 		if npcNotCompanion == 'Vehicle' then
 			distanceFromPlayer = -15
-			self.IsJohnny = true
 		elseif npcNotCompanion then
 			self.IsJohnny = true
 		end

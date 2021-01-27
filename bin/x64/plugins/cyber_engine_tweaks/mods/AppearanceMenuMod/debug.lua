@@ -31,7 +31,9 @@ function Debug.CreateTab(ScanApp, target)
     ScanApp.settings = false
 
     local clipboard = ImGui.GetClipboardText()
-    if string.find(clipboard, '-') then input = clipboard end
+    if clipboard:len() < 50 then
+      input = clipboard
+    end
 
     input = ImGui.InputTextWithHint("TweakDBID", 'Insert TweakDBID to Spawn', input, 80)
     tdbid = input
@@ -75,7 +77,7 @@ function Debug.CreateTab(ScanApp, target)
     if (ImGui.Button("Cycle")) then
       ScanApp:ChangeScanAppearanceTo(target, 'Cycle')
       app = ScanApp:GetScanAppearance(target.handle)
-      Debug.debugIDs[app] = scanID
+      Debug.debugIDs[app] = tdbid
       -- Add new ID
       output = {}
       for i,v in pairs(Debug.debugIDs) do
@@ -102,7 +104,7 @@ function Debug.CreateTab(ScanApp, target)
       local tdbid = hash..",0x"..length
       local targetName = target.handle:GetTweakDBFullDisplayName(true)
       print(targetName..": "..tdbid.." -- Added to clipboard")
-      ImGui.SetClipboardText("{'"..targetName.."', '"..tdbid.."'},")
+      ImGui.SetClipboardText("{'"..targetName.."', TweakDBID.new("..tdbid..")},")
     end
 
     ImGui.SameLine()
@@ -162,8 +164,8 @@ function Debug.CreateTab(ScanApp, target)
 
     ImGui.SameLine()
     if (ImGui.Button('Save IDs to file')) then
-      print("Scan ID: "..scanID.." -- Added to clipboard")
-      ImGui.SetClipboardText(scanID)
+      print("TDBID: "..tdbid.." -- Added to clipboard")
+      ImGui.SetClipboardText(tdbid)
       Debug.LogToFile(ScanApp.currentDir)
     end
 
