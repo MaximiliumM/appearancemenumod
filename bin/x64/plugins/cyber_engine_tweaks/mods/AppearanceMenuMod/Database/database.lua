@@ -328,7 +328,8 @@ return {{
     {'Skye', "0x22C1341E, 0x1F"},
     {'Lizzy', 'Character.Lizzy_Wizzy'},
     {'Anna Hamill', "0x091A194E,0x24"},
-    {'Sandra Dorsett', "0xE00AE6A0, 0x1D"},
+	{'Sandra Dorsett', "0xFED8BC69, 0x21"},
+    {"Sandra Dorsett (Explosive)", "0xE00AE6A0, 0x1D"},
     {'Rita Wheeler', "0x8C673561, 0x19"},
     {'Claire', 'Character.Claire'},
     {'Elizabeth Perez', 'Character.Elizabeth_Peralez'},
@@ -364,6 +365,23 @@ return {{
     {'Ernie Hawkins', "0x1EA1171B,0x21"},
     {'Rosalind Myers', 'Character.rosalind_myers'},
     {'Josh Kavorkin', 'Character.josh_kavorkin'},
+	{'Toshiro', '0x4A3CB74D,0x16'},
+	{'Akira', '0x9CC1A07F,0x14'},
+	{'Spider Murphy', '0x9ECE316C,0x1c'},
+	{'Martin Tin', '0x8F30A489,0x17'},
+	{'Huscle', '0x19E738C3,0x1a'},
+	{'Milt Nauman', '0x195478BA,0x15'},
+	{'Thompson', '0x036FE531,0x12'},
+	{'Johnnie Peterson', '0xAC2E069F,0x1a'},
+	{'Annie Capolino', '0x71DBC9DA,0x1f'},
+	{'Classified', '0x5B9C4C77,0x29'},
+	{'Yishen Rhee', '0xDA64A5BA,0x29'},
+	{'Axel Mankievicz', '0x42ADD3AD,0x27'},
+	{'Melissa Wellingham', '0x7B2F819E,0x1a'},
+	{'Freddie Burns', '0xC9CF094B,0x1f'},
+	{'Santiago Aldecaldo', '0xB7F35A38,0x12'},
+	{'Oleg Darkevich', '0xCEC1E01D,0x17'},
+	
   },
 
   ['Fixer'] = {
@@ -391,6 +409,7 @@ return {{
 
   ['Voodoo Boys'] = {
     {'Placide', "0x10FD17EA,0x11"},
+	{'Maman Brigitte', '0x56A63E19,0x16'},
     {'Voodoo Boy', "0x02162680,0x1E"},
     {'Voodoo Girl', "0x05206611,0x33"},
   },
@@ -480,6 +499,7 @@ return {{
     {'King of the Stoop', "0xAA5ADA15,0x1C"},
     {'Fangirl', "0x2A49F461,0x29"},
     {'Fanboy', "0xAA5ADA15,0x1C"},
+	{'Roadie', '0x292322DD,0x26'},
   },
 
   ['Arasaka'] = {
@@ -502,6 +522,9 @@ return {{
     {'Male Corpo', "0x4569A65B,0x28"},
     {'Female Guard', "0xCD1E5B05,0x28"},
     {'Male Guard', "0x34C3E710,0x25"},
+	{'Male Agent 2020', '0xDC1DFC9B,0x20'},
+	{'Female Agent 2020', '0x8D034950,0x24'},
+	{'Techie', '0x0F3A5D6C,0x1d'},
     {'Sumo', "0x893FECC9,0x2a"},
     {'Classified Data', "0xC5EEB19D,0x26"},
     {'Minotaur', "0x3B4B6A62,0x32"},
