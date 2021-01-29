@@ -517,6 +517,7 @@ return {{
     {'Female Grunt', "0x07D80BAC,0x24"},
     {'Male Grunt', "0x028484A6,0x1E"},
     {'Maelstrom Strong', "0x072E2A55,0x31"},
+	{'Maelstrom Cultist', "0x97232201,0x27"},
   },
 
   ['Militech'] = {
@@ -558,6 +559,7 @@ return {{
     {'Ben DeBaillon', 'Character.ma_pac_cvi_15_cyberpsycho'},
     {'Norio Akuhara', 'Character.ma_cct_dtn_07_cyberpsycho'},
     {'Cedric Muller', 'Character.ma_cct_dtn_03_cyberpsycho'},
+	{'Zaria Hughes', '0xEC53F394,0x1E'},
   },
 
   ['Misc. NPCs'] = {
