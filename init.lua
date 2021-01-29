@@ -128,6 +128,7 @@ function ScanApp:new()
 								ScanApp:SetNPCAsCompanion(handle)
 							else
 								handle:GetVehiclePS():UnlockAllVehDoors()
+								waitTimer = 0.0
 							end
 						end
 					end
@@ -461,7 +462,7 @@ function ScanApp:GetDB()
 end
 
 function ScanApp:GetNPCTweakDBID(npc)
-	if type(npc) == 'userdata' then return TweakDBID.new(npc) end
+	if string.find(npc, '0x') then return load("return TweakDBID.new("..npc..")")() end
 	return TweakDBID.new(npc)
 end
 
@@ -485,7 +486,6 @@ function ScanApp:SpawnNPC(spawn)
 		self.spawnsCounter = self.spawnsCounter + 1
 		spawn.entityID = self.spawnID
 		self.spawnedNPCs[spawn.uniqueName] = spawn
-		table.insert(self.spawnedHistory, self.spawnID)
 	else
 		Game.GetPlayer():SetWarningMessage("Spawn limit reached!")
 	end
