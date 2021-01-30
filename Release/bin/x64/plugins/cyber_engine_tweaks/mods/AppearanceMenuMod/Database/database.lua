@@ -529,6 +529,7 @@ return {{
     {'Classified Data', "0xC5EEB19D,0x26"},
     {'Minotaur', "0x3B4B6A62,0x32"},
     {'Robot', "0xACE0C2C0,0x29"},
+    {'Octant', "Character.arasaka_base_drone_octant"},
   },
 
   ['Maelstrom'] = {
