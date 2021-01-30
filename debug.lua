@@ -4,6 +4,8 @@ local Debug = {
   spawnedIDs = {}
 }
 
+grabbed = ''
+
 local function toHex(num)
    local hexstr = '0123456789abcdef'
    local s = ''
@@ -116,12 +118,17 @@ function Debug.CreateTab(ScanApp, target)
     ImGui.Spacing()
 
     if (ImGui.Button('Get Appearances')) then
-      local array = target.handle:GetRecord():CrowdAppearanceNames()
-      if array[1] ~= nil then
-        print("First appearance: "..tostring(array[1]):match("%[ (%g+) -"))
-        print("Number of appearances: "..tostring(target.handle:GetRecord():GetCrowdAppearanceNamesCount()))
-      else
-        print("This NPC has no crowd appearances.")
+      if target.handle:IsNPC() then
+        local array = target.handle:GetRecord():CrowdAppearanceNames()
+        if array[1] ~= nil then
+          print("First appearance: "..tostring(array[1]):match("%[ (%g+) -"))
+          print("Number of appearances: "..tostring(target.handle:GetRecord():GetCrowdAppearanceNamesCount()))
+        else
+          print("This NPC has no crowd appearances.")
+        end
+      elseif target.handle:IsVehicle() then
+        local record = target.handle:GetRecord()
+        print("Can't do that for vehicles :(")
       end
     end
 
@@ -170,6 +177,74 @@ function Debug.CreateTab(ScanApp, target)
     end
 
     ImGui.Spacing()
+
+    if (ImGui.Button('Set Friendly')) then
+      local targCompanion = target.handle
+      local AIC = targCompanion:GetAIControllerComponent()
+    	local targetAttAgent = targCompanion:GetAttitudeAgent()
+      local currTime = targCompanion.isPlayerCompanionCachedTimeStamp + 11
+      local reactionComp = targCompanion.reactionComponent
+      local roleComp = NewObject('handle:AIFollowerRole')
+  		roleComp:SetFollowTarget(Game:GetPlayerSystem():GetLocalPlayerControlledGameObject())
+  		roleComp:OnRoleSet(targCompanion)
+  		roleComp.followerRef = Game.CreateEntityReference("#player", {})
+
+      targCompanion.isPlayerCompanionCached = true
+      targCompanion.isPlayerCompanionCachedTimeStamp = currTime
+
+      targetAttAgent:SetAttitudeGroup(CName.new("player"))
+      reactionComp:MapReactionPreset(CName.new("Follower"))
+
+      Game['senseComponent::RequestMainPresetChange;GameObjectString'](targCompanion, "Follower")
+  		Game['senseComponent::ShouldIgnoreIfPlayerCompanion;EntityEntity'](targCompanion, Game:GetPlayer())
+  		Game['NPCPuppet::ChangeStanceState;GameObjectgamedataNPCStanceState'](targCompanion, "Relaxed")
+
+      AIC:SetAIRole(roleComp)
+      targCompanion.movePolicies:Toggle(true)
+    end
+
+    ImGui.SameLine()
+    if (ImGui.Button('Set Hostile')) then
+      local targCompanion = target.handle
+      local AIC = targCompanion:GetAIControllerComponent()
+    	local targetAttAgent = targCompanion:GetAttitudeAgent()
+      local npcManager = targCompanion.NPCManager
+      local reactionComp = targCompanion.reactionComponent
+      local aiRole = NewObject('handle:AIRole')
+      aiRole:OnRoleSet(targCompanion)
+
+      targCompanion.isPlayerCompanionCached = false
+      targCompanion.isPlayerCompanionCachedTimeStamp = 0
+
+      Game['senseComponent::RequestMainPresetChange;GameObjectString'](targCompanion, "Combat")
+      Game['NPCPuppet::ChangeStanceState;GameObjectgamedataNPCStanceState'](targCompanion, "Combat")
+      AIC:GetCurrentRole():OnRoleCleared(targCompanion)
+      AIC:SetAIRole(aiRole)
+      targCompanion.movePolicies:Toggle(true)
+      targetAttAgent:SetAttitudeGroup(CName.new("hostile"))
+      reactionComp:SetReactionPreset(GetSingleton("gamedataTweakDBInterface"):GetReactionPresetRecord(TweakDBID.new("ReactionPresets.Ganger_Aggressive")))
+
+      if grabbed ~= '' then
+        GetSingleton("RPGManager"):ApplyAbilityArray(targCompanion, grabbed.Abilities)
+      end
+
+      --npcManager:SetNPCAbilities(grabbed)
+
+      reactionComp:TriggerCombat(Game.GetPlayer())
+    end
+
+    ImGui.SameLine()
+    if (ImGui.Button('Do stuff')) then
+      local targCompanion = target.handle
+      grabbed = targCompanion:GetRecord()
+      -- local reactionComp = targCompanion.reactionComponent
+      -- grabbedReaction = reactionComp:GetReactionPreset()
+      print(grabbed.Abilities)
+
+      local ts = Game.GetTransactionSystem()
+      hasItems, items = ts:GetItemList(targCompanion)
+      print(items[1]:GetItemType())
+    end
 
     if (ImGui.BeginChild("Scrolling")) then
       for id, appArray in pairs(Debug.sortedDebugIDs) do
@@ -225,7 +300,7 @@ function Debug.LogToFile(path)
 	    data = data.."['"..i.."']".." = {'"..table.concat(v,"', '").."'},\n"
 	end
 
-	local output = io.open(path.."\\AppearanceMenuMod\\debug_ids.lua", "a")
+	local output = io.open(path.."\\debug_ids.lua", "a")
 
 	output:write(data)
 	output:close()
