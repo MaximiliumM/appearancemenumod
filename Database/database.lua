@@ -304,7 +304,7 @@ return {{
   ['Category Order'] = { 'Favorites',
     'Main Characters', 'Side Characters', 'Fixer', 'Arasaka', 'Nomad', 'Valentinos', 'Voodoo Boys',
     'Tyger Claws', 'Animals', '6th Street', 'Maelstrom', 'Mox', 'Samurai', 'NCPD', 'Netwatch',
-    'Trauma Team', 'Militech', 'Kang Tao', 'Cyberpsycho', 'Misc. NPCs', 'Vehicles'
+    'Trauma Team', 'Militech', 'Kang Tao', 'Cyberpsycho', 'Cameos', 'Misc. NPCs', 'Vehicles'
   },
 
   ['Main Characters'] = {
