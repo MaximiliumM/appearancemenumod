@@ -236,14 +236,10 @@ function Debug.CreateTab(ScanApp, target)
     ImGui.SameLine()
     if (ImGui.Button('Do stuff')) then
       local targCompanion = target.handle
-      grabbed = targCompanion:GetRecord()
-      -- local reactionComp = targCompanion.reactionComponent
-      -- grabbedReaction = reactionComp:GetReactionPreset()
-      print(grabbed.Abilities)
+      local gs = Game.GetGodModeSystem()
+      print(gs:HasGodMode(target.handle:GetEntityID(), 4))
 
-      local ts = Game.GetTransactionSystem()
-      hasItems, items = ts:GetItemList(targCompanion)
-      print(items[1]:GetItemType())
+
     end
 
     if (ImGui.BeginChild("Scrolling")) then

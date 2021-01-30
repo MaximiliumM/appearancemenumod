@@ -113,15 +113,15 @@ function ScanApp:new()
 					waitTimer = waitTimer + deltaTime
 					-- print('trying to set companion')
 					if waitTimer > 0.2 then
-						local handle = Game.FindEntityByID(ScanApp.currentSpawn.entityID)
+						local handle = Game.FindEntityByID(ScanApp.spawnedNPCs[ScanApp.currentSpawn].entityID)
 						if handle then
-							ScanApp.currentSpawn.handle = handle
+							ScanApp.spawnedNPCs[ScanApp.currentSpawn].handle = handle
 							if handle:IsNPC() and ScanApp.spawnAsCompanion then
-								if ScanApp.currentSpawn.parameters ~= nil then
-									ScanApp:ChangeScanAppearanceTo(ScanApp.currentSpawn, ScanApp.currentSpawn.parameters)
+								if ScanApp.spawnedNPCs[ScanApp.currentSpawn].parameters ~= nil then
+									ScanApp:ChangeScanAppearanceTo(ScanApp.spawnedNPCs[ScanApp.currentSpawn], ScanApp.spawnedNPCs[ScanApp.currentSpawn].parameters)
 								end
 								ScanApp:SetNPCAsCompanion(handle)
-							else
+							elseif handle:IsVehicle() then
 								handle:GetVehiclePS():UnlockAllVehDoors()
 								waitTimer = 0.0
 								ScanApp.currentSpawn = ''
@@ -326,6 +326,21 @@ function ScanApp:new()
 								if ImGui.SmallButton("Despawn##"..spawn.name) then
 									ScanApp:DespawnNPC(spawn.uniqueName, spawn.entityID)
 								end
+
+								if spawn.handle ~= '' and not(spawn.handle:IsDead()) then
+
+									if ScanApp:CheckIfCanBeHostile(spawn.handle) then
+										local hostileButtonLabel = "Hostile"
+										if not(spawn.handle.isPlayerCompanionCached) then
+											hostileButtonLabel = "Friendly"
+										end
+
+										ImGui.SameLine()
+										if ImGui.SmallButton(hostileButtonLabel.."##"..spawn.name) then
+											ScanApp:ToggleHostile(spawn)
+										end
+									end
+								end
 							end
 
 						end
@@ -509,7 +524,7 @@ function ScanApp:SpawnNPC(spawn)
 		local spawnPosition = spawnTransform.Position:ToVector4(spawnTransform.Position)
 		spawnTransform:SetPosition(spawnTransform, Vector4.new(spawnPosition.x - offsetDir.x, spawnPosition.y - offsetDir.y, spawnPosition.z + distanceFromGround, spawnPosition.w))
 		spawn.entityID = Game.GetPreventionSpawnSystem():RequestSpawn(self:GetNPCTweakDBID(spawn.id), -1, spawnTransform)
-		self.currentSpawn = spawn
+		self.currentSpawn = spawn.uniqueName
 		self.spawnsCounter = self.spawnsCounter + 1
 		self.spawnedNPCs[spawn.uniqueName] = spawn
 	else
@@ -585,32 +600,6 @@ function ScanApp:ClearAllSavedAppearances()
 	self:SaveToFile()
 end
 
-function ScanApp:ShouldDrawSaveButton(t)
-	if t.handle:IsNPC() then
-		local npcID = self:GetScanID(t.handle)
-		for _, v in ipairs(self.allowedNPCs) do
-			if npcID == v then
-				-- NPC is unique
-				return true
-			end
-		end
-
-		for _, v in pairs(self.userData['Favorites']) do
-			if t.name == v[1] then
-				-- NPC is user's favorites
-				return true
-			end
-		end
-
-		-- NPC isn't unique
-		return false
-
-	elseif t:IsVehicle() and t:IsPlayerVehicle() then
-		return true
-	end
-
-	return false
-end
 
 function ScanApp:SaveAppearance(t)
 	self.userData[t.type][t.id] = t.appearance
@@ -727,6 +716,43 @@ function ScanApp:GetTarget()
 	return nil
 end
 
+function ScanApp:ToggleHostile(spawn)
+	local gs = Game.GetGodModeSystem()
+	local handle = spawn.handle
+
+	modes = {1, 2, 3, 4, 5}
+
+	for _, mode in ipairs(modes) do
+		if gs:HasGodMode(spawn.entityID, mode) then
+			gs:ClearGodMode(spawn.entityID, CName.new("Default"))
+		end
+	end
+
+	if handle.isPlayerCompanionCached then
+		local AIC = handle:GetAIControllerComponent()
+		local targetAttAgent = handle:GetAttitudeAgent()
+		local reactionComp = handle.reactionComponent
+
+		local aiRole = NewObject('handle:AIRole')
+		aiRole:OnRoleSet(handle)
+
+		handle.isPlayerCompanionCached = false
+		handle.isPlayerCompanionCachedTimeStamp = 0
+
+		Game['senseComponent::RequestMainPresetChange;GameObjectString'](handle, "Combat")
+		Game['NPCPuppet::ChangeStanceState;GameObjectgamedataNPCStanceState'](handle, "Combat")
+		AIC:GetCurrentRole():OnRoleCleared(handle)
+		AIC:SetAIRole(aiRole)
+		handle.movePolicies:Toggle(true)
+		targetAttAgent:SetAttitudeGroup(CName.new("hostile"))
+		reactionComp:SetReactionPreset(GetSingleton("gamedataTweakDBInterface"):GetReactionPresetRecord(TweakDBID.new("ReactionPresets.Ganger_Aggressive")))
+		reactionComp:TriggerCombat(Game.GetPlayer())
+	else
+		gs:AddGodMode(spawn.entityID, 4, CName.new("Default"))
+		self:SetNPCAsCompanion(handle)
+	end
+end
+
 function ScanApp:ToggleFavorite(sender, name, id, parameters)
 	if sender == 'Favorite##'..name then
 		if self.userData['Favorites'] == nil then self.userData['Favorites'] = {} end
@@ -769,6 +795,38 @@ function ScanApp:SetNPCAsCompanion(npcHandle)
 end
 
 -- Helper methods
+function ScanApp:CheckIfCanBeHostile(handle)
+	if handle:IsVehicle() then return false end
+	return handle:HasPrimaryOrSecondaryEquipment()
+end
+
+function ScanApp:ShouldDrawSaveButton(t)
+	if t.handle:IsNPC() then
+		local npcID = self:GetScanID(t.handle)
+		for _, v in ipairs(self.allowedNPCs) do
+			if npcID == v then
+				-- NPC is unique
+				return true
+			end
+		end
+
+		for _, v in pairs(self.userData['Favorites']) do
+			if t.name == v[1] then
+				-- NPC is user's favorites
+				return true
+			end
+		end
+
+		-- NPC isn't unique
+		return false
+
+	elseif t.handle:IsVehicle() and t.handle:IsPlayerVehicle() then
+		return true
+	end
+
+	return false
+end
+
 function ScanApp:DrawButton(title, width, height, action, target)
 	if (ImGui.Button(title, width, height)) then
 		if action == "Cycle" then
