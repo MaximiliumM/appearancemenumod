@@ -425,7 +425,7 @@ function ScanApp:new()
 	 					ImGui.Spacing()
 						ImGui.Separator()
 
-						ImGui.Text("Current Version: 1.5.4")
+						ImGui.Text("Current Version: 1.5.5")
 
 	 					ImGui.EndTabItem()
 	 				end

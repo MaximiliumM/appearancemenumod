@@ -27,36 +27,27 @@ function ScanApp:new()
    setmetatable(ScanApp, self)
 	 self.__index = self
 
-	 -- Load Settings --
+	 -- Load Debug --
 	 ScanApp.Debug = loadrequire(ScanApp.rootPath.."debug")
 
-	 -- User Settings --
-	 ScanApp.openWithOverlay = true
-	 ScanApp.autoResizing = true
+	 -- Main Properties --
+	 ScanApp.npcs, ScanApp.vehicles, ScanApp.spawnIDs = ScanApp:GetDB()
+	 ScanApp.userData = ScanApp:GetUserData()
+	 ScanApp.currentTarget = ''
+	 ScanApp.spawnedNPCs = {}
+	 ScanApp.allowedNPCs = ScanApp:GetSaveables()
 
 	 -- Configs --
 	 ScanApp.currentDir = ScanApp:GetFolderPath()
 	 ScanApp.settings = false
 	 ScanApp.windowWidth = 500
 	 ScanApp.roleComp = ''
-	 ScanApp.spawnID = ''
+	 ScanApp.currentSpawn = ''
 	 ScanApp.maxSpawns = 6
 	 ScanApp.spawnsCounter = 0
 	 ScanApp.spawnAsCompanion = true
 	 ScanApp.IsJohnny = false
 	 ScanApp.shouldCheckSavedAppearance = true
-
-	 -- Main Properties --
-   ScanApp.npcs, ScanApp.vehicles, ScanApp.spawnIDs = ScanApp:GetDB()
-   ScanApp.userData = ScanApp:GetUserData()
-	 ScanApp.currentTarget = ''
-	 ScanApp.spawnedNPCs = {}
-	 ScanApp.allowedNPCs = {
-		 '0xB1B50FFA', '0xC67F0E01', '0x73C44EBA', '0xAD1FC6DE', '0x7F65F7F7',
-		 '0x7B2CB67C', '0x3024F03E', '0x3B6EF8F9', '0x413F60A6', '0x62B8D0FA',
-		 '0x3143911D', '0xA1C78C30', '0x0044E64C', '0xF43B2B48', '0xC111FBAC',
-		 '0x8DD8F2E0', '0x4106744C', '0xB98FDBB8'
-	 }
 
 	 registerForEvent("onInit", function()
 		 waitTimer = 0.0
@@ -81,7 +72,7 @@ function ScanApp:new()
 	 registerHotkey("amm_save", "Save Appearance", function()
 		local target = ScanApp:GetTarget()
  		if target ~= nil then
-			if ScanApp:ShouldDrawSaveButton(target.handle) then
+			if ScanApp:ShouldDrawSaveButton(target) then
  				ScanApp:SaveAppearance(target)
 			end
  		end
@@ -118,28 +109,33 @@ function ScanApp:new()
 					end
 				end
 
-				if ScanApp.spawnID ~= '' and not(ScanApp.IsJohnny) then
+				if ScanApp.currentSpawn ~= '' and not(ScanApp.IsJohnny) then
 					waitTimer = waitTimer + deltaTime
 					-- print('trying to set companion')
 					if waitTimer > 0.2 then
-						local handle = Game.FindEntityByID(ScanApp.spawnID)
+						local handle = Game.FindEntityByID(ScanApp.spawnedNPCs[ScanApp.currentSpawn].entityID)
 						if handle then
+							ScanApp.spawnedNPCs[ScanApp.currentSpawn].handle = handle
 							if handle:IsNPC() and ScanApp.spawnAsCompanion then
+								if ScanApp.spawnedNPCs[ScanApp.currentSpawn].parameters ~= nil then
+									ScanApp:ChangeScanAppearanceTo(ScanApp.spawnedNPCs[ScanApp.currentSpawn], ScanApp.spawnedNPCs[ScanApp.currentSpawn].parameters)
+								end
 								ScanApp:SetNPCAsCompanion(handle)
-							else
+							elseif handle:IsVehicle() then
 								handle:GetVehiclePS():UnlockAllVehDoors()
 								waitTimer = 0.0
+								ScanApp.currentSpawn = ''
 							end
 						end
 					end
 				else
 					ScanApp.IsJohnny = false
-					ScanApp.spawnID = ''
+					ScanApp.currentSpawn = ''
 				end
 	 end)
 
 	 registerForEvent("onOverlayOpen", function()
-		 if ScanApp.openWithOverlay then drawWindow = true end
+		 if ScanApp.userData['Settings'].openWithOverlay then drawWindow = true end
 	 end)
 
 	 registerForEvent("onOverlayClose", function()
@@ -151,7 +147,7 @@ function ScanApp:new()
 	 	ImGui.SetNextWindowPos(500, 500, ImGuiCond.FirstUseEver)
 
 		local shouldResize = ImGuiCond.None
-		if not(ScanApp.autoResizing) then
+		if not(ScanApp.userData['Settings'].autoResizing) then
 			shouldResize = ImGuiCond.Appearing
 		end
 
@@ -252,7 +248,7 @@ function ScanApp:new()
 	 									ImGui.Spacing()
 
 	 									-- Check if Save button should be drawn
-	 									local drawSaveButton = ScanApp:ShouldDrawSaveButton(target.handle)
+	 									local drawSaveButton = ScanApp:ShouldDrawSaveButton(target)
 
 	 									for _, button in ipairs(tabs[tab].buttons) do
 	 										ImGui.SameLine()
@@ -310,25 +306,40 @@ function ScanApp:new()
 						ScanApp.settings = true
 
 						if next(ScanApp.spawnedNPCs) ~= nil then
-							ImGui.TextColored(0.3, 0.5, 0.7, 1, "Active Spawns")
+							ImGui.TextColored(0.3, 0.5, 0.7, 1, "Active Spawns "..ScanApp.spawnsCounter.."/"..ScanApp.maxSpawns)
 
 							for _, spawn in pairs(ScanApp.spawnedNPCs) do
 								ImGui.Text(spawn.name)
 								ImGui.SameLine()
 
-								local favoriteButtonLabel = "Favorite"
+								local favoriteButtonLabel = "Favorite##"..spawn.name
 								if ScanApp.userData['Favorites'] ~= nil and ScanApp.userData['Favorites'][spawn.name] then
-									favoriteButtonLabel = "Unfavorite"
+									favoriteButtonLabel = "Unfavorite##"..spawn.name
 								end
 
 								if ImGui.SmallButton(favoriteButtonLabel) then
-									ScanApp:ToggleFavorite(favoriteButtonLabel, spawn.name, spawn.id, spawn.companion)
+									ScanApp:ToggleFavorite(favoriteButtonLabel, spawn.name, spawn.id, spawn.parameters)
 								end
 
 								ImGui.SameLine()
 
-								if ImGui.SmallButton("Despawn") then
+								if ImGui.SmallButton("Despawn##"..spawn.name) then
 									ScanApp:DespawnNPC(spawn.uniqueName, spawn.entityID)
+								end
+
+								if spawn.handle ~= '' and not(spawn.handle:IsDead()) then
+
+									if ScanApp:CheckIfCanBeHostile(spawn.handle) then
+										local hostileButtonLabel = "Hostile"
+										if not(spawn.handle.isPlayerCompanionCached) then
+											hostileButtonLabel = "Friendly"
+										end
+
+										ImGui.SameLine()
+										if ImGui.SmallButton(hostileButtonLabel.."##"..spawn.name) then
+											ScanApp:ToggleHostile(spawn)
+										end
+									end
 								end
 							end
 
@@ -337,6 +348,9 @@ function ScanApp:new()
 						ImGui.TextColored(0.3, 0.5, 0.7, 1, "Select To Spawn:")
 
 						categoryOrder = ScanApp.spawnIDs['Category Order']
+						if categoryOrder[#categoryOrder] ~= 'At Your Own Risk' and ScanApp.userData['Settings'].experimental then
+							table.insert(categoryOrder, 'At Your Own Risk')
+						end
 
 						for _, category in ipairs(categoryOrder) do
 
@@ -355,16 +369,16 @@ function ScanApp:new()
 										if type(spawnArray) == 'table' then
 											name = spawnArray[1]
 											id = spawnArray[2]
-											companion = spawnArray[3] or false
+											parameters = spawnArray[3]
 											if category == 'Vehicles' then
-												companion = 'Vehicle'
+												parameters = 'Vehicle'
 											end
 										end
 
-										local newSpawn = ScanApp:NewSpawn(name, id, companion)
+										local newSpawn = ScanApp:NewSpawn(name, id, parameters)
 										local buttonLabel = newSpawn.uniqueName
 
-										if category == 'Favorites' and ScanApp.spawnedNPCs[buttonLabel] and ScanApp.userData['Favorites'][name] then
+										if self.spawnsCounter == self.maxSpawns or (category == 'Favorites' and ScanApp.spawnedNPCs[buttonLabel] and ScanApp.userData['Favorites'][name]) then
 											ImGui.PushStyleColor(ImGuiCol.Button, 0.56, 0.06, 0.03, 0.25)
 											ImGui.PushStyleColor(ImGuiCol.ButtonHovered, 0.56, 0.06, 0.03, 0.25)
 											ImGui.PushStyleColor(ImGuiCol.ButtonActive, 0.56, 0.06, 0.03, 0.25)
@@ -390,11 +404,14 @@ function ScanApp:new()
 	 					ImGui.Spacing()
 
 						ScanApp.spawnAsCompanion = ImGui.Checkbox("Spawn As Companion", ScanApp.spawnAsCompanion)
-						ScanApp.openWithOverlay = ImGui.Checkbox("Open With CET Overlay", ScanApp.openWithOverlay)
-						ScanApp.autoResizing = ImGui.Checkbox("Auto-Resizing Window", ScanApp.autoResizing)
+						ScanApp.userData['Settings'].openWithOverlay, clicked = ImGui.Checkbox("Open With CET Overlay", ScanApp.userData['Settings'].openWithOverlay)
+						ScanApp.userData['Settings'].autoResizing, clicked = ImGui.Checkbox("Auto-Resizing Window", ScanApp.userData['Settings'].autoResizing)
+						ScanApp.userData['Settings'].experimental, clicked = ImGui.Checkbox("Experimental/Fun stuff", ScanApp.userData['Settings'].experimental)
 
-						ImGui.Spacing()
+						if clicked then ScanApp:SaveToFile() end
+
 						ImGui.Separator()
+						ImGui.Spacing()
 
 						if (ImGui.Button("Force Despawn All")) then
 	 						ScanApp:DespawnAll()
@@ -406,6 +423,9 @@ function ScanApp:new()
 	 					end
 
 	 					ImGui.Spacing()
+						ImGui.Separator()
+
+						ImGui.Text("Current Version: 1.5.5")
 
 	 					ImGui.EndTabItem()
 	 				end
@@ -426,12 +446,13 @@ function ScanApp:new()
    return ScanApp
 end
 
-function ScanApp:NewSpawn(name, id, companion)
+function ScanApp:NewSpawn(name, id, parameters)
 	local obj = {}
+	obj.handle = ''
 	obj.uniqueName = name.."##"..id
 	obj.name = name
 	obj.id = id
-	obj.companion = companion
+	obj.parameters = parameters
 	obj.entityID = ''
 	return obj
 end
@@ -450,15 +471,31 @@ end
 function ScanApp:GetFolderPath()
 	local path = io.popen"cd":read'*l'
 	if not string.find(path, "plugins") then
-		return path.."\\plugins\\cyber_engine_tweaks\\mods"
-	else
-		return path
+		path = path.."\\plugins\\cyber_engine_tweaks\\mods"
 	end
+
+	if not string.find(path, "AppearanceMenuMod") then
+		path = path.."\\AppearanceMenuMod"
+	end
+
+	-- print(path)
+	return path
 end
 
 function ScanApp:GetDB()
 	local db = require("AppearanceMenuMod.Database.database")
 	return db[1], db[2], db[3]
+end
+
+function ScanApp:GetSaveables()
+	local defaults = {
+		'0xB1B50FFA', '0xC67F0E01', '0x73C44EBA', '0xAD1FC6DE', '0x7F65F7F7',
+		'0x7B2CB67C', '0x3024F03E', '0x3B6EF8F9', '0x413F60A6', '0x62B8D0FA',
+		'0x3143911D', '0xA1C78C30', '0x0044E64C', '0xF43B2B48', '0xC111FBAC',
+		'0x8DD8F2E0', '0x4106744C', '0xB98FDBB8', '0x8BA6CC2E'
+	}
+
+	return defaults
 end
 
 function ScanApp:GetNPCTweakDBID(npc)
@@ -469,11 +506,15 @@ end
 function ScanApp:SpawnNPC(spawn)
 	if self.spawnsCounter ~= self.maxSpawns and not buttonPressed then
 		local distanceFromPlayer = 1
+		local distanceFromGround = 0
 
-		if spawn.companion == 'Vehicle' then
+		if spawn.parameters == 'Vehicle' then
 			distanceFromPlayer = -15
-		elseif spawn.companion then
+		elseif spawn.parameters == 'NonCompanion' then
 			self.IsJohnny = true
+		elseif type(spawn.parameters) == 'table' then
+			distanceFromPlayer = -15
+			distanceFromGround = spawn.parameters.distance
 		end
 
 		local player = Game.GetPlayer()
@@ -481,10 +522,10 @@ function ScanApp:SpawnNPC(spawn)
 		local offsetDir = Vector3.new(heading.x * distanceFromPlayer, heading.y * distanceFromPlayer, heading.z)
 		local spawnTransform = player:GetWorldTransform()
 		local spawnPosition = spawnTransform.Position:ToVector4(spawnTransform.Position)
-		spawnTransform:SetPosition(spawnTransform, Vector4.new(spawnPosition.x - offsetDir.x, spawnPosition.y - offsetDir.y, spawnPosition.z, spawnPosition.w))
-		self.spawnID = Game.GetPreventionSpawnSystem():RequestSpawn(self:GetNPCTweakDBID(spawn.id), -1, spawnTransform)
+		spawnTransform:SetPosition(spawnTransform, Vector4.new(spawnPosition.x - offsetDir.x, spawnPosition.y - offsetDir.y, spawnPosition.z + distanceFromGround, spawnPosition.w))
+		spawn.entityID = Game.GetPreventionSpawnSystem():RequestSpawn(self:GetNPCTweakDBID(spawn.id), -1, spawnTransform)
+		self.currentSpawn = spawn.uniqueName
 		self.spawnsCounter = self.spawnsCounter + 1
-		spawn.entityID = self.spawnID
 		self.spawnedNPCs[spawn.uniqueName] = spawn
 	else
 		Game.GetPlayer():SetWarningMessage("Spawn limit reached!")
@@ -492,14 +533,16 @@ function ScanApp:SpawnNPC(spawn)
 end
 
 function ScanApp:DespawnNPC(npcName, spawnID)
-	Game.GetPlayer():SetWarningMessage(npcName:match("(.+)##(.+)").." will despawn once you look away")
+	--Game.GetPlayer():SetWarningMessage(npcName:match("(.+)##(.+)").." will despawn once you look away")
 	self.spawnedNPCs[npcName] = nil
 	self.spawnsCounter = self.spawnsCounter - 1
-	Game.GetPreventionSpawnSystem():RequestDespawn(spawnID)
+	local handle = Game.FindEntityByID(spawnID)
+	if handle then handle:Dispose() end
+	--Game.GetPreventionSpawnSystem():RequestDespawn(spawnID)
 end
 
 function ScanApp:DespawnAll()
-	Game.GetPlayer():SetWarningMessage("All NPCs will despawn once you look away")
+	Game.GetPlayer():SetWarningMessage("Despawning will occur once you look away")
 	Game.GetPreventionSpawnSystem():RequestDespawnPreventionLevel(-1)
 	self.spawnsCounter = 0
 	self.spawnedNPCs = {}
@@ -507,8 +550,14 @@ end
 
 function ScanApp:GetUserData()
 		local userPref = loadrequire("AppearanceMenuMod.Database.user")
-		if userPref ~= '' then return userPref end
-		return {NPC = {}, Vehicles = {}, Favorites = {}}
+		if userPref ~= '' then
+			if userPref['Settings'] == nil then
+				userPref['Settings'] = {openWithOverlay = true, autoResizing = true,  experimental = false}
+			end
+			return userPref
+		end
+		return {NPC = {}, Vehicles = {}, Favorites = {},
+		Settings = {openWithOverlay = true, autoResizing = true,  experimental = false}}
 end
 
 function ScanApp:CheckSavedAppearance(t)
@@ -551,24 +600,6 @@ function ScanApp:ClearAllSavedAppearances()
 	self:SaveToFile()
 end
 
-function ScanApp:ShouldDrawSaveButton(t)
-	if t:IsNPC() then
-		local npcID = self:GetScanID(t)
-		for i, v in ipairs(self.allowedNPCs) do
-			if npcID == v then
-				-- NPC is unique
-				return true
-			end
-		end
-		-- NPC isn't unique
-		return false
-
-	elseif t:IsVehicle() and t:IsPlayerVehicle() then
-		return true
-	end
-
-	return false
-end
 
 function ScanApp:SaveAppearance(t)
 	self.userData[t.type][t.id] = t.appearance
@@ -591,7 +622,9 @@ function ScanApp:SaveToFile()
 				end
 				data = data.."},"
 			else
-				data = data.."['"..k.."']".." = '"..v.."',"
+				data = data.."['"..k.."']".." = "
+				if type(v) == 'boolean' then data = data..tostring(v)..","
+				else data = data.."'"..v.."'," end
 			end
 		end
 		data = data.."},\n"
@@ -599,8 +632,7 @@ function ScanApp:SaveToFile()
 
 	data = data.."}"
 
-	print(data)
-	local output = io.open(self.currentDir.."\\AppearanceMenuMod\\Database\\user.lua", "w")
+	local output = io.open(self.currentDir.."\\Database\\user.lua", "w")
 
 	output:write(data)
 	output:close()
@@ -684,10 +716,47 @@ function ScanApp:GetTarget()
 	return nil
 end
 
-function ScanApp:ToggleFavorite(sender, name, id, companion)
-	if sender == 'Favorite' then
+function ScanApp:ToggleHostile(spawn)
+	local gs = Game.GetGodModeSystem()
+	local handle = spawn.handle
+
+	modes = {1, 2, 3, 4, 5}
+
+	for _, mode in ipairs(modes) do
+		if gs:HasGodMode(spawn.entityID, mode) then
+			gs:ClearGodMode(spawn.entityID, CName.new("Default"))
+		end
+	end
+
+	if handle.isPlayerCompanionCached then
+		local AIC = handle:GetAIControllerComponent()
+		local targetAttAgent = handle:GetAttitudeAgent()
+		local reactionComp = handle.reactionComponent
+
+		local aiRole = NewObject('handle:AIRole')
+		aiRole:OnRoleSet(handle)
+
+		handle.isPlayerCompanionCached = false
+		handle.isPlayerCompanionCachedTimeStamp = 0
+
+		Game['senseComponent::RequestMainPresetChange;GameObjectString'](handle, "Combat")
+		Game['NPCPuppet::ChangeStanceState;GameObjectgamedataNPCStanceState'](handle, "Combat")
+		AIC:GetCurrentRole():OnRoleCleared(handle)
+		AIC:SetAIRole(aiRole)
+		handle.movePolicies:Toggle(true)
+		targetAttAgent:SetAttitudeGroup(CName.new("hostile"))
+		reactionComp:SetReactionPreset(GetSingleton("gamedataTweakDBInterface"):GetReactionPresetRecord(TweakDBID.new("ReactionPresets.Ganger_Aggressive")))
+		reactionComp:TriggerCombat(Game.GetPlayer())
+	else
+		gs:AddGodMode(spawn.entityID, 4, CName.new("Default"))
+		self:SetNPCAsCompanion(handle)
+	end
+end
+
+function ScanApp:ToggleFavorite(sender, name, id, parameters)
+	if sender == 'Favorite##'..name then
 		if self.userData['Favorites'] == nil then self.userData['Favorites'] = {} end
-		self.userData['Favorites'][name] = {name, id, companion}
+		self.userData['Favorites'][name] = {name, id, parameters}
 	else
 		self.userData['Favorites'][name] = nil
 	end
@@ -699,7 +768,7 @@ end
 function ScanApp:SetNPCAsCompanion(npcHandle)
 
 	waitTimer = 0.0
-	self.spawnID = ''
+	self.currentSpawn = ''
 
 	local targCompanion = npcHandle
 	local AIC = targCompanion:GetAIControllerComponent()
@@ -726,6 +795,38 @@ function ScanApp:SetNPCAsCompanion(npcHandle)
 end
 
 -- Helper methods
+function ScanApp:CheckIfCanBeHostile(handle)
+	if handle:IsVehicle() then return false end
+	return handle:HasPrimaryOrSecondaryEquipment()
+end
+
+function ScanApp:ShouldDrawSaveButton(t)
+	if t.handle:IsNPC() then
+		local npcID = self:GetScanID(t.handle)
+		for _, v in ipairs(self.allowedNPCs) do
+			if npcID == v then
+				-- NPC is unique
+				return true
+			end
+		end
+
+		for _, v in pairs(self.userData['Favorites']) do
+			if t.name == v[1] then
+				-- NPC is user's favorites
+				return true
+			end
+		end
+
+		-- NPC isn't unique
+		return false
+
+	elseif t.handle:IsVehicle() and t.handle:IsPlayerVehicle() then
+		return true
+	end
+
+	return false
+end
+
 function ScanApp:DrawButton(title, width, height, action, target)
 	if (ImGui.Button(title, width, height)) then
 		if action == "Cycle" then

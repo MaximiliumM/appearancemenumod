@@ -16,8 +16,10 @@ return {{
 	['0xF43B2B48'] = {'goro_takemura_finale_white','goro_takemura_ronin_shirt','goro_takemura_ronin_trench','goro_takemura_saburo_bodyguard'},
 	['0xC111FBAC'] = {'hanako_default','hanako_no_coat','hanako_parade','hanako_parade_no_coat'},
   ['0x8BA6CC2E'] = {'oda_oda', 'oda_oda_no_mask', 'oda_oda_cloak', 'oda_oda_no_gear', 'oda_oda_mask_damage'},
+  ['0xF0F54969'] = {'oda_oda_cloak', 'oda_oda_mask_damage_concrete', 'oda_oda_mask_damage', 'oda_oda_concrete', 'oda_oda_cloak_concrete', 'oda_oda_no_mask', 'oda_oda_no_gear', 'oda_oda'},
 	['0x7EE3CE36'] = {'clair_bartender','clair_default'},
 	['0x032DA268'] = {'celebrity_chrome_default', 'celebrity_chrome_naked'},
+  ['0x56A63E19'] = {'maman_brigitte_brigitte__default__no_shoes', 'maman_brigitte_no_coat', 'maman_brigitte_no_coat__no_shoes', 'maman_brigitte_cyberspace', 'maman_brigitte_brigitte__default', 'maman_brigitte_burned'},
 	['0xB98FDBB8'] = {'saul_prisoner', 'ma_q116_01_saul_corpse', 'saul_default', 'ma_q116_01_saul_censored_corpse'},
   ['0x215A57FC'] = {'boss__adam_smasher_mb_bossfight_stage_02', 'boss__adam_smasher_mb_2077_quest_appearance', 'boss__adam_smasher_mb_bossfight_stage_00', 'boss__adam_smasher_mm_bossfight_stage_04', 'boss__adam_smasher_mb_bossfight_stage_01', 'boss__adam_smasher_mb_2020_quest_appearance', 'boss__adam_smasher_mb_bossfight_stage_03', 'boss__adam_smasher_mm_bossfight_stage_05'},
 	['0x1CFE06B6'] = {'mechanic_default', 'service__vendor_ma__bls_ina_se1_foodshop_03', 'service__vendor_ma__bls_ina_se1_gunsmith_01', 'service__vendor_ma__bls_ina_se1_junkshop_01', 'service__vendor_ma__bls_ina_se5_foodshop_01', 'service__vendor_ma__bls_ina_se5_junkshop_01', 'service__vendor_ma__braindance_dealer', 'service__vendor_ma__cct_cpz_cloth_02', 'service__vendor_ma__cct_cpz_food_02', 'service__vendor_ma__cct_cpz_foodshop_02', 'service__vendor_ma__cct_dnt_food_02', 'service__vendor_ma__cct_dtn_guns_01', 'service__vendor_ma__hey_gle_foodshop_02', 'service__vendor_ma__hey_gle_gunsmith_01', 'service__vendor_ma__hey_spr_medicstore_01', 'service__vendor_ma__mq013__chinese_vendor', 'service__vendor_ma__mq030__zane_jagger', 'service__vendor_ma__pac_cvi_medicstore_01', 'service__vendor_ma__pac_wwd_melee_01', 'service__vendor_ma__q004__shop_owner', 'service__vendor_ma__q104__gas_station_owner', 'service__vendor_ma__q110__butchershop_clerk', 'service__vendor_ma__q110__e3_stall_vendor', 'service__vendor_ma__sq012__neil_white', 'service__vendor_ma__sq012__neil_white_beat_up', 'service__vendor_ma__std_arr_foodshop_01', 'service__vendor_ma__std_arr_foodshop_03', 'service__vendor_ma__std_arr_medicstore_01', 'service__vendor_ma__std_arr_melee_01', 'service__vendor_ma__street_dealer_m_unicorn', 'service__vendor_ma__sts_wat_kab_06_kana_yakin', 'service__vendor_ma__wat_kab_clothingshop_01', 'service__vendor_ma__wat_kab_foodshop_01', 'service__vendor_ma__wat_kab_foodshop_04', 'service__vendor_ma__wat_kab_gunsmith_01', 'service__vendor_ma__wat_kab_junkshop_01', 'service__vendor_ma__wat_kab_medicstore_01', 'service__vendor_ma__wat_lch_clothingshop_01', 'service__vendor_ma__wat_lch_melee_02', 'service__vendor_ma__wat_nid_gunsmith_01', 'service__vendor_ma__wat_nid_medicstore_01', 'service__vendor_ma__wat_nid_medicstore_02', 'service__vendor_ma__wbr_hil_foodshop_02', 'service__vendor_ma__wbr_ich_foodshop_02', 'service__vendor_ma__wbr_jpn_food_04', 'service__vendor_ma__wbr_jpn_food_05', 'service__vendor_ma__wbr_jpn_guns_01', 'service__vendor_ma__wbr_jpn_junk_01', 'service__vendor_ma__wbr_jpn_junk_03', 'service__vendor_ma__wbr_jpn_medic_01', 'service__vendor_ma__wbr_jpn_medicstore_01', 'service__vendor_ma__wbr_jpn_melee_01', 'service__vendor_ma__wbr_jpn_netrun_01', 'service__vendor_ma__wbr_jpn_netrun_02', 'service__vendor_ma_gun_trainer_01', 'service__vendor_ma_gun_trainer_02', 'service__vendor_ma_vendor_asian_01', 'service__vendor_ma_vendor_asian_02', 'service__vendor_ma_vendor_asian_03', 'service__vendor_ma_vendor_caribbean_02', 'service__vendor_ma_vendor_caribbean_03', 'service__vendor_ma_vendor_caribbean_04', 'service__vendor_ma_vendor_caribbean_05', 'service__vendor_ma_vendor_caribbean_06', 'service__vendor_ma_vendor_caribbean_07', 'service__vendor_ma_vendor_caribbean_08', 'vendors_ma_vendor_ma_02', 'vendors_ma_vendor_ma_04', 'vendors_ma_vendor_ma_05', 'vendors_ma_vendor_ma_06'},
@@ -293,18 +295,20 @@ return {{
 	['0x6B5DB810'] = {'thorton_colby_pickup_nomad_aldecados_01', 'thorton_colby_pickup_nomad_burnt_01', 'thorton_colby_pickup_nomad_deathrace_01', 'thorton_colby_pickup_nomad_player_01', 'thorton_colby_pickup_nomad_wraiths_01'},
 	['0xC8DE5EBD'] = {'thorton_galena_nomad_aldecados_01', 'thorton_galena_nomad_aldecados_02', 'thorton_galena_nomad_burnt_01', 'thorton_galena_nomad_player_01', 'thorton_galena_nomad_scorpion_01', 'thorton_galena_nomad_wraiths_01', 'thorton_galena_nomad_wraiths_02'},
 	['0xDD52292D'] = {'quadra_type66_nomad_aldecados_01', 'quadra_type66_nomad_player_01', 'quadra_type66_nomad_wraiths_01'},
-	['0x18418409'] = {'zetatech_atlus_arasaka_01', 'zetatech_atlus_ncpd_01', 'zetatech_atlus_news_01', 'zetatech_atlus_sq006_stealth_cloaked', 'zetatech_atlus_stealth_01', 'zetatech_atlus_trama_team'}
+	['0x18418409'] = {'zetatech_atlus_arasaka_01', 'zetatech_atlus_ncpd_01', 'zetatech_atlus_news_01', 'zetatech_atlus_sq006_stealth_cloaked', 'zetatech_atlus_stealth_01', 'zetatech_atlus_trama_team'},
+  ['0xBDFE2F92'] = {'zetatech_octant_basic_militech_01', 'zetatech_octant_basic_arasaka_01', 'zetatech_octant_basic_kang_tao_01', 'zetatech_octant_basic_traumateam_01', 'zetatech_octant_basic_border_patrol_01', 'drone_destroyed'},
+  ['0xACE0C2C0'] = {'gang__android_ma_kangtao_droid__lvl2_01', 'corpo__android_ma_arasaka_droid__lvl2_01', 'corpo__android_ma_maxtac_droid__lvl2_01', 'corpo__android_ma_militech_droid__lvl2_01', 'corpo__android_ma_kang_tao_droid__lvl2_01', 'corpo__android_ma_ncpd_droid__lvl1_01'},
 },
 -- Spawnable NPCs --
 {
   ['Category Order'] = { 'Favorites',
     'Main Characters', 'Side Characters', 'Fixer', 'Arasaka', 'Nomad', 'Valentinos', 'Voodoo Boys',
     'Tyger Claws', 'Animals', '6th Street', 'Maelstrom', 'Mox', 'Samurai', 'NCPD', 'Netwatch',
-    'Trauma Team', 'Militech', 'Kang Tao', 'Cyberpsycho', 'Misc. NPCs', 'Vehicles'
+    'Trauma Team', 'Militech', 'Kang Tao', 'Cyberpsycho', 'Cameos', 'Misc. NPCs', 'Vehicles'
   },
 
   ['Main Characters'] = {
-    {"Johnny (can't be companion)", "0xC886A091,0x1D", true},
+    {"Johnny (can't be companion)", "0xC886A091,0x1D", "NonCompanion"},
     {'Judy', 'Character.Judy'},
     {'Panam', 'Character.Panam'},
     {'Rogue', 'Character.Rogue'},
@@ -314,7 +318,7 @@ return {{
     {'VR River', "0x6B0544AD, 0x1A"},
     {'Goro Takemura', 'Character.Takemura'},
     {'Adam Smasher', "0x215A57FC,0x11"},
-    {"Nibbles (can't be companion)", "0x5FAE2DB7,0x12", true},
+    {"Nibbles (can't be companion)", "0x5FAE2DB7,0x12", "NonCompanion"},
   },
 
   ['Side Characters'] = {
@@ -328,24 +332,19 @@ return {{
     {'Skye', "0x22C1341E, 0x1F"},
     {'Lizzy', 'Character.Lizzy_Wizzy'},
     {'Anna Hamill', "0x091A194E,0x24"},
-    {'Sandra Dorsett', "0xE00AE6A0, 0x1D"},
+	  {'Sandra Dorsett', "0xFED8BC69, 0x21"},
     {'Rita Wheeler', "0x8C673561, 0x19"},
     {'Claire', 'Character.Claire'},
-    {'Elizabeth Perez', 'Character.Elizabeth_Peralez'},
+    {'Elizabeth Peralez', 'Character.Elizabeth_Peralez'},
 	  {'Jefferson Peralez', 'Character.Jefferson_Peralez'},
-    {'Rhino', "0x37AEC493,0x15"},
-    {'Hideo Kojima', "0xD84FBA64, 0x1F"},
-    {'Alanah Pearce', "0xE30BF0CF,0x1B"},
-    {'Maiko', "0x4FA1C211,0xF"},
+    {'Maiko', "Character.Maiko"},
     {'Tbug', 'Character.Tbug'},
     {'Dr. Yawen Packard', 'Character.sq021_dr_mitsuko'},
     {'Viktor', "0x717263B6,0x17"},
     {'Misty', 'Character.Misty'},
-    {'Carol', 'Character.Carol'},
     {'Joss Kutcher', 'Character.sq021_joss'},
     {'Ozob', 'Character.Ozob'},
     {'Ziggy Q', 'Character.ziggy_q'},
-    {'Anders Hellman', "0xAE58A115,0x14"},
     {'Hal Cantos', "0x8EEB38EA,0x23"},
     {'Theo Price', "0xA6DB963E,0x1A"},
     {'Rachel', "0x40BE8F8C,0x16"},
@@ -356,7 +355,7 @@ return {{
   	{'John Lucas', "0x63AB71C4,0x15"},
   	{'Daniel Lark', "0x0A54ACEA,0x14"},
   	{'Mayor Lucius Rhyne', "0xF6CD7B81,0x1C"},
-  	{'Deputy Mayor Holt', "0x1928DE24,0x1B"},
+  	{'Deputy Mayor Holt', "Character.sq012_weldon_holt"},
     {'Rick Martinez', "0x6E44C713,0x23"},
     {'Jack Mausser', "0x4C5FDD7D,0x1d"},
     {'Lucas Fletcher', "0xB4A8DF90,0x21"},
@@ -364,6 +363,21 @@ return {{
     {'Ernie Hawkins', "0x1EA1171B,0x21"},
     {'Rosalind Myers', 'Character.rosalind_myers'},
     {'Josh Kavorkin', 'Character.josh_kavorkin'},
+  	{'Spider Murphy', '0x9ECE316C,0x1c'},
+  	{'Martin Tin', '0x8F30A489,0x17'},
+  	{'Huscle', '0x19E738C3,0x1a'},
+  	{'Milt Nauman', '0x195478BA,0x15'},
+    {'Santiago Aldecaldo', '0xB7F35A38,0x12'},
+  	{'Lyle Thompson', '0x036FE531,0x12'},
+  	{'Johnnie Peterson', '0xAC2E069F,0x1a'},
+  	{'Annie Capolino', '0x71DBC9DA,0x1f'},
+  	{'Classified', '0x5B9C4C77,0x29'},
+  	{'Yishen Rhee', '0xDA64A5BA,0x29'},
+  	{'Axel Mankievicz', '0x42ADD3AD,0x27'},
+  	{'Melissa Wellingham', '0x7B2F819E,0x1a'},
+  	{'Freddie Burns', '0xC9CF094B,0x1f'},
+  	{'Oleg Darkevich', '0xCEC1E01D,0x17'},
+
   },
 
   ['Fixer'] = {
@@ -383,6 +397,7 @@ return {{
     {'Mitch', 'Character.Mitch'},
     {'Cassidy', 'Character.Cassidy'},
     {'Scorpion', 'Character.Scorpion'},
+    {'Carol', 'Character.Carol'},
     {'Female Aldecado', "0xB10B15B0, 0x29"},
     {'Male Aldecado', "0x285B9837,0x15"},
     {'Female Grunt', "0x70DFA9B1,0x26"},
@@ -391,12 +406,12 @@ return {{
 
   ['Voodoo Boys'] = {
     {'Placide', "0x10FD17EA,0x11"},
+	  {'Maman Brigitte', 'Character.Voodoo_Queen'},
     {'Voodoo Boy', "0x02162680,0x1E"},
     {'Voodoo Girl', "0x05206611,0x33"},
   },
 
   ['Valentinos'] = {
-  	{'Sebastian Padre Ibarra', "0xA4DC4277,0x0F"},
   	{'Guadalupe Alejandra Welles', "0xA12192C4,0x15"},
   	{'Pepe Najarro', "0x1F388D03,0x19"},
   	{'Lucas Palmer', "0xBF4BDAD2,0x25"},
@@ -422,7 +437,9 @@ return {{
   },
 
   ['Animals'] = {
+    {'Rhino', "0x37AEC493,0x15"},
     {'Sasquatch', 'Character.main_boss_sasquatch'},
+    {'Razor Hugh', 'Character.mq025_razor'},
     {'Mauler', "0x00495AB9,0x2E"},
     {'Raptor', "0x014BFDB5,0x2C"},
     {'Female Undertaker', "0x12E578BE,0x2A"},
@@ -474,12 +491,13 @@ return {{
     {'Henry', 'Character.Henry'},
     {'Nancy', 'Character.Nancy'},
     {'Denny', 'Character.Denny'},
-    {'Kerry', 'Character.Kerry'},
+    {'Kerry', 'Character.Kerry', 'kerry_eurodyne_kerry_eurodyne_old'},
     {'Nix', 'Character.Nix'},
     {'Queen of the Stoop', "0xC4084DBD,0x1E"},
     {'King of the Stoop', "0xAA5ADA15,0x1C"},
     {'Fangirl', "0x2A49F461,0x29"},
     {'Fanboy', "0xAA5ADA15,0x1C"},
+	  {'Roadie', '0x292322DD,0x26'},
   },
 
   ['Arasaka'] = {
@@ -487,7 +505,9 @@ return {{
     {'Michiko', 'Character.Michiko'},
     {'Saburo Arasaka', "0x62F914F8,0x10"},
     {'Yorinobu', 'Character.Yorinobu'},
-    {'Oda', "0x8BA6CC2E,0x21"},
+    {'Oda', "Character.Cyberninja_Oda"},
+    {'Anders Hellman', "0xAE58A115,0x14"},
+    {'Shaitan', "Character.q101_blackhand_minion"},
     {'Stanley Judith', "0xF6E71497,0x2B"},
     {'Frank Nostra', "0xA9E347A8,0x1B"},
     {'Arthur Jenkins', "0xB7860AED,0x1C"},
@@ -502,6 +522,9 @@ return {{
     {'Male Corpo', "0x4569A65B,0x28"},
     {'Female Guard', "0xCD1E5B05,0x28"},
     {'Male Guard', "0x34C3E710,0x25"},
+  	{'Male Agent 2020', '0xDC1DFC9B,0x20'},
+  	{'Female Agent 2020', '0x8D034950,0x24'},
+  	{'Techie', '0x0F3A5D6C,0x1d'},
     {'Sumo', "0x893FECC9,0x2a"},
     {'Classified Data', "0xC5EEB19D,0x26"},
     {'Minotaur', "0x3B4B6A62,0x32"},
@@ -517,6 +540,7 @@ return {{
     {'Female Grunt', "0x07D80BAC,0x24"},
     {'Male Grunt', "0x028484A6,0x1E"},
     {'Maelstrom Strong', "0x072E2A55,0x31"},
+	  {'Maelstrom Cultist', "0x97232201,0x27"},
   },
 
   ['Militech'] = {
@@ -549,6 +573,7 @@ return {{
     {'Rose Horrigan', 'Character.rcr_05_cyberpsycho'},
     {'Dao Hyunh', 'Character.ma_hey_spr_04_cyberpsycho'},
     {'Tamara Cosby', 'Character.ma_std_arr_06_cyberpsycho'},
+    {'Zaria Hughes', 'Character.ma_wat_nid_15_psycho'},
     {'Lieutenant Mower', 'Character.ma_wat_kab_08_cyberpsycho'},
     {'Gaston Phillips', 'Character.ma_hey_spr_06_cyberpsycho'},
     {'Alec Johnson', 'Character.ma_wat_lch_06_cyberpsycho'},
@@ -558,6 +583,12 @@ return {{
     {'Ben DeBaillon', 'Character.ma_pac_cvi_15_cyberpsycho'},
     {'Norio Akuhara', 'Character.ma_cct_dtn_07_cyberpsycho'},
     {'Cedric Muller', 'Character.ma_cct_dtn_03_cyberpsycho'},
+  },
+
+  ['Cameos'] = {
+    {'Hideo Kojima', "0xD84FBA64, 0x1F"},
+    {'Alanah Pearce', "0xE30BF0CF,0x1B"},
+    {'Garry The Prophet (CohhCarnage)', "Character.mq026_prophet"},
   },
 
   ['Misc. NPCs'] = {
@@ -583,7 +614,7 @@ return {{
     {'Male Homeless', "0x6162493B,0x1B"},
     {'Janitor', "0x8C98B5BB,0x20"},
     {'Boxing Android', "0xaa5a437e, 0x1a"},
-    {'Brendan', "0x5AE1D8C8, 0x1A", true},
+    {'Brendan', "0x5AE1D8C8, 0x1A", "NonCompanion"},
   },
 
   ['Vehicles'] = {
@@ -596,5 +627,12 @@ return {{
     {'Kaukaz Bratsk with Trailer', "0x33F61D24,0x29"},
     {'Kazyk Zeya', "0xA1B2CBF0,0x1E"},
     {'Militech Behemoth', "0xDD8B9BC5,0x24"},
+  },
+
+  ['At Your Own Risk'] = {
+    {"Sandra Dorsett (Explosive)", "0xE00AE6A0, 0x1D"},
+    {"AV Manticore", "Vehicle.av_militech_manticore", {distance = 2}},
+    {"AV Excalibur", "Vehicle.av_rayfield_excalibur", {distance = 1}},
+    {"AV Atlus", "Vehicle.av_zetatech_atlus", {distance = 1}},
   },
 }}
