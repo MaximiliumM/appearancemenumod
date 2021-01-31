@@ -406,9 +406,40 @@ function ScanApp:new()
 						ScanApp.spawnAsCompanion = ImGui.Checkbox("Spawn As Companion", ScanApp.spawnAsCompanion)
 						ScanApp.userData['Settings'].openWithOverlay, clicked = ImGui.Checkbox("Open With CET Overlay", ScanApp.userData['Settings'].openWithOverlay)
 						ScanApp.userData['Settings'].autoResizing, clicked = ImGui.Checkbox("Auto-Resizing Window", ScanApp.userData['Settings'].autoResizing)
-						ScanApp.userData['Settings'].experimental, clicked = ImGui.Checkbox("Experimental/Fun stuff", ScanApp.userData['Settings'].experimental)
+						ScanApp.userData['Settings'].experimental, expClicked = ImGui.Checkbox("Experimental/Fun stuff", ScanApp.userData['Settings'].experimental)
+
+						if ScanApp.userData['Settings'].experimental then
+							ImGui.PushItemWidth(95)
+							ScanApp.maxSpawns = ImGui.InputInt("Max Spawns", ScanApp.maxSpawns, 1)
+							ImGui.PopItemWidth()
+						end
 
 						if clicked then ScanApp:SaveToFile() end
+
+						if expClicked then
+							ScanApp:SaveToFile()
+
+							if ScanApp.userData['Settings'].experimental then
+								local sizeX = ImGui.GetWindowSize()
+								local x, y = ImGui.GetWindowPos()
+								ImGui.SetNextWindowPos(x + ((sizeX / 2) - 200), y - 40)
+								ImGui.SetNextWindowSize(400, 200)
+								ImGui.OpenPopup("WARNING")
+							end
+						end
+
+						if ImGui.BeginPopupModal("WARNING") then
+							ImGui.TextWrapped("Are you sure you want to enable experimental features? AMM might not work as expected. Use it at your own risk!")
+							if ImGui.Button("Yes", style.halfButtonWidth - 192, style.buttonHeight) then
+								ImGui.CloseCurrentPopup()
+							end
+							ImGui.SameLine()
+							if ImGui.Button("No", style.halfButtonWidth - 192, style.buttonHeight) then
+								ScanApp.userData['Settings'].experimental = false
+								ImGui.CloseCurrentPopup()
+							end
+							ImGui.EndPopup()
+						end
 
 						ImGui.Separator()
 						ImGui.Spacing()
@@ -425,7 +456,7 @@ function ScanApp:new()
 	 					ImGui.Spacing()
 						ImGui.Separator()
 
-						ImGui.Text("Current Version: 1.5.5")
+						ImGui.Text("Current Version: 1.5.6")
 
 	 					ImGui.EndTabItem()
 	 				end
