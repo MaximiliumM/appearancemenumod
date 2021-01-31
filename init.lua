@@ -842,7 +842,8 @@ function ScanApp:ShouldDrawSaveButton(t)
 		end
 
 		for _, v in pairs(self.userData['Favorites']) do
-			if t.name == v[1] then
+			local favID = tostring(self:GetNPCTweakDBID(v[2])):match("= (%g+),")
+			if t.id == favID then
 				-- NPC is user's favorites
 				return true
 			end

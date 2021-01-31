@@ -4,7 +4,17 @@ local Debug = {
   spawnedIDs = {}
 }
 
-grabbed = ''
+grabbedSense = ''
+grabbedReact = ''
+grabbedVisible = ''
+grabbedBump = ''
+grabbedAIState = ''
+grabbedComf = ''
+grabbedWeak = ''
+grabbedHitReact = ''
+grabbedDismemb = ''
+grabbedTargetTrack = ''
+grabbedNPCCollision = ''
 
 local function toHex(num)
    local hexstr = '0123456789abcdef'
@@ -142,8 +152,42 @@ function Debug.CreateTab(ScanApp, target)
       print("GetCurrentOutline:"..tostring(target.handle:GetCurrentOutline()))
       print("GetBlackboard:"..tostring(target.handle:GetBlackboard()))
       print("IsPlayerAround:"..tostring(target.handle:IsPlayerAround()))
+      print("NPCManager:"..tostring(target.handle.NPCManager))
+      print("GetHitRepresantationSlotComponent:"..tostring(target.handle:GetHitRepresantationSlotComponent()))
+      print("GetSlotComponent:"..tostring(target.handle:GetSlotComponent()))
+      print("GetTransformHistoryComponent:"..tostring(target.handle:GetTransformHistoryComponent()))
+      print("GetAnimationControllerComponent:"..tostring(target.handle:GetAnimationControllerComponent()))
+      print("GetSensorObjectComponent:"..tostring(target.handle:GetSensorObjectComponent()))
+      print("GetVisibleObjectComponent:"..tostring(target.handle:GetVisibleObjectComponent()))
+      print("GetAttitudeAgent:"..tostring(target.handle:GetAttitudeAgent()))
+      print("GetBumpComponent:"..tostring(target.handle:GetBumpComponent()))
+      print("GetStatesComponent:"..tostring(target.handle:GetStatesComponent()))
+      print("ReactionComponent:"..tostring(target.handle.reactionComponent))
       print("GetSenses:"..tostring(target.handle:GetSenses()))
       print("GetAttitude:"..tostring(target.handle:GetAttitude()))
+      print("GetStimBroadcasterComponent:"..tostring(target.handle:GetStimBroadcasterComponent()))
+      print("GetSquadMemberComponent:"..tostring(target.handle:GetSquadMemberComponent()))
+      print("GetStatusEffectComponent:"..tostring(target.handle:GetStatusEffectComponent()))
+      print("GetSourceShootComponent:"..tostring(target.handle:GetSourceShootComponent()))
+      print("GetTargetShootComponent:"..tostring(target.handle:GetTargetShootComponent()))
+      print("GetScavengeComponent:"..tostring(target.handle:GetScavengeComponent()))
+      print("GetInfluenceComponent:"..tostring(target.handle:GetInfluenceComponent()))
+      print("GetComfortZoneComponent:"..tostring(target.handle:GetComfortZoneComponent()))
+      print("GetWeakspotComponent:"..tostring(target.handle:GetWeakspotComponent()))
+      print("GetAIControllerComponent:"..tostring(target.handle:GetAIControllerComponent()))
+      print("GetMovePolicesComponent:"..tostring(target.handle:GetMovePolicesComponent()))
+      print("GetSignalHandlerComponent:"..tostring(target.handle:GetSignalHandlerComponent()))
+      print("GetHitReactionComponent:"..tostring(target.handle:GetHitReactionComponent()))
+      print("GetStimReactionComponent:"..tostring(target.handle:GetStimReactionComponent()))
+      print("GetDismembermentComponent:"..tostring(target.handle:GetDismembermentComponent()))
+      print("GetCrowdMemberComponent:"..tostring(target.handle:GetCrowdMemberComponent()))
+      print("GetTargetTrackerComponent:"..tostring(target.handle:GetTargetTrackerComponent()))
+      print("GetObjectSelectionComponent:"..tostring(target.handle:GetObjectSelectionComponent()))
+      print("npcCollisionComponent:"..tostring(target.handle.npcCollisionComponent))
+      print("npcRagdollComponent:"..tostring(target.handle.npcRagdollComponent))
+      print("aiStateHandlerComponent:"..tostring(target.handle.aiStateHandlerComponent))
+      print("interactionComponent:"..tostring(target.handle.interactionComponent))
+      print("resourceLibraryComponent:"..tostring(target.handle.resourceLibraryComponent))
       print("GetBodyType:"..tostring(target.handle:GetBodyType()))
       print("HasCrowdStaticLOD:"..tostring(target.handle:HasCrowdStaticLOD()))
       print("GetTracedActionName:"..tostring(target.handle:GetTracedActionName()))
@@ -201,6 +245,7 @@ function Debug.CreateTab(ScanApp, target)
 
       AIC:SetAIRole(roleComp)
       targCompanion.movePolicies:Toggle(true)
+      print("set companion")
     end
 
     ImGui.SameLine()
@@ -224,22 +269,56 @@ function Debug.CreateTab(ScanApp, target)
       targetAttAgent:SetAttitudeGroup(CName.new("hostile"))
       reactionComp:SetReactionPreset(GetSingleton("gamedataTweakDBInterface"):GetReactionPresetRecord(TweakDBID.new("ReactionPresets.Ganger_Aggressive")))
 
-      if grabbed ~= '' then
-        GetSingleton("RPGManager"):ApplyAbilityArray(targCompanion, grabbed.Abilities)
-      end
-
-      --npcManager:SetNPCAbilities(grabbed)
-
       reactionComp:TriggerCombat(Game.GetPlayer())
+
+      print("set hostile")
     end
 
     ImGui.SameLine()
     if (ImGui.Button('Do stuff')) then
-      local targCompanion = target.handle
-      local gs = Game.GetGodModeSystem()
-      print(gs:HasGodMode(target.handle:GetEntityID(), 4))
+      if grabbedSense == '' then
+        grabbedSense = target.handle:GetSenses()
+        grabbedReact = target.handle.reactionComponent
+        grabbedBump = target.handle:GetBumpComponent()
+        grabbedVisible = target.handle:GetVisibleObjectComponent()
+        grabbedAIState = target.handle.aiStateHandlerComponent
+        grabbedComf = target.handle:GetComfortZoneComponent()
+        grabbedWeak = target.handle:GetWeakspotComponent()
+        grabbedHitReact = target.handle:GetHitReactionComponent()
+        grabbedDismemb = target.handle:GetDismembermentComponent()
+        grabbedTargetTrack = target.handle:GetTargetTrackerComponent()
+        grabbedNPCCollision = target.handle.npcCollisionComponent
+        print("grabbed")
+      else
+        target.handle.sensesComponent = grabbedSense
+        print(target.handle.sensesComponent)
+        target.handle.reactionComponent = grabbedReact
+        print(target.handle.reactionComponent)
+        target.handle.senseVisibleObjectComponent = grabbedVisible
+        print(target.handle.senseVisibleObjectComponent)
+        target.handle.bumpComponent = grabbedBump
+        print(target.handle.bumpComponent)
+        target.handle.comfortZoneComponent = grabbedComf
+        print(target.handle.comfortZoneComponent)
+        target.handle.weakspotComponent = grabbedWeak
+        print(target.handle.weakspotComponent)
+        target.handle.aiStateHandlerComponent = grabbedAIState
+        print(target.handle.aiStateHandlerComponent)
+        -- target.handle.targetTrackerComponent = grabbedTargetTrack
+        -- print(target.handle.targetTrackerComponent)
+        -- target.handle.npcCollisionComponent = grabbedNPCCollision
+        -- print(target.handle.npcCollisionComponent)
+        -- target.handle.hitReactionComponent = grabbedHitReact
+        -- print(target.handle.hitReactionComponent)
+        -- target.handle.dismembermentComponent = grabbedDismemb
+        -- print(target.handle.dismembermentComponent)
+      end
+    end
 
-
+    ImGui.SameLine()
+    if (ImGui.Button('Send Command')) then
+      local AIC = target.handle:GetAIControllerComponent()
+      AIC:SendCommand(TweakDBID.new("Condition.AISwitchToPrimaryWeaponCommand"))
     end
 
     if (ImGui.BeginChild("Scrolling")) then
