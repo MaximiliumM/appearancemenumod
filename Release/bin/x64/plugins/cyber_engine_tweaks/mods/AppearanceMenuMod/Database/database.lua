@@ -402,6 +402,8 @@ return {{
     {'Male Aldecado', "0x285B9837,0x15"},
     {'Female Grunt', "0x70DFA9B1,0x26"},
     {'Male Grunt', "0x391F5E53,0x23"},
+	{'Sheriff', "0x5F2E2764,0x1c"},
+	{'Mechanic', "0xF4E91F76,0x1d"},
   },
 
   ['Voodoo Boys'] = {
@@ -424,6 +426,7 @@ return {{
   	{'Camilo Castilla', "0xAAF87010,0x21"},
   	{'Sofia Rossi', "0x97C13F1F,0x19"},
   	{'Marcus Barros', "0xE999ECF0,0x19"},
+	{'César Diego Ruiz', "0x6D6BF4CC,0x15"},
   	{'Valentino Bouncer', "0xFEED554A,0x1E"},
   	{'Valentino Female', "0x5AF6ADF0,0x28"},
   	{'Valentino Male', "0x1369AE62,0x21"},
