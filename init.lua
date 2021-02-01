@@ -46,6 +46,7 @@ function ScanApp:new()
 	 ScanApp.maxSpawns = 6
 	 ScanApp.spawnsCounter = 0
 	 ScanApp.spawnAsCompanion = true
+	 ScanApp.isCompanionInvulnerable = true
 	 ScanApp.IsJohnny = false
 	 ScanApp.shouldCheckSavedAppearance = true
 
@@ -329,16 +330,14 @@ function ScanApp:new()
 
 								if spawn.handle ~= '' and not(spawn.handle:IsDead()) then
 
-									if ScanApp:CheckIfCanBeHostile(spawn.handle) then
-										local hostileButtonLabel = "Hostile"
-										if not(spawn.handle.isPlayerCompanionCached) then
-											hostileButtonLabel = "Friendly"
-										end
+									local hostileButtonLabel = "Hostile"
+									if not(spawn.handle.isPlayerCompanionCached) then
+										hostileButtonLabel = "Friendly"
+									end
 
-										ImGui.SameLine()
-										if ImGui.SmallButton(hostileButtonLabel.."##"..spawn.name) then
-											ScanApp:ToggleHostile(spawn)
-										end
+									ImGui.SameLine()
+									if ImGui.SmallButton(hostileButtonLabel.."##"..spawn.name) then
+										ScanApp:ToggleHostile(spawn)
 									end
 								end
 							end
@@ -404,6 +403,7 @@ function ScanApp:new()
 	 					ImGui.Spacing()
 
 						ScanApp.spawnAsCompanion = ImGui.Checkbox("Spawn As Companion", ScanApp.spawnAsCompanion)
+						ScanApp.isCompanionInvulnerable = ImGui.Checkbox("Invulnerable Companion", ScanApp.isCompanionInvulnerable)
 						ScanApp.userData['Settings'].openWithOverlay, clicked = ImGui.Checkbox("Open With CET Overlay", ScanApp.userData['Settings'].openWithOverlay)
 						ScanApp.userData['Settings'].autoResizing, clicked = ImGui.Checkbox("Auto-Resizing Window", ScanApp.userData['Settings'].autoResizing)
 						ScanApp.userData['Settings'].experimental, expClicked = ImGui.Checkbox("Experimental/Fun stuff", ScanApp.userData['Settings'].experimental)
@@ -747,17 +747,30 @@ function ScanApp:GetTarget()
 	return nil
 end
 
-function ScanApp:ToggleHostile(spawn)
+function ScanApp:SetGodMode(entityID, immortal)
 	local gs = Game.GetGodModeSystem()
-	local handle = spawn.handle
 
-	modes = {1, 2, 3, 4, 5}
+	print("setting god mode")
 
-	for _, mode in ipairs(modes) do
-		if gs:HasGodMode(spawn.entityID, mode) then
-			gs:ClearGodMode(spawn.entityID, CName.new("Default"))
+	if immortal then
+		gs:AddGodMode(entityID, 4, CName.new("Default"))
+	else
+
+		modes = {1, 2, 3, 4, 5}
+
+		for _, mode in ipairs(modes) do
+			if gs:HasGodMode(entityID, mode) then
+				gs:ClearGodMode(entityID, CName.new("Default"))
+			end
 		end
 	end
+
+end
+
+function ScanApp:ToggleHostile(spawn)
+	self:SetGodMode(spawn.entityID, false)
+
+	local handle = spawn.handle
 
 	if handle.isPlayerCompanionCached then
 		local AIC = handle:GetAIControllerComponent()
@@ -779,7 +792,6 @@ function ScanApp:ToggleHostile(spawn)
 		reactionComp:SetReactionPreset(GetSingleton("gamedataTweakDBInterface"):GetReactionPresetRecord(TweakDBID.new("ReactionPresets.Ganger_Aggressive")))
 		reactionComp:TriggerCombat(Game.GetPlayer())
 	else
-		gs:AddGodMode(spawn.entityID, 4, CName.new("Default"))
 		self:SetNPCAsCompanion(handle)
 	end
 end
@@ -797,6 +809,10 @@ end
 
 -- Companion methods -- original code by Catmino
 function ScanApp:SetNPCAsCompanion(npcHandle)
+	print("setting companion")
+	if not(self.isCompanionInvulnerable) then
+		self:SetGodMode(npcHandle:GetEntityID(), false)
+	end
 
 	waitTimer = 0.0
 	self.currentSpawn = ''
@@ -826,10 +842,10 @@ function ScanApp:SetNPCAsCompanion(npcHandle)
 end
 
 -- Helper methods
-function ScanApp:CheckIfCanBeHostile(handle)
-	if handle:IsVehicle() then return false end
-	return handle:HasPrimaryOrSecondaryEquipment()
-end
+-- function ScanApp:CheckIfCanBeHostile(handle)
+-- 	if handle:IsVehicle() then return false end
+-- 	return handle:HasPrimaryOrSecondaryEquipment()
+-- end
 
 function ScanApp:ShouldDrawSaveButton(t)
 	if t.handle:IsNPC() then
