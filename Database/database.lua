@@ -194,6 +194,14 @@ return {{
   ['0x893FECC9'] = {'corpo__arasaka_mb_sumo__lvl3_01', 'corpo__arasaka_mb_sumo__lvl3_02'},
   ['0xA85AD6C9,0x11'] = {'fingers_wounded', 'fingers_default', 'fingers_recovered'},
   ['0x5AF6ADF0,0x28'] = {'gang__valentinos_wa_elite__lvl2_02', 'gang__valentinos_wa_grunt__lvl1_02', 'gang__valentinos_wa_grunt__lvl2_03', 'gang__valentinos_wa_grunt__lvl1_03', 'gang__valentinos_wa_grunt__lvl1_04', 'gang__valentinos_wa_grunt__lvl2_02', 'gang__valentinos_wa_grunt__lvl2_01', 'gang__valentinos_wa_elite__lvl2_01', 'gang__valentinos_wa_grunt__lvl1_01', 'gang__valentinos_wa_grunt__lvl1_05', 'gang__valentinos_wa_grunt__lvl2_06', 'gang__valentinos_wa_elite__lvl2_03'},
+  ['0x39AFB71A,0x11'] = {'gang__tyger_wa__sq026__roxanne_casual', 'gang__tyger_wa__sq026__roxanne_combat'},
+  ['0xE9FCE876,0x1d'] = {'citizen__children_mc__sq021__joss_daughter', 'citizen__children_mc__sq021__joss_daughter_piama'},
+  ['0x57648FA9,0x1c'] = {'citizen__children_mc__sq021__joss_son_piama', 'citizen__children_mc__sq021__joss_son'},
+  ['0x6305C053,0x17'] = {'citizen__aldecaldos_ma__sq021__meatman_default', 'citizen__aldecaldos_ma__sq021__meatman_appron'},
+  ['0xCE3CC906,0x17'] = {'peter_sampson_racing', 'peter_sampson_default', 'peter_sampson_racing_no_helmet'},
+  ['0x40DC483F,0x25'] = {'zetatech_bombus__basic_nanny_drone_violet', 'zetatech_bombus__basic_surveillance_police_01', 'zetatech_bombus__basic_surveillance_netwatch_01', 'zetatech_bombus__basic_nanny_drone_white', 'zetatech_bombus__basic_delamain_drone_01', 'zetatech_bombus__basic_surveillance_service_01', 'zetatech_bombus__basic_nanny_drone_blue', 'zetatech_bombus__basic_surveillance_drone_01', 'drone_destroyed'},
+  ['0x074DD2FA,0x19'] = {'sq031__stripper_naked', 'sq031__stripper_bra', 'sq031__stripper', 'sq031__stripper_wounded'},
+  ['0xD51D8883,0x21'] = {'citizen__workout_ma_sts_STS_wat_lch_03_roh_chi_won_recovered', 'citizen__workout_ma_sts_STS_wat_lch_03_roh_chi_won'},
 },
 -- Player Vehicles --
 {
