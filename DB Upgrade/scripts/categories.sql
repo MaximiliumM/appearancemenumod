@@ -1,4 +1,4 @@
-INSERT INTO appearances (entity_id, app_name)
+INSERT INTO categories (cat_name)
 VALUES	('Favorites'),
 		('Main Characters'),
 		('Side Characters'),
