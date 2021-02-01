@@ -1,4 +1,4 @@
-INSERT INTO entities (entity_id, entity_name, cat_id, default_app, can_be_comp)
+INSERT INTO entities (entity_id, entity_name, cat_id, spawn_string, can_be_comp)
 VALUES	('0xC886A091,0x1D', "Johnny (can't be companion')", 2, null, 0),
 		('Character.Judy', 'Judy', 2, null, 1),
 		('Character.Panam','Panam', 2, null, 1),
