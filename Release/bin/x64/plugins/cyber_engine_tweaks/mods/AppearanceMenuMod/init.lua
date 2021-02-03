@@ -5,12 +5,23 @@ ScanApp = {
 	rootPath = "AppearanceMenuMod."
 }
 
+-- ALIAS for string.format --
+local f = string.format
+
 -- Hack: Forces required lua files to reload when using hot reload
 -- Thanks, Architect!
 for k, _ in pairs(package.loaded) do
     if string.match(k, ScanApp.rootPath .. ".*") then
         package.loaded[k] = nil
     end
+end
+
+function intToBool(value)
+	return value > 0 and true or false
+end
+
+function boolToInt(value)
+  return value and 1 or 0
 end
 
 function loadrequire(module)
@@ -31,14 +42,16 @@ function ScanApp:new()
 	 ScanApp.Debug = loadrequire(ScanApp.rootPath.."debug")
 
 	 -- Main Properties --
-	 ScanApp.npcs, ScanApp.vehicles, ScanApp.spawnIDs = ScanApp:GetDB()
-	 ScanApp.userData = ScanApp:GetUserData()
+	 ScanApp.currentDir = ScanApp:GetFolderPath()
+	 ScanApp.db = ScanApp:GetDB()
+	 ScanApp.userDB = ScanApp:GetUserDB()
+	 ScanApp.userSettings = ScanApp:PrepareSettings()
+	 ScanApp.categories = ScanApp:GetCategories()
 	 ScanApp.currentTarget = ''
 	 ScanApp.spawnedNPCs = {}
 	 ScanApp.allowedNPCs = ScanApp:GetSaveables()
 
 	 -- Configs --
-	 ScanApp.currentDir = ScanApp:GetFolderPath()
 	 ScanApp.settings = false
 	 ScanApp.windowWidth = 500
 	 ScanApp.roleComp = ''
@@ -46,6 +59,7 @@ function ScanApp:new()
 	 ScanApp.maxSpawns = 6
 	 ScanApp.spawnsCounter = 0
 	 ScanApp.spawnAsCompanion = true
+	 ScanApp.isCompanionInvulnerable = true
 	 ScanApp.IsJohnny = false
 	 ScanApp.shouldCheckSavedAppearance = true
 
@@ -53,6 +67,11 @@ function ScanApp:new()
 		 waitTimer = 0.0
 		 spamTimer = 0.0
 		 buttonPressed = false
+	 end)
+
+	 registerForEvent("onShutdown", function ()
+	 	ScanApp.db:close()
+		ScanApp.userDB:close()
 	 end)
 
 	 -- Keybinds
@@ -135,7 +154,7 @@ function ScanApp:new()
 	 end)
 
 	 registerForEvent("onOverlayOpen", function()
-		 if ScanApp.userData['Settings'].openWithOverlay then drawWindow = true end
+		 if ScanApp.userSettings.openWithOverlay then drawWindow = true end
 	 end)
 
 	 registerForEvent("onOverlayClose", function()
@@ -147,7 +166,7 @@ function ScanApp:new()
 	 	ImGui.SetNextWindowPos(500, 500, ImGuiCond.FirstUseEver)
 
 		local shouldResize = ImGuiCond.None
-		if not(ScanApp.userData['Settings'].autoResizing) then
+		if not(ScanApp.userSettings.autoResizing) then
 			shouldResize = ImGuiCond.Appearing
 		end
 
@@ -266,7 +285,12 @@ function ScanApp:new()
 
 	 									ImGui.Spacing()
 
-	 									local savedApp = ScanApp.userData[target.type][target.id]
+										local savedApp = nil
+										local query = f("SELECT app_name FROM saved_appearances WHERE entity_id = '%s'", target.id)
+										for app in self.userDB:urows(query) do
+											savedApp = app
+										end
+
 	 									if savedApp ~= nil then
 	 										ImGui.TextColored(0.3, 0.5, 0.7, 1, "Saved Appearance:")
 	 						    		ImGui.Text(savedApp)
@@ -312,13 +336,17 @@ function ScanApp:new()
 								ImGui.Text(spawn.name)
 								ImGui.SameLine()
 
+								local isFavorite = 0
+								for fav in self.userDB:urows(f("SELECT COUNT(1) FROM favorites WHERE entity_id = '%s'", spawn.id)) do
+									isFavorite = fav
+								end
 								local favoriteButtonLabel = "Favorite##"..spawn.name
-								if ScanApp.userData['Favorites'] ~= nil and ScanApp.userData['Favorites'][spawn.name] then
+								if isFavorite ~= 0 then
 									favoriteButtonLabel = "Unfavorite##"..spawn.name
 								end
 
 								if ImGui.SmallButton(favoriteButtonLabel) then
-									ScanApp:ToggleFavorite(favoriteButtonLabel, spawn.name, spawn.id, spawn.parameters)
+									ScanApp:ToggleFavorite(isFavorite, spawn.id)
 								end
 
 								ImGui.SameLine()
@@ -329,16 +357,14 @@ function ScanApp:new()
 
 								if spawn.handle ~= '' and not(spawn.handle:IsDead()) then
 
-									if ScanApp:CheckIfCanBeHostile(spawn.handle) then
-										local hostileButtonLabel = "Hostile"
-										if not(spawn.handle.isPlayerCompanionCached) then
-											hostileButtonLabel = "Friendly"
-										end
+									local hostileButtonLabel = "Hostile"
+									if not(spawn.handle.isPlayerCompanionCached) then
+										hostileButtonLabel = "Friendly"
+									end
 
-										ImGui.SameLine()
-										if ImGui.SmallButton(hostileButtonLabel.."##"..spawn.name) then
-											ScanApp:ToggleHostile(spawn)
-										end
+									ImGui.SameLine()
+									if ImGui.SmallButton(hostileButtonLabel.."##"..spawn.name) then
+										ScanApp:ToggleHostile(spawn)
 									end
 								end
 							end
@@ -347,49 +373,54 @@ function ScanApp:new()
 
 						ImGui.TextColored(0.3, 0.5, 0.7, 1, "Select To Spawn:")
 
-						categoryOrder = ScanApp.spawnIDs['Category Order']
-						if categoryOrder[#categoryOrder] ~= 'At Your Own Risk' and ScanApp.userData['Settings'].experimental then
-							table.insert(categoryOrder, 'At Your Own Risk')
-						end
 
-						for _, category in ipairs(categoryOrder) do
-
-							if(ImGui.CollapsingHeader(category)) then
-								local categoryIDs = {}
-								if self.userData['Favorites'] and next(self.userData['Favorites']) and category == 'Favorites' then
-									for _, fav in pairs(ScanApp.userData['Favorites']) do
-										table.insert(categoryIDs, fav)
+						for categoryID, categoryName in pairs(ScanApp.categories) do
+							if(ImGui.CollapsingHeader(categoryName)) then
+								local entities = {}
+								local noFavorites = true
+								if categoryName == 'Favorites' then
+									local query = "SELECT entity_ID FROM favorites"
+									for favID in ScanApp.userDB:urows(query) do
+										noFavorites = false
+										query = f("SELECT * FROM entities WHERE entity_id = '%s'", favID)
+										for en in ScanApp.db:nrows(query) do
+											table.insert(entities, {en.entity_name, en.entity_id, en.can_be_comp, en.parameters})
+										end
 									end
-								else
-									categoryIDs = ScanApp.spawnIDs[category]
+									if noFavorites then
+										ImGui.Text("It's empty :(")
+									end
 								end
 
-								if categoryIDs then
-									for _, spawnArray in ipairs(categoryIDs) do
-										if type(spawnArray) == 'table' then
-											name = spawnArray[1]
-											id = spawnArray[2]
-											parameters = spawnArray[3]
-											if category == 'Vehicles' then
-												parameters = 'Vehicle'
-											end
-										end
+								local query = f("SELECT * FROM entities WHERE cat_id == '%s'", categoryID)
+								for en in ScanApp.db:nrows(query) do
+									table.insert(entities, {en.entity_name, en.entity_id, en.can_be_comp, en.parameters})
+								end
 
-										local newSpawn = ScanApp:NewSpawn(name, id, parameters)
-										local buttonLabel = newSpawn.uniqueName
-
-										if self.spawnsCounter == self.maxSpawns or (category == 'Favorites' and ScanApp.spawnedNPCs[buttonLabel] and ScanApp.userData['Favorites'][name]) then
-											ImGui.PushStyleColor(ImGuiCol.Button, 0.56, 0.06, 0.03, 0.25)
-											ImGui.PushStyleColor(ImGuiCol.ButtonHovered, 0.56, 0.06, 0.03, 0.25)
-											ImGui.PushStyleColor(ImGuiCol.ButtonActive, 0.56, 0.06, 0.03, 0.25)
-											ScanApp:DrawButton(buttonLabel, style.buttonWidth, style.buttonHeight, "Disabled", nil)
-											ImGui.PopStyleColor(3)
-										elseif ScanApp.spawnedNPCs[buttonLabel] == nil then
-											ScanApp:DrawButton(buttonLabel, style.buttonWidth, style.buttonHeight, "Spawn", newSpawn)
-										end
+								for _, entity in ipairs(entities) do
+									name = entity[1]
+									id = entity[2]
+									companion = intToBool(entity[3])
+									if categoryName == "Vehicles" then
+										parameters = "Vehicles"
+									else
+										parameters = entity[4]
 									end
-								else
-										ImGui.Text("It's empty :(")
+
+									local newSpawn = ScanApp:NewSpawn(name, id, parameters, companion)
+									local buttonLabel = newSpawn.uniqueName
+
+									local isFavorite = self.userDB:execute(f("SELECT COUNT(1) FROM favorites WHERE entity_id = '%s'", id))
+
+									if self.spawnsCounter == self.maxSpawns or (categoryName == 'Favorites' and ScanApp.spawnedNPCs[buttonLabel] and isFavorite ~= 0) then
+										ImGui.PushStyleColor(ImGuiCol.Button, 0.56, 0.06, 0.03, 0.25)
+										ImGui.PushStyleColor(ImGuiCol.ButtonHovered, 0.56, 0.06, 0.03, 0.25)
+										ImGui.PushStyleColor(ImGuiCol.ButtonActive, 0.56, 0.06, 0.03, 0.25)
+										ScanApp:DrawButton(buttonLabel, style.buttonWidth, style.buttonHeight, "Disabled", nil)
+										ImGui.PopStyleColor(3)
+									elseif ScanApp.spawnedNPCs[buttonLabel] == nil then
+										ScanApp:DrawButton(buttonLabel, style.buttonWidth, style.buttonHeight, "Spawn", newSpawn)
+									end
 								end
 							end
 						end
@@ -404,11 +435,44 @@ function ScanApp:new()
 	 					ImGui.Spacing()
 
 						ScanApp.spawnAsCompanion = ImGui.Checkbox("Spawn As Companion", ScanApp.spawnAsCompanion)
-						ScanApp.userData['Settings'].openWithOverlay, clicked = ImGui.Checkbox("Open With CET Overlay", ScanApp.userData['Settings'].openWithOverlay)
-						ScanApp.userData['Settings'].autoResizing, clicked = ImGui.Checkbox("Auto-Resizing Window", ScanApp.userData['Settings'].autoResizing)
-						ScanApp.userData['Settings'].experimental, clicked = ImGui.Checkbox("Experimental/Fun stuff", ScanApp.userData['Settings'].experimental)
+						ScanApp.isCompanionInvulnerable = ImGui.Checkbox("Invulnerable Companion", ScanApp.isCompanionInvulnerable)
+						ScanApp.userSettings.openWithOverlay, clicked = ImGui.Checkbox("Open With CET Overlay", ScanApp.userSettings.openWithOverlay)
+						ScanApp.userSettings.autoResizing, clicked = ImGui.Checkbox("Auto-Resizing Window", ScanApp.userSettings.autoResizing)
+						ScanApp.userSettings.experimental, expClicked = ImGui.Checkbox("Experimental/Fun stuff", ScanApp.userSettings.experimental)
 
-						if clicked then ScanApp:SaveToFile() end
+						if ScanApp.userSettings.experimental then
+							ImGui.PushItemWidth(95)
+							ScanApp.maxSpawns = ImGui.InputInt("Max Spawns", ScanApp.maxSpawns, 1)
+							ImGui.PopItemWidth()
+						end
+
+						if clicked then ScanApp:UpdateSettings() end
+
+						if expClicked then
+							ScanApp:UpdateSettings()
+							ScanApp.categories = ScanApp:GetCategories()
+
+							if ScanApp.userSettings.experimental then
+								local sizeX = ImGui.GetWindowSize()
+								local x, y = ImGui.GetWindowPos()
+								ImGui.SetNextWindowPos(x + ((sizeX / 2) - 200), y - 40)
+								ImGui.SetNextWindowSize(400, 200)
+								ImGui.OpenPopup("WARNING")
+							end
+						end
+
+						if ImGui.BeginPopupModal("WARNING") then
+							ImGui.TextWrapped("Are you sure you want to enable experimental features? AMM might not work as expected. Use it at your own risk!")
+							if ImGui.Button("Yes", style.halfButtonWidth - 192, style.buttonHeight) then
+								ImGui.CloseCurrentPopup()
+							end
+							ImGui.SameLine()
+							if ImGui.Button("No", style.halfButtonWidth - 192, style.buttonHeight) then
+								ScanApp.userSettings.experimental = false
+								ImGui.CloseCurrentPopup()
+							end
+							ImGui.EndPopup()
+						end
 
 						ImGui.Separator()
 						ImGui.Spacing()
@@ -425,7 +489,7 @@ function ScanApp:new()
 	 					ImGui.Spacing()
 						ImGui.Separator()
 
-						ImGui.Text("Current Version: 1.5.5")
+						ImGui.Text("Current Version: 1.5.6")
 
 	 					ImGui.EndTabItem()
 	 				end
@@ -446,13 +510,14 @@ function ScanApp:new()
    return ScanApp
 end
 
-function ScanApp:NewSpawn(name, id, parameters)
+function ScanApp:NewSpawn(name, id, parameters, companion)
 	local obj = {}
 	obj.handle = ''
 	obj.uniqueName = name.."##"..id
 	obj.name = name
 	obj.id = id
 	obj.parameters = parameters
+	obj.canBeCompanion = companion
 	obj.entityID = ''
 	return obj
 end
@@ -483,8 +548,21 @@ function ScanApp:GetFolderPath()
 end
 
 function ScanApp:GetDB()
-	local db = require("AppearanceMenuMod.Database.database")
-	return db[1], db[2], db[3]
+	local db = sqlite3.open(self.currentDir..'\\Database\\database.db')
+	return db
+end
+
+function ScanApp:GetCategories()
+	local query = "SELECT * FROM categories WHERE cat_name != 'At Your Own Risk'"
+	if ScanApp.userSettings.experimental then
+		query = "SELECT * FROM categories"
+	end
+
+	local categories = {}
+	for category in self.db:nrows(query) do
+		categories[category.cat_id] = category.cat_name
+	end
+	return categories
 end
 
 function ScanApp:GetSaveables()
@@ -508,13 +586,15 @@ function ScanApp:SpawnNPC(spawn)
 		local distanceFromPlayer = 1
 		local distanceFromGround = 0
 
-		if spawn.parameters == 'Vehicle' then
-			distanceFromPlayer = -15
-		elseif spawn.parameters == 'NonCompanion' then
+		if spawn.canBeCompanion == false then
 			self.IsJohnny = true
+		end
+
+		if spawn.parameters == "Vehicles" then
+			distanceFromPlayer = -15
 		elseif type(spawn.parameters) == 'table' then
 			distanceFromPlayer = -15
-			distanceFromGround = spawn.parameters.distance
+			distanceFromGround = spawn.parameters.distance or 0
 		end
 
 		local player = Game.GetPlayer()
@@ -548,94 +628,112 @@ function ScanApp:DespawnAll()
 	self.spawnedNPCs = {}
 end
 
-function ScanApp:GetUserData()
+function ScanApp:PrepareSettings()
+	local settings = {}
+	for r in self.userDB:nrows("SELECT * FROM settings") do
+		settings[r.setting_name] = intToBool(r.setting_value)
+	end
+	return settings
+end
+
+function ScanApp:UpdateSettings()
+	for name, value in pairs(self.userSettings) do
+		self.userDB:execute(f("UPDATE settings SET setting_value = %i WHERE setting_name = '%s'", boolToInt(value), name))
+	end
+end
+
+function ScanApp:GetUserDB()
+	local userDB = sqlite3.open(self.currentDir.."\\Database\\user.db")
+	local check = userDB:execute("SELECT COUNT(1) FROM settings")
+
+	if check == 0 then
+		return userDB
+	else
+		-- create empty db
+		setup = loadrequire("AppearanceMenuMod.Database.db_setup")
+		userDB:execute(setup)
+
 		local userPref = loadrequire("AppearanceMenuMod.Database.user")
 		if userPref ~= '' then
-			if userPref['Settings'] == nil then
-				userPref['Settings'] = {openWithOverlay = true, autoResizing = true,  experimental = false}
+			-- do migration
+			local settings = userPref['Settings']
+			for k, v in pairs(settings) do
+				userDB:execute(f("UPDATE settings SET setting_name = '%s', setting_value = %i WHERE setting_name = '%s'", k, boolToInt(v), k))
 			end
-			return userPref
+			local favorites = userPref['Favorites']
+			for k, v in pairs(favorites) do
+				local tdbid = self:GetNPCTweakDBID(v[2])
+				hash = tostring(tdbid):match("= (%g+),")
+		    length = tostring(tdbid):match("= (%g+) }")
+				userDB:execute(f("INSERT INTO favorites (entity_id) VALUES ('%s')", hash..", "..length))
+			end
+			local savedApps = {}
+			for k, v in pairs(userPref['NPC']) do savedApps[k] = v end
+			for k, v in pairs(userPref['Vehicles']) do savedApps[k] = v end
+			for k, v in pairs(savedApps) do
+				for entityID in self.db:urows("SELECT entity_id FROM entities WHERE entity_id LIKE '%"..k.."%'") do
+					userDB:execute(f("INSERT INTO saved_appearances (entity_id, app_name) VALUES ('%s', '%s')", entityID, v))
+				end
+			end
+			return userDB
+		else
+			-- new user
+			return userDB
 		end
-		return {NPC = {}, Vehicles = {}, Favorites = {},
-		Settings = {openWithOverlay = true, autoResizing = true,  experimental = false}}
+	end
 end
 
 function ScanApp:CheckSavedAppearance(t)
-	if next(self.userData) ~= nil then
-		local handle, currentApp, savedApp
-		if t ~= nil then
-			handle = t.handle
-			currentApp = t.appearance
-			savedApp = self.userData[t.type][t.id]
-		else
-			local qm = Game.GetPlayer():GetQuickSlotsManager()
-			handle = qm:GetVehicleObject()
-			if handle ~= nil then
-				local vehicleID = tostring(handle:GetRecordID()):match("= (%g+),")
-				currentApp = self:GetScanAppearance(handle)
-				savedApp = self.userData['Vehicles'][vehicleID]
+	local handle, currentApp, savedApp
+	if t ~= nil then
+		handle = t.handle
+		currentApp = t.appearance
+		for app in self.userDB:urows(f("SELECT app_name FROM saved_appearances WHERE entity_id = '%s'", t.id)) do
+			savedApp = app
+		end
+	else
+		local qm = Game.GetPlayer():GetQuickSlotsManager()
+		handle = qm:GetVehicleObject()
+		if handle ~= nil then
+			local vehicleID = self:GetScanID(handle)
+			currentApp = self:GetScanAppearance(handle)
+			for app in self.userDB:urows(f("SELECT app_name FROM saved_appearances WHERE entity_id = '%s'", vehicleID)) do
+				savedApp = app
 			end
 		end
+	end
 
-		if savedApp ~= nil and savedApp ~= currentApp then
-			handle:ScheduleAppearanceChange(savedApp)
-		end
+	if savedApp ~= nil and savedApp ~= currentApp then
+		self:ChangeScanAppearanceTo(t, savedApp)
 	end
 end
 
 function ScanApp:ClearSavedAppearance(t)
 	if self.currentTarget ~= '' then
 		if t.appearance ~= self.currentTarget.appearance then
-			t.handle:ScheduleAppearanceChange(self.currentTarget.appearance)
+			self:ChangeScanAppearanceTo(t, self.currentTarget.appearance)
 		end
 	end
 
-	self.userData[t.type][t.id] = nil
-	self:SaveToFile()
+	self.userDB:execute(f("DELETE FROM saved_appearances WHERE entity_id = '%s'", t.id))
 
 end
 
 function ScanApp:ClearAllSavedAppearances()
-	self.userData = {NPC = {}, Vehicles = {}, Favorites = {}}
-	self:SaveToFile()
+	self.userDB:execute("DELETE FROM saved_appearances")
 end
 
 
 function ScanApp:SaveAppearance(t)
-	self.userData[t.type][t.id] = t.appearance
-	self:SaveToFile()
-end
-
-
-function ScanApp:SaveToFile()
-	print('[AMM] Saving...')
-	data = 'return {\n'
-
-	for i, j in pairs(self.userData) do
-		data = data..i.." = {"
-		for k,v in pairs(j) do
-			if type(v) == 'table' then
-				data = data.."['"..k.."']".." = {"
-				for _, l in ipairs(v) do
-					if type(l) == 'string' then data = data.."'"..l.."'"..","
-					else data = data..tostring(l).."," end
-				end
-				data = data.."},"
-			else
-				data = data.."['"..k.."']".." = "
-				if type(v) == 'boolean' then data = data..tostring(v)..","
-				else data = data.."'"..v.."'," end
-			end
-		end
-		data = data.."},\n"
+	local check = 0
+	for count in self.userDB:urows(f("SELECT COUNT(1) FROM saved_appearances WHERE entity_id = '%s'", t.id)) do
+		check = count
 	end
-
-	data = data.."}"
-
-	local output = io.open(self.currentDir.."\\Database\\user.lua", "w")
-
-	output:write(data)
-	output:close()
+	if check ~= 0 then
+		self.userDB:execute(f("UPDATE saved_appearances SET app_name = '%s' WHERE entity_id = '%s'", t.appearance, t.id))
+	else
+		self.userDB:execute(f("INSERT INTO saved_appearances (entity_id, app_name) VALUES ('%s', '%s')", t.id, t.appearance))
+	end
 end
 
 function ScanApp:GetNPCName(t)
@@ -648,7 +746,10 @@ function ScanApp:GetVehicleName(t)
 end
 
 function ScanApp:GetScanID(t)
-	return tostring(t:GetRecordID()):match("= (%g+),")
+	tdbid = t:GetRecordID()
+	hash = tostring(tdbid):match("= (%g+),")
+	length = tostring(tdbid):match("= (%g+) }")
+	return hash..", "..length
 end
 
 function ScanApp:SetCurrentTarget(t)
@@ -665,21 +766,22 @@ end
 
 function ScanApp:GetAppearanceOptions(t)
 	scanID = self:GetScanID(t)
+	local options = {}
 
 	if t:IsNPC() then
 		if t:GetRecord():CrowdAppearanceNames()[1] ~= nil then
-			local options = {}
 			for _, app in ipairs(t:GetRecord():CrowdAppearanceNames()) do
 				table.insert(options, tostring(app):match("%[ (%g+) -"))
 			end
 			return options
-		elseif self.npcs[scanID] ~= nil then
-			return self.npcs[scanID] -- array of appearances names
 		end
-	elseif t:IsVehicle() then
-		if self.vehicles[scanID] ~= nil then
-			return self.vehicles[scanID]
-		end
+	end
+
+	for app in self.db:urows(f("SELECT app_name FROM appearances WHERE entity_id = '%s'", scanID)) do
+		table.insert(options, app)
+	end
+	if next(options) ~= nil then
+		return options -- array of appearances names
 	end
 
 	return nil
@@ -716,17 +818,30 @@ function ScanApp:GetTarget()
 	return nil
 end
 
-function ScanApp:ToggleHostile(spawn)
+function ScanApp:SetGodMode(entityID, immortal)
 	local gs = Game.GetGodModeSystem()
-	local handle = spawn.handle
 
-	modes = {1, 2, 3, 4, 5}
+	print("setting god mode")
 
-	for _, mode in ipairs(modes) do
-		if gs:HasGodMode(spawn.entityID, mode) then
-			gs:ClearGodMode(spawn.entityID, CName.new("Default"))
+	if immortal then
+		gs:AddGodMode(entityID, 4, CName.new("Default"))
+	else
+
+		modes = {1, 2, 3, 4, 5}
+
+		for _, mode in ipairs(modes) do
+			if gs:HasGodMode(entityID, mode) then
+				gs:ClearGodMode(entityID, CName.new("Default"))
+			end
 		end
 	end
+
+end
+
+function ScanApp:ToggleHostile(spawn)
+	self:SetGodMode(spawn.entityID, false)
+
+	local handle = spawn.handle
 
 	if handle.isPlayerCompanionCached then
 		local AIC = handle:GetAIControllerComponent()
@@ -748,24 +863,24 @@ function ScanApp:ToggleHostile(spawn)
 		reactionComp:SetReactionPreset(GetSingleton("gamedataTweakDBInterface"):GetReactionPresetRecord(TweakDBID.new("ReactionPresets.Ganger_Aggressive")))
 		reactionComp:TriggerCombat(Game.GetPlayer())
 	else
-		gs:AddGodMode(spawn.entityID, 4, CName.new("Default"))
 		self:SetNPCAsCompanion(handle)
 	end
 end
 
-function ScanApp:ToggleFavorite(sender, name, id, parameters)
-	if sender == 'Favorite##'..name then
-		if self.userData['Favorites'] == nil then self.userData['Favorites'] = {} end
-		self.userData['Favorites'][name] = {name, id, parameters}
+function ScanApp:ToggleFavorite(isFavorite, id)
+	if isFavorite == 0 then
+		self.userDB:execute(f("INSERT INTO favorites (entity_id) VALUES ('%s')", id))
 	else
-		self.userData['Favorites'][name] = nil
+		self.userDB:execute(f("DELETE FROM favorites WHERE entity_id = '%s'", id))
 	end
-
-	self:SaveToFile()
 end
 
 -- Companion methods -- original code by Catmino
 function ScanApp:SetNPCAsCompanion(npcHandle)
+	print("setting companion")
+	if not(self.isCompanionInvulnerable) then
+		self:SetGodMode(npcHandle:GetEntityID(), false)
+	end
 
 	waitTimer = 0.0
 	self.currentSpawn = ''
@@ -795,10 +910,10 @@ function ScanApp:SetNPCAsCompanion(npcHandle)
 end
 
 -- Helper methods
-function ScanApp:CheckIfCanBeHostile(handle)
-	if handle:IsVehicle() then return false end
-	return handle:HasPrimaryOrSecondaryEquipment()
-end
+-- function ScanApp:CheckIfCanBeHostile(handle)
+-- 	if handle:IsVehicle() then return false end
+-- 	return handle:HasPrimaryOrSecondaryEquipment()
+-- end
 
 function ScanApp:ShouldDrawSaveButton(t)
 	if t.handle:IsNPC() then
@@ -810,8 +925,9 @@ function ScanApp:ShouldDrawSaveButton(t)
 			end
 		end
 
-		for _, v in pairs(self.userData['Favorites']) do
-			if t.name == v[1] then
+		local query = "SELECT entity_ID FROM favorites"
+		for favID in self.userDB:urows(query) do
+			if t.id == favID then
 				-- NPC is user's favorites
 				return true
 			end

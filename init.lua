@@ -16,6 +16,10 @@ for k, _ in pairs(package.loaded) do
     end
 end
 
+function intToBool(value)
+	return value > 0 and true or false
+end
+
 function boolToInt(value)
   return value and 1 or 0
 end
@@ -396,7 +400,7 @@ function ScanApp:new()
 								for _, entity in ipairs(entities) do
 									name = entity[1]
 									id = entity[2]
-									companion = entity[3]
+									companion = intToBool(entity[3])
 									if categoryName == "Vehicles" then
 										parameters = "Vehicles"
 									else
@@ -627,7 +631,7 @@ end
 function ScanApp:PrepareSettings()
 	local settings = {}
 	for r in self.userDB:nrows("SELECT * FROM settings") do
-		settings[r.setting_name] = r.setting_value > 0 and true or false
+		settings[r.setting_name] = intToBool(r.setting_value)
 	end
 	return settings
 end
