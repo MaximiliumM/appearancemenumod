@@ -1,7 +1,11 @@
 local Debug = {
   debugIDs = {},
   sortedDebugIDs = {},
-  spawnedIDs = {}
+  spawnedIDs = {},
+  name = '',
+  canBeCompanion = true,
+  defaultApp = false,
+  selectedCategory = {cat_id = 1, cat_name = "Main Characters"}
 }
 
 grabbedSense = ''
@@ -16,6 +20,10 @@ grabbedDismemb = ''
 grabbedTargetTrack = ''
 grabbedNPCCollision = ''
 
+local function boolToInt(value)
+  return value and 1 or 0
+end
+
 local function toHex(num)
    local hexstr = '0123456789abcdef'
    local s = ''
@@ -28,12 +36,19 @@ local function toHex(num)
    return s
 end
 
-local function getTableSize(t)
-    local count = 0
-    for _, __ in pairs(t) do
-        count = count + 1
+local function prepareValuesForDB(array)
+  values = ''
+  for i, value in ipairs(array) do
+    if value ~= '' then
+      values = values..string.format("'%s'", value)
+    else
+      values = values..'NULL'
     end
-    return count
+    if i ~= #array then
+      values = values..', '
+    end
+  end
+  return values
 end
 
 input = ''
@@ -42,12 +57,7 @@ function Debug.CreateTab(ScanApp, target)
   if (ImGui.BeginTabItem("Debug")) then
     ScanApp.settings = false
 
-    local clipboard = ImGui.GetClipboardText()
-    if clipboard:len() < 50 then
-      input = clipboard
-    end
-
-    input = ImGui.InputTextWithHint("TweakDBID", 'Insert TweakDBID to Spawn', input, 80)
+    input = ImGui.InputTextWithHint("TweakDBID", 'Insert TweakDBID to Spawn', input, 60)
     tdbid = input
 
     ImGui.SameLine()
@@ -72,16 +82,58 @@ function Debug.CreateTab(ScanApp, target)
 
     ImGui.Separator()
 
-    local recordID = tostring(target.handle:GetRecordID())
-    local hash = recordID:match("= (%g+),")
-    local length = toHex(tonumber(recordID:match("= (%g+) }")))
-    local tdbid = hash..",0x"..length
-    local app = ScanApp:GetScanAppearance(target.handle)
+    if target ~= nil then
+      targetName = target.handle:GetTweakDBFullDisplayName(true)
+      recordID = tostring(target.handle:GetRecordID())
+      hash = recordID:match("= (%g+),")
+      length = tonumber(recordID:match("= (%g+) }"))
+      tdbid = hash..", "..length
+      app = ScanApp:GetScanAppearance(target.handle)
+      path = ""
+      parameters = ""
 
-    ImGui.Spacing()
 
-    ImGui.InputText("ID", tdbid, 100, ImGuiInputTextFlags.ReadOnly)
-    ImGui.InputText("AppString", app, 100, ImGuiInputTextFlags.ReadOnly)
+      ImGui.Spacing()
+
+      if Debug.name ~= '' then
+        targetName = Debug.name
+      end
+
+      targetName, selected = ImGui.InputText("Name", targetName, 100)
+      if selected then
+        Debug.name = targetName
+      end
+
+      ImGui.InputText("ID", tdbid, 100, ImGuiInputTextFlags.ReadOnly)
+
+      if not(target.handle:IsNPC()) then
+        Debug.canBeCompanion = false
+      end
+
+      ImGui.SameLine()
+      Debug.canBeCompanion = ImGui.Checkbox("Companion", Debug.canBeCompanion)
+
+      ImGui.InputText("App", app, 100, ImGuiInputTextFlags.ReadOnly)
+      ImGui.SameLine()
+      Debug.defaultApp, clicked = ImGui.Checkbox("Is Default", Debug.defaultApp)
+
+      if Debug.defaultApp then
+        parameters = app
+      end
+
+      ImGui.InputText("Path", path, 100)
+      ImGui.InputText("Parameters", parameters, 100)
+
+      if ImGui.BeginCombo("Category", Debug.selectedCategory.cat_name) then
+        for category in ScanApp.db:nrows("SELECT * FROM categories WHERE cat_name != 'Favorites'") do
+          if ImGui.Selectable(category.cat_name, (category == Debug.selectedCategory.cat_name)) then
+              Debug.selectedCategory = category
+          end
+        end
+        ImGui.EndCombo()
+      end
+
+    end
 
     ImGui.Spacing()
 
@@ -114,9 +166,8 @@ function Debug.CreateTab(ScanApp, target)
       local hash = recordID:match("= (%g+),")
       local length = toHex(tonumber(recordID:match("= (%g+) }")))
       local tdbid = hash..",0x"..length
-      local targetName = target.handle:GetTweakDBFullDisplayName(true)
-      print(targetName..": "..tdbid.." -- Added to clipboard")
-      ImGui.SetClipboardText("{'"..targetName.."', TweakDBID.new("..tdbid..")},")
+      print(targetName..": "..tdbid)
+      ImGui.SetClipboardText("{'"..targetName.."', '"..tdbid.."'},")
     end
 
     ImGui.SameLine()
@@ -214,10 +265,8 @@ function Debug.CreateTab(ScanApp, target)
     end
 
     ImGui.SameLine()
-    if (ImGui.Button('Save IDs to file')) then
-      print("TDBID: "..tdbid.." -- Added to clipboard")
-      ImGui.SetClipboardText(tdbid)
-      Debug.LogToFile(ScanApp.currentDir)
+    if (ImGui.Button('Save to Database')) then
+      Debug.SaveToDatabase(ScanApp.db)
     end
 
     ImGui.Spacing()
@@ -321,6 +370,21 @@ function Debug.CreateTab(ScanApp, target)
       AIC:SendCommand(TweakDBID.new("Condition.AISwitchToPrimaryWeaponCommand"))
     end
 
+    if (ImGui.Button('Add to DB')) then
+      values = string.format("'%s', '%s', '%s', '%s', '%s', '%s'", tdbid, targetName, Debug.selectedCategory.cat_id, parameters, boolToInt(Debug.canBeCompanion), path)
+      values = values:gsub("''", "NULL")
+      ScanApp.db:execute("INSERT INTO entities (entity_id, entity_name, cat_id, parameters, can_be_comp, entity_path) VALUES ("..values..")")
+      ScanApp.db:close()
+      Debug.Log("DB Closed. Reload all mods to open DB again.")
+    end
+
+    ImGui.SameLine()
+    if (ImGui.Button('Close DB')) then
+      ScanApp.db:close()
+      ScanApp.userDB:close()
+      Debug.Log("DB Closed. Reload all mods to open DB again.")
+    end
+
     if (ImGui.BeginChild("Scrolling")) then
       for id, appArray in pairs(Debug.sortedDebugIDs) do
           if(ImGui.CollapsingHeader(id)) then
@@ -343,7 +407,7 @@ function Debug.SpawnNPC(tdbid)
   if type(tdbid) ~= 'userdata' then
     tdbid = TweakDBID.new(tdbid)
   end
-  print("[AMM Debug] "..tostring(tdbid))
+  Debug.Log(tostring(tdbid))
 	local player = Game.GetPlayer()
 	local heading = player:GetWorldForward()
 	local offsetDir = Vector3.new(heading.x, heading.y, heading.z)
@@ -363,22 +427,17 @@ function Debug.DespawnAll()
 end
 
 function Debug.Log(input)
-    print("[AMM_Settings] "..input)
+    print("[AMM Debug] "..input)
 end
 
-function Debug.LogToFile(path)
-	print("[AMM_Settings] Saving IDs to file")
-
-	local data = ''
-
-	for i,v in pairs(Debug.sortedDebugIDs) do
-	    data = data.."['"..i.."']".." = {'"..table.concat(v,"', '").."'},\n"
-	end
-
-	local output = io.open(path.."\\debug_ids.lua", "a")
-
-	output:write(data)
-	output:close()
+function Debug.SaveToDatabase(db)
+  for id, appArray in pairs(Debug.sortedDebugIDs) do
+    for _, app in ipairs(appArray) do
+	    db:execute(string.format("INSERT INTO appearances (entity_id, app_name) VALUES ('%s', '%s')", id, app))
+    end
+  end
+  Debug.Log("Added to database")
+  db:close()
 end
 
 return Debug
