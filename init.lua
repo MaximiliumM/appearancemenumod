@@ -896,9 +896,11 @@ end
 
 function ScanApp:ToggleFavorite(isFavorite, entity)
 	if isFavorite == 0 then
-		self.userDB:execute(f("INSERT INTO favorites (entity_id, parameters) VALUES ('%s', '%s')", entity.id, entity.parameters))
+		local command = f("INSERT INTO favorites (entity_id, parameters) VALUES ('%s', '%s')", entity.id, entity.parameters)
+		command = command:gsub("''", "NULL")
+		self.userDB:execute(command)
 	else
-		self.userDB:execute(f("DELETE FROM favorites WHERE entity_id = '%s'", id))
+		self.userDB:execute(f("DELETE FROM favorites WHERE entity_id = '%s'", entity.id))
 	end
 end
 
