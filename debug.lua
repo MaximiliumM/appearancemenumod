@@ -52,6 +52,8 @@ local function prepareValuesForDB(array)
 end
 
 input = ''
+path = ""
+parameters = ""
 
 function Debug.CreateTab(ScanApp, target)
   if (ImGui.BeginTabItem("Debug")) then
@@ -83,15 +85,16 @@ function Debug.CreateTab(ScanApp, target)
     ImGui.Separator()
 
     if target ~= nil then
-      targetName = target.handle:GetTweakDBFullDisplayName(true)
+      if target.handle:IsNPC() then
+        targetName = target.handle:GetTweakDBFullDisplayName(true)
+      elseif target.handle:IsVehicle() then
+        targetName = target.handle:GetDisplayName()
+      end
       recordID = tostring(target.handle:GetRecordID())
       hash = recordID:match("= (%g+),")
       length = tonumber(recordID:match("= (%g+) }"))
       tdbid = hash..", "..length
       app = ScanApp:GetScanAppearance(target.handle)
-      path = ""
-      parameters = ""
-
 
       ImGui.Spacing()
 
@@ -121,8 +124,8 @@ function Debug.CreateTab(ScanApp, target)
         parameters = app
       end
 
-      ImGui.InputText("Path", path, 100)
-      ImGui.InputText("Parameters", parameters, 100)
+      path = ImGui.InputText("Path", path, 100)
+      parameters = ImGui.InputText("Parameters", parameters, 100)
 
       if ImGui.BeginCombo("Category", Debug.selectedCategory.cat_name) then
         for category in ScanApp.db:nrows("SELECT * FROM categories WHERE cat_name != 'Favorites'") do
@@ -141,18 +144,20 @@ function Debug.CreateTab(ScanApp, target)
     if (ImGui.Button("Cycle")) then
       ScanApp:ChangeScanAppearanceTo(target, 'Cycle')
       app = ScanApp:GetScanAppearance(target.handle)
-      Debug.debugIDs[app] = tdbid
-      -- Add new ID
-      output = {}
-      for i,v in pairs(Debug.debugIDs) do
-          if output[v] == nil then
-              output[v] = {}
-          end
+      if app ~= 'Cycle' then
+        Debug.debugIDs[app] = tdbid
+        -- Add new ID
+        output = {}
+        for i,v in pairs(Debug.debugIDs) do
+            if output[v] == nil then
+                output[v] = {}
+            end
 
-          table.insert(output[v], i)
+            table.insert(output[v], i)
+        end
+
+        Debug.sortedDebugIDs = output
       end
-
-      Debug.sortedDebugIDs = output
     end
 
     ImGui.SameLine()
@@ -265,8 +270,15 @@ function Debug.CreateTab(ScanApp, target)
     end
 
     ImGui.SameLine()
-    if (ImGui.Button('Save to Database')) then
-      Debug.SaveToDatabase(ScanApp.db)
+    if (ImGui.Button('Save Appearances')) then
+      for id, appArray in pairs(Debug.sortedDebugIDs) do
+        for _, app in ipairs(appArray) do
+    	    ScanApp.db:execute(string.format("INSERT INTO appearances (entity_id, app_name) VALUES ('%s', '%s')", id, app))
+        end
+      end
+      Debug.Log("Added appearances to database")
+      ScanApp.db:close()
+      ScanApp.db = ScanApp:GetDB()
     end
 
     ImGui.Spacing()
@@ -375,7 +387,8 @@ function Debug.CreateTab(ScanApp, target)
       values = values:gsub("''", "NULL")
       ScanApp.db:execute("INSERT INTO entities (entity_id, entity_name, cat_id, parameters, can_be_comp, entity_path) VALUES ("..values..")")
       ScanApp.db:close()
-      Debug.Log("DB Closed. Reload all mods to open DB again.")
+      ScanApp.db = ScanApp:GetDB()
+      Debug.Log("Added '"..targetName.."' to DB")
     end
 
     ImGui.SameLine()
@@ -387,7 +400,7 @@ function Debug.CreateTab(ScanApp, target)
 
     if (ImGui.BeginChild("Scrolling")) then
       for id, appArray in pairs(Debug.sortedDebugIDs) do
-          if(ImGui.CollapsingHeader(id)) then
+          if(ImGui.CollapsingHeader(id.." || Total Apps: "..#appArray)) then
             for _, app in pairs(appArray) do
               if (ImGui.Button(app)) then
                 print("AppString: "..app.." -- Added to clipboard")
@@ -428,16 +441,6 @@ end
 
 function Debug.Log(input)
     print("[AMM Debug] "..input)
-end
-
-function Debug.SaveToDatabase(db)
-  for id, appArray in pairs(Debug.sortedDebugIDs) do
-    for _, app in ipairs(appArray) do
-	    db:execute(string.format("INSERT INTO appearances (entity_id, app_name) VALUES ('%s', '%s')", id, app))
-    end
-  end
-  Debug.Log("Added to database")
-  db:close()
 end
 
 return Debug

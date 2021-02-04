@@ -170,15 +170,14 @@ function ScanApp:new()
 			shouldResize = ImGuiCond.Appearing
 		end
 
-	 	if ScanApp.Debug ~= '' then
-	 		ImGui.SetNextWindowSize(800, 400)
-	 	elseif (target ~= nil) and (target.options ~= nil) or (ScanApp.settings == true) then
-	 		ImGui.SetNextWindowSize(ScanApp.windowWidth, 400, shouldResize)
-	 	else
-	 		ImGui.SetNextWindowSize(ScanApp.windowWidth, 160, shouldResize)
-	 	end
-
 	 	if(drawWindow) then
+				if ScanApp.Debug ~= '' then
+					ImGui.SetNextWindowSize(800, 600)
+				elseif (target ~= nil) and (target.options ~= nil) or (ScanApp.settings == true) then
+					ImGui.SetNextWindowSize(ScanApp.windowWidth, 400, shouldResize)
+				else
+					ImGui.SetNextWindowSize(ScanApp.windowWidth, 160, shouldResize)
+				end
 
 	 			-- Target Setup --
 	 			target = ScanApp:GetTarget()
@@ -392,12 +391,12 @@ function ScanApp:new()
 									end
 								end
 
-								local query = f("SELECT * FROM entities WHERE cat_id == '%s'", categoryID)
+								local query = f("SELECT * FROM entities WHERE cat_id == '%s' ORDER BY entity_name ASC", categoryID)
 								for en in ScanApp.db:nrows(query) do
 									table.insert(entities, {en.entity_name, en.entity_id, en.can_be_comp, en.parameters})
 								end
 
-								for _, entity in ipairs(entities) do
+								for i, entity in ipairs(entities) do
 									name = entity[1]
 									id = entity[2]
 									companion = intToBool(entity[3])
@@ -410,16 +409,32 @@ function ScanApp:new()
 									local newSpawn = ScanApp:NewSpawn(name, id, parameters, companion)
 									local buttonLabel = newSpawn.uniqueName
 
-									local isFavorite = self.userDB:execute(f("SELECT COUNT(1) FROM favorites WHERE entity_id = '%s'", id))
+									local favOffset = 0
+									if categoryName == 'Favorites' then
+										favOffset = 40
+
+										ScanApp:DrawArrowButton("up", id, i)
+										ImGui.SameLine()
+									end
+
+									local isFavorite = 0
+									for fav in self.userDB:urows(f("SELECT COUNT(1) FROM favorites WHERE entity_id = '%s'", id)) do
+										isFavorite = fav
+									end
 
 									if self.spawnsCounter == self.maxSpawns or (categoryName == 'Favorites' and ScanApp.spawnedNPCs[buttonLabel] and isFavorite ~= 0) then
 										ImGui.PushStyleColor(ImGuiCol.Button, 0.56, 0.06, 0.03, 0.25)
 										ImGui.PushStyleColor(ImGuiCol.ButtonHovered, 0.56, 0.06, 0.03, 0.25)
 										ImGui.PushStyleColor(ImGuiCol.ButtonActive, 0.56, 0.06, 0.03, 0.25)
-										ScanApp:DrawButton(buttonLabel, style.buttonWidth, style.buttonHeight, "Disabled", nil)
+										ScanApp:DrawButton(buttonLabel, style.buttonWidth - favOffset, style.buttonHeight, "Disabled", nil)
 										ImGui.PopStyleColor(3)
 									elseif ScanApp.spawnedNPCs[buttonLabel] == nil then
-										ScanApp:DrawButton(buttonLabel, style.buttonWidth, style.buttonHeight, "Spawn", newSpawn)
+										ScanApp:DrawButton(buttonLabel, style.buttonWidth - favOffset, style.buttonHeight, "Spawn", newSpawn)
+									end
+
+									if categoryName == 'Favorites' then
+										ImGui.SameLine()
+										ScanApp:DrawArrowButton("down", id, i)
 									end
 								end
 							end
@@ -877,7 +892,7 @@ end
 
 -- Companion methods -- original code by Catmino
 function ScanApp:SetNPCAsCompanion(npcHandle)
-	print("setting companion")
+	-- print("setting companion")
 	if not(self.isCompanionInvulnerable) then
 		self:SetGodMode(npcHandle:GetEntityID(), false)
 	end
@@ -941,6 +956,30 @@ function ScanApp:ShouldDrawSaveButton(t)
 	end
 
 	return false
+end
+
+function ScanApp:DrawArrowButton(direction, id, index)
+	local dirEnum, tempPos
+	if direction == "up" then
+		dirEnum = ImGuiDir.Up
+		tempPos = index - 1
+	else
+		dirEnum = ImGuiDir.Down
+		tempPos = index + 1
+	end
+
+	local query = "SELECT COUNT(1) FROM favorites"
+	for x in self.userDB:urows(query) do favoritesLength = x end
+
+	if ImGui.ArrowButton(direction..id, dirEnum) then
+		if not(tempPos < 1 or tempPos > favoritesLength) then
+			local query = f("SELECT entity_id FROM favorites WHERE position = %i", tempPos)
+			for favID in self.userDB:urows(query) do tempID = favID end
+
+			self.userDB:execute(f("UPDATE favorites SET entity_id = '%s' WHERE position = %i", id, tempPos))
+			self.userDB:execute(f("UPDATE favorites SET entity_id = '%s' WHERE position = %i", tempID, index))
+		end
+	end
 end
 
 function ScanApp:DrawButton(title, width, height, action, target)
