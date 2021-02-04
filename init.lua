@@ -312,6 +312,7 @@ function ScanApp:new()
 											if spawnID ~= nil then
 												ImGui.SameLine()
 												local favoritesLabels = {"  Add to Spawnable Favorites  ", "  Remove from Spawnable Favorites  "}
+												target.id = spawnID
 												ScanApp:DrawFavoritesButton(favoritesLabels, target)
 											end
 
@@ -900,7 +901,7 @@ function ScanApp:ToggleFavorite(isFavorite, entity)
 		command = command:gsub("''", "NULL")
 		self.userDB:execute(command)
 	else
-		self.userDB:execute(f("DELETE FROM favorites WHERE entity_id = '%s'", entity.id))
+		self.userDB:execute(f("DELETE FROM favorites WHERE entity_id = '%s' OR parameters = '%s'", entity.id, entity.parameters))
 	end
 end
 
@@ -958,9 +959,17 @@ function ScanApp:IsSpawnable(t)
 
 		if #possibleEntities ~= 0 then
 			for _, pEntID in ipairs(possibleEntities) do
-				query = f("SELECT entity_id FROM entities WHERE entity_ID = '%s'", pEntID)
-				for entID in self.db:urows(query) do
-					spawnableID = entID
+				local count = 0
+				query = f("SELECT COUNT(1) FROM favorites WHERE entity_ID = '%s'", pEntID)
+				for found in self.userDB:urows(query) do
+					count = found
+				end
+
+				if count == 0 then
+					query = f("SELECT entity_id FROM entities WHERE entity_ID = '%s'", pEntID)
+					for entID in self.db:urows(query) do
+						spawnableID = entID
+					end
 				end
 			end
 		end
@@ -998,9 +1007,18 @@ function ScanApp:ShouldDrawSaveButton(t)
 end
 
 function ScanApp:DrawFavoritesButton(buttonLabels, entity)
+	if entity.parameters == nil then
+		entity['parameters'] = entity.appearance
+	end
+
 	local isFavorite = 0
 	for fav in self.userDB:urows(f("SELECT COUNT(1) FROM favorites WHERE entity_id = '%s'", entity.id)) do
 		isFavorite = fav
+	end
+	if isFavorite == 0 then
+		for fav in self.userDB:urows(f("SELECT COUNT(1) FROM favorites WHERE parameters = '%s'", entity.parameters)) do
+			isFavorite = fav
+		end
 	end
 	local favoriteButtonLabel = buttonLabels[1].."##"..entity.name
 	if isFavorite ~= 0 then
@@ -1009,9 +1027,6 @@ function ScanApp:DrawFavoritesButton(buttonLabels, entity)
 
 	ImGui.SameLine()
 	if ImGui.SmallButton(favoriteButtonLabel) then
-		if entity.parameters == nil then
-			entity['parameters'] = entity.appearance
-		end
 		ScanApp:ToggleFavorite(isFavorite, entity)
 	end
 end
