@@ -955,7 +955,7 @@ function ScanApp:IsSpawnable(t)
 		end
 
 		if #possibleEntities ~= 0 then
-			for pEntID in ipairs(possibleEntities) do
+			for _, pEntID in ipairs(possibleEntities) do
 				query = f("SELECT entity_id FROM entities WHERE entity_ID = '%s'", pEntID)
 				for entID in self.db:urows(query) do
 					spawnableID = entID
