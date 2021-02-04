@@ -14,6 +14,7 @@ CREATE TABLE "saved_appearances" (
 CREATE TABLE "favorites" (
 	"position"	INTEGER NOT NULL UNIQUE,
 	"entity_id"	TEXT,
+	"parameters" TEXT,
 	PRIMARY KEY("position" AUTOINCREMENT)
 );
 

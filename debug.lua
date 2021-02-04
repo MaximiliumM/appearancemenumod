@@ -2,10 +2,11 @@ local Debug = {
   debugIDs = {},
   sortedDebugIDs = {},
   spawnedIDs = {},
+  lastTarget = '',
   name = '',
   canBeCompanion = true,
   defaultApp = false,
-  selectedCategory = {cat_id = 1, cat_name = "Main Characters"}
+  selectedCategory = {cat_id = 0, cat_name = "Select NPC Category"}
 }
 
 grabbedSense = ''
@@ -102,6 +103,15 @@ function Debug.CreateTab(ScanApp, target)
         targetName = Debug.name
       end
 
+      if Debug.lastTarget == '' then
+        Debug.lastTarget = target
+      elseif target.id ~= Debug.lastTarget.id then
+        Debug.lastTarget = target
+        Debug.selectedCategory = {cat_id = 0, cat_name = "Select NPC Category"}
+        path = ""
+        parameters = ""
+      end
+
       targetName, selected = ImGui.InputText("Name", targetName, 100)
       if selected then
         Debug.name = targetName
@@ -175,14 +185,14 @@ function Debug.CreateTab(ScanApp, target)
       ImGui.SetClipboardText("{'"..targetName.."', '"..tdbid.."'},")
     end
 
-    ImGui.SameLine()
+    ImGui.Spacing()
+
     if (ImGui.Button('Get Display Name')) then
       print(tostring(target.handle:GetTweakDBFullDisplayName(true)).." -- Added to clipboard")
       ImGui.SetClipboardText(tostring(target.handle:GetTweakDBFullDisplayName(true)))
     end
 
-    ImGui.Spacing()
-
+    ImGui.SameLine()
     if (ImGui.Button('Get Appearances')) then
       if target.handle:IsNPC() then
         local array = target.handle:GetRecord():CrowdAppearanceNames()
@@ -267,18 +277,6 @@ function Debug.CreateTab(ScanApp, target)
       print("IsActive:"..tostring(target.handle:IsActive()))
       print("CanBeTagged:"..tostring(target.handle:CanBeTagged()))
       print("IsQuest:"..tostring(target.handle:IsQuest()))
-    end
-
-    ImGui.SameLine()
-    if (ImGui.Button('Save Appearances')) then
-      for id, appArray in pairs(Debug.sortedDebugIDs) do
-        for _, app in ipairs(appArray) do
-    	    ScanApp.db:execute(string.format("INSERT INTO appearances (entity_id, app_name) VALUES ('%s', '%s')", id, app))
-        end
-      end
-      Debug.Log("Added appearances to database")
-      ScanApp.db:close()
-      ScanApp.db = ScanApp:GetDB()
     end
 
     ImGui.Spacing()
@@ -376,19 +374,37 @@ function Debug.CreateTab(ScanApp, target)
       end
     end
 
-    ImGui.SameLine()
+    ImGui.Spacing()
+
     if (ImGui.Button('Send Command')) then
       local AIC = target.handle:GetAIControllerComponent()
       AIC:SendCommand(TweakDBID.new("Condition.AISwitchToPrimaryWeaponCommand"))
     end
 
-    if (ImGui.Button('Add to DB')) then
-      values = string.format("'%s', '%s', '%s', '%s', '%s', '%s'", tdbid, targetName, Debug.selectedCategory.cat_id, parameters, boolToInt(Debug.canBeCompanion), path)
-      values = values:gsub("''", "NULL")
-      ScanApp.db:execute("INSERT INTO entities (entity_id, entity_name, cat_id, parameters, can_be_comp, entity_path) VALUES ("..values..")")
+    ImGui.SameLine()
+    if (ImGui.Button('Save Appearances')) then
+      for id, appArray in pairs(Debug.sortedDebugIDs) do
+        for _, app in ipairs(appArray) do
+          ScanApp.db:execute(string.format("INSERT INTO appearances (entity_id, app_name) VALUES ('%s', '%s')", id, app))
+        end
+      end
+      Debug.Log("Added appearances to database")
       ScanApp.db:close()
       ScanApp.db = ScanApp:GetDB()
-      Debug.Log("Added '"..targetName.."' to DB")
+    end
+
+    ImGui.SameLine()
+    if (ImGui.Button('Add to DB')) then
+      if Debug.selectedCategory.cat_id == 0 then
+        Debug.Log("ERROR: Select NPC category before adding to DB")
+      else
+        values = string.format("'%s', '%s', '%s', '%s', '%s', '%s'", tdbid, targetName, Debug.selectedCategory.cat_id, parameters, boolToInt(Debug.canBeCompanion), path)
+        values = values:gsub("''", "NULL")
+        ScanApp.db:execute("INSERT INTO entities (entity_id, entity_name, cat_id, parameters, can_be_comp, entity_path) VALUES ("..values..")")
+        ScanApp.db:close()
+        ScanApp.db = ScanApp:GetDB()
+        Debug.Log("Added '"..targetName.."' to DB")
+      end
     end
 
     ImGui.SameLine()

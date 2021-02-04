@@ -135,14 +135,20 @@ function ScanApp:new()
 						local handle = Game.FindEntityByID(ScanApp.spawnedNPCs[ScanApp.currentSpawn].entityID)
 						if handle then
 							ScanApp.spawnedNPCs[ScanApp.currentSpawn].handle = handle
-							if handle:IsNPC() and ScanApp.spawnAsCompanion then
+							if handle:IsNPC() then
 								if ScanApp.spawnedNPCs[ScanApp.currentSpawn].parameters ~= nil then
 									ScanApp:ChangeScanAppearanceTo(ScanApp.spawnedNPCs[ScanApp.currentSpawn], ScanApp.spawnedNPCs[ScanApp.currentSpawn].parameters)
 								end
-								ScanApp:SetNPCAsCompanion(handle)
+								if ScanApp.spawnAsCompanion then
+									ScanApp:SetNPCAsCompanion(handle)
+								else
+									ScanApp.currentSpawn = ''
+								end
 							elseif handle:IsVehicle() then
 								handle:GetVehiclePS():UnlockAllVehDoors()
 								waitTimer = 0.0
+								ScanApp.currentSpawn = ''
+							else
 								ScanApp.currentSpawn = ''
 							end
 						end
@@ -172,7 +178,7 @@ function ScanApp:new()
 
 	 	if(drawWindow) then
 				if ScanApp.Debug ~= '' then
-					ImGui.SetNextWindowSize(800, 600)
+					ImGui.SetNextWindowSize(600, 700)
 				elseif (target ~= nil) and (target.options ~= nil) or (ScanApp.settings == true) then
 					ImGui.SetNextWindowSize(ScanApp.windowWidth, 400, shouldResize)
 				else
@@ -300,7 +306,17 @@ function ScanApp:new()
 	 									ImGui.Separator()
 
 	 						    	if target.options ~= nil then
-	 						    		ImGui.TextColored(0.3, 0.5, 0.7, 1, target.name)
+	 						    		ImGui.TextColored(0.3, 0.5, 0.7, 1, target.name.."   ")
+
+											local spawnID = ScanApp:IsSpawnable(target)
+											if spawnID ~= nil then
+												ImGui.SameLine()
+												local favoritesLabels = {"  Add to Spawnable Favorites  ", "  Remove from Spawnable Favorites  "}
+												ScanApp:DrawFavoritesButton(favoritesLabels, target)
+											end
+
+											ImGui.Separator()
+
 	 							    	if (ImGui.BeginChild("Scrolling")) then
 	 								    	for i, appearance in ipairs(target.options) do
 	 								    		x, y = ImGui.CalcTextSize(appearance)
@@ -332,24 +348,20 @@ function ScanApp:new()
 							ImGui.TextColored(0.3, 0.5, 0.7, 1, "Active Spawns "..ScanApp.spawnsCounter.."/"..ScanApp.maxSpawns)
 
 							for _, spawn in pairs(ScanApp.spawnedNPCs) do
-								ImGui.Text(spawn.name)
+								local nameLabel = spawn.name
+								if not(spawn.canBeCompanion) then nameLabel = spawn.name:match("(.+) %((.+)") end
+								ImGui.Text(nameLabel)
+
+								local favoritesLabels = {"Favorite", "Unfavorite"}
+								ScanApp:DrawFavoritesButton(favoritesLabels, spawn)
+
 								ImGui.SameLine()
-
-								local isFavorite = 0
-								for fav in self.userDB:urows(f("SELECT COUNT(1) FROM favorites WHERE entity_id = '%s'", spawn.id)) do
-									isFavorite = fav
-								end
-								local favoriteButtonLabel = "Favorite##"..spawn.name
-								if isFavorite ~= 0 then
-									favoriteButtonLabel = "Unfavorite##"..spawn.name
-								end
-
-								if ImGui.SmallButton(favoriteButtonLabel) then
-									ScanApp:ToggleFavorite(isFavorite, spawn.id)
+								if ImGui.SmallButton("Respawn##"..spawn.name) then
+									ScanApp:DespawnNPC(spawn.uniqueName, spawn.entityID)
+									ScanApp:SpawnNPC(spawn)
 								end
 
 								ImGui.SameLine()
-
 								if ImGui.SmallButton("Despawn##"..spawn.name) then
 									ScanApp:DespawnNPC(spawn.uniqueName, spawn.entityID)
 								end
@@ -378,15 +390,15 @@ function ScanApp:new()
 								local entities = {}
 								local noFavorites = true
 								if categoryName == 'Favorites' then
-									local query = "SELECT entity_ID FROM favorites"
-									for favID in ScanApp.userDB:urows(query) do
-										noFavorites = false
-										query = f("SELECT * FROM entities WHERE entity_id = '%s'", favID)
+									local query = "SELECT * FROM favorites"
+									for fav in ScanApp.userDB:nrows(query) do
+										query = f("SELECT * FROM entities WHERE entity_id = '%s'", fav.entity_id)
 										for en in ScanApp.db:nrows(query) do
+											if fav.parameters ~= nil then en.parameters = fav.parameters end
 											table.insert(entities, {en.entity_name, en.entity_id, en.can_be_comp, en.parameters})
 										end
 									end
-									if noFavorites then
+									if #entities == 0 then
 										ImGui.Text("It's empty :(")
 									end
 								end
@@ -882,9 +894,9 @@ function ScanApp:ToggleHostile(spawn)
 	end
 end
 
-function ScanApp:ToggleFavorite(isFavorite, id)
+function ScanApp:ToggleFavorite(isFavorite, entity)
 	if isFavorite == 0 then
-		self.userDB:execute(f("INSERT INTO favorites (entity_id) VALUES ('%s')", id))
+		self.userDB:execute(f("INSERT INTO favorites (entity_id, parameters) VALUES ('%s', '%s')", entity.id, entity.parameters))
 	else
 		self.userDB:execute(f("DELETE FROM favorites WHERE entity_id = '%s'", id))
 	end
@@ -925,10 +937,35 @@ function ScanApp:SetNPCAsCompanion(npcHandle)
 end
 
 -- Helper methods
--- function ScanApp:CheckIfCanBeHostile(handle)
--- 	if handle:IsVehicle() then return false end
--- 	return handle:HasPrimaryOrSecondaryEquipment()
--- end
+function ScanApp:IsSpawnable(t)
+	local spawnableID = nil
+
+	if t.handle:IsNPC() then
+		query = f("SELECT entity_id FROM entities WHERE entity_id = '%s'", t.id)
+		for entID in self.db:urows(query) do
+			spawnableID = entID
+		end
+
+		local possibleEntities = {}
+		if spawnableID == nil then
+			query = f("SELECT entity_id FROM appearances WHERE app_name = '%s'", t.appearance)
+			for entID in self.db:urows(query) do
+				table.insert(possibleEntities, entID)
+			end
+		end
+
+		if #possibleEntities ~= 0 then
+			for pEntID in ipairs(possibleEntities) do
+				query = f("SELECT entity_id FROM entities WHERE entity_ID = '%s'", pEntID)
+				for entID in self.db:urows(query) do
+					spawnableID = entID
+				end
+			end
+		end
+
+		return spawnableID
+	end
+end
 
 function ScanApp:ShouldDrawSaveButton(t)
 	if t.handle:IsNPC() then
@@ -956,6 +993,25 @@ function ScanApp:ShouldDrawSaveButton(t)
 	end
 
 	return false
+end
+
+function ScanApp:DrawFavoritesButton(buttonLabels, entity)
+	local isFavorite = 0
+	for fav in self.userDB:urows(f("SELECT COUNT(1) FROM favorites WHERE entity_id = '%s'", entity.id)) do
+		isFavorite = fav
+	end
+	local favoriteButtonLabel = buttonLabels[1].."##"..entity.name
+	if isFavorite ~= 0 then
+		favoriteButtonLabel = buttonLabels[2].."##"..entity.name
+	end
+
+	ImGui.SameLine()
+	if ImGui.SmallButton(favoriteButtonLabel) then
+		if entity.parameters == nil then
+			entity['parameters'] = entity.appearance
+		end
+		ScanApp:ToggleFavorite(isFavorite, entity)
+	end
 end
 
 function ScanApp:DrawArrowButton(direction, id, index)
