@@ -646,7 +646,7 @@ function ScanApp:DespawnNPC(npcName, spawnID)
 	self.spawnsCounter = self.spawnsCounter - 1
 	local handle = Game.FindEntityByID(spawnID)
 	if handle then handle:Dispose() end
-	--Game.GetPreventionSpawnSystem():RequestDespawn(spawnID)
+	Game.GetPreventionSpawnSystem():RequestDespawn(spawnID)
 end
 
 function ScanApp:DespawnAll()
