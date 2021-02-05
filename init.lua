@@ -964,7 +964,12 @@ end
 
 -- Helper methods
 function ScanApp:CanBeHostile(t)
-	return t:GetRecord():AbilitiesContains(GetSingleton("gamedataTweakDBInterface"):GetGameplayAbilityRecord(TweakDBID.new("Ability.CanCloseCombat")))
+	local canBeHostile = t:GetRecord():AbilitiesContains(GetSingleton("gamedataTweakDBInterface"):GetGameplayAbilityRecord(TweakDBID.new("Ability.CanCloseCombat")))
+	if not(canBeHostile) then
+		canBeHostile = t:GetRecord():AbilitiesContains(GetSingleton("gamedataTweakDBInterface"):GetGameplayAbilityRecord(TweakDBID.new("Ability.HasChargeJump")))
+	end
+
+	return canBeHostile
 end
 
 function ScanApp:IsSpawnable(t)
