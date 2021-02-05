@@ -49,11 +49,13 @@ function ScanApp:new()
 	 ScanApp.categories = ScanApp:GetCategories()
 	 ScanApp.currentTarget = ''
 	 ScanApp.spawnedNPCs = {}
+	 ScanApp.entitiesForRespawn = ''
 	 ScanApp.allowedNPCs = ScanApp:GetSaveables()
+	 ScanApp.searchQuery = ''
 
 	 -- Configs --
 	 ScanApp.settings = false
-	 ScanApp.windowWidth = 500
+	 ScanApp.windowWidth = 600
 	 ScanApp.roleComp = ''
 	 ScanApp.currentSpawn = ''
 	 ScanApp.maxSpawns = 6
@@ -66,7 +68,9 @@ function ScanApp:new()
 	 registerForEvent("onInit", function()
 		 waitTimer = 0.0
 		 spamTimer = 0.0
+		 respawnTimer = 0.0
 		 buttonPressed = false
+		 respawnAllPressed = false
 	 end)
 
 	 registerForEvent("onShutdown", function ()
@@ -104,6 +108,10 @@ function ScanApp:new()
 		end
 	 end)
 
+	 registerHotkey("amm_respawn_all", "Respawn All", function()
+	 	ScanApp:RespawnAll()
+	 end)
+
 	 registerForEvent("onUpdate", function(deltaTime)
 
 		 		-- Load Saved Appearance --
@@ -128,11 +136,41 @@ function ScanApp:new()
 					end
 				end
 
+				if respawnAllPressed then
+					if ScanApp.entitiesForRespawn == '' then
+						ScanApp.entitiesForRespawn = {}
+						for _, ent in pairs(ScanApp.spawnedNPCs) do
+							table.insert(ScanApp.entitiesForRespawn, ent)
+						end
+					else
+						if respawnTimer == 0 then
+							for _, ent in ipairs(ScanApp.entitiesForRespawn) do
+								ScanApp:DespawnNPC(ent.uniqueName, ent.entityID)
+							end
+						end
+
+						respawnTimer = respawnTimer + deltaTime
+
+						if respawnTimer > 0.2 then
+							ent = ScanApp.entitiesForRespawn[1]
+							table.remove(ScanApp.entitiesForRespawn, 1)
+							ScanApp:SpawnNPC(ent)
+
+							if #ScanApp.entitiesForRespawn == 0 then
+								ScanApp.entitiesForRespawn = ''
+								respawnAllPressed = false
+								respawnTimer = 0.0
+							end
+						end
+					end
+				end
+
 				if ScanApp.currentSpawn ~= '' and not(ScanApp.IsJohnny) then
 					waitTimer = waitTimer + deltaTime
 					-- print('trying to set companion')
 					if waitTimer > 0.2 then
 						local handle = Game.FindEntityByID(ScanApp.spawnedNPCs[ScanApp.currentSpawn].entityID)
+
 						if handle then
 							ScanApp.spawnedNPCs[ScanApp.currentSpawn].handle = handle
 							if handle:IsNPC() then
@@ -180,7 +218,7 @@ function ScanApp:new()
 				if ScanApp.Debug ~= '' then
 					ImGui.SetNextWindowSize(600, 700)
 				elseif (target ~= nil) and (target.options ~= nil) or (ScanApp.settings == true) then
-					ImGui.SetNextWindowSize(ScanApp.windowWidth, 400, shouldResize)
+					ImGui.SetNextWindowSize(ScanApp.windowWidth, 700, shouldResize)
 				else
 					ImGui.SetNextWindowSize(ScanApp.windowWidth, 160, shouldResize)
 				end
@@ -345,6 +383,10 @@ function ScanApp:new()
 					if (ImGui.BeginTabItem("Spawn")) then
 						ScanApp.settings = true
 
+						ScanApp.searchQuery = ImGui.InputTextWithHint(" ", "Search", ScanApp.searchQuery, 100)
+
+						ImGui.Separator()
+
 						if next(ScanApp.spawnedNPCs) ~= nil then
 							ImGui.TextColored(0.3, 0.5, 0.7, 1, "Active Spawns "..ScanApp.spawnsCounter.."/"..ScanApp.maxSpawns)
 
@@ -367,7 +409,7 @@ function ScanApp:new()
 									ScanApp:DespawnNPC(spawn.uniqueName, spawn.entityID)
 								end
 
-								if spawn.handle ~= '' and not(spawn.handle:IsDead()) then
+								if spawn.handle ~= '' and not(spawn.handle:IsDead()) and ScanApp:CanBeHostile(spawn.handle) then
 
 									local hostileButtonLabel = "Hostile"
 									if not(spawn.handle.isPlayerCompanionCached) then
@@ -385,70 +427,43 @@ function ScanApp:new()
 
 						ImGui.TextColored(0.3, 0.5, 0.7, 1, "Select To Spawn:")
 
+						if ScanApp.searchQuery ~= '' then
+							local entities = {}
+							local query = "SELECT * FROM entities WHERE entity_name LIKE '"..ScanApp.searchQuery.."%' ORDER BY entity_name ASC"
+							for en in ScanApp.db:nrows(query) do
+								table.insert(entities, {en.entity_name, en.entity_id, en.can_be_comp, en.parameters})
+							end
 
-						for categoryID, categoryName in pairs(ScanApp.categories) do
-							if(ImGui.CollapsingHeader(categoryName)) then
-								local entities = {}
-								local noFavorites = true
-								if categoryName == 'Favorites' then
-									local query = "SELECT * FROM favorites"
-									for fav in ScanApp.userDB:nrows(query) do
-										query = f("SELECT * FROM entities WHERE entity_id = '%s'", fav.entity_id)
-										for en in ScanApp.db:nrows(query) do
-											if fav.parameters ~= nil then en.parameters = fav.parameters end
-											table.insert(entities, {en.entity_name, en.entity_id, en.can_be_comp, en.parameters})
+							if #entities ~= 0 then
+								ScanApp:DrawEntitiesButtons(entities, 'ALL', style)
+							else
+								ImGui.Text("No Results")
+							end
+						else
+							for categoryID, categoryName in pairs(ScanApp.categories) do
+								if(ImGui.CollapsingHeader(categoryName)) then
+									local entities = {}
+									local noFavorites = true
+									if categoryName == 'Favorites' then
+										local query = "SELECT * FROM favorites"
+										for fav in ScanApp.userDB:nrows(query) do
+											query = f("SELECT * FROM entities WHERE entity_id = '%s'", fav.entity_id)
+											for en in ScanApp.db:nrows(query) do
+												if fav.parameters ~= nil then en.parameters = fav.parameters end
+												table.insert(entities, {en.entity_name, en.entity_id, en.can_be_comp, en.parameters})
+											end
+										end
+										if #entities == 0 then
+											ImGui.Text("It's empty :(")
 										end
 									end
-									if #entities == 0 then
-										ImGui.Text("It's empty :(")
-									end
-								end
 
-								local query = f("SELECT * FROM entities WHERE cat_id == '%s' ORDER BY entity_name ASC", categoryID)
-								for en in ScanApp.db:nrows(query) do
-									table.insert(entities, {en.entity_name, en.entity_id, en.can_be_comp, en.parameters})
-								end
-
-								for i, entity in ipairs(entities) do
-									name = entity[1]
-									id = entity[2]
-									companion = intToBool(entity[3])
-									if categoryName == "Vehicles" then
-										parameters = "Vehicles"
-									else
-										parameters = entity[4]
+									local query = f("SELECT * FROM entities WHERE cat_id == '%s' ORDER BY entity_name ASC", categoryID)
+									for en in ScanApp.db:nrows(query) do
+										table.insert(entities, {en.entity_name, en.entity_id, en.can_be_comp, en.parameters})
 									end
 
-									local newSpawn = ScanApp:NewSpawn(name, id, parameters, companion)
-									local buttonLabel = newSpawn.uniqueName
-
-									local favOffset = 0
-									if categoryName == 'Favorites' then
-										favOffset = 40
-
-										ScanApp:DrawArrowButton("up", id, i)
-										ImGui.SameLine()
-									end
-
-									local isFavorite = 0
-									for fav in self.userDB:urows(f("SELECT COUNT(1) FROM favorites WHERE entity_id = '%s'", id)) do
-										isFavorite = fav
-									end
-
-									if self.spawnsCounter == self.maxSpawns or (categoryName == 'Favorites' and ScanApp.spawnedNPCs[buttonLabel] and isFavorite ~= 0) then
-										ImGui.PushStyleColor(ImGuiCol.Button, 0.56, 0.06, 0.03, 0.25)
-										ImGui.PushStyleColor(ImGuiCol.ButtonHovered, 0.56, 0.06, 0.03, 0.25)
-										ImGui.PushStyleColor(ImGuiCol.ButtonActive, 0.56, 0.06, 0.03, 0.25)
-										ScanApp:DrawButton(buttonLabel, style.buttonWidth - favOffset, style.buttonHeight, "Disabled", nil)
-										ImGui.PopStyleColor(3)
-									elseif ScanApp.spawnedNPCs[buttonLabel] == nil then
-										ScanApp:DrawButton(buttonLabel, style.buttonWidth - favOffset, style.buttonHeight, "Spawn", newSpawn)
-									end
-
-									if categoryName == 'Favorites' then
-										ImGui.SameLine()
-										ScanApp:DrawArrowButton("down", id, i)
-									end
+									ScanApp:DrawEntitiesButtons(entities, categoryName, style)
 								end
 							end
 						end
@@ -504,7 +519,11 @@ function ScanApp:new()
 
 						ImGui.Separator()
 						ImGui.Spacing()
+						if (ImGui.Button("Respawn All")) then
+	 						ScanApp:RespawnAll()
+	 					end
 
+						ImGui.SameLine()
 						if (ImGui.Button("Force Despawn All")) then
 	 						ScanApp:DespawnAll()
 	 					end
@@ -654,6 +673,10 @@ function ScanApp:DespawnAll()
 	Game.GetPreventionSpawnSystem():RequestDespawnPreventionLevel(-1)
 	self.spawnsCounter = 0
 	self.spawnedNPCs = {}
+end
+
+function ScanApp:RespawnAll()
+	 respawnAllPressed = true
 end
 
 function ScanApp:PrepareSettings()
@@ -849,7 +872,7 @@ end
 function ScanApp:SetGodMode(entityID, immortal)
 	local gs = Game.GetGodModeSystem()
 
-	print("setting god mode")
+	-- print("setting god mode")
 
 	if immortal then
 		gs:AddGodMode(entityID, 4, CName.new("Default"))
@@ -940,6 +963,10 @@ function ScanApp:SetNPCAsCompanion(npcHandle)
 end
 
 -- Helper methods
+function ScanApp:CanBeHostile(t)
+	return t:GetRecord():AbilitiesContains(GetSingleton("gamedataTweakDBInterface"):GetGameplayAbilityRecord(TweakDBID.new("Ability.CanCloseCombat")))
+end
+
 function ScanApp:IsSpawnable(t)
 	local spawnableID = nil
 
@@ -1025,7 +1052,6 @@ function ScanApp:DrawFavoritesButton(buttonLabels, entity)
 		favoriteButtonLabel = buttonLabels[2].."##"..entity.name
 	end
 
-	ImGui.SameLine()
 	if ImGui.SmallButton(favoriteButtonLabel) then
 		ScanApp:ToggleFavorite(isFavorite, entity)
 	end
@@ -1066,6 +1092,50 @@ function ScanApp:DrawButton(title, width, height, action, target)
 		elseif action == "Spawn" then
 			ScanApp:SpawnNPC(target)
 			buttonPressed = true
+		end
+	end
+end
+
+function ScanApp:DrawEntitiesButtons(entities, categoryName, style)
+	for i, entity in ipairs(entities) do
+		name = entity[1]
+		id = entity[2]
+		companion = intToBool(entity[3])
+		if categoryName == "Vehicles" then
+			parameters = "Vehicles"
+		else
+			parameters = entity[4]
+		end
+
+		local newSpawn = ScanApp:NewSpawn(name, id, parameters, companion)
+		local buttonLabel = newSpawn.uniqueName
+
+		local favOffset = 0
+		if categoryName == 'Favorites' then
+			favOffset = 40
+
+			ScanApp:DrawArrowButton("up", id, i)
+			ImGui.SameLine()
+		end
+
+		local isFavorite = 0
+		for fav in self.userDB:urows(f("SELECT COUNT(1) FROM favorites WHERE entity_id = '%s'", id)) do
+			isFavorite = fav
+		end
+
+		if self.spawnsCounter == self.maxSpawns or (categoryName == 'Favorites' and ScanApp.spawnedNPCs[buttonLabel] and isFavorite ~= 0) then
+			ImGui.PushStyleColor(ImGuiCol.Button, 0.56, 0.06, 0.03, 0.25)
+			ImGui.PushStyleColor(ImGuiCol.ButtonHovered, 0.56, 0.06, 0.03, 0.25)
+			ImGui.PushStyleColor(ImGuiCol.ButtonActive, 0.56, 0.06, 0.03, 0.25)
+			ScanApp:DrawButton(buttonLabel, style.buttonWidth - favOffset, style.buttonHeight, "Disabled", nil)
+			ImGui.PopStyleColor(3)
+		elseif ScanApp.spawnedNPCs[buttonLabel] == nil then
+			ScanApp:DrawButton(buttonLabel, style.buttonWidth - favOffset, style.buttonHeight, "Spawn", newSpawn)
+		end
+
+		if categoryName == 'Favorites' then
+			ImGui.SameLine()
+			ScanApp:DrawArrowButton("down", id, i)
 		end
 	end
 end

@@ -335,43 +335,12 @@ function Debug.CreateTab(ScanApp, target)
 
     ImGui.SameLine()
     if (ImGui.Button('Do stuff')) then
-      if grabbedSense == '' then
-        grabbedSense = target.handle:GetSenses()
-        grabbedReact = target.handle.reactionComponent
-        grabbedBump = target.handle:GetBumpComponent()
-        grabbedVisible = target.handle:GetVisibleObjectComponent()
-        grabbedAIState = target.handle.aiStateHandlerComponent
-        grabbedComf = target.handle:GetComfortZoneComponent()
-        grabbedWeak = target.handle:GetWeakspotComponent()
-        grabbedHitReact = target.handle:GetHitReactionComponent()
-        grabbedDismemb = target.handle:GetDismembermentComponent()
-        grabbedTargetTrack = target.handle:GetTargetTrackerComponent()
-        grabbedNPCCollision = target.handle.npcCollisionComponent
-        print("grabbed")
-      else
-        target.handle.sensesComponent = grabbedSense
-        print(target.handle.sensesComponent)
-        target.handle.reactionComponent = grabbedReact
-        print(target.handle.reactionComponent)
-        target.handle.senseVisibleObjectComponent = grabbedVisible
-        print(target.handle.senseVisibleObjectComponent)
-        target.handle.bumpComponent = grabbedBump
-        print(target.handle.bumpComponent)
-        target.handle.comfortZoneComponent = grabbedComf
-        print(target.handle.comfortZoneComponent)
-        target.handle.weakspotComponent = grabbedWeak
-        print(target.handle.weakspotComponent)
-        target.handle.aiStateHandlerComponent = grabbedAIState
-        print(target.handle.aiStateHandlerComponent)
-        -- target.handle.targetTrackerComponent = grabbedTargetTrack
-        -- print(target.handle.targetTrackerComponent)
-        -- target.handle.npcCollisionComponent = grabbedNPCCollision
-        -- print(target.handle.npcCollisionComponent)
-        -- target.handle.hitReactionComponent = grabbedHitReact
-        -- print(target.handle.hitReactionComponent)
-        -- target.handle.dismembermentComponent = grabbedDismemb
-        -- print(target.handle.dismembermentComponent)
-      end
+      -- GetSingleton("gamedataTweakDBInterface"):GetGameplayAbilityRecord(TweakDBID.new("Ability.CanCloseCombat"))
+      target.handle.NPCManager:SetNPCAbilities(GetSingleton("gamedataTweakDBInterface"):GetCharacterRecord(TweakDBID.new("Character.Cyberninja_Oda")))
+      -- stuff = TweakDBID.new("Character.Cyberninja")
+      stuff = target.handle:GetRecord():AbilitiesContains(GetSingleton("gamedataTweakDBInterface"):GetGameplayAbilityRecord(TweakDBID.new("Ability.CanCloseCombat")))
+      print(stuff)
+      --print(Dump(stuff, false))
     end
 
     ImGui.Spacing()
