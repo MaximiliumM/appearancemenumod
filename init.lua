@@ -396,7 +396,7 @@ function ScanApp:new()
 
 							for _, spawn in pairs(ScanApp.spawnedNPCs) do
 								local nameLabel = spawn.name
-								if not(spawn.canBeCompanion) then nameLabel = spawn.name:match("(.+) %((.+)") end
+								if spawn.parameters ~= "Vehicles" and not(spawn.canBeCompanion) then nameLabel = spawn.name:match("(.+) %((.+)") end
 								ImGui.Text(nameLabel)
 
 								local favoritesLabels = {"Favorite", "Unfavorite"}

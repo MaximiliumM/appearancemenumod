@@ -58,7 +58,7 @@ function ScanApp:new()
 	 ScanApp.windowWidth = 600
 	 ScanApp.roleComp = ''
 	 ScanApp.currentSpawn = ''
-	 ScanApp.maxSpawns = 6
+	 ScanApp.maxSpawns = 5
 	 ScanApp.spawnsCounter = 0
 	 ScanApp.spawnAsCompanion = true
 	 ScanApp.isCompanionInvulnerable = true
@@ -108,8 +108,8 @@ function ScanApp:new()
 		end
 	 end)
 
-	 registerHotkey("amm_respawn_all", "Respawn All", function()
-	 	ScanApp:RespawnAll()
+	 registerHotkey("amm_respawn_all", "Respawn All (Experimental Only)", function()
+	 	if ScanApp.userSettings.experimental then ScanApp:RespawnAll() end
 	 end)
 
 	 registerForEvent("onUpdate", function(deltaTime)
@@ -142,24 +142,29 @@ function ScanApp:new()
 						for _, ent in pairs(ScanApp.spawnedNPCs) do
 							table.insert(ScanApp.entitiesForRespawn, ent)
 						end
+
+						ScanApp:DespawnAll(true)
 					else
-						if respawnTimer == 0 then
-							for _, ent in ipairs(ScanApp.entitiesForRespawn) do
-								ScanApp:DespawnNPC(ent.uniqueName, ent.entityID)
-							end
+						if waitTimer == 0.0 then
+							respawnTimer = respawnTimer + deltaTime
 						end
 
-						respawnTimer = respawnTimer + deltaTime
+						if respawnTimer > 0.5 then
+							empty = true
+							for _, ent in ipairs(ScanApp.entitiesForRespawn) do
+								if Game.FindEntityByID(ent.entityID) then empty = false end
+							end
 
-						if respawnTimer > 0.2 then
-							ent = ScanApp.entitiesForRespawn[1]
-							table.remove(ScanApp.entitiesForRespawn, 1)
-							ScanApp:SpawnNPC(ent)
+							if empty then
+								ent = ScanApp.entitiesForRespawn[1]
+								table.remove(ScanApp.entitiesForRespawn, 1)
+								ScanApp:SpawnNPC(ent)
+								respawnTimer = 0.0
+							end
 
 							if #ScanApp.entitiesForRespawn == 0 then
 								ScanApp.entitiesForRespawn = ''
 								respawnAllPressed = false
-								respawnTimer = 0.0
 							end
 						end
 					end
@@ -170,7 +175,6 @@ function ScanApp:new()
 					-- print('trying to set companion')
 					if waitTimer > 0.2 then
 						local handle = Game.FindEntityByID(ScanApp.spawnedNPCs[ScanApp.currentSpawn].entityID)
-
 						if handle then
 							ScanApp.spawnedNPCs[ScanApp.currentSpawn].handle = handle
 							if handle:IsNPC() then
@@ -392,7 +396,7 @@ function ScanApp:new()
 
 							for _, spawn in pairs(ScanApp.spawnedNPCs) do
 								local nameLabel = spawn.name
-								if not(spawn.canBeCompanion) then nameLabel = spawn.name:match("(.+) %((.+)") end
+								if spawn.parameters ~= "Vehicles" and not(spawn.canBeCompanion) then nameLabel = spawn.name:match("(.+) %((.+)") end
 								ImGui.Text(nameLabel)
 
 								local favoritesLabels = {"Favorite", "Unfavorite"}
@@ -519,13 +523,17 @@ function ScanApp:new()
 
 						ImGui.Separator()
 						ImGui.Spacing()
-						if (ImGui.Button("Respawn All")) then
-	 						ScanApp:RespawnAll()
-	 					end
+						if ScanApp.userSettings.experimental then
+							if (ImGui.Button("Respawn All")) then
+		 						ScanApp:RespawnAll()
+		 					end
 
-						ImGui.SameLine()
+							ImGui.SameLine()
+						end
+
+
 						if (ImGui.Button("Force Despawn All")) then
-	 						ScanApp:DespawnAll()
+	 						ScanApp:DespawnAll(true)
 	 					end
 
 
@@ -630,6 +638,9 @@ end
 
 function ScanApp:SpawnNPC(spawn)
 	if self.spawnsCounter ~= self.maxSpawns and not buttonPressed then
+		-- local offSetSpawn = self.spawnsCounter % 2 == 0 and self.spawnsCounter / 2 or -self.spawnsCounter / 2
+		local offSetSpawn = self.spawnsCounter % 2 == 0 and self.spawnsCounter / 4 or -self.spawnsCounter / 4
+
 		local distanceFromPlayer = 1
 		local distanceFromGround = 0
 
@@ -649,7 +660,7 @@ function ScanApp:SpawnNPC(spawn)
 		local offsetDir = Vector3.new(heading.x * distanceFromPlayer, heading.y * distanceFromPlayer, heading.z)
 		local spawnTransform = player:GetWorldTransform()
 		local spawnPosition = spawnTransform.Position:ToVector4(spawnTransform.Position)
-		spawnTransform:SetPosition(spawnTransform, Vector4.new(spawnPosition.x - offsetDir.x, spawnPosition.y - offsetDir.y, spawnPosition.z + distanceFromGround, spawnPosition.w))
+		spawnTransform:SetPosition(spawnTransform, Vector4.new((spawnPosition.x - offSetSpawn) - offsetDir.x, (spawnPosition.y - offSetSpawn) - offsetDir.y, spawnPosition.z + distanceFromGround, spawnPosition.w))
 		spawn.entityID = Game.GetPreventionSpawnSystem():RequestSpawn(self:GetNPCTweakDBID(spawn.id), -1, spawnTransform)
 		self.currentSpawn = spawn.uniqueName
 		self.spawnsCounter = self.spawnsCounter + 1
@@ -668,8 +679,8 @@ function ScanApp:DespawnNPC(npcName, spawnID)
 	Game.GetPreventionSpawnSystem():RequestDespawn(spawnID)
 end
 
-function ScanApp:DespawnAll()
-	Game.GetPlayer():SetWarningMessage("Despawning will occur once you look away")
+function ScanApp:DespawnAll(message)
+	if message then Game.GetPlayer():SetWarningMessage("Despawning will occur once you look away") end
 	Game.GetPreventionSpawnSystem():RequestDespawnPreventionLevel(-1)
 	self.spawnsCounter = 0
 	self.spawnedNPCs = {}
