@@ -616,7 +616,6 @@ function ScanApp:CheckDB()
 
 		if self.currentVersion ~= DBCurrentVersion then
 			ScanApp.DBHasChanges = true
-			finishedUpdate = false
 		end
 	end
 end
@@ -633,6 +632,7 @@ function ScanApp:UpdateDB()
 
 		ScanApp.DBUpdateContent = DBTables
 		ScanApp.DBHasChanges = false
+		finishedUpdate = false
 	elseif not(finishedUpdate) and next(ScanApp.DBUpdateContent) ~= nil then
 		local tableName, obj = next(ScanApp.DBUpdateContent)
     if obj[1] ~= nil then
