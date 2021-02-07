@@ -63,7 +63,6 @@ function Debug.CreateTab(ScanApp, target)
     input = ImGui.InputTextWithHint("TweakDBID", 'Insert TweakDBID to Spawn', input, 60)
     tdbid = input
 
-    ImGui.SameLine()
     if (ImGui.Button('Spawn')) then
       if string.find(input, '-') then
         local tdbidCommand = '0x'..input:gsub('-', ',0x')
@@ -150,7 +149,6 @@ function Debug.CreateTab(ScanApp, target)
 
     ImGui.Spacing()
 
-    ImGui.SameLine()
     if (ImGui.Button("Cycle")) then
       ScanApp:ChangeScanAppearanceTo(target, 'Cycle')
       app = ScanApp:GetScanAppearance(target.handle)

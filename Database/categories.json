@@ -1,0 +1,102 @@
+[
+    {
+        "cat_id": 1,
+        "cat_name": "Favorites"
+    },
+    {
+        "cat_id": 2,
+        "cat_name": "Main Characters"
+    },
+    {
+        "cat_id": 3,
+        "cat_name": "Side Characters"
+    },
+    {
+        "cat_id": 4,
+        "cat_name": "Fixer"
+    },
+    {
+        "cat_id": 5,
+        "cat_name": "Ripperdoc"
+    },
+    {
+        "cat_id": 6,
+        "cat_name": "Arasaka"
+    },
+    {
+        "cat_id": 7,
+        "cat_name": "Nomad"
+    },
+    {
+        "cat_id": 8,
+        "cat_name": "Valentinos"
+    },
+    {
+        "cat_id": 9,
+        "cat_name": "Voodoo Boys"
+    },
+    {
+        "cat_id": 10,
+        "cat_name": "Tyger Claws"
+    },
+    {
+        "cat_id": 11,
+        "cat_name": "Animals"
+    },
+    {
+        "cat_id": 12,
+        "cat_name": "6th Street"
+    },
+    {
+        "cat_id": 13,
+        "cat_name": "Maelstrom"
+    },
+    {
+        "cat_id": 14,
+        "cat_name": "Mox"
+    },
+    {
+        "cat_id": 15,
+        "cat_name": "Samurai"
+    },
+    {
+        "cat_id": 16,
+        "cat_name": "NCPD"
+    },
+    {
+        "cat_id": 17,
+        "cat_name": "Netwatch"
+    },
+    {
+        "cat_id": 18,
+        "cat_name": "Trauma Team"
+    },
+    {
+        "cat_id": 19,
+        "cat_name": "Militech"
+    },
+    {
+        "cat_id": 20,
+        "cat_name": "Kang Tao"
+    },
+    {
+        "cat_id": 21,
+        "cat_name": "Cyberpsycho"
+    },
+    {
+        "cat_id": 22,
+        "cat_name": "Cameos"
+    },
+    {
+        "cat_id": 23,
+        "cat_name": "Misc. NPCs"
+    },
+    {
+        "cat_id": 24,
+        "cat_name": "Vehicles"
+    },
+    {
+        "cat_id": 25,
+        "cat_name": "At Your Own Risk"
+    }
+]
