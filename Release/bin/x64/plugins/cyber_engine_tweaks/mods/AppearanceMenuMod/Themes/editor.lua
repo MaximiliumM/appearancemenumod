@@ -50,12 +50,15 @@ end
 function Editor:Setup()
   local sizeX = ImGui.GetWindowSize()
   local x, y = ImGui.GetWindowPos()
-  ImGui.SetNextWindowPos(x + (sizeX + 200), y - 40)
-  ImGui.SetNextWindowSize(700, 900)
+  if x < ImGui.GetFontSize() * 40 then
+    ImGui.SetNextWindowPos(x + (sizeX + 50), y - 40)
+  else
+    ImGui.SetNextWindowPos(x - (sizeX + 200), y - 40)
+  end
 end
 
 function Editor:Draw(ScanApp)
-  Editor.open = ImGui.Begin("Theme Editor")
+  Editor.open = ImGui.Begin("Theme Editor", ImGuiWindowFlags.AlwaysAutoResize)
   if Editor.open then
     if Theme == '' then
       Editor.isEditing = true

@@ -75,13 +75,15 @@ function UI:Start()
 
 	ImGui.PushStyleVar(ImGuiStyleVar.WindowPadding, 15, 15)
   ImGui.PushStyleVar(ImGuiStyleVar.WindowRounding, 0)
+  ImGui.PushStyleVar(ImGuiStyleVar.FramePadding, 10, 10)
+  ImGui.PushStyleVar(ImGuiStyleVar.ItemInnerSpacing, 5, 5)
   ImGui.PushStyleVar(ImGuiStyleVar.ScrollbarSize, 5)
   ImGui.PushStyleVar(ImGuiStyleVar.WindowBorderSize, 1)
 end
 
 function UI:End()
 	ImGui.PopStyleColor(22)
-	ImGui.PopStyleVar(4)
+	ImGui.PopStyleVar(6)
 end
 
 function UI:Spacing(amount)

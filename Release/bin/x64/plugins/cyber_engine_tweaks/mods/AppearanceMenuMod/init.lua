@@ -33,7 +33,7 @@ function ScanApp:new()
 	 ScanApp.selectedTheme = 'Default'
 
 	 -- Main Properties --
-	 ScanApp.currentVersion = "1.6.3"
+	 ScanApp.currentVersion = "1.6.4"
 	 ScanApp.userSettings = ScanApp:PrepareSettings()
 	 ScanApp.categories = ScanApp:GetCategories()
 	 ScanApp.currentTarget = ''
@@ -49,7 +49,6 @@ function ScanApp:new()
 
 	 -- Configs --
 	 ScanApp.settings = false
-	 ScanApp.windowWidth = 600
 	 ScanApp.roleComp = ''
 	 ScanApp.currentSpawn = ''
 	 ScanApp.maxSpawns = 5
@@ -64,7 +63,7 @@ function ScanApp:new()
 		 respawnTimer = 0.0
 		 buttonPressed = false
 		 respawnAllPressed = false
-		 finishedUpdate = true
+		 finishedUpdate = ScanApp:CheckDBVersion()
 		 ScanApp:ImportUserData()
 	 end)
 
@@ -213,20 +212,12 @@ function ScanApp:new()
 
 	 	ImGui.SetNextWindowPos(500, 500, ImGuiCond.FirstUseEver)
 
-		local shouldResize = ImGuiCond.None
+		local shouldResize = ImGuiWindowFlags.AlwaysAutoResize
 		if not(ScanApp.userSettings.autoResizing) then
-			shouldResize = ImGuiCond.Appearing
+			shouldResize = ImGuiWindowFlags.None
 		end
 
-	 	if (drawWindow and not(ScanApp:IsPlayerInAnyMenu())) or (drawWindow and ScanApp.Debug ~= '') then
-			if ScanApp.Debug ~= '' then
-				ImGui.SetNextWindowSize(600, 700)
-			elseif (target ~= nil) and (target.options ~= nil) or (ScanApp.settings == true) then
-				ImGui.SetNextWindowSize(ScanApp.windowWidth, 700, shouldResize)
-			else
-				ImGui.SetNextWindowSize(ScanApp.windowWidth, 160, shouldResize)
-			end
-
+	 	if drawWindow then
 			-- Load Theme --
 			if ScanApp.Theme.currentTheme ~= ScanApp.selectedTheme then
 				ScanApp.Theme:Load(ScanApp.selectedTheme)
@@ -234,22 +225,35 @@ function ScanApp:new()
 
 			ScanApp.Theme:Start()
 
-			if (ImGui.Begin("Appearance Menu Mod")) then
+			if ImGui.Begin("Appearance Menu Mod", shouldResize) then
 
 				if not(finishedUpdate) then
-					-- Possible UPDATE NOTES view
+					-- UPDATE NOTES
+					ScanApp.Theme:TextColored("UPDATE "..ScanApp.currentVersion)
+					ScanApp.Theme:Separator()
+					ImGui.TextWrapped([[
+						+ Fixed auto resizing and font scaling for real now
+						+ Fixed Johnny and Nibbles not spawning
+						+ Fixed Theme Editor window coming up off screen
+						+ Added new Player In Menu screen to inform the user that AMM is running fine even when the player is in menu
+					]])
+
+					if ImGui.Button("Cool!") then
+						ScanApp:FinishUpdate()
+					end
+				elseif ScanApp:IsPlayerInAnyMenu() or Game.GetPlayer() == nil then
+						ScanApp.Theme:TextColored("Player In Menu")
+						ImGui.Text("AMM only functions in game")
 				else
 						-- Target Setup --
 						target = ScanApp:GetTarget()
 
-						ImGui.SetWindowFontScale(1)
-
 						if (ImGui.BeginTabBar("TABS")) then
 
 		 					local style = {
-		 									buttonWidth = -1,
-		 									buttonHeight = 30,
-		 									halfButtonWidth = ((ImGui.GetWindowContentRegionWidth() / 2) - 12)
+		 									buttonWidth = ImGui.GetFontSize() * 20,
+		 									buttonHeight = ImGui.GetFontSize() * 2,
+		 									halfButtonWidth = (ImGui.GetFontSize() * 20) / 2
 		 							}
 
 		 	    		local tabs = {
@@ -267,7 +271,7 @@ function ScanApp:new()
 		 									action = "Save"
 		 								},
 		 							},
-		 	    				errorMessage = "No NPC Found! Look at NPC to begin"
+		 	    				errorMessage = "No NPC Found! Look at NPC to begin\n\n"
 		 	    			},
 		 	    			['Vehicles'] = {
 		 	    				currentTitle = "Current Model:",
@@ -283,7 +287,7 @@ function ScanApp:new()
 		 									action = "Save"
 		 								},
 		 							},
-		 	    				errorMessage = "No Vehicle Found! Look at Vehicle to begin"
+		 	    				errorMessage = "No Vehicle Found! Look at Vehicle to begin\n\n"
 		 	    			}
 		 	    		}
 
@@ -297,10 +301,6 @@ function ScanApp:new()
 		 							if target ~= nil and target.type == tab then
 		 					    		ScanApp.Theme:TextColored(tabs[tab].currentTitle)
 		 					    		ImGui.Text(target.appearance)
-		 					    		x, y = ImGui.CalcTextSize(target.appearance)
-		 									if x > 150 then
-		 					    			windowWidth = x + 40
-		 									end
 
 		 									ImGui.Spacing()
 
@@ -374,10 +374,15 @@ function ScanApp:new()
 
 												ScanApp.Theme:Separator()
 
-		 							    	if (ImGui.BeginChild("Scrolling")) then
+												x = 0
+												for _, appearance in ipairs(target.options) do
+													local len = ImGui.CalcTextSize(appearance)
+													if len > x then x = len end
+												end
+
+												y = ImGui.GetFontSize() * 20
+		 							    	if ImGui.BeginChild("Scrolling", x + 50, 400) then
 		 								    	for i, appearance in ipairs(target.options) do
-		 								    		x, y = ImGui.CalcTextSize(appearance)
-		 								    		if (x > self.windowWidth) then self.windowWidth = x + 40 end
 		 								    		if (ImGui.Button(appearance)) then
 		 								    			ScanApp:ChangeScanAppearanceTo(target, appearance)
 		 								    		end
@@ -463,38 +468,42 @@ function ScanApp:new()
 									ImGui.Text("No Results")
 								end
 							else
-								for _, category in ipairs(ScanApp.categories) do
-									if(ImGui.CollapsingHeader(category.cat_name)) then
-										local entities = {}
-										local noFavorites = true
-										if category.cat_name == 'Favorites' then
-											local query = "SELECT * FROM favorites"
-											for fav in db:nrows(query) do
-												query = f("SELECT * FROM entities WHERE entity_id = '%s'", fav.entity_id)
-												for en in db:nrows(query) do
-													if fav.parameters ~= nil then en.parameters = fav.parameters end
-													table.insert(entities, {fav.entity_name, en.entity_id, en.can_be_comp, en.parameters, en.entity_path})
+								y = ImGui.GetFontSize() * 40
+								if ImGui.BeginChild("Categories", ImGui.GetWindowContentRegionWidth(), y) then
+									for _, category in ipairs(ScanApp.categories) do
+										if(ImGui.CollapsingHeader(category.cat_name)) then
+											local entities = {}
+											local noFavorites = true
+											if category.cat_name == 'Favorites' then
+												local query = "SELECT * FROM favorites"
+												for fav in db:nrows(query) do
+													query = f("SELECT * FROM entities WHERE entity_id = '%s'", fav.entity_id)
+													for en in db:nrows(query) do
+														if fav.parameters ~= nil then en.parameters = fav.parameters end
+														table.insert(entities, {fav.entity_name, en.entity_id, en.can_be_comp, en.parameters, en.entity_path})
+													end
+												end
+												if #entities == 0 then
+													ImGui.Text("It's empty :(")
 												end
 											end
-											if #entities == 0 then
-												ImGui.Text("It's empty :(")
+
+											-- Temporary Johnny and Nibbles workaround
+											if category.cat_id == 28 then
+												table.insert(entities, {"Johnny Silverhand", "0xC886A091, 29", 0, nil, TweakDBID.new(0xC886A091, 29)})
+												table.insert(entities, {"Nibbles", "0x5FAE2DB7, 18", 0, nil, TweakDBID.new(0x5FAE2DB7, 18)})
 											end
-										end
 
-										-- Temporary Johnny and Nibbles workaround
-										if category.cat_id == 28 then
-											table.insert(entities, {"Johnny Silverhand", TweakDBID.new(0xC886A091,0x1D), 0, nil})
-											table.insert(entities, {"Nibbles", TweakDBID.new(0x5FAE2DB7,0x12), 0, nil})
-										end
+											local query = f("SELECT * FROM entities WHERE cat_id == '%s' ORDER BY entity_name ASC", category.cat_id)
+											for en in db:nrows(query) do
+												table.insert(entities, {en.entity_name, en.entity_id, en.can_be_comp, en.parameters, en.entity_path})
+											end
 
-										local query = f("SELECT * FROM entities WHERE cat_id == '%s' ORDER BY entity_name ASC", category.cat_id)
-										for en in db:nrows(query) do
-											table.insert(entities, {en.entity_name, en.entity_id, en.can_be_comp, en.parameters, en.entity_path})
+											ScanApp:DrawEntitiesButtons(entities, category.cat_name, style)
 										end
-
-										ScanApp:DrawEntitiesButtons(entities, category.cat_name, style)
 									end
 								end
+								ImGui.EndChild()
 							end
 
 							ImGui.EndTabItem()
@@ -650,6 +659,24 @@ end
 -- End Objects --
 
 -- ScanApp Methods --
+function ScanApp:CheckDBVersion()
+	local DBVersion = ''
+	for v in db:urows("SELECT current_version FROM metadata") do
+		DBVersion = v
+	end
+
+	if DBVersion ~= self.currentVersion then
+		return false
+	else
+		return true
+	end
+end
+
+function ScanApp:FinishUpdate()
+	finishedUpdate = true
+	db:execute(f("UPDATE metadata SET current_version = '%s'", self.currentVersion))
+end
+
 function ScanApp:ImportUserData()
 	local file = io.open("User/user.json", "r")
 	if file then
@@ -1218,7 +1245,7 @@ function ScanApp:SetFavoriteNamePopup(entity)
 	local sizeX = ImGui.GetWindowSize()
 	local x, y = ImGui.GetWindowPos()
 	ImGui.SetNextWindowPos(x + ((sizeX / 2) - 200), y - 40)
-	ImGui.SetNextWindowSize(400, 130)
+	ImGui.SetNextWindowSize(400, ImGui.GetFontSize() * 7)
 	ScanApp.currentFavoriteName = entity.name
 	ScanApp.popupEntity = entity
 	ImGui.OpenPopup("Favorite Name")
@@ -1254,7 +1281,7 @@ function ScanApp:DrawFavoritesButton(buttonLabels, entity)
 
 	if ImGui.BeginPopupModal("Favorite Name") then
 		local style = {
-						buttonHeight = 30,
+						buttonHeight = ImGui.GetFontSize() * 2,
 						halfButtonWidth = ((ImGui.GetWindowContentRegionWidth() / 2) - 12)
 				}
 
@@ -1341,6 +1368,7 @@ function ScanApp:DrawButton(title, width, height, action, target)
 end
 
 function ScanApp:DrawEntitiesButtons(entities, categoryName, style)
+
 	for i, entity in ipairs(entities) do
 		name = entity[1]
 		id = entity[2]
@@ -1372,10 +1400,10 @@ function ScanApp:DrawEntitiesButtons(entities, categoryName, style)
 			ImGui.PushStyleColor(ImGuiCol.Button, 0.56, 0.06, 0.03, 0.25)
 			ImGui.PushStyleColor(ImGuiCol.ButtonHovered, 0.56, 0.06, 0.03, 0.25)
 			ImGui.PushStyleColor(ImGuiCol.ButtonActive, 0.56, 0.06, 0.03, 0.25)
-			ScanApp:DrawButton(buttonLabel, style.buttonWidth - favOffset, style.buttonHeight, "Disabled", nil)
+			ScanApp:DrawButton(buttonLabel, -1 - favOffset, style.buttonHeight, "Disabled", nil)
 			ImGui.PopStyleColor(3)
 		elseif not(ScanApp.spawnedNPCs[buttonLabel] ~= nil and ScanApp:IsUnique(newSpawn.id)) then
-			ScanApp:DrawButton(buttonLabel, style.buttonWidth - favOffset, style.buttonHeight, "Spawn", newSpawn)
+			ScanApp:DrawButton(buttonLabel, -1 - favOffset, style.buttonHeight, "Spawn", newSpawn)
 		end
 
 		if categoryName == 'Favorites' then
@@ -1386,9 +1414,9 @@ function ScanApp:DrawEntitiesButtons(entities, categoryName, style)
 end
 
 function ScanApp:IsPlayerInAnyMenu()
-    blackboard = Game.GetBlackboardSystem():Get(Game.GetAllBlackboardDefs().UI_System);
-    uiSystemBB = (Game.GetAllBlackboardDefs().UI_System);
-    return(blackboard:GetBool(uiSystemBB.IsInMenu));
+    blackboard = Game.GetBlackboardSystem():Get(Game.GetAllBlackboardDefs().UI_System)
+    uiSystemBB = (Game.GetAllBlackboardDefs().UI_System)
+    return(blackboard:GetBool(uiSystemBB.IsInMenu))
 end
 
 -- End of ScanApp Class
