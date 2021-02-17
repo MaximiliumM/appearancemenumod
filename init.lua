@@ -521,7 +521,7 @@ function ScanApp:new()
 							ScanApp.userSettings.experimental, expClicked = ImGui.Checkbox("Experimental/Fun stuff", ScanApp.userSettings.experimental)
 
 							if ScanApp.userSettings.experimental then
-								ImGui.PushItemWidth(95)
+								ImGui.PushItemWidth(139)
 								ScanApp.maxSpawns = ImGui.InputInt("Max Spawns", ScanApp.maxSpawns, 1)
 								ImGui.PopItemWidth()
 							end
@@ -560,10 +560,10 @@ function ScanApp:new()
 								popupDelegate = ScanApp:OpenPopup("Favorites")
 		 					end
 
-							if ImGui.BeginPopupModal("WARNING") then
+							if ImGui.BeginPopupModal("WARNING", ImGuiWindowFlags.AlwaysAutoResize) then
 								ImGui.TextWrapped(popupDelegate.message)
 								for _, button in ipairs(popupDelegate.buttons) do
-									if ImGui.Button(button.label, style.halfButtonWidth - 192, style.buttonHeight) then
+									if ImGui.Button(button.label, style.halfButtonWidth, style.buttonHeight) then
 										if button.action ~= '' then button.action() end
 										ImGui.CloseCurrentPopup()
 									end
@@ -1207,7 +1207,6 @@ function ScanApp:OpenPopup(name)
 	local sizeX = ImGui.GetWindowSize()
 	local x, y = ImGui.GetWindowPos()
 	ImGui.SetNextWindowPos(x + ((sizeX / 2) - 200), y - 40)
-	ImGui.SetNextWindowSize(400, 200)
 
 	local popupDelegate = {message = '', buttons = {}}
 	if name == 'Swap' then
@@ -1220,6 +1219,7 @@ function ScanApp:OpenPopup(name)
 			end
 		end
 	elseif name == "Experimental" then
+		ImGui.SetNextWindowSize(400, 140)
 		popupDelegate.message = "Are you sure you want to enable experimental features? AMM might not work as expected. Use it at your own risk!"
 		table.insert(popupDelegate.buttons, {label = "Yes", action = ''})
 		table.insert(popupDelegate.buttons, {label = "No", action = function() ScanApp.userSettings.experimental = false end})
