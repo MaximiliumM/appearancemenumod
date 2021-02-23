@@ -33,7 +33,7 @@ function ScanApp:new()
 	 ScanApp.selectedTheme = 'Default'
 
 	 -- Main Properties --
-	 ScanApp.currentVersion = "1.7.1"
+	 ScanApp.currentVersion = "1.7.2"
 	 ScanApp.updateNotes = require('update_notes.lua')
 	 ScanApp.userSettings = ScanApp:PrepareSettings()
 	 ScanApp.categories = ScanApp:GetCategories()
@@ -113,6 +113,21 @@ function ScanApp:new()
 		local target = ScanApp:GetTarget()
 		if target ~= nil then
 			ScanApp:ClearSavedAppearance(target)
+		end
+	 end)
+
+	 registerHotkey("amm_spawn_target", "Spawn Target", function()
+		local target = ScanApp:GetTarget()
+		if target ~= nil and target.handle:IsNPC() then
+			local spawn = nil
+			for ent in db:nrows(f("SELECT * FROM entities WHERE entity_id = '%s'", target.id)) do
+				spawn = ScanApp:NewSpawn(ent.entity_name, ent.entity_id, ent.entity_parameters, ent.can_be_comp, ent.entity_path)
+			end
+
+			if spawn ~= nil then
+				target.handle:Dispose()
+				ScanApp:SpawnNPC(spawn)
+			end
 		end
 	 end)
 
@@ -836,7 +851,7 @@ function ScanApp:GetEquipmentOptions()
 		{name = 'Knife', path = 'Character.tyger_claws_gangster1_melee1_knife_wa_inline2'},
 		{name = 'Crowbar', path = 'Character.wraiths_grunt2_melee2_crowbar_ma_inline0'},
 		{name = 'Baseball Bat', path = 'Character.animals_grunt1_melee1_baseball_mb_inline0'},
-		{name = 'Assault Rifle', path = 'Character.afterlife_rare_franged2_ajax_wa_rare_inline0'},
+		{name = 'Assault Rifle', path = 'Character.arasaka_ranger1_ranged2_masamune_ma_inline2'},
 		{name = 'Sidewinder', path = 'Character.tyger_claws_gangster2_ranged2_sidewinder_wa_inline2'},
 		{name = 'Sniper Rifle', path = 'Character.afterlife_rare_sniper3_ashura_ma_elite_inline0'},
 		{name = 'Shotgun', path = 'Character.afterlife_rare_fshotgun3_zhuo_mb_elite_inline0'},
@@ -848,23 +863,29 @@ function ScanApp:GetEquipmentOptions()
 end
 
 function ScanApp:GetEntityTemplates()
-	local templates = {
-		['0xB1B50FFA, 14'] = '', ['0xC67F0E01, 15'] = '',
-		['0x7B2CB67C, 17'] = '', ['0xC111FBAC, 16'] = '',
-		['0x73C44EBA, 15'] = '', ['0x3B6EF8F9, 13'] = '',
-		['0xA1C78C30, 16'] = '', ['0xF43B2B48, 18'] = '',
-		['0x3024F03E, 15'] = '', ['0xAD1FC6DE, 15'] = '',
-		['0x4106744C, 35'] = '', ['0x8DD8F2E0, 35'] = '',
-		['0xC8227C45, 33'] = '', ['0x349E3563, 33'] = '',
-		['0x7EE3CE36, 16'] = '', ['0xBF76C44D, 29'] = '',
-		['0xA22A7797, 15'] = '', ['0x4FA1C211, 15'] = '',
-		['0x6D6BF4CC, 21'] = '', ['0x497B8FE7, 27'] = '',
-		['0x7F65F7F7, 16'] = '', ['0x22C1341E, 31'] = '',
-		['0x97771D29, 25'] = '', ['0xE4BEB074, 26'] = '',
-		['0x65C5B0CE, 28'] = '', ['0x032DA268, 21'] = '',
+	local entities = {
+		'0x55C01D9F, 36', '0xB1B50FFA, 14',
+		'0xC67F0E01, 15', '0xC111FBAC, 16',
+		'0x73C44EBA, 15', '0x3B6EF8F9, 13',
+		'0x7EE3CE36, 16', '0xBF76C44D, 29',
+		'0xA22A7797, 15', '0x4FA1C211, 15',
+		'0x7F65F7F7, 16', '0x22C1341E, 31',
+		'0x97771D29, 25', '0xE4BEB074, 26',
+		'0x65C5B0CE, 28', '0x032DA268, 21',
+		'0xAD1FC6DE, 15', '0xF0F54969, 24',
+		'0x7B2CB67C, 17', '0xA1C78C30, 16',
+		'0xF43B2B48, 18', '0x3024F03E, 15',
+		'0x4106744C, 35', '0x8DD8F2E0, 35',
+		'0xC8227C45, 33', '0x349E3563, 33',
+		'0x6D6BF4CC, 21', '0x497B8FE7, 27',
 	}
 
-	return templates
+	local templates = {}
+	for _, ent in ipairs(entities) do
+		templates[ent] = ''
+	end
+
+	return templates, entities
 end
 
 function ScanApp:ChangeEntityTemplateTo(fromID, toID)
@@ -877,16 +898,41 @@ function ScanApp:ChangeEntityTemplateTo(fromID, toID)
 		fromPath = path
 	end
 
-	toTemplate = TweakDB:GetFlat(TweakDBID.new(toPath..".entityTemplatePath"))
+	local player = string.find(toPath, "Player")
+	if player then
+		toPath = toPath..ScanApp:GetPlayerGender()
+		toTemplate = {}
+		table.insert(toTemplate, TweakDB:GetFlat(TweakDBID.new(toPath..".entityTemplatePath")))
+		table.insert(toTemplate, TweakDB:GetFlat(TweakDBID.new(toPath..".appearanceName")))
+		table.insert(toTemplate, TweakDB:GetFlat(TweakDBID.new(toPath..".genders")))
+	else
+		toTemplate = TweakDB:GetFlat(TweakDBID.new(toPath..".entityTemplatePath"))
+	end
+
 	if self.swappedModels[toID] ~= '' then
 		toTemplate = self.swappedModels[toID][2]
 		self.swappedModels[toID] = ''
 	else
-		originalTemplate = TweakDB:GetFlat(TweakDBID.new(fromPath..".entityTemplatePath"))
+		if player then
+			originalTemplate = {}
+			table.insert(originalTemplate, TweakDB:GetFlat(TweakDBID.new(fromPath..".entityTemplatePath")))
+			table.insert(originalTemplate, TweakDB:GetFlat(TweakDBID.new(fromPath..".appearanceName")))
+			table.insert(originalTemplate, TweakDB:GetFlat(TweakDBID.new(fromPath..".genders")))
+		else
+			originalTemplate = TweakDB:GetFlat(TweakDBID.new(fromPath..".entityTemplatePath"))
+		end
+
 		self.swappedModels[fromID] = {toID, originalTemplate}
 	end
 
-	TweakDB:SetFlat(TweakDBID.new(fromPath..".entityTemplatePath"), toTemplate)
+	if type(toTemplate) == 'table' then
+		TweakDB:SetFlat(TweakDBID.new(fromPath..".entityTemplatePath"), toTemplate[1])
+		TweakDB:SetFlat(TweakDBID.new(fromPath..".appearanceName"), toTemplate[2])
+		TweakDB:SetFlat(TweakDBID.new(fromPath..".genders"), toTemplate[3])
+	else
+		TweakDB:SetFlat(TweakDBID.new(fromPath..".entityTemplatePath"), toTemplate)
+	end
+
 	TweakDB:Update(TweakDBID.new(fromPath))
 end
 
@@ -1398,8 +1444,8 @@ function ScanApp:OpenPopup(name)
 	elseif name == 'Model Swap' then
 		ImGui.SetNextWindowSize(400, 520)
 		popupDelegate.message = "Select Replacement Model\n\nYou will need to reload your save to update changes."
-		local templates = ScanApp:GetEntityTemplates()
-		for entityID, template in pairs(templates) do
+		local templates, entities = ScanApp:GetEntityTemplates()
+		for _, entityID in ipairs(entities) do
 			for name in db:urows(f("SELECT entity_name FROM entities WHERE entity_id = '%s'", entityID)) do
 				table.insert(popupDelegate.buttons, {label = name, action = function(fromID) ScanApp:ChangeEntityTemplateTo(fromID, entityID) end})
 			end
