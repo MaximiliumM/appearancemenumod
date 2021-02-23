@@ -33,7 +33,7 @@ function ScanApp:new()
 	 ScanApp.selectedTheme = 'Default'
 
 	 -- Main Properties --
-	 ScanApp.currentVersion = "1.7"
+	 ScanApp.currentVersion = "1.7.1"
 	 ScanApp.updateNotes = require('update_notes.lua')
 	 ScanApp.userSettings = ScanApp:PrepareSettings()
 	 ScanApp.categories = ScanApp:GetCategories()
@@ -857,7 +857,11 @@ function ScanApp:GetEntityTemplates()
 		['0x4106744C, 35'] = '', ['0x8DD8F2E0, 35'] = '',
 		['0xC8227C45, 33'] = '', ['0x349E3563, 33'] = '',
 		['0x7EE3CE36, 16'] = '', ['0xBF76C44D, 29'] = '',
-		['0xA22A7797, 15'] = '', ['0x4FA1C211, 15'] = ''
+		['0xA22A7797, 15'] = '', ['0x4FA1C211, 15'] = '',
+		['0x6D6BF4CC, 21'] = '', ['0x497B8FE7, 27'] = '',
+		['0x7F65F7F7, 16'] = '', ['0x22C1341E, 31'] = '',
+		['0x97771D29, 25'] = '', ['0xE4BEB074, 26'] = '',
+		['0x65C5B0CE, 28'] = '', ['0x032DA268, 21'] = '',
 	}
 
 	return templates
@@ -1029,7 +1033,7 @@ function ScanApp:CheckSavedAppearance(t)
 		for count in db:urows(f("SELECT COUNT(1) FROM custom_appearances WHERE app_name = '%s'", savedApp)) do
 			check = count
 		end
-		if count ~= 0 then
+		if check ~= 0 then
 			custom = self:GetCustomAppearanceParams(savedApp)
 			self:ChangeScanCustomAppearanceTo(t, custom)
 		else
