@@ -58,7 +58,7 @@ function Editor:Setup()
 end
 
 function Editor:Draw(ScanApp)
-  Editor.open = ImGui.Begin("Theme Editor", ImGuiWindowFlags.AlwaysAutoResize)
+  Editor.open = ImGui.Begin("Theme Editor", ImGuiWindowFlags.AlwaysAutoResize + ImGuiWindowFlags.NoCollapse)
   if Editor.open then
     if Theme == '' then
       Editor.isEditing = true

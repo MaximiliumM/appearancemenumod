@@ -33,7 +33,8 @@ function ScanApp:new()
 	 ScanApp.selectedTheme = 'Default'
 
 	 -- Main Properties --
-	 ScanApp.currentVersion = "1.6.4"
+	 ScanApp.currentVersion = "1.7"
+	 ScanApp.updateNotes = require('update_notes.lua')
 	 ScanApp.userSettings = ScanApp:PrepareSettings()
 	 ScanApp.categories = ScanApp:GetCategories()
 	 ScanApp.currentTarget = ''
@@ -42,6 +43,12 @@ function ScanApp:new()
 	 ScanApp.allowedNPCs = ScanApp:GetSaveables()
 	 ScanApp.searchQuery = ''
 	 ScanApp.swappedModels = ScanApp:GetEntityTemplates()
+	 ScanApp.equipmentOptions = ScanApp:GetEquipmentOptions()
+	 ScanApp.originalVehicles = ''
+
+	 -- Custom Appearance Properties --
+	 ScanApp.setCustomApp = ''
+	 ScanApp.activeCustomApps = {}
 
 	 -- Modal Popup Properties --
 	 ScanApp.currentFavoriteName = ''
@@ -49,7 +56,6 @@ function ScanApp:new()
 
 	 -- Configs --
 	 ScanApp.settings = false
-	 ScanApp.roleComp = ''
 	 ScanApp.currentSpawn = ''
 	 ScanApp.maxSpawns = 5
 	 ScanApp.spawnsCounter = 0
@@ -65,10 +71,18 @@ function ScanApp:new()
 		 respawnAllPressed = false
 		 finishedUpdate = ScanApp:CheckDBVersion()
 		 ScanApp:ImportUserData()
+		 ScanApp:SetupVehicleData()
+
+		 -- Setup Observers --
+		 Observe("PlayerPuppet", "OnGameAttached", function(self)
+			 ScanApp.activeCustomApps = {}
+			 ScanApp.spawnedNPCs = {}
+			 ScanApp.spawnsCounter = 0
+		 end)
 	 end)
 
 	 registerForEvent("onShutdown", function()
-		 ScanApp:RevertModelChanges()
+		 ScanApp:RevertTweakDBChanges(false)
 		 ScanApp:ExportUserData()
 	 end)
 
@@ -122,6 +136,7 @@ function ScanApp:new()
 						end
 					end
 
+					-- Button Spamming Block --
 					if buttonPressed then
 						spamTimer = spamTimer + deltaTime
 
@@ -131,6 +146,7 @@ function ScanApp:new()
 						end
 					end
 
+					-- Respawn All Logic --
 					if respawnAllPressed then
 						if ScanApp.entitiesForRespawn == '' then
 							ScanApp.entitiesForRespawn = {}
@@ -168,11 +184,36 @@ function ScanApp:new()
 						end
 					end
 
+					-- After Custom Appearance Set --
+					if ScanApp.setCustomApp ~= '' then
+						waitTimer = waitTimer + deltaTime
+						if waitTimer > 0.1 then
+							local handle, customAppearance = ScanApp.setCustomApp[1], ScanApp.setCustomApp[2]
+							local currentAppearance = ScanApp:GetScanAppearance(handle)
+							if currentAppearance == customAppearance[1].app_base then
+								for _, param in ipairs(customAppearance) do
+									local appParam = handle:FindComponentByName(CName.new(param.app_param))
+									if appParam then appParam:TemporaryHide(not(intToBool(param.app_toggle))) end
+								end
+
+								waitTimer = 0.0
+								ScanApp.setCustomApp = ''
+							end
+						end
+					end
+
+
+					-- After Spawn Logic --
 					if ScanApp.currentSpawn ~= '' then
 						waitTimer = waitTimer + deltaTime
 						-- print('trying to set companion')
 						if waitTimer > 0.2 then
-							local handle = Game.FindEntityByID(ScanApp.spawnedNPCs[ScanApp.currentSpawn].entityID)
+							local handle
+							if string.find(ScanApp.spawnedNPCs[ScanApp.currentSpawn].path, "Vehicle") then
+								handle = Game.GetTargetingSystem():GetLookAtObject(Game.GetPlayer(),false,false)
+							else
+								handle = Game.FindEntityByID(ScanApp.spawnedNPCs[ScanApp.currentSpawn].entityID)
+							end
 							if handle then
 								ScanApp.spawnedNPCs[ScanApp.currentSpawn].handle = handle
 								if handle:IsNPC() then
@@ -185,7 +226,7 @@ function ScanApp:new()
 										ScanApp.currentSpawn = ''
 									end
 								elseif handle:IsVehicle() then
-									handle:GetVehiclePS():UnlockAllVehDoors()
+									ScanApp:UnlockVehicle(handle)
 									waitTimer = 0.0
 									ScanApp.currentSpawn = ''
 								else
@@ -231,17 +272,21 @@ function ScanApp:new()
 					-- UPDATE NOTES
 					ScanApp.Theme:TextColored("UPDATE "..ScanApp.currentVersion)
 					ScanApp.Theme:Separator()
-					ImGui.TextWrapped([[
-						+ Fixed auto resizing and font scaling for real now
-						+ Fixed Johnny and Nibbles not spawning
-						+ Fixed Theme Editor window coming up off screen
-						+ Added new Player In Menu screen to inform the user that AMM is running fine even when the player is in menu
-					]])
 
-					if ImGui.Button("Cool!") then
+					for _, note in ipairs(ScanApp.updateNotes) do
+						ScanApp.Theme:TextColored("+ ")
+						ImGui.SameLine()
+						ImGui.PushTextWrapPos(400)
+						ImGui.TextWrapped(note)
+						ImGui.PopTextWrapPos()
+						ScanApp.Theme:Spacing(3)
+					end
+
+					ScanApp.Theme:Separator()
+					if ImGui.Button("Cool!", ImGui.GetWindowContentRegionWidth(), 30) then
 						ScanApp:FinishUpdate()
 					end
-				elseif ScanApp:IsPlayerInAnyMenu() or Game.GetPlayer() == nil then
+				elseif (ScanApp:IsPlayerInAnyMenu() or Game.GetPlayer() == nil) and ScanApp.Debug == '' then
 						ScanApp.Theme:TextColored("Player In Menu")
 						ImGui.Text("AMM only functions in game")
 				else
@@ -251,7 +296,7 @@ function ScanApp:new()
 						if (ImGui.BeginTabBar("TABS")) then
 
 		 					local style = {
-		 									buttonWidth = ImGui.GetFontSize() * 20,
+		 									buttonWidth = ImGui.GetFontSize() * 20.7,
 		 									buttonHeight = ImGui.GetFontSize() * 2,
 		 									halfButtonWidth = (ImGui.GetFontSize() * 20) / 2
 		 							}
@@ -299,98 +344,117 @@ function ScanApp:new()
 		 		    			ScanApp.settings = false
 
 		 							if target ~= nil and target.type == tab then
-		 					    		ScanApp.Theme:TextColored(tabs[tab].currentTitle)
-		 					    		ImGui.Text(target.appearance)
+										ScanApp.Theme:Spacing(3)
 
-		 									ImGui.Spacing()
+										ImGui.Text(target.name)
 
-		 									-- Check if Save button should be drawn
-		 									local drawSaveButton = ScanApp:ShouldDrawSaveButton(target)
+										ScanApp.Theme:Separator()
 
-		 									for _, button in ipairs(tabs[tab].buttons) do
-		 										ImGui.SameLine()
+	 					    		ScanApp.Theme:TextColored(tabs[tab].currentTitle)
+	 					    		ImGui.Text(target.appearance)
 
-		 										if drawSaveButton == false then
-		 											button.width = style.buttonWidth
+	 									ImGui.Spacing()
 
-		 											if button.action ~= "Save" then
-		 												ScanApp:DrawButton(button.title, button.width, style.buttonHeight, button.action, target)
-		 											end
-		 										else
-		 											ScanApp:DrawButton(button.title, button.width, style.buttonHeight, button.action, target)
-		 										end
-		 									end
+	 									-- Check if Save button should be drawn
+	 									local drawSaveButton = ScanApp:ShouldDrawSaveButton(target)
 
-		 									ImGui.Spacing()
+	 									for _, button in ipairs(tabs[tab].buttons) do
+	 										ImGui.SameLine()
 
-											local savedApp = nil
-											local query = f("SELECT app_name FROM saved_appearances WHERE entity_id = '%s'", target.id)
-											for app in db:urows(query) do
-												savedApp = app
+	 										if drawSaveButton == false then
+	 											button.width = style.buttonWidth
+
+	 											if button.action ~= "Save" then
+	 												ScanApp:DrawButton(button.title, button.width, style.buttonHeight, button.action, target)
+	 											end
+	 										else
+	 											ScanApp:DrawButton(button.title, button.width, style.buttonHeight, button.action, target)
+	 										end
+	 									end
+
+	 									ImGui.Spacing()
+
+										local savedApp = nil
+										local query = f("SELECT app_name FROM saved_appearances WHERE entity_id = '%s'", target.id)
+										for app in db:urows(query) do
+											savedApp = app
+										end
+
+	 									if savedApp ~= nil then
+	 										ScanApp.Theme:TextColored("Saved Appearance:")
+	 						    		ImGui.Text(savedApp)
+	 										ScanApp:DrawButton("Clear Saved Appearance", style.buttonWidth, style.buttonHeight, "Clear", target)
+	 									end
+
+	 						    	ScanApp.Theme:Separator()
+
+										ScanApp.Theme:TextColored("Possible Actions:")
+
+										ImGui.Spacing()
+
+										if target.handle:IsVehicle() then
+											if ImGui.SmallButton("  Unlock Vehicle  ") then
+												ScanApp:UnlockVehicle(target.handle)
 											end
 
-		 									if savedApp ~= nil then
-		 										ScanApp.Theme:TextColored("Saved Appearance:")
-		 						    		ImGui.Text(savedApp)
-		 										ScanApp:DrawButton("Clear Saved Appearance", style.buttonWidth, style.buttonHeight, "Clear", target)
-		 									end
+											if ImGui.SmallButton("  Repair Vehicle  ") then
+												target.handle:RepairVehicle()
+												target.handle:ForcePersistentStateChanged()
+											end
+										end
 
-		 						    	ImGui.NewLine()
-		 									ImGui.Separator()
+										local spawnID = ScanApp:IsSpawnable(target)
+										if spawnID ~= nil then
+											local favoritesLabels = {"  Add to Spawnable Favorites  ", "  Remove from Spawnable Favorites  "}
+											target.id = spawnID
+											ScanApp:DrawFavoritesButton(favoritesLabels, target)
+											ImGui.Spacing()
+										end
+
+										if ScanApp.userSettings.experimental and not(target.handle:IsVehicle()) then
+											if ImGui.SmallButton("  Swap Model  ") then
+												popupDelegate = ScanApp:OpenPopup("Model Swap")
+											end
+
+											ScanApp:BeginPopup("Model Swap", target.id, false, popupDelegate, style)
+											ImGui.SameLine()
+										end
+
+										if ScanApp.userSettings.experimental then
+											if ImGui.SmallButton("  Despawn  ") then
+												target.handle:Dispose()
+											end
+										end
+
+										ScanApp.Theme:Separator()
+
+										if target.options ~= nil then
+											ScanApp.Theme:TextColored("List of Appearances:")
 											ImGui.Spacing()
 
-		 						    	if target.options ~= nil then
-		 						    		ScanApp.Theme:TextColored(target.name.."   ")
+											x = 0
+											for _, appearance in ipairs(target.options) do
+												local len = ImGui.CalcTextSize(appearance)
+												if len > x then x = len end
+											end
 
-												ImGui.Spacing()
+											y = ImGui.GetFontSize() * 20
+	 							    	if ImGui.BeginChild("Scrolling", x + 50, 400) then
+	 								    	for i, appearance in ipairs(target.options) do
+	 								    		if (ImGui.Button(appearance)) then
+														local custom = ScanApp:GetCustomAppearanceParams(appearance)
 
-												local spawnID = ScanApp:IsSpawnable(target)
-												if spawnID ~= nil then
-													local favoritesLabels = {"  Add to Spawnable Favorites  ", "  Remove from Spawnable Favorites  "}
-													target.id = spawnID
-													ScanApp:DrawFavoritesButton(favoritesLabels, target)
-												end
-
-												ImGui.Spacing()
-
-												if ScanApp.userSettings.experimental then
-													if ScanApp:GetEntityTemplates()[target.id] then
-														if ImGui.SmallButton("Swap Model") then
-															popupDelegate = ScanApp:OpenPopup("Swap")
+														if #custom > 0 then
+															ScanApp:ChangeScanCustomAppearanceTo(target, custom)
+														else
+	 								    				ScanApp:ChangeScanAppearanceTo(target, appearance)
 														end
-													end
+	 								    		end
+	 								    	end
 
-													if ImGui.BeginPopup("Model Swap") then
-														ImGui.TextWrapped(popupDelegate.message)
-														for _, button in ipairs(popupDelegate.buttons) do
-															if ImGui.Button(button.label, style.buttonWidth, style.buttonHeight) then
-																if button.action ~= '' then button.action(target.id) end
-																ImGui.CloseCurrentPopup()
-															end
-														end
-														ImGui.EndPopup()
-													end
-												end
+	 								    end
 
-												ScanApp.Theme:Separator()
-
-												x = 0
-												for _, appearance in ipairs(target.options) do
-													local len = ImGui.CalcTextSize(appearance)
-													if len > x then x = len end
-												end
-
-												y = ImGui.GetFontSize() * 20
-		 							    	if ImGui.BeginChild("Scrolling", x + 50, 400) then
-		 								    	for i, appearance in ipairs(target.options) do
-		 								    		if (ImGui.Button(appearance)) then
-		 								    			ScanApp:ChangeScanAppearanceTo(target, appearance)
-		 								    		end
-		 								    	end
-
-		 								    end
-
-		 								    ImGui.EndChild()
+	 								    ImGui.EndChild()
 		 								end
 		 							else
 		 				    		ImGui.PushTextWrapPos()
@@ -418,27 +482,34 @@ function ScanApp:new()
 							ImGui.Separator()
 
 							if next(ScanApp.spawnedNPCs) ~= nil then
-								ScanApp.Theme:TextColored("Active Spawns "..ScanApp.spawnsCounter.."/"..ScanApp.maxSpawns)
+								ScanApp.Theme:TextColored("Active NPC Spawns "..ScanApp.spawnsCounter.."/"..ScanApp.maxSpawns)
 
 								for _, spawn in pairs(ScanApp.spawnedNPCs) do
 									local nameLabel = spawn.name
 									ImGui.Text(nameLabel)
 
+									-- Spawned NPC Actions --
 									local favoritesLabels = {"Favorite", "Unfavorite"}
 									ScanApp:DrawFavoritesButton(favoritesLabels, spawn)
 
 									ImGui.SameLine()
-									if ImGui.SmallButton("Respawn##"..spawn.name) then
-										ScanApp:DespawnNPC(spawn.uniqueName(), spawn.entityID)
-										ScanApp:SpawnNPC(spawn)
+									if spawn.handle ~= '' and not(spawn.handle:IsVehicle()) then
+										if ImGui.SmallButton("Respawn##"..spawn.name) then
+											ScanApp:DespawnNPC(spawn.uniqueName(), spawn.entityID)
+											ScanApp:SpawnNPC(spawn)
+										end
 									end
 
 									ImGui.SameLine()
 									if ImGui.SmallButton("Despawn##"..spawn.name) then
-										ScanApp:DespawnNPC(spawn.uniqueName(), spawn.entityID)
+										if spawn.handle ~= '' and spawn.handle:IsVehicle() then
+											ScanApp:DespawnVehicle(spawn)
+										else
+											ScanApp:DespawnNPC(spawn.uniqueName(), spawn.entityID)
+										end
 									end
 
-									if spawn.handle ~= '' and not(spawn.handle:IsDead()) and ScanApp:CanBeHostile(spawn.handle) then
+									if spawn.handle ~= '' and not(spawn.handle:IsVehicle()) and not(spawn.handle:IsDead()) and ScanApp:CanBeHostile(spawn.handle) then
 
 										local hostileButtonLabel = "Hostile"
 										if not(spawn.handle.isPlayerCompanionCached) then
@@ -449,6 +520,13 @@ function ScanApp:new()
 										if ImGui.SmallButton(hostileButtonLabel.."##"..spawn.name) then
 											ScanApp:ToggleHostile(spawn)
 										end
+
+										ImGui.SameLine()
+										if ImGui.SmallButton("Equipment".."##"..spawn.name) then
+											popupDelegate = ScanApp:OpenPopup(spawn.name.."'s Equipment")
+										end
+
+										ScanApp:BeginPopup(spawn.name.."'s Equipment", spawn.path, false, popupDelegate, style)
 									end
 								end
 							end
@@ -540,11 +618,14 @@ function ScanApp:new()
 							ScanApp.Theme:Separator()
 
 							if ScanApp.userSettings.experimental then
-								if (ImGui.Button("Respawn All")) then
-			 						ScanApp:RespawnAll()
+								if (ImGui.Button("Revert All Model Swaps")) then
+			 						ScanApp:RevertTweakDBChanges(true)
 			 					end
 
 								ImGui.SameLine()
+								if (ImGui.Button("Respawn All")) then
+			 						ScanApp:RespawnAll()
+			 					end
 							end
 
 
@@ -560,17 +641,7 @@ function ScanApp:new()
 								popupDelegate = ScanApp:OpenPopup("Favorites")
 		 					end
 
-							if ImGui.BeginPopupModal("WARNING", ImGuiWindowFlags.AlwaysAutoResize) then
-								ImGui.TextWrapped(popupDelegate.message)
-								for _, button in ipairs(popupDelegate.buttons) do
-									if ImGui.Button(button.label, style.halfButtonWidth, style.buttonHeight) then
-										if button.action ~= '' then button.action() end
-										ImGui.CloseCurrentPopup()
-									end
-									ImGui.SameLine()
-								end
-								ImGui.EndPopup()
-							end
+							ScanApp:BeginPopup("WARNING", nil, true, popupDelegate, style)
 
 		 					ScanApp.Theme:Separator()
 
@@ -636,6 +707,11 @@ function ScanApp:NewSpawn(name, id, parameters, companion, path)
 	obj.path = path
 	obj.type = 'Spawn'
 	obj.entityID = ''
+
+	if obj.parameters == "Player" then
+		obj.path = path..self:GetPlayerGender()
+		obj.parameters = nil
+	end
 	return obj
 end
 
@@ -651,6 +727,11 @@ function ScanApp:NewTarget(handle, targetType, id, name, app, options)
 	-- Check if model is swappedModels
 	if self.swappedModels[obj.id] ~= nil and self.swappedModels[obj.id] ~= '' then
 		obj.id = self.swappedModels[obj.id][1]
+	end
+
+	-- Check if custom appearance is active
+	if self.activeCustomApps[obj.id] ~= nil then
+		obj.appearance = self.activeCustomApps[obj.id]
 	end
 
 	return obj
@@ -745,6 +826,27 @@ function ScanApp:GetSaveables()
 	return defaults
 end
 
+function ScanApp:GetEquipmentOptions()
+	local equipments = {
+		{name = 'Katana', path = 'Character.afterlife_rare_fmelee3_katana_wa_elite_inline0'},
+		{name = 'Mantis Blades', path = 'Character.afterlife_rare_fmelee3_mantis_ma_elite_inline0'},
+		{name = 'Machete', path = 'Character.aldecaldos_grunt2_melee2__ma_inline0'},
+		{name = 'Hammer', path = 'Character.maelstrom_grunt2_melee2_hammer_wa_inline0'},
+		{name = 'Baton', path = 'Character.animals_bouncer1_melee1_baton_mb_inline0'},
+		{name = 'Knife', path = 'Character.tyger_claws_gangster1_melee1_knife_wa_inline2'},
+		{name = 'Crowbar', path = 'Character.wraiths_grunt2_melee2_crowbar_ma_inline0'},
+		{name = 'Baseball Bat', path = 'Character.animals_grunt1_melee1_baseball_mb_inline0'},
+		{name = 'Assault Rifle', path = 'Character.afterlife_rare_franged2_ajax_wa_rare_inline0'},
+		{name = 'Sidewinder', path = 'Character.tyger_claws_gangster2_ranged2_sidewinder_wa_inline2'},
+		{name = 'Sniper Rifle', path = 'Character.afterlife_rare_sniper3_ashura_ma_elite_inline0'},
+		{name = 'Shotgun', path = 'Character.afterlife_rare_fshotgun3_zhuo_mb_elite_inline0'},
+		{name = 'SMG', path = 'Character.afterlife_rare_franged2_saratoga_ma_rare_inline0'},
+		{name = 'Handgun', path = 'Character.afterlife_rare_franged2_overture_wa_rare_inline0'},
+	}
+
+	return equipments
+end
+
 function ScanApp:GetEntityTemplates()
 	local templates = {
 		['0xB1B50FFA, 14'] = '', ['0xC67F0E01, 15'] = '',
@@ -753,7 +855,9 @@ function ScanApp:GetEntityTemplates()
 		['0xA1C78C30, 16'] = '', ['0xF43B2B48, 18'] = '',
 		['0x3024F03E, 15'] = '', ['0xAD1FC6DE, 15'] = '',
 		['0x4106744C, 35'] = '', ['0x8DD8F2E0, 35'] = '',
-		['0xC8227C45, 33'] = '', ['0x349E3563, 33'] = ''
+		['0xC8227C45, 33'] = '', ['0x349E3563, 33'] = '',
+		['0x7EE3CE36, 16'] = '', ['0xBF76C44D, 29'] = '',
+		['0xA22A7797, 15'] = '', ['0x4FA1C211, 15'] = ''
 	}
 
 	return templates
@@ -782,12 +886,49 @@ function ScanApp:ChangeEntityTemplateTo(fromID, toID)
 	TweakDB:Update(TweakDBID.new(fromPath))
 end
 
-function ScanApp:RevertModelChanges()
+function ScanApp:RevertTweakDBChanges(userActivated)
 	for id, template in pairs(ScanApp.swappedModels) do
 		if template ~= '' then
 			self:ChangeEntityTemplateTo(id, id)
 		end
 	end
+
+	if not(userActivated) then
+		TweakDB:SetFlat(TweakDBID.new('Vehicle.vehicle_list.list'), ScanApp.originalVehicles)
+	end
+end
+
+function ScanApp:SetupVehicleData()
+	local unlockableVehicles = TweakDB:GetFlat(TweakDBID.new('Vehicle.vehicle_list.list'))
+	ScanApp.originalVehicles = unlockableVehicles
+	for vehicle in db:urows("SELECT entity_path FROM entities WHERE cat_id = 24") do
+		table.insert(unlockableVehicles, TweakDBID.new(vehicle))
+	end
+
+	TweakDB:SetFlat(TweakDBID.new('Vehicle.vehicle_list.list'), unlockableVehicles)
+end
+
+function ScanApp:UnlockVehicle(handle)
+	handle:GetVehiclePS():UnlockAllVehDoors()
+end
+
+function ScanApp:SpawnVehicle(spawn)
+	local vehicleGarageId = NewObject('vehicleGarageVehicleID')
+	vehicleGarageId.recordID = TweakDBID.new(spawn.path)
+	Game.GetVehicleSystem():ToggleSummonMode()
+	Game.GetVehicleSystem():TogglePlayerActiveVehicle(vehicleGarageId, 'Car', true)
+	Game.GetVehicleSystem():SpawnPlayerVehicle('Car')
+	Game.GetVehicleSystem():ToggleSummonMode()
+
+	self.spawnedNPCs[spawn.uniqueName()] = spawn
+	self.currentSpawn = spawn.uniqueName()
+end
+
+function ScanApp:DespawnVehicle(spawn)
+	local vehicleGarageId = NewObject('vehicleGarageVehicleID')
+	vehicleGarageId.recordID = TweakDBID.new(spawn.path)
+	Game.GetVehicleSystem():DespawnPlayerVehicle(vehicleGarageId)
+	self.spawnedNPCs[spawn.uniqueName()] = nil
 end
 
 function ScanApp:GetNPCTweakDBID(npc)
@@ -803,9 +944,7 @@ function ScanApp:SpawnNPC(spawn)
 		local distanceFromPlayer = 1
 		local distanceFromGround = 0
 
-		if spawn.parameters == "Vehicles" then
-			distanceFromPlayer = -15
-		elseif type(spawn.parameters) == 'table' then
+		if type(spawn.parameters) == 'table' then
 			distanceFromPlayer = -15
 			distanceFromGround = spawn.parameters.distance or 0
 		end
@@ -886,7 +1025,16 @@ function ScanApp:CheckSavedAppearance(t)
 	end
 
 	if savedApp ~= nil and savedApp ~= currentApp then
-		self:ChangeScanAppearanceTo(t, savedApp)
+		local check = 0
+		for count in db:urows(f("SELECT COUNT(1) FROM custom_appearances WHERE app_name = '%s'", savedApp)) do
+			check = count
+		end
+		if count ~= 0 then
+			custom = self:GetCustomAppearanceParams(savedApp)
+			self:ChangeScanCustomAppearanceTo(t, custom)
+		else
+			self:ChangeScanAppearanceTo(t, savedApp)
+		end
 	end
 end
 
@@ -966,9 +1114,14 @@ function ScanApp:GetAppearanceOptions(t)
 	 	scanID = self.swappedModels[scanID][1]
 	end
 
+	for app in db:urows(f("SELECT DISTINCT app_name FROM custom_appearances WHERE entity_id = '%s'", scanID)) do
+		table.insert(options, app)
+	end
+
 	for app in db:urows(f("SELECT app_name FROM appearances WHERE entity_id = '%s'", scanID)) do
 		table.insert(options, app)
 	end
+
 	if next(options) ~= nil then
 		return options -- array of appearances names
 	end
@@ -980,10 +1133,28 @@ function ScanApp:GetScanAppearance(t)
 	return tostring(t:GetCurrentAppearanceName()):match("%[ (%g+) -")
 end
 
+function ScanApp:GetCustomAppearanceParams(appearance)
+	local custom = {}
+	for app in db:nrows(f("SELECT * FROM custom_appearances WHERE app_name = '%s'", appearance)) do
+		table.insert(custom, app)
+	end
+	return custom
+end
+
+function ScanApp:ChangeScanCustomAppearanceTo(t, customAppearance)
+	self:ChangeScanAppearanceTo(t, customAppearance[1].app_base)
+	self.setCustomApp = {t.handle, customAppearance}
+	self.activeCustomApps[t.id] = customAppearance[1].app_name
+end
+
 function ScanApp:ChangeScanAppearanceTo(t, newAppearance)
 	if not(string.find(t.name, 'Mech')) then
 		t.handle:PrefetchAppearanceChange(newAppearance)
 		t.handle:ScheduleAppearanceChange(newAppearance)
+
+		if self.activeCustomApps[t.id] ~= nil then
+			self.activeCustomApps[t.id] = nil
+		end
 	end
 end
 
@@ -1121,6 +1292,11 @@ function ScanApp:SetNPCAsCompanion(npcHandle)
 	end
 end
 
+function ScanApp:ChangeNPCEquipment(npcPath, equipmentPath)
+	TweakDB:SetFlat(TweakDBID.new(npcPath..".primaryEquipment"), TweakDBID.new(equipmentPath))
+	TweakDB:Update(TweakDBID.new(npcPath))
+end
+
 -- Helper methods
 function ScanApp:IsUnique(npcID)
 	for _, v in ipairs(self.allowedNPCs) do
@@ -1209,7 +1385,13 @@ function ScanApp:OpenPopup(name)
 	ImGui.SetNextWindowPos(x + ((sizeX / 2) - 200), y - 40)
 
 	local popupDelegate = {message = '', buttons = {}}
-	if name == 'Swap' then
+	if string.find(name, "Equipment") then
+		ImGui.SetNextWindowSize(400, 520)
+		popupDelegate.message = "Select "..name..":"
+		for _, equipment in ipairs(self.equipmentOptions) do
+			table.insert(popupDelegate.buttons, {label = equipment.name, action = function(fromPath) ScanApp:ChangeNPCEquipment(fromPath, equipment.path) end})
+		end
+	elseif name == 'Model Swap' then
 		ImGui.SetNextWindowSize(400, 520)
 		popupDelegate.message = "Select Replacement Model\n\nYou will need to reload your save to update changes."
 		local templates = ScanApp:GetEntityTemplates()
@@ -1223,29 +1405,47 @@ function ScanApp:OpenPopup(name)
 		popupDelegate.message = "Are you sure you want to enable experimental features? AMM might not work as expected. Use it at your own risk!"
 		table.insert(popupDelegate.buttons, {label = "Yes", action = ''})
 		table.insert(popupDelegate.buttons, {label = "No", action = function() ScanApp.userSettings.experimental = false end})
+		name = "WARNING"
 	elseif name == "Favorites" then
 		popupDelegate.message = "Are you sure you want to delete all your favorites?"
 		table.insert(popupDelegate.buttons, {label = "Yes", action = function() ScanApp:ClearAllFavorites() end})
 		table.insert(popupDelegate.buttons, {label = "No", action = ''})
+		name = "WARNING"
 	elseif name == "Appearances" then
 		popupDelegate.message = "Are you sure you want to delete all your saved appearances?"
 		table.insert(popupDelegate.buttons, {label = "Yes", action = function() ScanApp:ClearAllSavedAppearances() end})
 		table.insert(popupDelegate.buttons, {label = "No", action = ''})
+		name = "WARNING"
 	end
 
-	if name == 'Swap' then
-		ImGui.OpenPopup('Model Swap')
-	else
-		ImGui.OpenPopup("WARNING")
-	end
+	ImGui.OpenPopup(name)
 	return popupDelegate
+end
+
+function ScanApp:BeginPopup(popupTitle, popupActionArg, popupModal, popupDelegate, style)
+	local popup
+	if popupModal then
+		popup = ImGui.BeginPopupModal(popupTitle, ImGuiWindowFlags.AlwaysAutoResize)
+	else
+		popup = ImGui.BeginPopup(popupTitle)
+	end
+	if popup then
+		ImGui.TextWrapped(popupDelegate.message)
+		for _, button in ipairs(popupDelegate.buttons) do
+			if ImGui.Button(button.label, style.buttonWidth, style.buttonHeight) then
+				if button.action ~= '' then button.action(popupActionArg) end
+				ImGui.CloseCurrentPopup()
+			end
+		end
+		ImGui.EndPopup()
+	end
 end
 
 function ScanApp:SetFavoriteNamePopup(entity)
 	local sizeX = ImGui.GetWindowSize()
 	local x, y = ImGui.GetWindowPos()
 	ImGui.SetNextWindowPos(x + ((sizeX / 2) - 200), y - 40)
-	ImGui.SetNextWindowSize(400, ImGui.GetFontSize() * 7)
+	ImGui.SetNextWindowSize(400, ImGui.GetFontSize() * 8)
 	ScanApp.currentFavoriteName = entity.name
 	ScanApp.popupEntity = entity
 	ImGui.OpenPopup("Favorite Name")
@@ -1360,8 +1560,11 @@ function ScanApp:DrawButton(title, width, height, action, target)
 			ScanApp:SaveAppearance(target)
 		elseif action == "Clear" then
 			ScanApp:ClearSavedAppearance(target)
-		elseif action == "Spawn" then
+		elseif action == "SpawnNPC" then
 			ScanApp:SpawnNPC(target)
+			buttonPressed = true
+		elseif action == "SpawnVehicle" then
+			ScanApp:SpawnVehicle(target)
 			buttonPressed = true
 		end
 	end
@@ -1374,11 +1577,7 @@ function ScanApp:DrawEntitiesButtons(entities, categoryName, style)
 		id = entity[2]
 		path = entity[5]
 		companion = intToBool(entity[3])
-		if categoryName == "Vehicles" then
-			parameters = "Vehicles"
-		else
-			parameters = entity[4]
-		end
+		parameters = entity[4]
 
 		local newSpawn = ScanApp:NewSpawn(name, id, parameters, companion, path)
 		local buttonLabel = newSpawn.uniqueName()
@@ -1403,7 +1602,9 @@ function ScanApp:DrawEntitiesButtons(entities, categoryName, style)
 			ScanApp:DrawButton(buttonLabel, -1 - favOffset, style.buttonHeight, "Disabled", nil)
 			ImGui.PopStyleColor(3)
 		elseif not(ScanApp.spawnedNPCs[buttonLabel] ~= nil and ScanApp:IsUnique(newSpawn.id)) then
-			ScanApp:DrawButton(buttonLabel, -1 - favOffset, style.buttonHeight, "Spawn", newSpawn)
+			local action = "SpawnNPC"
+			if string.find(tostring(newSpawn.path), "Vehicle") then action = "SpawnVehicle" end
+			ScanApp:DrawButton(buttonLabel, -1 - favOffset, style.buttonHeight, action, newSpawn)
 		end
 
 		if categoryName == 'Favorites' then
@@ -1417,6 +1618,15 @@ function ScanApp:IsPlayerInAnyMenu()
     blackboard = Game.GetBlackboardSystem():Get(Game.GetAllBlackboardDefs().UI_System)
     uiSystemBB = (Game.GetAllBlackboardDefs().UI_System)
     return(blackboard:GetBool(uiSystemBB.IsInMenu))
+end
+
+function ScanApp:GetPlayerGender()
+  -- True = Female / False = Male
+  if string.find(tostring(Game.GetPlayer():GetResolvedGenderName()), "Female") then
+		return "_Female"
+	else
+		return "_Male"
+	end
 end
 
 -- End of ScanApp Class

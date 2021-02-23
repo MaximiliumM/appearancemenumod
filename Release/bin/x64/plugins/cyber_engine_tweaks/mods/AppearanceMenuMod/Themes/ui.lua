@@ -75,7 +75,7 @@ function UI:Start()
 
 	ImGui.PushStyleVar(ImGuiStyleVar.WindowPadding, 15, 15)
   ImGui.PushStyleVar(ImGuiStyleVar.WindowRounding, 0)
-  ImGui.PushStyleVar(ImGuiStyleVar.FramePadding, 10, 10)
+  ImGui.PushStyleVar(ImGuiStyleVar.FramePadding, 5, 5)
   ImGui.PushStyleVar(ImGuiStyleVar.ItemInnerSpacing, 5, 5)
   ImGui.PushStyleVar(ImGuiStyleVar.ScrollbarSize, 5)
   ImGui.PushStyleVar(ImGuiStyleVar.WindowBorderSize, 1)
@@ -95,9 +95,9 @@ function UI:Spacing(amount)
 end
 
 function UI:Separator()
-	UI:Spacing(2)
+	UI:Spacing(8)
 	ImGui.Separator()
-	UI:Spacing(1)
+	UI:Spacing(2)
 end
 
 UI.userThemes = UI:UserThemes()
