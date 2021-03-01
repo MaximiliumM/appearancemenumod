@@ -1,27 +1,21 @@
 return {
-[[Added V to Main Characters
--- Unfortunately not all animations work, but we think you will enjoy it anyways ;)]],
+[[Made companions to follow you at closer distance! -- Thanks, Catmino]],
 
-[[Added new Equipment system
--- Now you can pick a different weapon for your companions.]],
+[[Added requested NPCs to Model Swap list]],
 
 [[Added new Custom Appearances
 -- Check out new appearances made by us for the following characters:
-Judy, Panam, Alt, Cheri, Evelyn, Rogue, Us Cracks, Hanako, Rita, Maiko, Joytoys and some others.]],
+Meredith Stout, Melissa Rory, Max Tac Soldiers, Actress Grace, Iris Tanner and Sex Workers]],
 
-[[Added new Vehicle Spawning System that won't cause issues with NPC spawning
--- Fixed: NPCs won't spawn inside cars and stay there forever]],
+[[Added new NPC Talk hotkey that makes NPCs greet you]],
 
-[[Added new 'Revert All Model Swaps' button]],
+[[Fixed V not being targetable when using Model Swap]],
 
-[[Allowed any NPC to be model swapped to the NPCs in the list]],
+[[Set Model Swap list to be alphabetically ordered]],
 
-[[Added requested NPCs (Cynthia and Linda) and many others.]],
+[[Fixed Spawn Target hotkey not being able to spawn certain characters]],
 
-[[Added new experimental 'Despawn' button
--- Use this button to remove any vehicle or NPC out of existence!]],
+[[Fixed Search Clear button not being visible sometimes]],
 
-[[Fixed most vehicles not having their appearance list (Thanks, Ceano and ileboii)]],
-
-[[Fixed many reported bugs including Theme Editor window not opening anymore]],
+[[Fixed rare issue where the game would crash on launch]]
 }
