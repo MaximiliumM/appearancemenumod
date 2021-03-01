@@ -74,11 +74,18 @@ function ScanApp:new()
 		 ScanApp:ImportUserData()
 		 ScanApp:SetupVehicleData()
 
+		 if ScanApp.Debug ~= '' then
+			 ScanApp.playerAttached = true
+		 end
+
 		 -- Setup Observers --
 		 Observe("PlayerPuppet", "OnGameAttached", function(self)
 			 ScanApp.activeCustomApps = {}
-			 ScanApp.spawnedNPCs = {}
-			 ScanApp.spawnsCounter = 0
+
+			 if next(ScanApp.spawnedNPCs) ~= nil then
+			 	ScanApp:RespawnAll()
+			 end
+
 			 ScanApp.playerAttached = true
 		 end)
 	 end)
@@ -312,7 +319,13 @@ function ScanApp:Begin()
 
 	if ImGui.Begin("Appearance Menu Mod", shouldResize) then
 
-		if not(finishedUpdate) then
+		if (not(finishedUpdate) or ScanApp.playerAttached == false) then
+			if ScanApp.playerAttached == false and ScanApp:IsPlayerInAnyMenu() then
+				ScanApp.Theme:TextColored("Player In Menu")
+				ImGui.Text("AMM only functions in game")
+				ScanApp.Theme:Separator()
+			end
+
 			-- UPDATE NOTES
 			ScanApp.Theme:TextColored("UPDATE "..ScanApp.currentVersion)
 			ScanApp.Theme:Separator()
@@ -327,12 +340,11 @@ function ScanApp:Begin()
 			end
 
 			ScanApp.Theme:Separator()
-			if ImGui.Button("Cool!", ImGui.GetWindowContentRegionWidth(), 30) then
-				ScanApp:FinishUpdate()
+			if not(finishedUpdate) then
+				if ImGui.Button("Cool!", ImGui.GetWindowContentRegionWidth(), 30) then
+					ScanApp:FinishUpdate()
+				end
 			end
-		elseif (ScanApp.playerAttached == false or ScanApp:IsPlayerInAnyMenu()) and ScanApp.Debug == '' then
-				ScanApp.Theme:TextColored("Player In Menu")
-				ImGui.Text("AMM only functions in game")
 		else
 				-- Target Setup --
 				target = ScanApp:GetTarget()
@@ -516,120 +528,124 @@ function ScanApp:Begin()
 
 				-- Spawn Tab --
 				if (ImGui.BeginTabItem("Spawn")) then
-					ScanApp.settings = true
 
-					ScanApp.searchQuery = ImGui.InputTextWithHint(" ", "Search", ScanApp.searchQuery, 100)
-
-					if ScanApp.searchQuery ~= '' then
-						ImGui.SameLine()
-						if ImGui.Button("Clear") then
-							ScanApp.searchQuery = ''
-						end
-					end
-
-					ImGui.Separator()
-
-					if next(ScanApp.spawnedNPCs) ~= nil then
-						ScanApp.Theme:TextColored("Active NPC Spawns "..ScanApp.spawnsCounter.."/"..ScanApp.maxSpawns)
-
-						for _, spawn in pairs(ScanApp.spawnedNPCs) do
-							local nameLabel = spawn.name
-							ImGui.Text(nameLabel)
-
-							-- Spawned NPC Actions --
-							local favoritesLabels = {"Favorite", "Unfavorite"}
-							ScanApp:DrawFavoritesButton(favoritesLabels, spawn)
-
-							ImGui.SameLine()
-							if spawn.handle ~= '' and not(spawn.handle:IsVehicle()) then
-								if ImGui.SmallButton("Respawn##"..spawn.name) then
-									ScanApp:DespawnNPC(spawn.uniqueName(), spawn.entityID)
-									ScanApp:SpawnNPC(spawn)
-								end
-							end
-
-							ImGui.SameLine()
-							if ImGui.SmallButton("Despawn##"..spawn.name) then
-								if spawn.handle ~= '' and spawn.handle:IsVehicle() then
-									ScanApp:DespawnVehicle(spawn)
-								else
-									ScanApp:DespawnNPC(spawn.uniqueName(), spawn.entityID)
-								end
-							end
-
-							if spawn.handle ~= '' and not(spawn.handle:IsVehicle()) and not(spawn.handle:IsDead()) and ScanApp:CanBeHostile(spawn.handle) then
-
-								local hostileButtonLabel = "Hostile"
-								if not(spawn.handle.isPlayerCompanionCached) then
-									hostileButtonLabel = "Friendly"
-								end
-
-								ImGui.SameLine()
-								if ImGui.SmallButton(hostileButtonLabel.."##"..spawn.name) then
-									ScanApp:ToggleHostile(spawn)
-								end
-
-								ImGui.SameLine()
-								if ImGui.SmallButton("Equipment".."##"..spawn.name) then
-									popupDelegate = ScanApp:OpenPopup(spawn.name.."'s Equipment")
-								end
-
-								ScanApp:BeginPopup(spawn.name.."'s Equipment", spawn.path, false, popupDelegate, style)
-							end
-						end
-					end
-
-					ScanApp.Theme:TextColored("Select To Spawn:")
-
-					if ScanApp.searchQuery ~= '' then
-						local entities = {}
-						local query = "SELECT * FROM entities WHERE is_spawnable = 1 AND entity_name LIKE '%"..ScanApp.searchQuery.."%' ORDER BY entity_name ASC"
-						for en in db:nrows(query) do
-							table.insert(entities, {en.entity_name, en.entity_id, en.can_be_comp, en.parameters, en.entity_path})
-						end
-
-						if #entities ~= 0 then
-							ScanApp:DrawEntitiesButtons(entities, 'ALL', style)
-						else
-							ImGui.Text("No Results")
-						end
+					if ScanApp:IsPlayerInAnyMenu() then
+						ScanApp.Theme:TextColored("Player In Menu")
+						ImGui.Text("Spawning only works in game")
 					else
-						y = ImGui.GetFontSize() * 40
-						if ImGui.BeginChild("Categories", ImGui.GetWindowContentRegionWidth(), y) then
-							for _, category in ipairs(ScanApp.categories) do
-								if(ImGui.CollapsingHeader(category.cat_name)) then
-									local entities = {}
-									local noFavorites = true
-									if category.cat_name == 'Favorites' then
-										local query = "SELECT * FROM favorites"
-										for fav in db:nrows(query) do
-											query = f("SELECT * FROM entities WHERE entity_id = '%s'", fav.entity_id)
-											for en in db:nrows(query) do
-												if fav.parameters ~= nil then en.parameters = fav.parameters end
-												table.insert(entities, {fav.entity_name, en.entity_id, en.can_be_comp, en.parameters, en.entity_path})
+						ScanApp.searchQuery = ImGui.InputTextWithHint(" ", "Search", ScanApp.searchQuery, 100)
+
+						if ScanApp.searchQuery ~= '' then
+							ImGui.SameLine()
+							if ImGui.Button("Clear") then
+								ScanApp.searchQuery = ''
+							end
+						end
+
+						ImGui.Separator()
+
+						if next(ScanApp.spawnedNPCs) ~= nil then
+							ScanApp.Theme:TextColored("Active NPC Spawns "..ScanApp.spawnsCounter.."/"..ScanApp.maxSpawns)
+
+							for _, spawn in pairs(ScanApp.spawnedNPCs) do
+								local nameLabel = spawn.name
+								ImGui.Text(nameLabel)
+
+								-- Spawned NPC Actions --
+								local favoritesLabels = {"Favorite", "Unfavorite"}
+								ScanApp:DrawFavoritesButton(favoritesLabels, spawn)
+
+								ImGui.SameLine()
+								if spawn.handle ~= '' and not(spawn.handle:IsVehicle()) then
+									if ImGui.SmallButton("Respawn##"..spawn.name) then
+										ScanApp:DespawnNPC(spawn.uniqueName(), spawn.entityID)
+										ScanApp:SpawnNPC(spawn)
+									end
+								end
+
+								ImGui.SameLine()
+								if ImGui.SmallButton("Despawn##"..spawn.name) then
+									if spawn.handle ~= '' and spawn.handle:IsVehicle() then
+										ScanApp:DespawnVehicle(spawn)
+									else
+										ScanApp:DespawnNPC(spawn.uniqueName(), spawn.entityID)
+									end
+								end
+
+								if spawn.handle ~= '' and not(spawn.handle:IsVehicle()) and not(spawn.handle:IsDead()) and ScanApp:CanBeHostile(spawn.handle) then
+
+									local hostileButtonLabel = "Hostile"
+									if not(spawn.handle.isPlayerCompanionCached) then
+										hostileButtonLabel = "Friendly"
+									end
+
+									ImGui.SameLine()
+									if ImGui.SmallButton(hostileButtonLabel.."##"..spawn.name) then
+										ScanApp:ToggleHostile(spawn)
+									end
+
+									ImGui.SameLine()
+									if ImGui.SmallButton("Equipment".."##"..spawn.name) then
+										popupDelegate = ScanApp:OpenPopup(spawn.name.."'s Equipment")
+									end
+
+									ScanApp:BeginPopup(spawn.name.."'s Equipment", spawn.path, false, popupDelegate, style)
+								end
+							end
+						end
+
+						ScanApp.Theme:TextColored("Select To Spawn:")
+
+						if ScanApp.searchQuery ~= '' then
+							local entities = {}
+							local query = "SELECT * FROM entities WHERE is_spawnable = 1 AND entity_name LIKE '%"..ScanApp.searchQuery.."%' ORDER BY entity_name ASC"
+							for en in db:nrows(query) do
+								table.insert(entities, {en.entity_name, en.entity_id, en.can_be_comp, en.parameters, en.entity_path})
+							end
+
+							if #entities ~= 0 then
+								ScanApp:DrawEntitiesButtons(entities, 'ALL', style)
+							else
+								ImGui.Text("No Results")
+							end
+						else
+							y = ImGui.GetFontSize() * 40
+							if ImGui.BeginChild("Categories", ImGui.GetWindowContentRegionWidth(), y) then
+								for _, category in ipairs(ScanApp.categories) do
+									if(ImGui.CollapsingHeader(category.cat_name)) then
+										local entities = {}
+										local noFavorites = true
+										if category.cat_name == 'Favorites' then
+											local query = "SELECT * FROM favorites"
+											for fav in db:nrows(query) do
+												query = f("SELECT * FROM entities WHERE entity_id = '%s'", fav.entity_id)
+												for en in db:nrows(query) do
+													if fav.parameters ~= nil then en.parameters = fav.parameters end
+													table.insert(entities, {fav.entity_name, en.entity_id, en.can_be_comp, en.parameters, en.entity_path})
+												end
+											end
+											if #entities == 0 then
+												ImGui.Text("It's empty :(")
 											end
 										end
-										if #entities == 0 then
-											ImGui.Text("It's empty :(")
+
+										-- Temporary Johnny and Nibbles workaround
+										if category.cat_id == 28 then
+											table.insert(entities, {"Johnny Silverhand", "0xC886A091, 29", 0, nil, TweakDBID.new(0xC886A091, 29)})
+											table.insert(entities, {"Nibbles", "0x5FAE2DB7, 18", 0, nil, TweakDBID.new(0x5FAE2DB7, 18)})
 										end
-									end
 
-									-- Temporary Johnny and Nibbles workaround
-									if category.cat_id == 28 then
-										table.insert(entities, {"Johnny Silverhand", "0xC886A091, 29", 0, nil, TweakDBID.new(0xC886A091, 29)})
-										table.insert(entities, {"Nibbles", "0x5FAE2DB7, 18", 0, nil, TweakDBID.new(0x5FAE2DB7, 18)})
-									end
+										local query = f("SELECT * FROM entities WHERE is_spawnable = 1 AND cat_id == '%s' ORDER BY entity_name ASC", category.cat_id)
+										for en in db:nrows(query) do
+											table.insert(entities, {en.entity_name, en.entity_id, en.can_be_comp, en.parameters, en.entity_path})
+										end
 
-									local query = f("SELECT * FROM entities WHERE is_spawnable = 1 AND cat_id == '%s' ORDER BY entity_name ASC", category.cat_id)
-									for en in db:nrows(query) do
-										table.insert(entities, {en.entity_name, en.entity_id, en.can_be_comp, en.parameters, en.entity_path})
+										ScanApp:DrawEntitiesButtons(entities, category.cat_name, style)
 									end
-
-									ScanApp:DrawEntitiesButtons(entities, category.cat_name, style)
 								end
 							end
+							ImGui.EndChild()
 						end
-						ImGui.EndChild()
 					end
 
 					ImGui.EndTabItem()
@@ -807,6 +823,9 @@ function ScanApp:ImportUserData()
 	if file then
 		local contents = file:read( "*a" )
 		local userData = json.decode(contents)
+		if userData['spawnedNPCs'] ~= nil then
+			self.spawnedNPCs = self:PrepareImportSpawnedData(userData['spawnedNPCs'])
+		end
 		self.selectedTheme = userData['selectedTheme']
 		for _, obj in ipairs(userData['settings']) do
 			db:execute(f("UPDATE settings SET setting_name = '%s', setting_value = %i WHERE setting_name = '%s'", obj.setting_name, boolToInt( obj.setting_value),  obj.setting_name))
@@ -839,11 +858,35 @@ function ScanApp:ExportUserData()
 			table.insert(userData['saved_appearances'], {entity_id = r.entity_id, app_name = r.app_name})
 		end
 		userData['selectedTheme'] = self.selectedTheme
+		userData['spawnedNPCs'] = self:PrepareExportSpawnedData()
 
 		local contents = json.encode(userData)
 		file:write(contents)
 		file:close()
 	end
+end
+
+function ScanApp:PrepareImportSpawnedData(savedIDs)
+	local savedEntities = {}
+
+	for _, id in ipairs(savedIDs) do
+		for ent in db:nrows(f("SELECT * FROM entities WHERE entity_id = '%s'", id)) do
+			spawn = ScanApp:NewSpawn(ent.entity_name, ent.entity_id, ent.entity_parameters, ent.can_be_comp, ent.entity_path)
+			table.insert(savedEntities, spawn)
+		end
+	end
+
+	return savedEntities
+end
+
+function ScanApp:PrepareExportSpawnedData()
+	local spawnedEntities = {}
+
+	for _, ent in pairs(self.spawnedNPCs) do
+		table.insert(spawnedEntities, ent.id)
+	end
+
+	return spawnedEntities
 end
 
 function ScanApp:GetCategories()

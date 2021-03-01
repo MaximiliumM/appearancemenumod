@@ -9,6 +9,8 @@ Meredith Stout, Melissa Rory, Max Tac Soldiers, Actress Grace, Iris Tanner and S
 
 [[Added new NPC Talk hotkey that makes NPCs greet you]],
 
+[[Added system to respawn NPCs that were previously spawned when you quitted the game]],
+
 [[Fixed V not being targetable when using Model Swap]],
 
 [[Set Model Swap list to be alphabetically ordered]],
