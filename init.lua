@@ -74,8 +74,12 @@ function ScanApp:new()
 		 ScanApp:ImportUserData()
 		 ScanApp:SetupVehicleData()
 
-		 if ScanApp.Debug ~= '' then
+		 if not(ScanApp:IsPlayerInAnyMenu()) or ScanApp.Debug ~= '' then
 			 ScanApp.playerAttached = true
+
+			 if next(ScanApp.spawnedNPCs) ~= nil then
+			 	ScanApp:RespawnAll()
+			 end
 		 end
 
 		 -- Setup Observers --
@@ -145,8 +149,9 @@ function ScanApp:new()
 		end
 	 end)
 
-	 registerHotkey("amm_respawn_all", "Respawn All (Experimental Only)", function()
-	 	if ScanApp.userSettings.experimental then ScanApp:RespawnAll() end
+	 registerHotkey("amm_respawn_all", "Respawn All", function()
+		buttonPressed = true
+	 	ScanApp:RespawnAll()
 	 end)
 
 	 registerHotkey("amm_npc_talk", "NPC Talk", function()
@@ -190,10 +195,8 @@ function ScanApp:new()
 								table.insert(ScanApp.entitiesForRespawn, ent)
 							end
 
-							-- for _, ent in ipairs(ScanApp.entitiesForRespawn) do
-							-- 	ScanApp:DespawnNPC(ent.uniqueName, ent.entityID)
-							-- end
-							ScanApp:DespawnAll(true)
+							ScanApp:DespawnAll(buttonPressed)
+							if buttonPressed then buttonPressed = false end
 						else
 							if waitTimer == 0.0 then
 								respawnTimer = respawnTimer + deltaTime
@@ -320,7 +323,7 @@ function ScanApp:Begin()
 	if ImGui.Begin("Appearance Menu Mod", shouldResize) then
 
 		if (not(finishedUpdate) or ScanApp.playerAttached == false) then
-			if ScanApp.playerAttached == false and ScanApp:IsPlayerInAnyMenu() then
+			if finishedUpdate and ScanApp.playerAttached == false and ScanApp:IsPlayerInAnyMenu() then
 				ScanApp.Theme:TextColored("Player In Menu")
 				ImGui.Text("AMM only functions in game")
 				ScanApp.Theme:Separator()
@@ -458,7 +461,7 @@ function ScanApp:Begin()
 									end
 
 									if ImGui.SmallButton("  Repair Vehicle  ") then
-										target.handle:RepairVehicle()
+										target.handle.damageLevel = 0
 										target.handle:ForcePersistentStateChanged()
 									end
 								end
@@ -476,7 +479,7 @@ function ScanApp:Begin()
 										popupDelegate = ScanApp:OpenPopup("Model Swap")
 									end
 
-									ScanApp:BeginPopup("Model Swap", target.id, false, popupDelegate, style)
+									ScanApp:BeginPopup("Model Swap", self:GetScanID(target.handle), false, popupDelegate, style)
 									ImGui.SameLine()
 								end
 
@@ -945,11 +948,11 @@ end
 
 function ScanApp:ChangeEntityTemplateTo(fromID, toID)
 	toPath = ''
-	for path in db:urows(f("SELECT entity_path FROM entities WHERE entity_id = '%s'", toID)) do
+	for path in db:urows(f("SELECT entity_path FROM paths WHERE entity_id = '%s'", toID)) do
 		toPath = path
 	end
 	fromPath = ''
-	for path in db:urows(f("SELECT entity_path FROM entities WHERE entity_id = '%s'", fromID)) do
+	for path in db:urows(f("SELECT entity_path FROM paths WHERE entity_id = '%s'", fromID)) do
 		fromPath = path
 	end
 
@@ -964,7 +967,7 @@ function ScanApp:ChangeEntityTemplateTo(fromID, toID)
 		toTemplate = TweakDB:GetFlat(TweakDBID.new(toPath..".entityTemplatePath"))
 	end
 
-	if next(self.swappedModels) ~= nil and self.swappedModels[toID] ~= '' then
+	if self.swappedModels[toID] ~= nil and self.swappedModels[toID] ~= '' then
 		toTemplate = self.swappedModels[toID][2]
 		self.swappedModels[toID] = ''
 	else
@@ -1205,7 +1208,9 @@ end
 function ScanApp:GetAppearanceOptions(t)
 	local options = {}
 
-	if t:IsNPC() then
+	scanID = self:GetScanID(t)
+
+	if t:IsNPC() and self.swappedModels[scanID] == nil then
 		if t:GetRecord():CrowdAppearanceNames()[1] ~= nil then
 			for _, app in ipairs(t:GetRecord():CrowdAppearanceNames()) do
 				table.insert(options, tostring(app):match("%[ (%g+) -"))
@@ -1214,8 +1219,7 @@ function ScanApp:GetAppearanceOptions(t)
 		end
 	end
 
-	scanID = self:GetScanID(t)
-	if self.swappedModels[scanID] ~= nil and self.swappedModels[scanID] ~= '' then
+	if self.swappedModels[scanID] ~= nil then
 	 	scanID = self.swappedModels[scanID][1]
 	end
 
