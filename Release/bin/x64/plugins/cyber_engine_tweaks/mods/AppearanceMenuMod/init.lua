@@ -32,8 +32,13 @@ function ScanApp:new()
 	 ScanApp.Editor = require('Themes/editor.lua')
 	 ScanApp.selectedTheme = 'Default'
 
+	 -- Load Modules --
+	 --ScanApp.Scan = require('Modules/scan.lua')
+	 ScanApp.Swap = require('Modules/swap.lua')
+	 ScanApp.Util = require('Modules/util.lua')
+
 	 -- Main Properties --
-	 ScanApp.currentVersion = "1.7.3"
+	 ScanApp.currentVersion = "1.7.4"
 	 ScanApp.updateNotes = require('update_notes.lua')
 	 ScanApp.userSettings = ScanApp:PrepareSettings()
 	 ScanApp.categories = ScanApp:GetCategories()
@@ -42,7 +47,7 @@ function ScanApp:new()
 	 ScanApp.entitiesForRespawn = ''
 	 ScanApp.allowedNPCs = ScanApp:GetSaveables()
 	 ScanApp.searchQuery = ''
-	 ScanApp.swappedModels = {}
+	 ScanApp.searchBarWidth = 530
 	 ScanApp.equipmentOptions = ScanApp:GetEquipmentOptions()
 	 ScanApp.originalVehicles = ''
 
@@ -73,8 +78,9 @@ function ScanApp:new()
 		 finishedUpdate = ScanApp:CheckDBVersion()
 		 ScanApp:ImportUserData()
 		 ScanApp:SetupVehicleData()
+		 ScanApp:SetupJohnny()
 
-		 if not(ScanApp:IsPlayerInAnyMenu()) or ScanApp.Debug ~= '' then
+		 if not(ScanApp.Util:IsPlayerInAnyMenu()) or ScanApp.Debug ~= '' then
 			 ScanApp.playerAttached = true
 
 			 if next(ScanApp.spawnedNPCs) ~= nil then
@@ -95,8 +101,8 @@ function ScanApp:new()
 	 end)
 
 	 registerForEvent("onShutdown", function()
-		 ScanApp:RevertTweakDBChanges(false)
 		 ScanApp:ExportUserData()
+		 -- ScanApp:RevertTweakDBChanges(false)
 	 end)
 
 	 -- Keybinds
@@ -162,7 +168,7 @@ function ScanApp:new()
 	 end)
 
 	 registerForEvent("onUpdate", function(deltaTime)
-		 if ScanApp.playerAttached or not(ScanApp:IsPlayerInAnyMenu()) then
+		 if ScanApp.playerAttached or not(ScanApp.Util:IsPlayerInAnyMenu()) then
 				if finishedUpdate and Game.GetPlayer() ~= nil then
 			 		-- Load Saved Appearance --
 			 		if not drawWindow and ScanApp.shouldCheckSavedAppearance then
@@ -232,7 +238,9 @@ function ScanApp:new()
 							if currentAppearance == customAppearance[1].app_base then
 								for _, param in ipairs(customAppearance) do
 									local appParam = handle:FindComponentByName(CName.new(param.app_param))
-									if appParam then appParam:TemporaryHide(not(intToBool(param.app_toggle))) end
+									if appParam then
+										appParam:TemporaryHide(param.app_toggle)
+									end
 								end
 
 								waitTimer = 0.0
@@ -257,7 +265,11 @@ function ScanApp:new()
 								ScanApp.spawnedNPCs[ScanApp.currentSpawn].handle = handle
 								if handle:IsNPC() then
 									if ScanApp.spawnedNPCs[ScanApp.currentSpawn].parameters ~= nil then
-										ScanApp:ChangeScanAppearanceTo(ScanApp.spawnedNPCs[ScanApp.currentSpawn], ScanApp.spawnedNPCs[ScanApp.currentSpawn].parameters)
+										if ScanApp.spawnedNPCs[ScanApp.currentSpawn].parameters == "special__vr_tutorial_ma_dummy_light" then -- Extra Handling for Johnny
+											ScanApp:ChangeScanCustomAppearanceTo(ScanApp.spawnedNPCs[ScanApp.currentSpawn], ScanApp:GetCustomAppearanceParams('silverhand_default'))
+										else
+											ScanApp:ChangeScanAppearanceTo(ScanApp.spawnedNPCs[ScanApp.currentSpawn], ScanApp.spawnedNPCs[ScanApp.currentSpawn].parameters)
+										end
 									end
 									if ScanApp.spawnAsCompanion and ScanApp.spawnedNPCs[ScanApp.currentSpawn].canBeCompanion then
 										ScanApp:SetNPCAsCompanion(handle)
@@ -323,7 +335,7 @@ function ScanApp:Begin()
 	if ImGui.Begin("Appearance Menu Mod", shouldResize) then
 
 		if (not(finishedUpdate) or ScanApp.playerAttached == false) then
-			if finishedUpdate and ScanApp.playerAttached == false and ScanApp:IsPlayerInAnyMenu() then
+			if finishedUpdate and ScanApp.playerAttached == false and ScanApp.Util:IsPlayerInAnyMenu() then
 				ScanApp.Theme:TextColored("Player In Menu")
 				ImGui.Text("AMM only functions in game")
 				ScanApp.Theme:Separator()
@@ -423,13 +435,15 @@ function ScanApp:Begin()
 									for _, button in ipairs(tabs[tab].buttons) do
 										ImGui.SameLine()
 
-										if drawSaveButton == false then
+										if drawSaveButton == false or target.id == "0x903E76AF, 43" then
 											button.width = style.buttonWidth
+										end
 
-											if button.action ~= "Save" then
-												ScanApp:DrawButton(button.title, button.width, style.buttonHeight, button.action, target)
-											end
-										else
+										if button.action == "Cycle" and target.id ~= "0x903E76AF, 43" then -- Extra Handling for Johnny
+											ScanApp:DrawButton(button.title, button.width, style.buttonHeight, button.action, target)
+										end
+
+										if drawSaveButton and button.action == "Save" then
 											ScanApp:DrawButton(button.title, button.width, style.buttonHeight, button.action, target)
 										end
 									end
@@ -474,15 +488,6 @@ function ScanApp:Begin()
 									ImGui.Spacing()
 								end
 
-								if ScanApp.userSettings.experimental and not(target.handle:IsVehicle()) and target.appearance ~= "None" then
-									if ImGui.SmallButton("  Swap Model  ") then
-										popupDelegate = ScanApp:OpenPopup("Model Swap")
-									end
-
-									ScanApp:BeginPopup("Model Swap", self:GetScanID(target.handle), false, popupDelegate, style)
-									ImGui.SameLine()
-								end
-
 								if ScanApp.userSettings.experimental then
 									if ImGui.SmallButton("  Despawn  ") then
 										target.handle:Dispose()
@@ -505,7 +510,7 @@ function ScanApp:Begin()
 									if ImGui.BeginChild("Scrolling", x + 50, 400) then
 										for i, appearance in ipairs(target.options) do
 											if (ImGui.Button(appearance)) then
-												local custom = ScanApp:GetCustomAppearanceParams(appearance)
+												local custom = ScanApp:GetCustomAppearanceParams(appearance, target)
 
 												if #custom > 0 then
 													ScanApp:ChangeScanCustomAppearanceTo(target, custom)
@@ -532,21 +537,10 @@ function ScanApp:Begin()
 				-- Spawn Tab --
 				if (ImGui.BeginTabItem("Spawn")) then
 
-					if ScanApp:IsPlayerInAnyMenu() then
+					if ScanApp.Util:IsPlayerInAnyMenu() then
 						ScanApp.Theme:TextColored("Player In Menu")
 						ImGui.Text("Spawning only works in game")
 					else
-						ScanApp.searchQuery = ImGui.InputTextWithHint(" ", "Search", ScanApp.searchQuery, 100)
-
-						if ScanApp.searchQuery ~= '' then
-							ImGui.SameLine()
-							if ImGui.Button("Clear") then
-								ScanApp.searchQuery = ''
-							end
-						end
-
-						ImGui.Separator()
-
 						if next(ScanApp.spawnedNPCs) ~= nil then
 							ScanApp.Theme:TextColored("Active NPC Spawns "..ScanApp.spawnsCounter.."/"..ScanApp.maxSpawns)
 
@@ -595,7 +589,22 @@ function ScanApp:Begin()
 									ScanApp:BeginPopup(spawn.name.."'s Equipment", spawn.path, false, popupDelegate, style)
 								end
 							end
+
+							ScanApp.Theme:Separator()
 						end
+
+						ImGui.PushItemWidth(ScanApp.searchBarWidth)
+						ScanApp.searchQuery = ImGui.InputTextWithHint(" ", "Search", ScanApp.searchQuery, 100)
+						ImGui.PopItemWidth()
+
+						if ScanApp.searchQuery ~= '' then
+							ImGui.SameLine()
+							if ImGui.Button("Clear") then
+								ScanApp.searchQuery = ''
+							end
+						end
+
+						ImGui.Spacing()
 
 						ScanApp.Theme:TextColored("Select To Spawn:")
 
@@ -632,12 +641,6 @@ function ScanApp:Begin()
 											end
 										end
 
-										-- Temporary Johnny and Nibbles workaround
-										if category.cat_id == 28 then
-											table.insert(entities, {"Johnny Silverhand", "0xC886A091, 29", 0, nil, TweakDBID.new(0xC886A091, 29)})
-											table.insert(entities, {"Nibbles", "0x5FAE2DB7, 18", 0, nil, TweakDBID.new(0x5FAE2DB7, 18)})
-										end
-
 										local query = f("SELECT * FROM entities WHERE is_spawnable = 1 AND cat_id == '%s' ORDER BY entity_name ASC", category.cat_id)
 										for en in db:nrows(query) do
 											table.insert(entities, {en.entity_name, en.entity_id, en.can_be_comp, en.parameters, en.entity_path})
@@ -652,6 +655,11 @@ function ScanApp:Begin()
 					end
 
 					ImGui.EndTabItem()
+				end
+
+				-- Swap Tab --
+				if ScanApp.userSettings.experimental then
+					ScanApp.Swap:Draw(ScanApp, target)
 				end
 
 				-- Settings Tab --
@@ -772,7 +780,7 @@ function ScanApp:NewSpawn(name, id, parameters, companion, path)
 	obj.entityID = ''
 
 	if obj.parameters == "Player" then
-		obj.path = path..self:GetPlayerGender()
+		obj.path = path..self.Util:GetPlayerGender()
 		obj.parameters = nil
 	end
 	return obj
@@ -788,8 +796,8 @@ function ScanApp:NewTarget(handle, targetType, id, name, app, options)
 	obj.options = options or nil
 
 	-- Check if model is swappedModels
-	if self.swappedModels[obj.id] ~= nil and self.swappedModels[obj.id] ~= '' then
-		obj.id = self.swappedModels[obj.id][1]
+	if self.Swap.activeSwaps[obj.id] ~= nil then
+		obj.id = self.Swap.activeSwaps[obj.id].newID
 	end
 
 	-- Check if custom appearance is active
@@ -829,6 +837,9 @@ function ScanApp:ImportUserData()
 		if userData['spawnedNPCs'] ~= nil then
 			self.spawnedNPCs = self:PrepareImportSpawnedData(userData['spawnedNPCs'])
 		end
+		if userData['savedSwaps'] ~= nil then
+			self.Swap:LoadSavedSwaps(userData['savedSwaps'])
+		end
 		self.selectedTheme = userData['selectedTheme']
 		for _, obj in ipairs(userData['settings']) do
 			db:execute(f("UPDATE settings SET setting_name = '%s', setting_value = %i WHERE setting_name = '%s'", obj.setting_name, boolToInt( obj.setting_value),  obj.setting_name))
@@ -862,6 +873,7 @@ function ScanApp:ExportUserData()
 		end
 		userData['selectedTheme'] = self.selectedTheme
 		userData['spawnedNPCs'] = self:PrepareExportSpawnedData()
+		userData['savedSwaps'] = self.Swap:GetSavedSwaps()
 
 		local contents = json.encode(userData)
 		file:write(contents)
@@ -910,7 +922,8 @@ function ScanApp:GetSaveables()
 		'0xB1B50FFA, 14', '0xC67F0E01, 15', '0x73C44EBA, 15', '0xA1C78C30, 16', '0x7F65F7F7, 16',
 		'0x7B2CB67C, 17', '0x3024F03E, 15', '0x3B6EF8F9, 13', '0x413F60A6, 15', '0x62B8D0FA, 15',
 		'0x3143911D, 15', '0xF0F54969, 24', '0x0044E64C, 20', '0xF43B2B48, 18', '0xC111FBAC, 16',
-		'0x8DD8F2E0, 35', '0x4106744C, 35', '0xB98FDBB8, 14', '0x6B0544AD, 26', '0x215A57FC, 17'
+		'0x8DD8F2E0, 35', '0x4106744C, 35', '0xB98FDBB8, 14', '0x6B0544AD, 26', '0x215A57FC, 17',
+		'0x903E76AF, 43'
 	}
 
 	return defaults
@@ -937,73 +950,25 @@ function ScanApp:GetEquipmentOptions()
 	return equipments
 end
 
-function ScanApp:GetEntityTemplates()
-	local entities = {}
-	for entity in db:urows("SELECT entity_id FROM entities WHERE is_swappable = 1 ORDER BY entity_name ASC") do
-			table.insert(entities, entity)
-	end
-
-	return entities
-end
-
-function ScanApp:ChangeEntityTemplateTo(fromID, toID)
-	toPath = ''
-	for path in db:urows(f("SELECT entity_path FROM paths WHERE entity_id = '%s'", toID)) do
-		toPath = path
-	end
-	fromPath = ''
-	for path in db:urows(f("SELECT entity_path FROM paths WHERE entity_id = '%s'", fromID)) do
-		fromPath = path
-	end
-
-	local player = string.find(toPath, "Player")
-	if player then
-		toPath = toPath..ScanApp:GetPlayerGender()
-		toTemplate = {}
-		table.insert(toTemplate, TweakDB:GetFlat(TweakDBID.new(toPath..".entityTemplatePath")))
-		table.insert(toTemplate, TweakDB:GetFlat(TweakDBID.new(toPath..".appearanceName")))
-		table.insert(toTemplate, TweakDB:GetFlat(TweakDBID.new(toPath..".genders")))
-	else
-		toTemplate = TweakDB:GetFlat(TweakDBID.new(toPath..".entityTemplatePath"))
-	end
-
-	if self.swappedModels[toID] ~= nil and self.swappedModels[toID] ~= '' then
-		toTemplate = self.swappedModels[toID][2]
-		self.swappedModels[toID] = ''
-	else
-		if player then
-			originalTemplate = {}
-			table.insert(originalTemplate, TweakDB:GetFlat(TweakDBID.new(fromPath..".entityTemplatePath")))
-			table.insert(originalTemplate, TweakDB:GetFlat(TweakDBID.new(fromPath..".appearanceName")))
-			table.insert(originalTemplate, TweakDB:GetFlat(TweakDBID.new(fromPath..".genders")))
-		else
-			originalTemplate = TweakDB:GetFlat(TweakDBID.new(fromPath..".entityTemplatePath"))
-		end
-
-		self.swappedModels[fromID] = {toID, originalTemplate}
-	end
-
-	if type(toTemplate) == 'table' then
-		TweakDB:SetFlat(TweakDBID.new(fromPath..".entityTemplatePath"), toTemplate[1])
-		TweakDB:SetFlat(TweakDBID.new(fromPath..".appearanceName"), toTemplate[2])
-		TweakDB:SetFlat(TweakDBID.new(fromPath..".genders"), toTemplate[3])
-	else
-		TweakDB:SetFlat(TweakDBID.new(fromPath..".entityTemplatePath"), toTemplate)
-	end
-
-	TweakDB:Update(TweakDBID.new(fromPath))
-end
-
 function ScanApp:RevertTweakDBChanges(userActivated)
-	for id, template in pairs(self.swappedModels) do
-		if template ~= '' then
-			self:ChangeEntityTemplateTo(id, id)
-		end
+	for swapID, swapObj in pairs(self.Swap.activeSwaps) do
+		self.Swap:ChangeEntityTemplateTo(swapObj.name, swapID, swapID)
 	end
 
 	if not(userActivated) then
 		TweakDB:SetFlat(TweakDBID.new('Vehicle.vehicle_list.list'), self.originalVehicles)
 	end
+end
+
+function ScanApp:SetupJohnny()
+	TweakDB:SetFlat(TweakDBID.new("Character.q000_tutorial_course_01_patroller.voiceTag"), TweakDB:GetFlat(TweakDBID.new("Character.Silverhand.voiceTag")))
+	TweakDB:SetFlat(TweakDBID.new("Character.q000_tutorial_course_01_patroller.displayName"), TweakDB:GetFlat(TweakDBID.new("Character.Silverhand.displayName")))
+	TweakDB:SetFlat(TweakDBID.new("Character.q000_tutorial_course_01_patroller.alternativeDisplayName"), TweakDB:GetFlat(TweakDBID.new("Character.Silverhand.alternativeDisplayName")))
+	TweakDB:SetFlat(TweakDBID.new("Character.q000_tutorial_course_01_patroller.alternativeFullDisplayName"), TweakDB:GetFlat(TweakDBID.new("Character.Silverhand.alternativeFullDisplayName")))
+	TweakDB:SetFlat(TweakDBID.new("Character.q000_tutorial_course_01_patroller.fullDisplayName"), TweakDB:GetFlat(TweakDBID.new("Character.Silverhand.fullDisplayName")))
+	TweakDB:SetFlat(TweakDBID.new("Character.q000_tutorial_course_01_patroller.affiliation"), TweakDB:GetFlat(TweakDBID.new("Character.Silverhand.affiliation")))
+	TweakDB:SetFlat(TweakDBID.new("Character.q000_tutorial_course_01_patroller.statPools"), TweakDB:GetFlat(TweakDBID.new("Character.Silverhand.statPools")))
+	TweakDB:Update(TweakDBID.new("Character.q000_tutorial_course_01_patroller"))
 end
 
 function ScanApp:SetupVehicleData()
@@ -1210,7 +1175,7 @@ function ScanApp:GetAppearanceOptions(t)
 
 	scanID = self:GetScanID(t)
 
-	if t:IsNPC() and self.swappedModels[scanID] == nil then
+	if t:IsNPC() and self.Swap.activeSwaps[scanID] == nil then
 		if t:GetRecord():CrowdAppearanceNames()[1] ~= nil then
 			for _, app in ipairs(t:GetRecord():CrowdAppearanceNames()) do
 				table.insert(options, tostring(app):match("%[ (%g+) -"))
@@ -1219,8 +1184,8 @@ function ScanApp:GetAppearanceOptions(t)
 		end
 	end
 
-	if self.swappedModels[scanID] ~= nil then
-	 	scanID = self.swappedModels[scanID][1]
+	if self.Swap.activeSwaps[scanID] ~= nil then
+	 	scanID = self.Swap.activeSwaps[scanID].newID
 	end
 
 	for app in db:urows(f("SELECT DISTINCT app_name FROM custom_appearances WHERE entity_id = '%s'", scanID)) do
@@ -1242,9 +1207,22 @@ function ScanApp:GetScanAppearance(t)
 	return tostring(t:GetCurrentAppearanceName()):match("%[ (%g+) -")
 end
 
-function ScanApp:GetCustomAppearanceParams(appearance)
+function ScanApp:GetCustomAppearanceParams(appearance, target)
+	-- Check if custom app is active
+	local activeApp = self.activeCustomApps[target.id]
+	local reverse = false
+	if target ~= nil and activeApp ~= nil and activeApp ~= appearance and target.id ~= "0x903E76AF, 43" then
+		for app_base in db:urows(f("SELECT app_name FROM custom_appearances WHERE app_name = '%s' AND app_base = '%s'", activeApp, appearance)) do
+			reverse = true
+		end
+	end
+
+	if reverse then appearance = activeApp end
+
 	local custom = {}
 	for app in db:nrows(f("SELECT * FROM custom_appearances WHERE app_name = '%s'", appearance)) do
+		app.app_toggle = not(intToBool(app.app_toggle))
+		if reverse then app.app_toggle = not app.app_toggle end
 		table.insert(custom, app)
 	end
 	return custom
@@ -1535,15 +1513,6 @@ function ScanApp:OpenPopup(name)
 		for _, equipment in ipairs(self.equipmentOptions) do
 			table.insert(popupDelegate.buttons, {label = equipment.name, action = function(fromPath) ScanApp:ChangeNPCEquipment(fromPath, equipment.path) end})
 		end
-	elseif name == 'Model Swap' then
-		ImGui.SetNextWindowSize(400, 520)
-		popupDelegate.message = "Select Replacement Model\n\nYou will need to reload your save to update changes."
-		local entities = ScanApp:GetEntityTemplates()
-		for _, entityID in ipairs(entities) do
-			for name in db:urows(f("SELECT entity_name FROM entities WHERE entity_id = '%s'", entityID)) do
-				table.insert(popupDelegate.buttons, {label = name, action = function(fromID) ScanApp:ChangeEntityTemplateTo(fromID, entityID) end})
-			end
-		end
 	elseif name == "Experimental" then
 		ImGui.SetNextWindowSize(400, 140)
 		popupDelegate.message = "Are you sure you want to enable experimental features? AMM might not work as expected. Use it at your own risk!"
@@ -1601,7 +1570,7 @@ function ScanApp:DrawFavoritesButton(buttonLabels, entity)
 	end
 
 	local isFavorite = 0
-	for fav in db:urows(f("SELECT COUNT(1) FROM favorites WHERE entity_name = '%s'", entity.name)) do
+	for fav in db:urows(f('SELECT COUNT(1) FROM favorites WHERE entity_name = "%s"', entity.name)) do
 		isFavorite = fav
 	end
 	if isFavorite == 0 and entity.parameters ~= nil then
@@ -1755,23 +1724,6 @@ function ScanApp:DrawEntitiesButtons(entities, categoryName, style)
 			ImGui.SameLine()
 			ScanApp:DrawArrowButton("down", newSpawn, i)
 		end
-	end
-end
-
-function ScanApp:IsPlayerInAnyMenu()
-    blackboard = Game.GetBlackboardSystem():Get(Game.GetAllBlackboardDefs().UI_System)
-    uiSystemBB = (Game.GetAllBlackboardDefs().UI_System)
-		if blackboard ~= nil then
-    	return(blackboard:GetBool(uiSystemBB.IsInMenu))
-		end
-end
-
-function ScanApp:GetPlayerGender()
-  -- True = Female / False = Male
-  if string.find(tostring(Game.GetPlayer():GetResolvedGenderName()), "Female") then
-		return "_Female"
-	else
-		return "_Male"
 	end
 end
 
