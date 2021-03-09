@@ -82,7 +82,10 @@ function Swap:Draw(ScanApp, target)
       end
     end
 
-    if target ~= nil then
+    if target ~= nil and target.name == 'V' then
+      ImGui.Text("V can't be swapped. Sorry :(")
+
+    elseif target ~= nil then
       ScanApp.Theme:TextColored("Current Target:")
       ImGui.Text(target.name)
 
@@ -158,6 +161,8 @@ function Swap:DrawEntitiesButtons(entities)
     buttonHeight = ImGui.GetFontSize() * 2
   }
 
+  local targetID = ScanApp:GetScanID(target.handle)
+
   for i, entity in ipairs(entities) do
 		name = entity[1]
 		id = entity[2]
@@ -165,8 +170,8 @@ function Swap:DrawEntitiesButtons(entities)
 
 		if ImGui.Button(name, style.buttonWidth, style.buttonHeight) then
       Game.GetPlayer():SetWarningMessage("Reload your save game to update changes!")
-      if target.id ~= "0x903E76AF, 43" then
-        Swap:ChangeEntityTemplateTo(target.name, target.id, id)
+      if targetID ~= "0x903E76AF, 43" then
+        Swap:ChangeEntityTemplateTo(target.name, targetID, id)
       end
     end
 	end
@@ -175,51 +180,80 @@ end
 function Swap:ChangeEntityTemplateTo(targetName, fromID, toID)
   if toID == "0x903E76AF, 43" then toID = '0xB1B50FFA, 14' end
 
-	toPath = ''
-	for path in db:urows(f("SELECT entity_path FROM paths WHERE entity_id = '%s'", toID)) do
-		toPath = path
-	end
-	fromPath = ''
-	for path in db:urows(f("SELECT entity_path FROM paths WHERE entity_id = '%s'", fromID)) do
-		fromPath = path
-	end
+  local toPath = Swap:GetEntityPathFromID(toID)
+  local fromPath = Swap:GetEntityPathFromID(fromID)
 
-	local player = string.find(toPath, "Player")
-	if player then
-		toPath = toPath..Util:GetPlayerGender()
-		toTemplate = {}
-		table.insert(toTemplate, TweakDB:GetFlat(TweakDBID.new(toPath..".entityTemplatePath")))
-		table.insert(toTemplate, TweakDB:GetFlat(TweakDBID.new(toPath..".appearanceName")))
-		table.insert(toTemplate, TweakDB:GetFlat(TweakDBID.new(toPath..".genders")))
-	else
-		toTemplate = TweakDB:GetFlat(TweakDBID.new(toPath..".entityTemplatePath"))
-	end
+  local toTemplate
 
-	if Swap.activeSwaps[toID] ~= nil then
-		toTemplate = Swap.activeSwaps[toID].template
-		Swap.activeSwaps[toID] = nil
-	else
-		if player then
-			originalTemplate = {}
-			table.insert(originalTemplate, TweakDB:GetFlat(TweakDBID.new(fromPath..".entityTemplatePath")))
-			table.insert(originalTemplate, TweakDB:GetFlat(TweakDBID.new(fromPath..".appearanceName")))
-			table.insert(originalTemplate, TweakDB:GetFlat(TweakDBID.new(fromPath..".genders")))
-		else
-			originalTemplate = TweakDB:GetFlat(TweakDBID.new(fromPath..".entityTemplatePath"))
-		end
+  -- Revert Swap
+  if Swap.activeSwaps[toID] ~= nil and fromID == toID then
+    toTemplate = Swap:GetSavedOriginalTemplateForEntity(toID)
+    Swap.activeSwaps[toID] = nil
+    Swap:UpdateEntityTemplate(fromPath, toTemplate)
+  else
+    toTemplate = Swap:GetTemplateForEntity(toPath)
 
-		Swap.activeSwaps[fromID] = Swap:NewSwap(targetName, fromID, originalTemplate, toID)
-	end
+    local originalTemplate = nil
 
-	if type(toTemplate) == 'table' then
-		TweakDB:SetFlat(TweakDBID.new(fromPath..".entityTemplatePath"), toTemplate[1])
-		TweakDB:SetFlat(TweakDBID.new(fromPath..".appearanceName"), toTemplate[2])
-		TweakDB:SetFlat(TweakDBID.new(fromPath..".genders"), toTemplate[3])
-	else
-		TweakDB:SetFlat(TweakDBID.new(fromPath..".entityTemplatePath"), toTemplate)
-	end
+    -- Save original template to revert later
+  	if Swap.activeSwaps[fromID] == nil then
+  		if player then
+  			originalTemplate = {}
+  			table.insert(originalTemplate, TweakDB:GetFlat(TweakDBID.new(fromPath..".entityTemplatePath")))
+  			table.insert(originalTemplate, TweakDB:GetFlat(TweakDBID.new(fromPath..".appearanceName")))
+  			table.insert(originalTemplate, TweakDB:GetFlat(TweakDBID.new(fromPath..".genders")))
+  		else
+  			originalTemplate = TweakDB:GetFlat(TweakDBID.new(fromPath..".entityTemplatePath"))
+  		end
+  	else
+      originalTemplate = Swap:GetSavedOriginalTemplateForEntity(fromID)
+    end
 
-	TweakDB:Update(TweakDBID.new(fromPath))
+    Swap.activeSwaps[fromID] = Swap:NewSwap(targetName, fromID, originalTemplate, toID)
+
+    Swap:UpdateEntityTemplate(fromPath, toTemplate)
+  end
+end
+
+function Swap:GetSavedOriginalTemplateForEntity(entityID)
+  local entityTemplate = Swap.activeSwaps[entityID].template
+  return entityTemplate
+end
+
+function Swap:GetTemplateForEntity(entityPath)
+  local entityTemplate
+  local player = string.find(entityPath, "Player")
+  if player then
+    entityPath = entityPath..Util:GetPlayerGender()
+    entityTemplate = {}
+    table.insert(entityTemplate, TweakDB:GetFlat(TweakDBID.new(entityPath..".entityTemplatePath")))
+    table.insert(entityTemplate, TweakDB:GetFlat(TweakDBID.new(entityPath..".appearanceName")))
+    table.insert(entityTemplate, TweakDB:GetFlat(TweakDBID.new(entityPath..".genders")))
+  else
+    entityTemplate = TweakDB:GetFlat(TweakDBID.new(entityPath..".entityTemplatePath"))
+  end
+
+  return entityTemplate
+end
+
+function Swap:UpdateEntityTemplate(entityPath, newTemplate)
+  if type(newTemplate) == 'table' then
+    TweakDB:SetFlat(TweakDBID.new(entityPath..".entityTemplatePath"), newTemplate[1])
+    TweakDB:SetFlat(TweakDBID.new(entityPath..".appearanceName"), newTemplate[2])
+    TweakDB:SetFlat(TweakDBID.new(entityPath..".genders"), newTemplate[3])
+  else
+    TweakDB:SetFlat(TweakDBID.new(entityPath..".entityTemplatePath"), newTemplate)
+  end
+
+  TweakDB:Update(TweakDBID.new(entityPath))
+end
+
+function Swap:GetEntityPathFromID(id)
+  local entityPath = nil
+  for path in db:urows(f("SELECT entity_path FROM paths WHERE entity_id = '%s'", id)) do
+    entityPath = path
+  end
+  if entityPath then return entityPath else print("entity path not found!") end
 end
 
 return Swap

@@ -38,7 +38,7 @@ function ScanApp:new()
 	 ScanApp.Util = require('Modules/util.lua')
 
 	 -- Main Properties --
-	 ScanApp.currentVersion = "1.7.4"
+	 ScanApp.currentVersion = "1.7.5"
 	 ScanApp.updateNotes = require('update_notes.lua')
 	 ScanApp.userSettings = ScanApp:PrepareSettings()
 	 ScanApp.categories = ScanApp:GetCategories()

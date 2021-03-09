@@ -14,4 +14,13 @@ Rosie Harper, Hwangbo Dong, Santiago and others]],
 
 [[Fixed not being able to set default appearances after setting a custom appearance]],
 
+[[Fixed Revert swap not working after two consecutives swaps on the same NPC]],
+
+[[Fixed Swap tab being able to try to swap V (and failing)
+-- Now you can't even try :P]],
+
+[[Fixed issue when trying to swap the same NPC multiple times]],
+
+[[Improved Cyberpunk theme contrast and colors]]
+
 }
