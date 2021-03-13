@@ -85,7 +85,7 @@ function Swap:Draw(ScanApp, target)
     if target ~= nil and target.name == 'V' then
       ImGui.Text("V can't be swapped. Sorry :(")
 
-    elseif target ~= nil then
+    elseif target ~= nil and target.type ~= 'Vehicles' then
       ScanApp.Theme:TextColored("Current Target:")
       ImGui.Text(target.name)
 
@@ -119,8 +119,7 @@ function Swap:Draw(ScanApp, target)
           ImGui.Text("No Results")
         end
       else
-        y = ImGui.GetFontSize() * 20
-        if ImGui.BeginChild("Categories", ImGui.GetWindowContentRegionWidth(), y) then
+        if ImGui.BeginChild("Categories", ImGui.GetWindowContentRegionWidth(), ImGui.GetWindowHeight() / 1.5) then
           for _, category in ipairs(ScanApp.categories) do
             if category.cat_name ~= "Favorites" then
               local entities = {}
@@ -149,7 +148,9 @@ function Swap:Draw(ScanApp, target)
     ScanApp.Theme:Separator()
 
     ScanApp.Theme:TextColored("WARNING")
+    ImGui.PushTextWrapPos()
     ImGui.Text("You will need to reload your save to update changes.")
+    ImGui.PopTextWrapPos()
 
     ImGui.EndTabItem()
   end

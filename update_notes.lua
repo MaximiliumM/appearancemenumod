@@ -1,26 +1,23 @@
 return {
-[[Added Johnny as a companion]],
-
-[[Added requested NPCs to Model Swap list]],
-
 [[Added new Custom Appearances
 -- Check out new appearances made by us for the following characters:
-Rosie Harper, Hwangbo Dong, Santiago and others]],
+Johnny, Hanako, Blue Moon, Hood Hottie, Workout, Male Sex Workers, Slacker, Nightlife, Rich Citizen and many others]],
 
-[[Added new dedicated Model Swap tab
--- Now it's significantly easier to find characters in the swap list
--- You can save swaps between game restarts
--- Revert individual changes with a new button]],
+[[Added new experimental feature: All NPCs Actions
+-- Use the NPC tab to make all NPCs in range friendly
+-- Cycle all NPCs in range appearances at the same time
+-- Turn all NPCs in range into followers (use at your own risk)]],
 
-[[Fixed not being able to set default appearances after setting a custom appearance]],
+[[Fixed UI scaling to be based on user's display resolution]],
 
-[[Fixed Revert swap not working after two consecutives swaps on the same NPC]],
+[[Fixed Vehicles being able to be targeted in Swap tab]],
 
-[[Fixed Swap tab being able to try to swap V (and failing)
--- Now you can't even try :P]],
+[[Fixed NPCs not spawning as companions sometimes]],
 
-[[Fixed issue when trying to swap the same NPC multiple times]],
+[[Fixed Favorites saving V's appearance and spawning V invisible]],
 
-[[Improved Cyberpunk theme contrast and colors]]
+[[Fixed Saved Appearance from one NPC affecting the other when using swap]],
+
+[[Fixed issue where saved appearances that don't exist anymore would cycle the NPC indefinitely]],
 
 }

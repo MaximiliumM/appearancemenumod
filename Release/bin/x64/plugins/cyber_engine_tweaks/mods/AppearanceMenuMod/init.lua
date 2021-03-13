@@ -38,7 +38,7 @@ function ScanApp:new()
 	 ScanApp.Util = require('Modules/util.lua')
 
 	 -- Main Properties --
-	 ScanApp.currentVersion = "1.7.5"
+	 ScanApp.currentVersion = "1.7.6"
 	 ScanApp.updateNotes = require('update_notes.lua')
 	 ScanApp.userSettings = ScanApp:PrepareSettings()
 	 ScanApp.categories = ScanApp:GetCategories()
@@ -256,7 +256,7 @@ function ScanApp:new()
 						-- print('trying to set companion')
 						if waitTimer > 0.2 then
 							local handle
-							if string.find(ScanApp.spawnedNPCs[ScanApp.currentSpawn].path, "Vehicle") then
+							if ScanApp.spawnedNPCs[ScanApp.currentSpawn] ~= nil and string.find(ScanApp.spawnedNPCs[ScanApp.currentSpawn].path, "Vehicle") then
 								handle = Game.GetTargetingSystem():GetLookAtObject(Game.GetPlayer(),false,false)
 							else
 								handle = Game.FindEntityByID(ScanApp.spawnedNPCs[ScanApp.currentSpawn].entityID)
@@ -387,7 +387,7 @@ function ScanApp:Begin()
 									action = "Save"
 								},
 							},
-							errorMessage = "No NPC Found! Look at NPC to begin\n\n"
+							errorMessage = "No NPC Target! Look at NPC to begin\n\n"
 						},
 						['Vehicles'] = {
 							currentTitle = "Current Model:",
@@ -403,7 +403,7 @@ function ScanApp:Begin()
 									action = "Save"
 								},
 							},
-							errorMessage = "No Vehicle Found! Look at Vehicle to begin\n\n"
+							errorMessage = "No Vehicle Target! Look at Vehicle to begin\n\n"
 						}
 					}
 
@@ -506,8 +506,22 @@ function ScanApp:Begin()
 										if len > x then x = len end
 									end
 
-									y = ImGui.GetFontSize() * 20
-									if ImGui.BeginChild("Scrolling", x + 50, 400) then
+									x = x + 50
+									if x < ImGui.GetWindowContentRegionWidth() then
+										x = ImGui.GetWindowContentRegionWidth()
+									end
+
+									resX, resY = GetDisplayResolution()
+									y = #target.options * 40
+									if y > resY / 2 then
+										if ScanApp.userSettings.experimental then
+											y = resY / 4.2
+										else
+											y = resY / 2.5
+										end
+									end
+
+									if ImGui.BeginChild("Scrolling", x, y) then
 										for i, appearance in ipairs(target.options) do
 											if (ImGui.Button(appearance)) then
 												local custom = ScanApp:GetCustomAppearanceParams(appearance, target)
@@ -519,9 +533,7 @@ function ScanApp:Begin()
 												end
 											end
 										end
-
 									end
-
 									ImGui.EndChild()
 								end
 							else
@@ -529,6 +541,60 @@ function ScanApp:Begin()
 								ImGui.TextColored(1, 0.16, 0.13, 0.75,tabs[tab].errorMessage)
 								ImGui.PopTextWrapPos()
 							end
+
+							if ScanApp.userSettings.experimental then
+
+								ScanApp.Theme:Separator()
+
+								ScanApp.Theme:TextColored("All NPCs Actions:")
+
+								if ImGui.Button("All Friendly") then
+									local entities = ScanApp:GetNPCsInRange(30)
+									for _, ent in ipairs(entities) do
+										ScanApp:SetNPCAttitude(ent, "friendly")
+									end
+								end
+
+								ImGui.SameLine()
+								if ImGui.Button("All Follower") then
+									local entities = ScanApp:GetNPCsInRange(10)
+									for _, ent in ipairs(entities) do
+										ScanApp:SetNPCAsCompanion(ent.handle)
+									end
+								end
+
+								ImGui.SameLine()
+								if ImGui.Button("All Fake Die") then
+									local entities = ScanApp:GetNPCsInRange(20)
+									for _, ent in ipairs(entities) do
+										ent.handle:SendAIDeathSignal()
+									end
+								end
+
+								if ImGui.Button("All Die") then
+									local entities = ScanApp:GetNPCsInRange(20)
+									for _, ent in ipairs(entities) do
+										ent.handle:Kill(ent.handle, false, false)
+									end
+								end
+
+								ImGui.SameLine()
+								if ImGui.Button("All Despawn") then
+									local entities = ScanApp:GetNPCsInRange(20)
+									for _, ent in ipairs(entities) do
+										ent.handle:Dispose()
+									end
+								end
+
+								ImGui.SameLine()
+								if ImGui.Button("Cycle Appearance") then
+									local entities = ScanApp:GetNPCsInRange(20)
+									for _, ent in ipairs(entities) do
+										ScanApp:ChangeScanAppearanceTo(ent, "Cycle")
+									end
+								end
+							end
+
 					ImGui.EndTabItem()
 					end
 				end
@@ -621,8 +687,8 @@ function ScanApp:Begin()
 								ImGui.Text("No Results")
 							end
 						else
-							y = ImGui.GetFontSize() * 40
-							if ImGui.BeginChild("Categories", ImGui.GetWindowContentRegionWidth(), y) then
+							local x, y = GetDisplayResolution()
+							if ImGui.BeginChild("Categories", ImGui.GetWindowContentRegionWidth(), y / 2) then
 								for _, category in ipairs(ScanApp.categories) do
 									if(ImGui.CollapsingHeader(category.cat_name)) then
 										local entities = {}
@@ -923,7 +989,7 @@ function ScanApp:GetSaveables()
 		'0x7B2CB67C, 17', '0x3024F03E, 15', '0x3B6EF8F9, 13', '0x413F60A6, 15', '0x62B8D0FA, 15',
 		'0x3143911D, 15', '0xF0F54969, 24', '0x0044E64C, 20', '0xF43B2B48, 18', '0xC111FBAC, 16',
 		'0x8DD8F2E0, 35', '0x4106744C, 35', '0xB98FDBB8, 14', '0x6B0544AD, 26', '0x215A57FC, 17',
-		'0x903E76AF, 43'
+		'0x903E76AF, 43', '0x55C01D9F, 36'
 	}
 
 	return defaults
@@ -1106,7 +1172,16 @@ function ScanApp:CheckSavedAppearance(t)
 			custom = self:GetCustomAppearanceParams(savedApp)
 			self:ChangeScanCustomAppearanceTo(t, custom)
 		else
-			self:ChangeScanAppearanceTo(t, savedApp)
+			local check = 0
+			for count in db:urows(f("SELECT COUNT(1) FROM appearances WHERE app_name = '%s'", savedApp)) do
+				check = count
+			end
+			if check ~= 0 then
+				self:ChangeScanAppearanceTo(t, savedApp)
+			else
+				-- This is a custom renamed appearance
+				self:ClearSavedAppearance(t)
+			end
 		end
 	end
 end
@@ -1209,7 +1284,12 @@ end
 
 function ScanApp:GetCustomAppearanceParams(appearance, target)
 	-- Check if custom app is active
-	local activeApp = self.activeCustomApps[target.id]
+	local activeApp = nil
+
+	if next(self.activeCustomApps) ~= nil and self.activeCustomApps[target.id] ~= nil then
+		activeApp = self.activeCustomApps[target.id]
+	end
+
 	local reverse = false
 	if target ~= nil and activeApp ~= nil and activeApp ~= appearance and target.id ~= "0x903E76AF, 43" then
 		for app_base in db:urows(f("SELECT app_name FROM custom_appearances WHERE app_name = '%s' AND app_base = '%s'", activeApp, appearance)) do
@@ -1250,7 +1330,7 @@ function ScanApp:GetTarget()
 		target = Game.GetTargetingSystem():GetLookAtObject(Game.GetPlayer(), true, false) or Game.GetTargetingSystem():GetLookAtObject(Game.GetPlayer(), false, false)
 
 		if target ~= nil then
-			if target:IsNPC() then
+			if target:IsNPC() or target:IsReplacer() then
 				t = ScanApp:NewTarget(target, "NPC", ScanApp:GetScanID(target), ScanApp:GetNPCName(target),ScanApp:GetScanAppearance(target), ScanApp:GetAppearanceOptions(target))
 			elseif target:IsVehicle() then
 				t = ScanApp:NewTarget(target, "Vehicles", ScanApp:GetScanID(target), ScanApp:GetVehicleName(target),ScanApp:GetScanAppearance(target), ScanApp:GetAppearanceOptions(target))
@@ -1366,7 +1446,6 @@ function ScanApp:SetNPCAsCompanion(npcHandle)
 		roleComp:SetFollowTarget(Game:GetPlayerSystem():GetLocalPlayerControlledGameObject())
 		roleComp:OnRoleSet(targCompanion)
 		roleComp.followerRef = Game.CreateEntityReference("#player", {})
-		--Game['AIHumanComponent::SetCurrentRole;GameObjectAIRole'](targCompanion, roleComp)
 		targetAttAgent:SetAttitudeGroup(CName.new("player"))
 		roleComp.attitudeGroupName = CName.new("player")
 		Game['senseComponent::RequestMainPresetChange;GameObjectString'](targCompanion, "Follower")
@@ -1381,7 +1460,7 @@ function ScanApp:SetNPCAsCompanion(npcHandle)
 		if self.spawnsCounter < 3 then
 			self:SetFollowDistance(-0.8)
 		elseif self.spawnsCounter == 3 then
-			self:SetFollowDistance(0.8)
+			self:SetFollowDistance(1)
 		else
 			self:SetFollowDistance(2)
 		end
@@ -1390,15 +1469,10 @@ end
 
 function ScanApp:SetFollowDistance(followDistance)
  TweakDB:SetFlat(TweakDBID.new('FollowerActions.FollowCloseMovePolicy.distance'), followDistance)
- if followDistance < 2 then
-	TweakDB:SetFlat(TweakDBID.new('FollowerActions.FollowCloseMovePolicy.avoidObstacleWithinTolerance'), false)
-	TweakDB:SetFlat(TweakDBID.new('FollowerActions.FollowCloseMovePolicy.ignoreCollisionAvoidance'), true)
-	TweakDB:SetFlat(TweakDBID.new('FollowerActions.FollowCloseMovePolicy.ignoreSpotReservation'), true)
- else
-	TweakDB:SetFlat(TweakDBID.new('FollowerActions.FollowCloseMovePolicy.avoidObstacleWithinTolerance'), true)
-	TweakDB:SetFlat(TweakDBID.new('FollowerActions.FollowCloseMovePolicy.ignoreCollisionAvoidance'), false)
-	TweakDB:SetFlat(TweakDBID.new('FollowerActions.FollowCloseMovePolicy.ignoreSpotReservation'), false)
- end
+
+TweakDB:SetFlat(TweakDBID.new('FollowerActions.FollowCloseMovePolicy.avoidObstacleWithinTolerance'), true)
+TweakDB:SetFlat(TweakDBID.new('FollowerActions.FollowCloseMovePolicy.ignoreCollisionAvoidance'), false)
+TweakDB:SetFlat(TweakDBID.new('FollowerActions.FollowCloseMovePolicy.ignoreSpotReservation'), false)
 
  TweakDB:SetFlat(TweakDBID.new('FollowerActions.FollowCloseMovePolicy.tolerance'), 0.0)
 
@@ -1724,6 +1798,27 @@ function ScanApp:DrawEntitiesButtons(entities, categoryName, style)
 			ImGui.SameLine()
 			ScanApp:DrawArrowButton("down", newSpawn, i)
 		end
+	end
+end
+
+function ScanApp:SetNPCAttitude(entity, attitude)
+	local entAttAgent = entity.handle:GetAttitudeAgent()
+	entAttAgent:SetAttitudeGroup(CName.new(attitude))
+end
+
+function ScanApp:GetNPCsInRange(maxDistance)
+	local searchQuery = Game["TSQ_NPC;"]()
+	searchQuery.maxDistance = maxDistance
+	local success, parts = Game.GetTargetingSystem():GetTargetParts(Game.GetPlayer(), searchQuery, {})
+	if success then
+		local entities = {}
+		for i, v in ipairs(parts) do
+			local entity = v:GetComponent(v):GetEntity()
+			entity = ScanApp:NewTarget(entity, "NPC", ScanApp:GetScanID(entity), ScanApp:GetNPCName(entity),ScanApp:GetScanAppearance(entity), ScanApp:GetAppearanceOptions(entity))
+	    table.insert(entities, entity)
+	  end
+
+		return entities
 	end
 end
 
