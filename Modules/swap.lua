@@ -47,11 +47,11 @@ function Swap:NewSwap(name, id, template, newID)
   return obj
 end
 
-function Swap:Draw(ScanApp, target)
+function Swap:Draw(AMM, target)
   if (ImGui.BeginTabItem("Swap")) then
 
     if next(Swap.activeSwaps) ~= nil then
-      ScanApp.Theme:TextColored("Active Model Swaps")
+      AMM.Theme:TextColored("Active Model Swaps")
 
       for swapID, swapObj in pairs(Swap.activeSwaps) do
         local toID = swapObj.newID
@@ -78,7 +78,7 @@ function Swap:Draw(ScanApp, target)
           if buttonLabel == "Save" then self:SaveModelSwap(swapID)
           else self:ClearSavedSwap(swapID) end
         end
-        ScanApp.Theme:Separator()
+        AMM.Theme:Separator()
       end
     end
 
@@ -86,10 +86,10 @@ function Swap:Draw(ScanApp, target)
       ImGui.Text("V can't be swapped. Sorry :(")
 
     elseif target ~= nil and target.type ~= 'Vehicles' then
-      ScanApp.Theme:TextColored("Current Target:")
+      AMM.Theme:TextColored("Current Target:")
       ImGui.Text(target.name)
 
-      ScanApp.Theme:Separator()
+      AMM.Theme:Separator()
 
       ImGui.PushItemWidth(Swap.searchBarWidth)
       Swap.searchQuery = ImGui.InputTextWithHint(" ", "Search", Swap.searchQuery, 100)
@@ -104,7 +104,7 @@ function Swap:Draw(ScanApp, target)
 
       ImGui.Spacing()
 
-      ScanApp.Theme:TextColored("Select To Swap With Current Target:")
+      AMM.Theme:TextColored("Select To Swap With Current Target:")
 
       if Swap.searchQuery ~= '' then
         local entities = {}
@@ -120,7 +120,7 @@ function Swap:Draw(ScanApp, target)
         end
       else
         if ImGui.BeginChild("Categories", ImGui.GetWindowContentRegionWidth(), ImGui.GetWindowHeight() / 1.5) then
-          for _, category in ipairs(ScanApp.categories) do
+          for _, category in ipairs(AMM.categories) do
             if category.cat_name ~= "Favorites" then
               local entities = {}
 
@@ -140,14 +140,15 @@ function Swap:Draw(ScanApp, target)
         ImGui.EndChild()
       end
     else
+      ImGui.NewLine()
       ImGui.PushTextWrapPos()
-      ImGui.TextColored(1, 0.16, 0.13, 0.75, "No NPC Found! Look at NPC to begin\n\n")
+      ImGui.TextColored(1, 0.16, 0.13, 0.75, "No NPC Found! Look at NPC to begin")
       ImGui.PopTextWrapPos()
     end
 
-    ScanApp.Theme:Separator()
+    AMM.Theme:Separator()
 
-    ScanApp.Theme:TextColored("WARNING")
+    AMM.Theme:TextColored("WARNING")
     ImGui.PushTextWrapPos()
     ImGui.Text("You will need to reload your save to update changes.")
     ImGui.PopTextWrapPos()
@@ -162,7 +163,7 @@ function Swap:DrawEntitiesButtons(entities)
     buttonHeight = ImGui.GetFontSize() * 2
   }
 
-  local targetID = ScanApp:GetScanID(target.handle)
+  local targetID = AMM:GetScanID(target.handle)
 
   for i, entity in ipairs(entities) do
 		name = entity[1]
