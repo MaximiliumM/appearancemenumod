@@ -4,12 +4,16 @@ local Tools = {
   timeValue = nil,
   slowMotionSpeed = 1,
   slowMotionMaxValue = 1,
+  slowMotionToggle = false,
 
   -- Teleport Properties
+  lastLocation = nil,
   selectedLocation = {loc_name = "Select Location"},
   shareLocationName = '',
   userLocations = {},
   favoriteLocations = {},
+  useTeleportAnimation = false,
+  isTeleporting = true,
 }
 
 -- ALIAS for string.format --
@@ -62,6 +66,21 @@ function Tools:Draw(AMM, target)
 
     if ImGui.IsItemHovered() then
       ImGui.SetTooltip("User locations are saved in AppearanceMenuMod/User/Locations folder")
+    end
+
+    ImGui.Spacing()
+
+    if Tools.lastLocation then
+      if ImGui.Button("Go Back To Last Location", -1, 40) then
+        Tools:TeleportToLocation(Tools.lastLocation)
+      end
+    end
+
+    if AMM.TeleportMod ~= '' then
+      ImGui.Spacing()
+      Tools.useTeleportAnimation = ImGui.Checkbox("Use Teleport Animation", Tools.useTeleportAnimation)
+      ImGui.SameLine()
+      AMM.Theme:TextColored("by GTA Travel")
     end
 
     local sizeX = ImGui.GetWindowSize()
@@ -147,7 +166,12 @@ function Tools:Draw(AMM, target)
 
       AMM.Theme:TextColored("All NPCs Actions:")
 
-      if ImGui.Button("All Friendly") then
+      local style = {
+        buttonHeight = ImGui.GetFontSize() * 2,
+        halfButtonWidth = ((ImGui.GetWindowContentRegionWidth() / 2) - 5)
+      }
+
+      if ImGui.Button("All Friendly", style.halfButtonWidth, style.buttonHeight) then
         local entities = Tools:GetNPCsInRange(30)
         for _, ent in ipairs(entities) do
           Tools:SetNPCAttitude(ent, "friendly")
@@ -155,30 +179,29 @@ function Tools:Draw(AMM, target)
       end
 
       ImGui.SameLine()
-      if ImGui.Button("All Follower") then
+      if ImGui.Button("All Follower", style.halfButtonWidth, style.buttonHeight) then
         local entities = Tools:GetNPCsInRange(10)
         for _, ent in ipairs(entities) do
           AMM:SetNPCAsCompanion(ent.handle)
         end
       end
 
-      ImGui.SameLine()
-      if ImGui.Button("All Fake Die") then
+      if ImGui.Button("All Fake Die", style.halfButtonWidth, style.buttonHeight) then
         local entities = Tools:GetNPCsInRange(20)
         for _, ent in ipairs(entities) do
           ent.handle:SendAIDeathSignal()
         end
       end
 
-      if ImGui.Button("All Die") then
+      ImGui.SameLine()
+      if ImGui.Button("All Die", style.halfButtonWidth, style.buttonHeight) then
         local entities = Tools:GetNPCsInRange(20)
         for _, ent in ipairs(entities) do
           ent.handle:Kill(ent.handle, false, false)
         end
       end
 
-      ImGui.SameLine()
-      if ImGui.Button("All Despawn") then
+      if ImGui.Button("All Despawn", style.halfButtonWidth, style.buttonHeight) then
         local entities = Tools:GetNPCsInRange(20)
         for _, ent in ipairs(entities) do
           ent.handle:Dispose()
@@ -186,7 +209,7 @@ function Tools:Draw(AMM, target)
       end
 
       ImGui.SameLine()
-      if ImGui.Button("Cycle Appearance") then
+      if ImGui.Button("Cycle Appearance", style.halfButtonWidth, style.buttonHeight) then
         local entities = Tools:GetNPCsInRange(20)
         for _, ent in ipairs(entities) do
           AMM:ChangeScanAppearanceTo(ent, "Cycle")
@@ -241,7 +264,14 @@ function Tools:GetLocations()
 end
 
 function Tools:TeleportToLocation(loc)
-  Game.GetTeleportationFacility():Teleport(Game.GetPlayer(), Vector4.new(loc.x, loc.y, loc.z, loc.w), EulerAngles.new(0, 0, loc.yaw))
+  Tools.lastLocation = Tools:NewLocationData("Previous Location", Tools:GetPlayerLocation())
+
+  if Tools.useTeleportAnimation then
+    AMM.TeleportMod.api.requestTravel(Vector4.new(loc.x, loc.y, loc.z, loc.w))
+  else
+    Game.GetTeleportationFacility():Teleport(Game.GetPlayer(), Vector4.new(loc.x, loc.y, loc.z, loc.w), EulerAngles.new(0, 0, loc.yaw))
+    AMM.Tools.isTeleporting = true
+  end
 end
 
 function Tools:GetPlayerLocation()
@@ -300,7 +330,7 @@ function Tools:GetUserLocations()
   if #Tools.userLocations ~= #files then
     for _, loc in ipairs(files) do
       if string.find(loc.name, '.json') then
-        local x, y, z, w, yaw = Tools:LoadLocationData(loc.name)
+        local loc_name, x, y, z, w, yaw = Tools:LoadLocationData(loc.name)
         table.insert(userLocations, {loc_name = loc.name:gsub(".json", ""), x = x, y = y, z = z, w = w, yaw = yaw})
       end
     end
@@ -316,7 +346,7 @@ function Tools:LoadLocationData(loc)
     local contents = file:read( "*a" )
 		local locationData = json.decode(contents)
     file:close()
-    return locationData["x"], locationData["y"], locationData["z"], locationData["w"], locationData["yaw"]
+    return locationData["loc_name"], locationData["x"], locationData["y"], locationData["z"], locationData["w"], locationData["yaw"]
   end
 end
 

@@ -1,14 +1,17 @@
 return {
-[[Added new Tools tab to help you all set up cool shots
--- Time of Day controls so you can always take pictures under good lighting
--- You can Freeze time, Slow time and Skip frames using buttons or hotkeys
--- Teleport to special locations or user shared locations
--- Share user locations by sharing the JSON file in our channel :D]],
+[[Added support to GTA Travel mod teleport animation]],
 
-[[Merged NPC and Vehicles tab into new Scan tab]],
+[[Adjusted Slow Motion hotkey
+-- Now it toggles between Paused and Slomo]],
 
-[[Added some new Custom Appearances, because why not]],
+[[Added new teleport button to return to the location you were before teleporting]],
 
-[[Fixed Johnny's personality]],
+[[Adjusted All NPCs Actions buttons layout]],
+
+[[Made some additions to swap, spawn and custom appearances lists]],
+
+[[Fixed user shared locations not having the correct name when the filename was different]],
+
+[[Fixed issue where the game would crash on launch if the user had certain spawned characters when quitting the game]],
 
 }

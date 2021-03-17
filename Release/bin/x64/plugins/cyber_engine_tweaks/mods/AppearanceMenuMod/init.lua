@@ -38,8 +38,11 @@ function AMM:new()
 	 AMM.Util = require('Modules/util.lua')
 	 AMM.Tools = require('Modules/tools.lua')
 
+	 -- External Mods API --
+	 AMM.TeleportMod = ''
+
 	 -- Main Properties --
-	 AMM.currentVersion = "1.8"
+	 AMM.currentVersion = "1.8.1"
 	 AMM.updateNotes = require('update_notes.lua')
 	 AMM.userSettings = AMM:PrepareSettings()
 	 AMM.categories = AMM:GetCategories()
@@ -82,12 +85,15 @@ function AMM:new()
 		 AMM:SetupVehicleData()
 		 AMM:SetupJohnny()
 
-		 if not(AMM.Util:IsPlayerInAnyMenu()) or AMM.Debug ~= '' then
+		 if AMM.Debug ~= '' then
 			 AMM.playerAttached = true
+		 end
 
-			 if next(AMM.spawnedNPCs) ~= nil then
-			 	AMM:RespawnAll()
-			 end
+		 -- Setup Travel Mod API --
+		 local mod = GetMod("gtaTravel")
+		 if mod ~= nil then
+			 AMM.TeleportMod = mod
+			 AMM.Tools.useTeleportAnimation = true
 		 end
 
 		 -- Setup Observers --
@@ -170,7 +176,12 @@ function AMM:new()
 	 end)
 
 	 registerHotkey("amm_slow_time", "Slow Time", function()
-	 	AMM.Tools:SetSlowMotionSpeed(0.1)
+		AMM.Tools.slowMotionToggle = not AMM.Tools.slowMotionToggle
+		if AMM.Tools.slowMotionToggle then
+	 		AMM.Tools:SetSlowMotionSpeed(0.1)
+		else
+			AMM.Tools:SetSlowMotionSpeed(0.0)
+		end
 	 end)
 
 	 registerHotkey("amm_freeze_time", "Freeze Time", function()
@@ -196,6 +207,28 @@ function AMM:new()
 							AMM.shouldCheckSavedAppearance = true
 						end
 					end
+
+					-- Travel Animation Done Check --
+					if AMM.TeleportMod ~= '' and AMM.TeleportMod.api.done then
+						if next(AMM.spawnedNPCs) ~= nil then
+							AMM:RespawnAll()
+						end
+						AMM.TeleportMod.api.done = false
+					end
+
+					-- Regular Teleport Wait Timer --
+					if AMM.Tools.isTeleporting then
+						waitTimer = waitTimer + deltaTime
+
+						if waitTimer > 8 then
+							waitTimer = 0.0
+							AMM.Tools.isTeleporting = false
+							if next(AMM.spawnedNPCs) ~= nil then
+					      AMM:RespawnAll()
+					    end
+						end
+					end
+
 
 					-- Tools Skip Frame Logic --
 					if AMM.skipFrame then
