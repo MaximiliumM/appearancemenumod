@@ -1,14 +1,12 @@
 local Scan = {}
 
--- ALIAS for string.format --
-local f = string.format
-local Util = require('Modules/util.lua')
-
 function Scan:Draw(AMM, target, style)
   if ImGui.BeginTabItem("Scan") then
 
+    AMM.Theme:DrawCrossHair()
+
     local tabConfig = {
-      ['NPC'] = {
+      ['NPCPuppet'] = {
         currentTitle = "Current Appearance:",
         buttons = {
           {
@@ -23,7 +21,7 @@ function Scan:Draw(AMM, target, style)
           },
         },
       },
-      ['Vehicles'] = {
+      ['vehicleCarBaseObject'] = {
         currentTitle = "Current Model:",
         buttons = {
           {
@@ -43,6 +41,14 @@ function Scan:Draw(AMM, target, style)
     AMM.settings = false
 
     if target ~= nil then
+      -- Generic Objects Setup for Tab
+      if tabConfig[target.type] == nil then
+        tabConfig[target.type] = {
+          currentTitle = "Current Appearance:",
+          buttons = {}
+        }
+      end
+
       AMM.Theme:Spacing(3)
 
       ImGui.Text(target.name)
@@ -60,34 +66,36 @@ function Scan:Draw(AMM, target, style)
         -- Check if Save button should be drawn
         local drawSaveButton = AMM:ShouldDrawSaveButton(target)
 
-        for _, button in ipairs(tabConfig[target.type].buttons) do
-          ImGui.SameLine()
+        if tabConfig[target.type] ~= nil then
+          for _, button in ipairs(tabConfig[target.type].buttons) do
+            ImGui.SameLine()
 
-          if drawSaveButton == false or target.id == "0x903E76AF, 43" then
-            button.width = style.buttonWidth
+            if drawSaveButton == false or target.id == "0x903E76AF, 43" then
+              button.width = style.buttonWidth
+            end
+
+            if button.action == "Cycle" and target.id ~= "0x903E76AF, 43" then -- Extra Handling for Johnny
+              AMM:DrawButton(button.title, button.width, style.buttonHeight, button.action, target)
+            end
+
+            if drawSaveButton and button.action == "Save" then
+              AMM:DrawButton(button.title, button.width, style.buttonHeight, button.action, target)
+            end
           end
 
-          if button.action == "Cycle" and target.id ~= "0x903E76AF, 43" then -- Extra Handling for Johnny
-            AMM:DrawButton(button.title, button.width, style.buttonHeight, button.action, target)
+          ImGui.Spacing()
+
+          local savedApp = nil
+          local query = f("SELECT app_name FROM saved_appearances WHERE entity_id = '%s'", target.id)
+          for app in db:urows(query) do
+            savedApp = app
           end
 
-          if drawSaveButton and button.action == "Save" then
-            AMM:DrawButton(button.title, button.width, style.buttonHeight, button.action, target)
+          if savedApp ~= nil then
+            AMM.Theme:TextColored("Saved Appearance:")
+            ImGui.Text(savedApp)
+            AMM:DrawButton("Clear Saved Appearance", style.buttonWidth, style.buttonHeight, "Clear", target)
           end
-        end
-
-        ImGui.Spacing()
-
-        local savedApp = nil
-        local query = f("SELECT app_name FROM saved_appearances WHERE entity_id = '%s'", target.id)
-        for app in db:urows(query) do
-          savedApp = app
-        end
-
-        if savedApp ~= nil then
-          AMM.Theme:TextColored("Saved Appearance:")
-          ImGui.Text(savedApp)
-          AMM:DrawButton("Clear Saved Appearance", style.buttonWidth, style.buttonHeight, "Clear", target)
         end
 
         AMM.Theme:Separator()
@@ -114,12 +122,14 @@ function Scan:Draw(AMM, target, style)
         end
       end
 
-      local spawnID = AMM:IsSpawnable(target)
-      if spawnID ~= nil then
-        local favoritesLabels = {"  Add to Spawnable Favorites  ", "  Remove from Spawnable Favorites  "}
-        target.id = spawnID
-        AMM:DrawFavoritesButton(favoritesLabels, target)
-        ImGui.Spacing()
+      if target.handle:IsNPC() then
+        local spawnID = AMM:IsSpawnable(target)
+        if spawnID ~= nil then
+          local favoritesLabels = {"  Add to Spawnable Favorites  ", "  Remove from Spawnable Favorites  "}
+          target.id = spawnID
+          AMM:DrawFavoritesButton(favoritesLabels, target)
+          ImGui.Spacing()
+        end
       end
 
       if AMM.userSettings.experimental then
@@ -147,8 +157,8 @@ function Scan:Draw(AMM, target, style)
 
         resX, resY = GetDisplayResolution()
         y = #target.options * 40
-        if y > resY - (resY / 3) then
-          y = resY / 2
+        if y > resY - (resY / 2) then
+          y = resY / 3
         end
 
         if ImGui.BeginChild("Scrolling", x, y) then
@@ -170,7 +180,7 @@ function Scan:Draw(AMM, target, style)
       ImGui.NewLine()
 
       ImGui.PushTextWrapPos()
-      ImGui.TextColored(1, 0.16, 0.13, 0.75, "No Target! Look at NPC or Vehicle to begin")
+      ImGui.TextColored(1, 0.16, 0.13, 0.75, "No Target! Look at NPC, Vehicle or Object to begin")
       ImGui.PopTextWrapPos()
 
       ImGui.NewLine()

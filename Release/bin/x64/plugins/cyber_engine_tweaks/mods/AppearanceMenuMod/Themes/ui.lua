@@ -103,6 +103,31 @@ function UI:Separator()
 	UI:Spacing(2)
 end
 
+function UI:DrawCrossHair()
+  if AMM.userSettings.scanningReticle then
+    local resX, resY = GetDisplayResolution()
+    ImGui.SetNextWindowPos((resX / 2) - 20, (resY / 2) - 20)
+    ImGui.SetNextWindowSize(40, 40)
+    UI:CrossHairStyling()
+    if ImGui.Begin("Crosshair", ImGuiWindowFlags.NoMove + ImGuiWindowFlags.NoCollapse + ImGuiWindowFlags.NoTitleBar + ImGuiWindowFlags.NoResize) then end
+    UI:EndCrossHairStyling()
+    ImGui.End()
+  end
+end
+
+function UI:CrossHairStyling()
+  local bgColor = Theme.WindowBg
+  local color = {bgColor[1], bgColor[2], bgColor[3], 0.5}
+  UI:PushStyleColor(ImGuiCol.WindowBg, color)
+  ImGui.PushStyleVar(ImGuiStyleVar.WindowRounding, 10)
+  ImGui.PushStyleVar(ImGuiStyleVar.WindowBorderSize, 5)
+end
+
+function UI:EndCrossHairStyling()
+  ImGui.PopStyleColor(1)
+  ImGui.PopStyleVar(2)
+end
+
 UI.userThemes = UI:UserThemes()
 
 return UI

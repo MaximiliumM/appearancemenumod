@@ -5,7 +5,14 @@ AMM = {
 }
 
 -- ALIAS for string.format --
-local f = string.format
+f = string.format
+
+-- Load Util Module Globally --
+Util = require('Modules/util.lua')
+
+-- Load External Modules --
+GameSettings = require('External/GameSettings.lua')
+GameSession = require('External/GameSession.lua')
 
 function intToBool(value)
 	return value > 0 and true or false
@@ -35,14 +42,13 @@ function AMM:new()
 	 -- Load Modules --
 	 AMM.Scan = require('Modules/scan.lua')
 	 AMM.Swap = require('Modules/swap.lua')
-	 AMM.Util = require('Modules/util.lua')
 	 AMM.Tools = require('Modules/tools.lua')
 
 	 -- External Mods API --
 	 AMM.TeleportMod = ''
 
 	 -- Main Properties --
-	 AMM.currentVersion = "1.8.1"
+	 AMM.currentVersion = "1.8.2"
 	 AMM.updateNotes = require('update_notes.lua')
 	 AMM.userSettings = AMM:PrepareSettings()
 	 AMM.categories = AMM:GetCategories()
@@ -66,6 +72,7 @@ function AMM:new()
 
 	 -- Configs --
 	 AMM.playerAttached = false
+	 AMM.playerInMenu = true
 	 AMM.settings = false
 	 AMM.currentSpawn = ''
 	 AMM.maxSpawns = 5
@@ -85,9 +92,34 @@ function AMM:new()
 		 AMM:SetupVehicleData()
 		 AMM:SetupJohnny()
 
-		 if AMM.Debug ~= '' then
+		 -- Setup GameSession --
+		 GameSession.OnStart(function()
 			 AMM.playerAttached = true
-		 end
+			 AMM.playerInMenu = false
+
+			 AMM.Tools:CheckGodModeIsActive()
+
+			 if next(AMM.spawnedNPCs) ~= nil then
+			 	AMM:RespawnAll()
+			 end
+		 end)
+
+		 GameSession.OnEnd(function()
+			 AMM.playerAttached = false
+			 AMM.playerInMenu = true
+		 end)
+
+		 GameSession.Listen(function(state)
+			 	if state.isLoaded then
+					AMM.playerAttached = true
+				end
+
+				if state.isPaused then
+					AMM.playerInMenu = true
+				elseif state.wasPaused then
+					AMM.playerInMenu = false
+				end
+     end)
 
 		 -- Setup Travel Mod API --
 		 local mod = GetMod("gtaTravel")
@@ -97,14 +129,44 @@ function AMM:new()
 		 end
 
 		 -- Setup Observers --
+		 Observe("PlayerPuppet", "OnAction", function(action)
+		   local actionName = Game.NameToString(action:GetName(action))
+       local actionType = action:GetType(action).value
+
+       if actionName == 'TogglePhotoMode' then
+	        if actionType == 'BUTTON_RELEASED' then
+					 AMM.playerInMenu = true
+	         AMM.Tools:SetSlowMotionSpeed(1)
+					end
+			 elseif actionName == 'ExitPhotoMode' then
+				 if actionType == 'BUTTON_RELEASED' then
+					 AMM.playerInMenu = false
+					 local c = AMM.Tools.slowMotionSpeed
+					 if c ~= 1 then
+						 AMM.Tools:SetSlowMotionSpeed(c)
+					 else
+						 if AMM.Tools.timeState == false then
+           		 AMM.Tools:SetSlowMotionSpeed(0)
+						 else
+							 AMM.Tools:SetSlowMotionSpeed(1)
+						 end
+					 end
+         end
+       end
+		 end)
+
 		 Observe("PlayerPuppet", "OnGameAttached", function(self)
 			 AMM.activeCustomApps = {}
+
+			 -- Disable God mode if previously active
+			 AMM.Tools.godModeToggle = false
+
+			 -- Disable Invisiblity if previously active
+			 AMM.Tools.playerVisibility = true
 
 			 if next(AMM.spawnedNPCs) ~= nil then
 			 	AMM:RespawnAll()
 			 end
-
-			 AMM.playerAttached = true
 		 end)
 	 end)
 
@@ -192,8 +254,22 @@ function AMM:new()
 	 	AMM.Tools:SkipFrame()
 	 end)
 
+	 registerHotkey('amm_toggle_hud', 'Toggle HUD', function()
+	    GameSettings.Toggle('/interface/hud/action_buttons')
+	    GameSettings.Toggle('/interface/hud/activity_log')
+	    GameSettings.Toggle('/interface/hud/ammo_counter')
+	    GameSettings.Toggle('/interface/hud/chatters')
+	    GameSettings.Toggle('/interface/hud/healthbar')
+	    GameSettings.Toggle('/interface/hud/input_hints')
+	    GameSettings.Toggle('/interface/hud/johnny_hud')
+	    GameSettings.Toggle('/interface/hud/minimap')
+	    GameSettings.Toggle('/interface/hud/npc_healthbar')
+	    GameSettings.Toggle('/interface/hud/quest_tracker')
+	    GameSettings.Toggle('/interface/hud/stamina_oxygen')
+	 end)
+
 	 registerForEvent("onUpdate", function(deltaTime)
-		 if AMM.playerAttached or not(AMM.Util:IsPlayerInAnyMenu()) then
+		 if AMM.playerAttached and not(AMM.playerInMenu) then
 				if finishedUpdate and Game.GetPlayer() ~= nil then
 			 		-- Load Saved Appearance --
 			 		if not drawWindow and AMM.shouldCheckSavedAppearance then
@@ -315,7 +391,7 @@ function AMM:new()
 						if waitTimer > 0.2 then
 							local handle
 							if AMM.spawnedNPCs[AMM.currentSpawn] ~= nil and string.find(AMM.spawnedNPCs[AMM.currentSpawn].path, "Vehicle") then
-								handle = Game.GetTargetingSystem():GetLookAtObject(Game.GetPlayer(),false,false)
+								handle = Game.GetTargetingSystem():GetLookAtObject(Game.GetPlayer(), false, false)
 							else
 								handle = Game.FindEntityByID(AMM.spawnedNPCs[AMM.currentSpawn].entityID)
 							end
@@ -393,7 +469,7 @@ function AMM:Begin()
 	if ImGui.Begin("Appearance Menu Mod", shouldResize) then
 
 		if (not(finishedUpdate) or AMM.playerAttached == false) then
-			if finishedUpdate and AMM.playerAttached == false and AMM.Util:IsPlayerInAnyMenu() then
+			if finishedUpdate and AMM.playerAttached == false then
 				AMM.Theme:TextColored("Player In Menu")
 				ImGui.Text("AMM only functions in game")
 				AMM.Theme:Separator()
@@ -435,7 +511,7 @@ function AMM:Begin()
 				-- Spawn Tab --
 				if (ImGui.BeginTabItem("Spawn")) then
 
-					if AMM.Util:IsPlayerInAnyMenu() then
+					if AMM.playerInMenu then
 						AMM.Theme:TextColored("Player In Menu")
 						ImGui.Text("Spawning only works in game")
 					else
@@ -508,7 +584,7 @@ function AMM:Begin()
 
 						if AMM.searchQuery ~= '' then
 							local entities = {}
-							local query = "SELECT * FROM entities WHERE is_spawnable = 1 AND entity_name LIKE '%"..AMM.searchQuery.."%' ORDER BY entity_name ASC"
+							local query = 'SELECT * FROM entities WHERE is_spawnable = 1 AND entity_name LIKE "%'..AMM.searchQuery..'%" ORDER BY entity_name ASC'
 							for en in db:nrows(query) do
 								table.insert(entities, {en.entity_name, en.entity_id, en.can_be_comp, en.parameters, en.entity_path})
 							end
@@ -572,6 +648,7 @@ function AMM:Begin()
 					AMM.isCompanionInvulnerable = ImGui.Checkbox("Invulnerable Companion", AMM.isCompanionInvulnerable)
 					AMM.userSettings.openWithOverlay, clicked = ImGui.Checkbox("Open With CET Overlay", AMM.userSettings.openWithOverlay)
 					AMM.userSettings.autoResizing, clicked = ImGui.Checkbox("Auto-Resizing Window", AMM.userSettings.autoResizing)
+					AMM.userSettings.scanningReticle, clicked = ImGui.Checkbox("Scanning Reticle", AMM.userSettings.scanningReticle)
 					AMM.userSettings.experimental, expClicked = ImGui.Checkbox("Experimental/Fun stuff", AMM.userSettings.experimental)
 
 					if AMM.userSettings.experimental then
@@ -681,7 +758,7 @@ function AMM:NewSpawn(name, id, parameters, companion, path)
 	obj.entityID = ''
 
 	if obj.parameters == "Player" then
-		obj.path = path..self.Util:GetPlayerGender()
+		obj.path = path..Util:GetPlayerGender()
 		obj.parameters = nil
 	end
 	return obj
@@ -1058,7 +1135,7 @@ function AMM:SaveAppearance(t)
 end
 
 function AMM:GetNPCName(t)
-	n = t:GetTweakDBDisplayName(true)
+	local n = t:GetTweakDBDisplayName(true)
 	return n
 end
 
@@ -1066,11 +1143,20 @@ function AMM:GetVehicleName(t)
 	return tostring(t:GetDisplayName())
 end
 
+function AMM:GetObjectName(t)
+	return self:GetScanClass(t)
+end
+
 function AMM:GetScanID(t)
 	tdbid = t:GetRecordID()
 	hash = tostring(tdbid):match("= (%g+),")
 	length = tostring(tdbid):match("= (%g+) }")
 	return hash..", "..length
+end
+
+function AMM:GetScanClass(t)
+	local className = t:GetClassName()
+	return tostring(className):match("%[ (%g+) -")
 end
 
 function AMM:SetCurrentTarget(t)
@@ -1088,7 +1174,7 @@ end
 function AMM:GetAppearanceOptions(t)
 	local options = {}
 
-	scanID = self:GetScanID(t)
+	local scanID = self:GetScanID(t)
 
 	if t:IsNPC() and self.Swap.activeSwaps[scanID] == nil then
 		if t:GetRecord():CrowdAppearanceNames()[1] ~= nil then
@@ -1103,11 +1189,11 @@ function AMM:GetAppearanceOptions(t)
 	 	scanID = self.Swap.activeSwaps[scanID].newID
 	end
 
-	for app in db:urows(f("SELECT DISTINCT app_name FROM custom_appearances WHERE entity_id = '%s'", scanID)) do
+	for app in db:urows(f("SELECT DISTINCT app_name FROM custom_appearances WHERE entity_id = '%s' ORDER BY app_base ASC", scanID)) do
 		table.insert(options, app)
 	end
 
-	for app in db:urows(f("SELECT app_name FROM appearances WHERE entity_id = '%s'", scanID)) do
+	for app in db:urows(f("SELECT app_name FROM appearances WHERE entity_id = '%s' ORDER BY app_name ASC", scanID)) do
 		table.insert(options, app)
 	end
 
@@ -1132,15 +1218,16 @@ function AMM:GetCustomAppearanceParams(appearance, target)
 
 	local reverse = false
 	if target ~= nil and activeApp ~= nil and activeApp ~= appearance and target.id ~= "0x903E76AF, 43" then
-		for app_base in db:urows(f("SELECT app_name FROM custom_appearances WHERE app_name = '%s' AND app_base = '%s'", activeApp, appearance)) do
+		for app_base in db:urows(f("SELECT app_base FROM custom_appearances WHERE app_name = '%s' AND app_base = '%s' AND entity_id = '%s'", activeApp, appearance, target.id)) do
 			reverse = true
+			self.activeCustomApps[target.id] = 'reverse'
 		end
 	end
 
 	if reverse then appearance = activeApp end
 
 	local custom = {}
-	for app in db:nrows(f("SELECT * FROM custom_appearances WHERE app_name = '%s'", appearance)) do
+	for app in db:nrows(f("SELECT * FROM custom_appearances WHERE app_name = '%s' AND entity_id = '%s'", appearance, target.id)) do
 		app.app_toggle = not(intToBool(app.app_toggle))
 		if reverse then app.app_toggle = not app.app_toggle end
 		table.insert(custom, app)
@@ -1151,7 +1238,11 @@ end
 function AMM:ChangeScanCustomAppearanceTo(t, customAppearance)
 	self:ChangeScanAppearanceTo(t, customAppearance[1].app_base)
 	self.setCustomApp = {t.handle, customAppearance}
-	self.activeCustomApps[t.id] = customAppearance[1].app_name
+	if self.activeCustomApps[t.id] ~= 'reverse' then
+		self.activeCustomApps[t.id] = customAppearance[1].app_name
+	else
+		self.activeCustomApps[t.id] = nil
+	end
 end
 
 function AMM:ChangeScanAppearanceTo(t, newAppearance)
@@ -1159,7 +1250,7 @@ function AMM:ChangeScanAppearanceTo(t, newAppearance)
 		t.handle:PrefetchAppearanceChange(newAppearance)
 		t.handle:ScheduleAppearanceChange(newAppearance)
 
-		if self.activeCustomApps[t.id] ~= nil then
+		if self.activeCustomApps[t.id] ~= nil and self.activeCustomApps[t.id] ~= 'reverse' then
 			self.activeCustomApps[t.id] = nil
 		end
 	end
@@ -1171,12 +1262,16 @@ function AMM:GetTarget()
 
 		if target ~= nil then
 			if target:IsNPC() or target:IsReplacer() then
-				t = AMM:NewTarget(target, "NPC", AMM:GetScanID(target), AMM:GetNPCName(target),AMM:GetScanAppearance(target), AMM:GetAppearanceOptions(target))
+				t = AMM:NewTarget(target, AMM:GetScanClass(target), AMM:GetScanID(target), AMM:GetNPCName(target),AMM:GetScanAppearance(target), AMM:GetAppearanceOptions(target))
 			elseif target:IsVehicle() then
-				t = AMM:NewTarget(target, "Vehicles", AMM:GetScanID(target), AMM:GetVehicleName(target),AMM:GetScanAppearance(target), AMM:GetAppearanceOptions(target))
+				t = AMM:NewTarget(target, AMM:GetScanClass(target), AMM:GetScanID(target), AMM:GetVehicleName(target),AMM:GetScanAppearance(target), AMM:GetAppearanceOptions(target))
+			else
+				if AMM.userSettings.experimental then
+					t = AMM:NewTarget(target, AMM:GetScanClass(target), 'None', AMM:GetObjectName(target),AMM:GetScanAppearance(target), nil)
+				end
 			end
 
-			if t ~= nil then
+			if t ~= nil and t.name ~= "gameuiWorldMapGameObject" then
 				AMM:SetCurrentTarget(t)
 				return t
 			end

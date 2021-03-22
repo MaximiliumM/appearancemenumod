@@ -9,12 +9,4 @@ function Util:GetPlayerGender()
 	end
 end
 
-function Util:IsPlayerInAnyMenu()
-    blackboard = Game.GetBlackboardSystem():Get(Game.GetAllBlackboardDefs().UI_System)
-    uiSystemBB = (Game.GetAllBlackboardDefs().UI_System)
-		if blackboard ~= nil then
-    	return(blackboard:GetBool(uiSystemBB.IsInMenu))
-		end
-end
-
 return Util

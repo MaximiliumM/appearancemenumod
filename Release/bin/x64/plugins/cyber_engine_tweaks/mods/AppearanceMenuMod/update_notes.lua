@@ -1,17 +1,27 @@
 return {
-[[Added support to GTA Travel mod teleport animation]],
+[[Added new Tools:
+-- God mode and Invisibility for the Player]],
 
-[[Adjusted Slow Motion hotkey
--- Now it toggles between Paused and Slomo]],
+[[Added a Protect NPC button
+-- This will protect the NPC from NPC Actions like All Despawn or All Die]],
 
-[[Added new teleport button to return to the location you were before teleporting]],
+[[Added new Scanning Reticle to help with targeting precisely what you want]],
 
-[[Adjusted All NPCs Actions buttons layout]],
+[[Added new Toggle HUD hotkey]],
 
-[[Made some additions to swap, spawn and custom appearances lists]],
+[[Added Target ID to Swap tab in order to be easier to tell NPCs apart]],
 
-[[Fixed user shared locations not having the correct name when the filename was different]],
+[[Changed the names of all Custom Appearances to make them stand out]],
 
-[[Fixed issue where the game would crash on launch if the user had certain spawned characters when quitting the game]],
+[[Enabled Object despawning (Not all objects are despawnable)
+-- Now you can remove that chair that shouldn't be in your shot]],
+
+[[Added two adjustments to textures (Thanks, 86maylin!)
+-- Hanako's face is better suited for the Casual Custom Appearance now
+-- Fixed Cheri's face skin color to match her body's]],
+
+[[Fixed Player In Menu issue]],
+
+[[Fixed issue where Effects wouldn't work in Photo mode when using Freeze Time or Slow Motion]],
 
 }

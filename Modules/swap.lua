@@ -5,10 +5,6 @@ local Swap = {
   savedSwaps = {}
 }
 
--- ALIAS for string.format --
-local f = string.format
-local Util = require('Modules/util.lua')
-
 function Swap:RevertModelSwap(swapID)
   Game.GetPlayer():SetWarningMessage("Reload your save game to update changes!")
   local swapObj = self.activeSwaps[swapID]
@@ -50,6 +46,8 @@ end
 function Swap:Draw(AMM, target)
   if (ImGui.BeginTabItem("Swap")) then
 
+    AMM.Theme:DrawCrossHair()
+
     if next(Swap.activeSwaps) ~= nil then
       AMM.Theme:TextColored("Active Model Swaps")
 
@@ -85,9 +83,12 @@ function Swap:Draw(AMM, target)
     if target ~= nil and target.name == 'V' then
       ImGui.Text("V can't be swapped. Sorry :(")
 
-    elseif target ~= nil and target.type ~= 'Vehicles' then
+    elseif target ~= nil and target.type == 'NPCPuppet' then
       AMM.Theme:TextColored("Current Target:")
       ImGui.Text(target.name)
+
+      AMM.Theme:TextColored("Target ID:")
+      ImGui.Text(target.id)
 
       AMM.Theme:Separator()
 

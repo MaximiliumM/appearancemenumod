@@ -14,6 +14,13 @@ local Tools = {
   favoriteLocations = {},
   useTeleportAnimation = false,
   isTeleporting = true,
+
+  -- V Properties --
+  playerVisibility = true,
+  godModeToggle = false,
+
+  -- NPC Properties --
+  protectedNPCs = {},
 }
 
 -- ALIAS for string.format --
@@ -23,209 +30,318 @@ local Util = require('Modules/util.lua')
 function Tools:Draw(AMM, target)
   if ImGui.BeginTabItem("Tools") then
 
-    Tools.userLocations = Tools:GetUserLocations()
-
-    AMM.Theme:Spacing(3)
-
-    AMM.Theme:TextColored("Teleport Actions:")
-
-    if ImGui.BeginCombo("Locations", Tools.selectedLocation.loc_name, ImGuiComboFlags.HeightLarge) then
-      for i, location in ipairs(Tools:GetLocations()) do
-        if ImGui.Selectable(location.loc_name.."##"..i, (location == Tools.selectedLocation.loc_name)) then
-          if location.loc_name:match("%-%-%-%-") == nil then
-            Tools.selectedLocation = location
-          end
-        end
-      end
-      ImGui.EndCombo()
-    end
-
-    ImGui.Spacing()
-
-    if ImGui.Button("Teleport To Location", -1, 40) then
-      Tools:TeleportToLocation(Tools.selectedLocation)
-    end
-
-    ImGui.Spacing()
-
-    local isFavorite, favIndex = Tools:IsFavorite(Tools.selectedLocation)
-    local favLabel = "Favorite Selected Location"
-    if isFavorite then
-      favLabel = "Unfavorite Selected Location"
-    end
-
-    if ImGui.Button(favLabel, -1, 40) then
-      Tools:ToggleFavoriteLocation(isFavorite, favIndex)
-    end
-
-    ImGui.Spacing()
-
-    if ImGui.Button("Share Current Location", -1, 40) then
-      Tools:GetShareablePlayerLocation()
-    end
-
-    if ImGui.IsItemHovered() then
-      ImGui.SetTooltip("User locations are saved in AppearanceMenuMod/User/Locations folder")
-    end
-
-    ImGui.Spacing()
-
-    if Tools.lastLocation then
-      if ImGui.Button("Go Back To Last Location", -1, 40) then
-        Tools:TeleportToLocation(Tools.lastLocation)
-      end
-    end
-
-    if AMM.TeleportMod ~= '' then
-      ImGui.Spacing()
-      Tools.useTeleportAnimation = ImGui.Checkbox("Use Teleport Animation", Tools.useTeleportAnimation)
-      ImGui.SameLine()
-      AMM.Theme:TextColored("by GTA Travel")
-    end
-
-    local sizeX = ImGui.GetWindowSize()
-  	local x, y = ImGui.GetWindowPos()
-  	ImGui.SetNextWindowPos(x + ((sizeX / 2) - 200), y - 40)
-  	ImGui.SetNextWindowSize(400, ImGui.GetFontSize() * 8)
-
-    if ImGui.BeginPopupModal("Share Location") then
-  		local style = {
-					buttonHeight = ImGui.GetFontSize() * 2,
-					halfButtonWidth = ((ImGui.GetWindowContentRegionWidth() / 2) - 12)
-			}
-
-  		if Tools.shareLocationName == 'existing' then
-  			ImGui.TextColored(1, 0.16, 0.13, 0.75, "Existing Name")
-
-  			if ImGui.Button("Ok", -1, style.buttonHeight) then
-  				Tools.shareLocationName = ''
-  			end
-  		else
-  			Tools.shareLocationName = ImGui.InputText("Name", Tools.shareLocationName, 30)
-
-  			if ImGui.Button("Save", style.halfButtonWidth + 8, style.buttonHeight) then
-  				if not(io.open(f("User/Locations/%s.json", Tools.shareLocationName), "r")) then
-            local currentLocation = Tools:GetPlayerLocation()
-            local newLoc = Tools:NewLocationData(Tools.shareLocationName, currentLocation)
-            Tools:SaveLocation(newLoc)
-            Tools.userLocations = Tools:GetUserLocations()
-  					Tools.shareLocationName = ''
-  					ImGui.CloseCurrentPopup()
-  				else
-  					Tools.shareLocationName = 'existing'
-  				end
-  			end
-
-  			ImGui.SameLine()
-  			if ImGui.Button("Cancel", style.halfButtonWidth + 8, style.buttonHeight) then
-  				Tools.shareLocationName = ''
-  				ImGui.CloseCurrentPopup()
-  			end
-  		end
-  		ImGui.EndPopup()
-  	end
-
-    AMM.Theme:Separator()
-
-    AMM.Theme:TextColored("Time Actions:")
-
-    if Tools.timeValue == nil then
-      Tools.timeValue = Tools:GetCurrentHour()
-    end
-
-    Tools.timeValue, changeTimeUsed = ImGui.SliderInt("Time of Day", Tools.timeValue, 0, 23)
-    if changeTimeUsed then
-      Tools:SetTime(Tools.timeValue)
-    end
-
-    Tools.slowMotionSpeed, slowMotionUsed = ImGui.SliderFloat("Slow Motion", Tools.slowMotionSpeed, 0.000001, Tools.slowMotionMaxValue)
-    if slowMotionUsed then
-      Tools:SetSlowMotionSpeed(Tools.slowMotionSpeed)
-    end
-
-    local buttonLabel = "Unfreeze Time"
-    if Tools.timeState then
-      buttonLabel = "Freeze Time"
-    end
-
-    ImGui.Spacing()
-    if ImGui.Button(buttonLabel, -1, 40) then
-      Tools:PauseTime()
-    end
-
-    if not Tools.timeState then
-      ImGui.Spacing()
-      if ImGui.Button("Skip Frame", -1, 40) then
-        Tools:SkipFrame()
-      end
-    end
-
-    if AMM.userSettings.experimental then
-
-      AMM.Theme:Separator()
-
-      AMM.Theme:TextColored("All NPCs Actions:")
+    if AMM.playerInMenu then
+      AMM.Theme:TextColored("Player In Menu")
+      ImGui.Text("Tools only works in game")
+    else
 
       local style = {
         buttonHeight = ImGui.GetFontSize() * 2,
+        buttonWidth = -1,
         halfButtonWidth = ((ImGui.GetWindowContentRegionWidth() / 2) - 5)
       }
 
-      if ImGui.Button("All Friendly", style.halfButtonWidth, style.buttonHeight) then
-        local entities = Tools:GetNPCsInRange(30)
-        for _, ent in ipairs(entities) do
-          Tools:SetNPCAttitude(ent, "friendly")
+      Tools.userLocations = Tools:GetUserLocations()
+
+      AMM.Theme:Spacing(3)
+
+      AMM.Theme:TextColored("Teleport Actions:")
+
+      if ImGui.BeginCombo("Locations", Tools.selectedLocation.loc_name, ImGuiComboFlags.HeightLarge) then
+        for i, location in ipairs(Tools:GetLocations()) do
+          if ImGui.Selectable(location.loc_name.."##"..i, (location == Tools.selectedLocation.loc_name)) then
+            if location.loc_name:match("%-%-%-%-") == nil then
+              Tools.selectedLocation = location
+            end
+          end
         end
+        ImGui.EndCombo()
       end
 
-      ImGui.SameLine()
-      if ImGui.Button("All Follower", style.halfButtonWidth, style.buttonHeight) then
-        local entities = Tools:GetNPCsInRange(10)
-        for _, ent in ipairs(entities) do
-          AMM:SetNPCAsCompanion(ent.handle)
-        end
+      ImGui.Spacing()
+
+      if ImGui.Button("Teleport To Location", style.buttonWidth, style.buttonHeight) then
+        Tools:TeleportToLocation(Tools.selectedLocation)
       end
 
-      if ImGui.Button("All Fake Die", style.halfButtonWidth, style.buttonHeight) then
-        local entities = Tools:GetNPCsInRange(20)
-        for _, ent in ipairs(entities) do
-          ent.handle:SendAIDeathSignal()
-        end
+      ImGui.Spacing()
+
+      local isFavorite, favIndex = Tools:IsFavorite(Tools.selectedLocation)
+      local favLabel = "Favorite Selected Location"
+      if isFavorite then
+        favLabel = "Unfavorite Selected Location"
       end
 
-      ImGui.SameLine()
-      if ImGui.Button("All Die", style.halfButtonWidth, style.buttonHeight) then
-        local entities = Tools:GetNPCsInRange(20)
-        for _, ent in ipairs(entities) do
-          ent.handle:Kill(ent.handle, false, false)
-        end
+      if ImGui.Button(favLabel, style.buttonWidth, style.buttonHeight) then
+        Tools:ToggleFavoriteLocation(isFavorite, favIndex)
       end
 
-      if ImGui.Button("All Despawn", style.halfButtonWidth, style.buttonHeight) then
-        local entities = Tools:GetNPCsInRange(20)
-        for _, ent in ipairs(entities) do
-          ent.handle:Dispose()
-        end
-      end
+      ImGui.Spacing()
 
-      ImGui.SameLine()
-      if ImGui.Button("Cycle Appearance", style.halfButtonWidth, style.buttonHeight) then
-        local entities = Tools:GetNPCsInRange(20)
-        for _, ent in ipairs(entities) do
-          AMM:ChangeScanAppearanceTo(ent, "Cycle")
-        end
-      end
-
-      if ImGui.InvisibleButton("Speed", 10, 30) then
-        Tools.slowMotionMaxValue = 5
+      if ImGui.Button("Share Current Location", style.buttonWidth, style.buttonHeight) then
+        Tools:GetShareablePlayerLocation()
       end
 
       if ImGui.IsItemHovered() then
-        ImGui.SetTooltip("What if I click here?")
+        ImGui.SetTooltip("User locations are saved in AppearanceMenuMod/User/Locations folder")
+      end
+
+      ImGui.Spacing()
+
+      if Tools.lastLocation then
+        if ImGui.Button("Go Back To Last Location", style.buttonWidth, style.buttonHeight) then
+          Tools:TeleportToLocation(Tools.lastLocation)
+        end
+      end
+
+      if AMM.TeleportMod ~= '' then
+        ImGui.Spacing()
+        Tools.useTeleportAnimation = ImGui.Checkbox("Use Teleport Animation", Tools.useTeleportAnimation)
+        ImGui.SameLine()
+        AMM.Theme:TextColored("by GTA Travel")
+      end
+
+      local sizeX = ImGui.GetWindowSize()
+    	local x, y = ImGui.GetWindowPos()
+    	ImGui.SetNextWindowPos(x + ((sizeX / 2) - 200), y - 40)
+    	ImGui.SetNextWindowSize(400, ImGui.GetFontSize() * 8)
+
+      if ImGui.BeginPopupModal("Share Location") then
+    		local style = {
+  					buttonHeight = ImGui.GetFontSize() * 2,
+  					halfButtonWidth = ((ImGui.GetWindowContentRegionWidth() / 2) - 12)
+  			}
+
+    		if Tools.shareLocationName == 'existing' then
+    			ImGui.TextColored(1, 0.16, 0.13, 0.75, "Existing Name")
+
+    			if ImGui.Button("Ok", -1, style.buttonHeight) then
+    				Tools.shareLocationName = ''
+    			end
+    		else
+    			Tools.shareLocationName = ImGui.InputText("Name", Tools.shareLocationName, 30)
+
+    			if ImGui.Button("Save", style.halfButtonWidth + 8, style.buttonHeight) then
+    				if not(io.open(f("User/Locations/%s.json", Tools.shareLocationName), "r")) then
+              local currentLocation = Tools:GetPlayerLocation()
+              local newLoc = Tools:NewLocationData(Tools.shareLocationName, currentLocation)
+              Tools:SaveLocation(newLoc)
+              Tools.userLocations = Tools:GetUserLocations()
+    					Tools.shareLocationName = ''
+    					ImGui.CloseCurrentPopup()
+    				else
+    					Tools.shareLocationName = 'existing'
+    				end
+    			end
+
+    			ImGui.SameLine()
+    			if ImGui.Button("Cancel", style.halfButtonWidth + 8, style.buttonHeight) then
+    				Tools.shareLocationName = ''
+    				ImGui.CloseCurrentPopup()
+    			end
+    		end
+    		ImGui.EndPopup()
+    	end
+
+      AMM.Theme:Separator()
+
+      AMM.Theme:TextColored("Time Actions:")
+
+      if Tools.timeValue == nil then
+        Tools.timeValue = Tools:GetCurrentHour()
+      end
+
+      Tools.timeValue, changeTimeUsed = ImGui.SliderInt("Time of Day", Tools.timeValue, 0, 23)
+      if changeTimeUsed then
+        Tools:SetTime(Tools.timeValue)
+      end
+
+      Tools.slowMotionSpeed, slowMotionUsed = ImGui.SliderFloat("Slow Motion", Tools.slowMotionSpeed, 0.000001, Tools.slowMotionMaxValue)
+      if slowMotionUsed then
+        Tools:SetSlowMotionSpeed(Tools.slowMotionSpeed)
+      end
+
+      local buttonLabel = "Unfreeze Time"
+      if Tools.timeState then
+        buttonLabel = "Freeze Time"
+      end
+
+      ImGui.Spacing()
+      if ImGui.Button(buttonLabel, style.buttonWidth, style.buttonHeight) then
+        Tools:PauseTime()
+      end
+
+      if not Tools.timeState then
+        ImGui.Spacing()
+        if ImGui.Button("Skip Frame", style.buttonWidth, style.buttonHeight) then
+          Tools:SkipFrame()
+        end
+      end
+
+      AMM.Theme:Separator()
+
+      AMM.Theme:TextColored("V Actions:")
+
+      local buttonLabel = "Disable Invisibility"
+      if Tools.playerVisibility then
+        buttonLabel = "Enable Invisibility"
+      end
+
+      if ImGui.Button(buttonLabel, style.halfButtonWidth, style.buttonHeight) then
+        Tools:ToggleInvisibility()
+      end
+
+      if ImGui.IsItemHovered() then
+        ImGui.SetTooltip("Enemies will still attack you if you trigger combat")
+      end
+
+      local buttonLabel = "Enable God Mode"
+      if Tools.godModeToggle then
+        buttonLabel = "Disable God Mode"
+      end
+
+      ImGui.SameLine()
+      if ImGui.Button(buttonLabel, style.halfButtonWidth, style.buttonHeight) then
+        Tools:ToggleGodMode()
+      end
+
+      if AMM.userSettings.experimental then
+
+        AMM.Theme:Separator()
+
+        AMM.Theme:TextColored("All NPCs Actions:")
+
+        AMM.Theme:DrawCrossHair()
+
+        if ImGui.Button("Protect NPC from Actions", style.buttonWidth, style.buttonHeight) then
+          if target.handle:IsNPC() then
+            Tools:ProtectTarget(target)
+          end
+        end
+
+        if ImGui.Button("All Friendly", style.halfButtonWidth, style.buttonHeight) then
+          local entities = Tools:GetNPCsInRange(30)
+          for _, ent in ipairs(entities) do
+            if Tools.protectedNPCs[ent.handle:GetEntityID().hash] == nil then
+              Tools:SetNPCAttitude(ent, "friendly")
+            end
+          end
+
+          Tools:ClearProtected()
+        end
+
+        ImGui.SameLine()
+        if ImGui.Button("All Follower", style.halfButtonWidth, style.buttonHeight) then
+          local entities = Tools:GetNPCsInRange(10)
+          for _, ent in ipairs(entities) do
+            if Tools.protectedNPCs[ent.handle:GetEntityID().hash] == nil then
+              AMM:SetNPCAsCompanion(ent.handle)
+            end
+          end
+
+          Tools:ClearProtected()
+        end
+
+        if ImGui.Button("All Fake Die", style.halfButtonWidth, style.buttonHeight) then
+          local entities = Tools:GetNPCsInRange(20)
+          for _, ent in ipairs(entities) do
+            if Tools.protectedNPCs[ent.handle:GetEntityID().hash] == nil then
+              ent.handle:SendAIDeathSignal()
+            end
+          end
+
+          Tools:ClearProtected()
+        end
+
+        ImGui.SameLine()
+        if ImGui.Button("All Die", style.halfButtonWidth, style.buttonHeight) then
+          local entities = Tools:GetNPCsInRange(20)
+          for _, ent in ipairs(entities) do
+            if Tools.protectedNPCs[ent.handle:GetEntityID().hash] == nil then
+              ent.handle:Kill(ent.handle, false, false)
+            end
+          end
+
+          Tools:ClearProtected()
+        end
+
+        if ImGui.Button("All Despawn", style.halfButtonWidth, style.buttonHeight) then
+          local entities = Tools:GetNPCsInRange(20)
+          for _, ent in ipairs(entities) do
+            if Tools.protectedNPCs[ent.handle:GetEntityID().hash] == nil then
+              ent.handle:Dispose()
+            end
+          end
+
+          Tools:ClearProtected()
+        end
+
+        ImGui.SameLine()
+        if ImGui.Button("Cycle Appearance", style.halfButtonWidth, style.buttonHeight) then
+          local entities = Tools:GetNPCsInRange(20)
+          for _, ent in ipairs(entities) do
+            if Tools.protectedNPCs[ent.handle:GetEntityID().hash] == nil then
+              AMM:ChangeScanAppearanceTo(ent, "Cycle")
+            end
+          end
+
+          Tools:ClearProtected()
+        end
+
+        if ImGui.InvisibleButton("Speed", 10, 30) then
+          Tools.slowMotionMaxValue = 5
+        end
+
+        if ImGui.IsItemHovered() then
+          ImGui.SetTooltip("What if I click here?")
+        end
       end
     end
     ImGui.EndTabItem()
   end
+end
+
+-- V actions
+function Tools:ToggleInvisibility()
+  Game.GetPlayer():SetInvisible(Tools.playerVisibility)
+  Game.GetPlayer():UpdateVisibility()
+  Tools.playerVisibility = not Tools.playerVisibility
+end
+
+function Tools:CheckGodModeIsActive()
+  -- Check if God Mode is active after reload all mods
+  if Game.GetPlayer() ~= nil then
+    local playerID = Game.GetPlayer():GetEntityID()
+    local currentHP = Game.GetStatsSystem():GetStatValue(playerID, "Health")
+    if currentHP < 0 then Tools.godModeToggle = true end
+  end
+end
+
+function Tools:ToggleGodMode()
+  -- Toggle God Mode
+  Tools.godModeToggle = not Tools.godModeToggle
+
+  if Tools.godModeToggle then
+    hp, o2 = -99999, -999999
+  else
+    hp, o2 = 99999, 999999
+  end
+
+  -- Stat Modifiers
+  Game.ModStatPlayer("Health", hp)
+  Game.ModStatPlayer("Oxygen", o2)
+
+  -- Toggles
+  local toggle = boolToInt(Tools.godModeToggle)
+  Game.InfiniteStamina(Tools.godModeToggle)
+  Game.ModStatPlayer("KnockdownImmunity", toggle)
+  Game.ModStatPlayer("PoisonImmunity", toggle)
+  Game.ModStatPlayer("BurningImmunity", toggle)
+  Game.ModStatPlayer("BlindImmunity", toggle)
+  Game.ModStatPlayer("BleedingImmunity", toggle)
+  Game.ModStatPlayer("FallDamageReduction", toggle)
+  Game.ModStatPlayer("ElectrocuteImmunity", toggle)
+  Game.ModStatPlayer("StunImmunity", toggle)
 end
 
 -- Teleport actions
@@ -356,6 +472,27 @@ function Tools:SetLocationNamePopup()
 end
 
 -- NPC actions
+function Tools:ProtectTarget(t)
+  local mappinData = NewObject('gamemappinsMappinData')
+  mappinData.mappinType = TweakDBID.new('Mappins.DefaultStaticMappin')
+  mappinData.variant = Enum.new('gamedataMappinVariant', 'QuestGiverVariant')
+  mappinData.visibleThroughWalls = true
+
+  local slot = CName.new('poi_mappin')
+  local offset = ToVector3{ x = 0, y = 0, z = 2 } -- Move the pin a bit up relative to the target
+
+  local newMappinID = Game.GetMappinSystem():RegisterMappinWithObject(mappinData, t.handle, slot, offset)
+  Tools.protectedNPCs[target.handle:GetEntityID().hash] = newMappinID
+end
+
+function Tools:ClearProtected()
+  for _, mappinID in pairs(Tools.protectedNPCs) do
+    Game.GetMappinSystem():UnregisterMappin(mappinID)
+  end
+
+  Tools.protectedNPCs = {}
+end
+
 function Tools:SetNPCAttitude(entity, attitude)
 	local entAttAgent = entity.handle:GetAttitudeAgent()
 	entAttAgent:SetAttitudeGroup(CName.new(attitude))
