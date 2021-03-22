@@ -1,4 +1,7 @@
 return {
+[[1.8.2b hotfix:
+-- Fixed bullets being affected by Slow Motion when exiting Photo mode]],
+
 [[Added new Tools:
 -- God mode and Invisibility for the Player]],
 

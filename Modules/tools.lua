@@ -516,8 +516,9 @@ end
 
 -- Time actions
 function Tools:SetSlowMotionSpeed(c)
-  Game.GetTimeSystem():SetIgnoreTimeDilationOnLocalPlayerZero(true)
-  Game.SetTimeDilation(c == 0 and 0.0000000000001 or c)
+  Game.GetTimeSystem():SetIgnoreTimeDilationOnLocalPlayerZero(c == 1 and false or true)
+  if c == 0 then c = 0.0000000000001 elseif c == 1 then c = 0 end
+  Game.SetTimeDilation(c)
 end
 
 function Tools:SkipFrame()
