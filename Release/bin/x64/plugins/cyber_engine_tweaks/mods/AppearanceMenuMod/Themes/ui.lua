@@ -38,6 +38,24 @@ function UI:UserThemes()
   return userThemes
 end
 
+function UI:TextCenter(text, colored)
+  local textWidth = ImGui.CalcTextSize(text)
+  local x = ImGui.GetWindowSize()
+  ImGui.SameLine(x / 2 - textWidth + (textWidth / 2))
+  if colored then
+    UI:TextColored(text)
+  else
+    ImGui.Text(text)
+  end
+end
+
+function UI:TextWrappedWithColor(text, color)
+  local color = Theme[color]
+  UI:PushStyleColor(ImGuiCol.Text, color)
+  ImGui.TextWrapped(text)
+  ImGui.PopStyleColor(1)
+end
+
 function UI:TextColored(text)
   local color = Theme.TextColored
   ImGui.TextColored(color[1] / 255, color[2] / 255, color[3] / 255, color[4], text)

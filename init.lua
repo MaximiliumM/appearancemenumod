@@ -13,6 +13,7 @@ Util = require('Modules/util.lua')
 -- Load External Modules --
 GameSettings = require('External/GameSettings.lua')
 GameSession = require('External/GameSession.lua')
+Cron = require('External/Cron.lua')
 
 function intToBool(value)
 	return value > 0 and true or false
@@ -35,7 +36,7 @@ function AMM:new()
 	 end
 
 	 -- Themes Properties --
-	 AMM.Theme = require('Themes/ui.lua')
+	 AMM.UI = require('Themes/ui.lua')
 	 AMM.Editor = require('Themes/editor.lua')
 	 AMM.selectedTheme = 'Default'
 
@@ -48,7 +49,7 @@ function AMM:new()
 	 AMM.TeleportMod = ''
 
 	 -- Main Properties --
-	 AMM.currentVersion = "1.8.2b"
+	 AMM.currentVersion = "1.8.3"
 	 AMM.updateNotes = require('update_notes.lua')
 	 AMM.userSettings = AMM:PrepareSettings()
 	 AMM.categories = AMM:GetCategories()
@@ -57,7 +58,7 @@ function AMM:new()
 	 AMM.entitiesForRespawn = ''
 	 AMM.allowedNPCs = AMM:GetSaveables()
 	 AMM.searchQuery = ''
-	 AMM.searchBarWidth = 530
+	 AMM.searchBarWidth = 500
 	 AMM.equipmentOptions = AMM:GetEquipmentOptions()
 	 AMM.originalVehicles = ''
 	 AMM.skipFrame = false
@@ -73,6 +74,7 @@ function AMM:new()
 	 -- Configs --
 	 AMM.playerAttached = false
 	 AMM.playerInMenu = true
+	 AMM.playerInPhoto = false
 	 AMM.settings = false
 	 AMM.currentSpawn = ''
 	 AMM.maxSpawns = 5
@@ -91,6 +93,16 @@ function AMM:new()
 		 AMM:ImportUserData()
 		 AMM:SetupVehicleData()
 		 AMM:SetupJohnny()
+
+		 -- Check if user is in-game using WorldPosition --
+		 -- Only way to set player attached if user reload all mods --
+		 if Game.GetPlayer() then
+			 local playerPosition = Game.GetPlayer():GetWorldPosition()
+			 if math.floor(playerPosition.z) ~= 0 then
+				 AMM.playerAttached = true
+				 AMM.playerInMenu = false
+			 end
+		 end
 
 		 -- Setup GameSession --
 		 GameSession.OnStart(function()
@@ -121,11 +133,16 @@ function AMM:new()
 				end
      end)
 
+		 -- Setup Cron to Export User data every 10 minutes --
+		 Cron.Every(600, function()
+			 AMM:ExportUserData()
+		 end)
+
 		 -- Setup Travel Mod API --
 		 local mod = GetMod("gtaTravel")
 		 if mod ~= nil then
 			 AMM.TeleportMod = mod
-			 AMM.Tools.useTeleportAnimation = true
+			 AMM.Tools.useTeleportAnimation = AMM.userSettings.teleportAnimation
 		 end
 
 		 -- Setup Observers --
@@ -136,11 +153,15 @@ function AMM:new()
        if actionName == 'TogglePhotoMode' then
 	        if actionType == 'BUTTON_RELEASED' then
 					 AMM.playerInMenu = true
+					 AMM.playerInPhoto = true
 	         AMM.Tools:SetSlowMotionSpeed(1)
 					end
 			 elseif actionName == 'ExitPhotoMode' then
 				 if actionType == 'BUTTON_RELEASED' then
+					 AMM.Tools.makeupToggle = true
+					 AMM.Tools.accessoryToggle = true
 					 AMM.playerInMenu = false
+					 AMM.playerInPhoto = false
 					 local c = AMM.Tools.slowMotionSpeed
 					 if c ~= 1 then
 						 AMM.Tools:SetSlowMotionSpeed(c)
@@ -269,6 +290,9 @@ function AMM:new()
 	 end)
 
 	 registerForEvent("onUpdate", function(deltaTime)
+		 -- This is required for Cron to function
+     Cron.Update(deltaTime)
+
 		 if AMM.playerAttached and not(AMM.playerInMenu) then
 				if finishedUpdate and Game.GetPlayer() ~= nil then
 			 		-- Load Saved Appearance --
@@ -440,11 +464,11 @@ function AMM:new()
 
 	 	if drawWindow then
 			-- Load Theme --
-			if AMM.Theme.currentTheme ~= AMM.selectedTheme then
-				AMM.Theme:Load(AMM.selectedTheme)
+			if AMM.UI.currentTheme ~= AMM.selectedTheme then
+				AMM.UI:Load(AMM.selectedTheme)
 			end
 
-			AMM.Theme:Start()
+			AMM.UI:Start()
 
 			if AMM.Debug == '' then
 				pcall(function()
@@ -469,29 +493,61 @@ function AMM:Begin()
 	if ImGui.Begin("Appearance Menu Mod", shouldResize) then
 
 		if (not(finishedUpdate) or AMM.playerAttached == false) then
+			local updateLabel = "WHAT'S NEW"
+
 			if finishedUpdate and AMM.playerAttached == false then
-				AMM.Theme:TextColored("Player In Menu")
+				AMM.UI:TextColored("Player In Menu")
 				ImGui.Text("AMM only functions in game")
-				AMM.Theme:Separator()
+				AMM.UI:Separator()
+				updateLabel = 'UPDATE HISTORY'
 			end
 
 			-- UPDATE NOTES
-			AMM.Theme:TextColored("UPDATE "..AMM.currentVersion)
-			AMM.Theme:Separator()
+			AMM.UI:Spacing(8)
+			AMM.UI:TextCenter(updateLabel, true)
+			AMM.UI:Separator()
 
-			for _, note in ipairs(AMM.updateNotes) do
-				AMM.Theme:TextColored("+ ")
-				ImGui.SameLine()
-				ImGui.PushTextWrapPos(400)
-				ImGui.TextWrapped(note)
-				ImGui.PopTextWrapPos()
-				AMM.Theme:Spacing(3)
-			end
+			for i, versionArray in ipairs(AMM.updateNotes) do
+				local treeNode = ImGui.TreeNodeEx(versionArray[1], ImGuiTreeNodeFlags.DefaultOpen + ImGuiTreeNodeFlags.NoTreePushOnOpen + ImGuiTreeNodeFlags.Framed)
+				local releaseDate = versionArray[2]
+				local dateLength = ImGui.CalcTextSize(releaseDate)
+				ImGui.SameLine(ImGui.GetWindowContentRegionWidth() - dateLength)
+				AMM.UI:TextColored(releaseDate)
 
-			AMM.Theme:Separator()
-			if not(finishedUpdate) then
-				if ImGui.Button("Cool!", ImGui.GetWindowContentRegionWidth(), 30) then
-					AMM:FinishUpdate()
+				if treeNode then
+					for j, note in ipairs(versionArray) do
+						if j == 1 or j == 2 then else
+							local color = "ButtonActive"
+							if note:match("%-%-") == nil then
+								AMM.UI:Spacing(4)
+								AMM.UI:TextColored("+ ")
+								color = nil
+							else
+								note = note:gsub('%-%- ', '')
+								ImGui.Dummy(20, 20)
+								ImGui.SameLine()
+								AMM.UI:TextColored('--')
+							end
+
+							ImGui.SameLine()
+							ImGui.PushTextWrapPos(500)
+							if color then AMM.UI:TextWrappedWithColor(note, color)
+							else ImGui.TextWrapped(note) end
+							ImGui.PopTextWrapPos()
+							AMM.UI:Spacing(3)
+						end
+					end
+
+					if i == 1 then
+						if not(finishedUpdate) then
+							AMM.UI:Separator()
+							AMM.UI:Spacing(4)
+							if ImGui.Button("Cool!", ImGui.GetWindowContentRegionWidth(), 40) then
+								AMM:FinishUpdate()
+							end
+							AMM.UI:Separator()
+						end
+					end
 				end
 			end
 		else
@@ -512,11 +568,11 @@ function AMM:Begin()
 				if (ImGui.BeginTabItem("Spawn")) then
 
 					if AMM.playerInMenu then
-						AMM.Theme:TextColored("Player In Menu")
+						AMM.UI:TextColored("Player In Menu")
 						ImGui.Text("Spawning only works in game")
 					else
 						if next(AMM.spawnedNPCs) ~= nil then
-							AMM.Theme:TextColored("Active NPC Spawns "..AMM.spawnsCounter.."/"..AMM.maxSpawns)
+							AMM.UI:TextColored("Active NPC Spawns "..AMM.spawnsCounter.."/"..AMM.maxSpawns)
 
 							for _, spawn in pairs(AMM.spawnedNPCs) do
 								local nameLabel = spawn.name
@@ -564,7 +620,7 @@ function AMM:Begin()
 								end
 							end
 
-							AMM.Theme:Separator()
+							AMM.UI:Separator()
 						end
 
 						ImGui.PushItemWidth(AMM.searchBarWidth)
@@ -580,7 +636,7 @@ function AMM:Begin()
 
 						ImGui.Spacing()
 
-						AMM.Theme:TextColored("Select To Spawn:")
+						AMM.UI:TextColored("Select To Spawn:")
 
 						if AMM.searchQuery ~= '' then
 							local entities = {}
@@ -600,7 +656,6 @@ function AMM:Begin()
 								for _, category in ipairs(AMM.categories) do
 									if(ImGui.CollapsingHeader(category.cat_name)) then
 										local entities = {}
-										local noFavorites = true
 										if category.cat_name == 'Favorites' then
 											local query = "SELECT * FROM favorites"
 											for fav in db:nrows(query) do
@@ -668,7 +723,7 @@ function AMM:Begin()
 						end
 					end
 
-					AMM.Theme:Separator()
+					AMM.UI:Separator()
 
 					if AMM.userSettings.experimental then
 						if (ImGui.Button("Revert All Model Swaps")) then
@@ -696,11 +751,11 @@ function AMM:Begin()
 
 					AMM:BeginPopup("WARNING", nil, true, popupDelegate, style)
 
-					AMM.Theme:Separator()
+					AMM.UI:Separator()
 
 					if AMM.settings then
 						if ImGui.BeginListBox("Themes") then
-							for _, theme in ipairs(AMM.Theme.userThemes) do
+							for _, theme in ipairs(AMM.UI.userThemes) do
 								if (AMM.selectedTheme == theme.name) then selected = true else selected = false end
 								if(ImGui.Selectable(theme.name, selected)) then
 									AMM.selectedTheme = theme.name
@@ -720,7 +775,7 @@ function AMM:Begin()
 						-- 	print(os.remove("test.txt"))
 						-- end
 					end
-					AMM.Theme:Separator()
+					AMM.UI:Separator()
 
 					ImGui.Text("Current Version: "..AMM.currentVersion)
 
@@ -739,7 +794,7 @@ function AMM:Begin()
 			end
 		end
 	end
-		AMM.Theme:End()
+		AMM.UI:End()
 		ImGui.End()
 end
 
@@ -831,6 +886,12 @@ function AMM:ImportUserData()
 			command = command:gsub("'nil'", "NULL")
 			db:execute(command)
 		end
+		if userData['favorites_swap'] ~= nil then
+			for _, obj in ipairs(userData['favorites_swap']) do
+				local command = f("INSERT INTO favorites_swap (position, entity_id) VALUES (%i, '%s')", obj.position, obj.entity_id)
+				db:execute(command)
+			end
+		end
 		for _, obj in ipairs(userData['saved_appearances']) do
 			db:execute(f("INSERT INTO saved_appearances (entity_id, app_name) VALUES ('%s', '%s')", obj.entity_id, obj.app_name))
 		end
@@ -848,6 +909,10 @@ function AMM:ExportUserData()
 		userData['favorites'] = {}
 		for r in db:nrows("SELECT * FROM favorites") do
 			table.insert(userData['favorites'], {position = r.position, entity_id = r.entity_id, entity_name = r.entity_name, parameters = r.parameters})
+		end
+		userData['favorites_swap'] = {}
+		for r in db:nrows("SELECT * FROM favorites_swap") do
+			table.insert(userData['favorites_swap'], {position = r.position, entity_id = r.entity_id})
 		end
 		userData['saved_appearances'] = {}
 		for r in db:nrows("SELECT * FROM saved_appearances") do
@@ -1061,7 +1126,7 @@ function AMM:UpdateSettings()
 end
 
 function AMM:CheckSavedAppearance(t)
-	local handle, currentApp, savedApp
+	local handle, currentApp, savedApp = nil, nil, nil
 	if t ~= nil then
 		handle = t.handle
 		currentApp = t.appearance
@@ -1208,7 +1273,7 @@ function AMM:GetScanAppearance(t)
 	return tostring(t:GetCurrentAppearanceName()):match("%[ (%g+) -")
 end
 
-function AMM:GetCustomAppearanceParams(appearance, target)
+function AMM:CheckForReverseCustomAppearance(appearance, target)
 	-- Check if custom app is active
 	local activeApp = nil
 
@@ -1226,6 +1291,10 @@ function AMM:GetCustomAppearanceParams(appearance, target)
 
 	if reverse then appearance = activeApp end
 
+	return appearance, reverse
+end
+
+function AMM:GetCustomAppearanceParams(appearance, reverse)
 	local custom = {}
 	for app in db:nrows(f("SELECT * FROM custom_appearances WHERE app_name = '%s' AND entity_id = '%s'", appearance, target.id)) do
 		app.app_toggle = not(intToBool(app.app_toggle))
@@ -1349,7 +1418,7 @@ end
 
 function AMM:RearrangeFavoritesIndex(removedIndex)
 	local lastIndex = 0
-	query = "SELECT seq FROM sqlite_sequence"
+	query = "SELECT seq FROM sqlite_sequence WHERE name = 'favorites'"
 	for i in db:urows(query) do lastIndex = i end
 
 	if lastIndex ~= removedIndex then
@@ -1358,7 +1427,7 @@ function AMM:RearrangeFavoritesIndex(removedIndex)
 		end
 	end
 
-	db:execute(f("UPDATE sqlite_sequence SET seq = %i", lastIndex - 1))
+	db:execute(f("UPDATE sqlite_sequence SET seq = %i WHERE name = 'favorites'", lastIndex - 1))
 end
 
 -- Companion methods -- original code by Catmino
@@ -1702,7 +1771,8 @@ function AMM:DrawEntitiesButtons(entities, categoryName, style)
 		parameters = entity[4]
 
 		local newSpawn = AMM:NewSpawn(name, id, parameters, companion, path)
-		local buttonLabel = newSpawn.uniqueName()
+		local uniqueName = newSpawn.uniqueName()
+		local buttonLabel = uniqueName..tostring(i)
 
 		local favOffset = 0
 		if categoryName == 'Favorites' then
@@ -1717,13 +1787,13 @@ function AMM:DrawEntitiesButtons(entities, categoryName, style)
 			isFavorite = fav
 		end
 
-		if self.spawnsCounter == self.maxSpawns or (categoryName == 'Favorites' and AMM.spawnedNPCs[buttonLabel] and isFavorite ~= 0) then
+		if self.spawnsCounter == self.maxSpawns or (AMM.spawnedNPCs[uniqueName] and isFavorite ~= 0) then
 			ImGui.PushStyleColor(ImGuiCol.Button, 0.56, 0.06, 0.03, 0.25)
 			ImGui.PushStyleColor(ImGuiCol.ButtonHovered, 0.56, 0.06, 0.03, 0.25)
 			ImGui.PushStyleColor(ImGuiCol.ButtonActive, 0.56, 0.06, 0.03, 0.25)
 			AMM:DrawButton(buttonLabel, -1 - favOffset, style.buttonHeight, "Disabled", nil)
 			ImGui.PopStyleColor(3)
-		elseif not(AMM.spawnedNPCs[buttonLabel] ~= nil and AMM:IsUnique(newSpawn.id)) then
+		elseif not(AMM.spawnedNPCs[uniqueName] ~= nil and AMM:IsUnique(newSpawn.id)) then
 			local action = "SpawnNPC"
 			if string.find(tostring(newSpawn.path), "Vehicle") then action = "SpawnVehicle" end
 			AMM:DrawButton(buttonLabel, -1 - favOffset, style.buttonHeight, action, newSpawn)

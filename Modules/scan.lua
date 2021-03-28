@@ -3,7 +3,7 @@ local Scan = {}
 function Scan:Draw(AMM, target, style)
   if ImGui.BeginTabItem("Scan") then
 
-    AMM.Theme:DrawCrossHair()
+    AMM.UI:DrawCrossHair()
 
     local tabConfig = {
       ['NPCPuppet'] = {
@@ -49,16 +49,16 @@ function Scan:Draw(AMM, target, style)
         }
       end
 
-      AMM.Theme:Spacing(3)
+      AMM.UI:Spacing(3)
 
       ImGui.Text(target.name)
 
       -- Check if target is V
       if t.appearance ~= "None" then
 
-        AMM.Theme:Separator()
+        AMM.UI:Separator()
 
-        AMM.Theme:TextColored(tabConfig[target.type].currentTitle)
+        AMM.UI:TextColored(tabConfig[target.type].currentTitle)
         ImGui.Text(target.appearance)
 
         ImGui.Spacing()
@@ -92,16 +92,16 @@ function Scan:Draw(AMM, target, style)
           end
 
           if savedApp ~= nil then
-            AMM.Theme:TextColored("Saved Appearance:")
+            AMM.UI:TextColored("Saved Appearance:")
             ImGui.Text(savedApp)
             AMM:DrawButton("Clear Saved Appearance", style.buttonWidth, style.buttonHeight, "Clear", target)
           end
         end
 
-        AMM.Theme:Separator()
+        AMM.UI:Separator()
       end
 
-      AMM.Theme:TextColored("Possible Actions:")
+      AMM.UI:TextColored("Possible Actions:")
 
       ImGui.Spacing()
 
@@ -138,10 +138,10 @@ function Scan:Draw(AMM, target, style)
         end
       end
 
-      AMM.Theme:Separator()
+      AMM.UI:Separator()
 
       if target.options ~= nil then
-        AMM.Theme:TextColored("List of Appearances:")
+        AMM.UI:TextColored("List of Appearances:")
         ImGui.Spacing()
 
         x = 0
@@ -164,7 +164,8 @@ function Scan:Draw(AMM, target, style)
         if ImGui.BeginChild("Scrolling", x, y) then
           for i, appearance in ipairs(target.options) do
             if (ImGui.Button(appearance)) then
-              local custom = AMM:GetCustomAppearanceParams(appearance, target)
+              local appearance, reverse = AMM:CheckForReverseCustomAppearance(appearance, target)
+              local custom = AMM:GetCustomAppearanceParams(appearance, reverse)
 
               if #custom > 0 then
                 AMM:ChangeScanCustomAppearanceTo(target, custom)

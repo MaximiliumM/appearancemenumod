@@ -24,7 +24,7 @@ function Editor:ConvertToRGB(t)
 end
 
 function Editor:CheckIfThemeExists()
-  for _, theme in ipairs(ScanApp.Theme.userThemes) do
+  for _, theme in ipairs(AMM.UI.userThemes) do
     if theme.name == Editor.newThemeName then
       return true
     end
@@ -35,7 +35,7 @@ end
 
 function Editor:UpdateTheme(t)
   local theme = self:ConvertToRGB(t)
-  ScanApp.Theme:SetThemeData(theme)
+  AMM.UI:SetThemeData(theme)
 end
 
 function Editor:SetCurrentTheme(t)
@@ -57,12 +57,12 @@ function Editor:Setup()
   end
 end
 
-function Editor:Draw(ScanApp)
+function Editor:Draw(AMM)
   Editor.open = ImGui.Begin("Theme Editor", ImGuiWindowFlags.AlwaysAutoResize + ImGuiWindowFlags.NoCollapse)
   if Editor.open then
     if Theme == '' then
       Editor.isEditing = true
-      Editor:SetCurrentTheme(ScanApp.Theme:Preload(ScanApp.selectedTheme..".json"))
+      Editor:SetCurrentTheme(AMM.UI:Preload(AMM.selectedTheme..".json"))
     end
 
     Editor.newThemeName = ImGui.InputTextWithHint("Theme Name", "Insert New Theme Name",Editor.newThemeName, 30)
@@ -79,8 +79,8 @@ function Editor:Draw(ScanApp)
         		file:write(contents)
             file:close()
           end
-          ScanApp.Theme.userThemes = ScanApp.Theme:UserThemes()
-          ScanApp.selectedTheme = Editor.newThemeName
+          AMM.UI.userThemes = AMM.UI:UserThemes()
+          AMM.selectedTheme = Editor.newThemeName
           ImGui.CloseCurrentPopup()
         end
       end
@@ -134,7 +134,7 @@ function Editor:Draw(ScanApp)
     Theme = ''
     Editor.newThemeName = ''
     Editor.isEditing = false
-    ScanApp.Theme.currentTheme = 'reset'
+    AMM.UI.currentTheme = 'reset'
   end
 end
 
