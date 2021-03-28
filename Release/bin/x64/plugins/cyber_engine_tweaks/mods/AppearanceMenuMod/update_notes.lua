@@ -1,5 +1,11 @@
 return {
 	{
+		'1.8.3b',
+		'2021 Mar 29',
+		[[Added system to auto-backup user data and try to restore user data if it gets corrupted]],
+		[[-- Plus many checks to see if user data is even valid]],
+	},
+	{
 		'1.8.3',
 		'2021 Mar 28',
 		[[Added new Update History screen where you can see how far we've come the past three months ;)]],

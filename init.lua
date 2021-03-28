@@ -416,7 +416,7 @@ function AMM:new()
 							local handle
 							if AMM.spawnedNPCs[AMM.currentSpawn] ~= nil and string.find(AMM.spawnedNPCs[AMM.currentSpawn].path, "Vehicle") then
 								handle = Game.GetTargetingSystem():GetLookAtObject(Game.GetPlayer(), false, false)
-							else
+							elseif AMM.spawnedNPCs[AMM.currentSpawn] ~= nil then
 								handle = Game.FindEntityByID(AMM.spawnedNPCs[AMM.currentSpawn].entityID)
 							end
 							if handle then
@@ -866,66 +866,92 @@ function AMM:ImportUserData()
 	local file = io.open("User/user.json", "r")
 	if file then
 		local contents = file:read( "*a" )
-		local userData = json.decode(contents)
-		if userData['favoriteLocations'] ~= nil then
-			self.Tools.favoriteLocations = userData['favoriteLocations']
-		end
-		if userData['spawnedNPCs'] ~= nil then
-			self.spawnedNPCs = self:PrepareImportSpawnedData(userData['spawnedNPCs'])
-		end
-		if userData['savedSwaps'] ~= nil then
-			self.Swap:LoadSavedSwaps(userData['savedSwaps'])
+		if contents == nil and contents == '' and contents:len() == 0 then
+			local backup = io.open("User/user-old.json", "r")
+			contents = backup:read( "*a" )
 		end
 
-		self.selectedTheme = userData['selectedTheme']
-		for _, obj in ipairs(userData['settings']) do
-			db:execute(f("UPDATE settings SET setting_name = '%s', setting_value = %i WHERE setting_name = '%s'", obj.setting_name, boolToInt( obj.setting_value),  obj.setting_name))
-		end
-		for _, obj in ipairs(userData['favorites']) do
-			local command = f("INSERT INTO favorites (position, entity_id, entity_name, parameters) VALUES (%i, '%s', '%s', '%s')", obj.position, obj.entity_id, obj.entity_name, obj.parameters)
-			command = command:gsub("'nil'", "NULL")
-			db:execute(command)
-		end
-		if userData['favorites_swap'] ~= nil then
-			for _, obj in ipairs(userData['favorites_swap']) do
-				local command = f("INSERT INTO favorites_swap (position, entity_id) VALUES (%i, '%s')", obj.position, obj.entity_id)
-				db:execute(command)
+		if contents ~= nil and contents ~= '' and contents:len() > 0 then
+			local validJson, userData = pcall(function() return json.decode(contents) end)
+
+			if validJson then
+				if userData['favoriteLocations'] ~= nil then
+					self.Tools.favoriteLocations = userData['favoriteLocations']
+				end
+				if userData['spawnedNPCs'] ~= nil then
+					self.spawnedNPCs = self:PrepareImportSpawnedData(userData['spawnedNPCs'])
+				end
+				if userData['savedSwaps'] ~= nil then
+					self.Swap:LoadSavedSwaps(userData['savedSwaps'])
+				end
+
+				self.selectedTheme = userData['selectedTheme']
+				for _, obj in ipairs(userData['settings']) do
+					db:execute(f("UPDATE settings SET setting_name = '%s', setting_value = %i WHERE setting_name = '%s'", obj.setting_name, boolToInt( obj.setting_value),  obj.setting_name))
+				end
+				for _, obj in ipairs(userData['favorites']) do
+					local command = f("INSERT INTO favorites (position, entity_id, entity_name, parameters) VALUES (%i, '%s', '%s', '%s')", obj.position, obj.entity_id, obj.entity_name, obj.parameters)
+					command = command:gsub("'nil'", "NULL")
+					db:execute(command)
+				end
+				if userData['favorites_swap'] ~= nil then
+					for _, obj in ipairs(userData['favorites_swap']) do
+						local command = f("INSERT INTO favorites_swap (position, entity_id) VALUES (%i, '%s')", obj.position, obj.entity_id)
+						db:execute(command)
+					end
+				end
+				for _, obj in ipairs(userData['saved_appearances']) do
+					db:execute(f("INSERT INTO saved_appearances (entity_id, app_name) VALUES ('%s', '%s')", obj.entity_id, obj.app_name))
+				end
 			end
-		end
-		for _, obj in ipairs(userData['saved_appearances']) do
-			db:execute(f("INSERT INTO saved_appearances (entity_id, app_name) VALUES ('%s', '%s')", obj.entity_id, obj.app_name))
 		end
 	end
 end
 
 function AMM:ExportUserData()
-	local file = io.open("User/user.json", "w")
-	if file then
-		local userData = {}
-		userData['settings'] = {}
-		for r in db:nrows("SELECT * FROM settings") do
-			table.insert(userData['settings'], {setting_name = r.setting_name, setting_value = intToBool(r.setting_value)})
+	local backupData = io.open("User/user.json", "r")
+	if backupData then
+		local contents = backupData:read( "*a" )
+		local validJson = pcall(function() json.decode(contents) end)
+		if validJson and contents ~= nil and contents ~= '' and contents:len() > 0 then
+			local backup = io.open("User/user-old.json", "w")
+			if backup then
+				backup:write(contents)
+				backup:close()
+			end
 		end
-		userData['favorites'] = {}
-		for r in db:nrows("SELECT * FROM favorites") do
-			table.insert(userData['favorites'], {position = r.position, entity_id = r.entity_id, entity_name = r.entity_name, parameters = r.parameters})
-		end
-		userData['favorites_swap'] = {}
-		for r in db:nrows("SELECT * FROM favorites_swap") do
-			table.insert(userData['favorites_swap'], {position = r.position, entity_id = r.entity_id})
-		end
-		userData['saved_appearances'] = {}
-		for r in db:nrows("SELECT * FROM saved_appearances") do
-			table.insert(userData['saved_appearances'], {entity_id = r.entity_id, app_name = r.app_name})
-		end
-		userData['selectedTheme'] = self.selectedTheme
-		userData['spawnedNPCs'] = self:PrepareExportSpawnedData()
-		userData['savedSwaps'] = self.Swap:GetSavedSwaps()
-		userData['favoriteLocations'] = self.Tools:GetFavoriteLocations()
+	end
 
-		local contents = json.encode(userData)
-		file:write(contents)
-		file:close()
+	-- Prepare User Data --
+	local userData = {}
+	userData['settings'] = {}
+	for r in db:nrows("SELECT * FROM settings") do
+		table.insert(userData['settings'], {setting_name = r.setting_name, setting_value = intToBool(r.setting_value)})
+	end
+	userData['favorites'] = {}
+	for r in db:nrows("SELECT * FROM favorites") do
+		table.insert(userData['favorites'], {position = r.position, entity_id = r.entity_id, entity_name = r.entity_name, parameters = r.parameters})
+	end
+	userData['favorites_swap'] = {}
+	for r in db:nrows("SELECT * FROM favorites_swap") do
+		table.insert(userData['favorites_swap'], {position = r.position, entity_id = r.entity_id})
+	end
+	userData['saved_appearances'] = {}
+	for r in db:nrows("SELECT * FROM saved_appearances") do
+		table.insert(userData['saved_appearances'], {entity_id = r.entity_id, app_name = r.app_name})
+	end
+	userData['selectedTheme'] = self.selectedTheme
+	userData['spawnedNPCs'] = self:PrepareExportSpawnedData()
+	userData['savedSwaps'] = self.Swap:GetSavedSwaps()
+	userData['favoriteLocations'] = self.Tools:GetFavoriteLocations()
+
+	local validJson, contents = pcall(function() return json.encode(userData) end)
+	if validJson and contents ~= nil then
+		local file = io.open("User/user.json", "w")
+		if file then
+			file:write(contents)
+			file:close()
+		end
 	end
 end
 
