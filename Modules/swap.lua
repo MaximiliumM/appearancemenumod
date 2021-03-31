@@ -350,11 +350,11 @@ end
 
 function Swap:UpdateEntityTemplate(entityPath, newTemplate)
   if type(newTemplate) == 'table' then
-    TweakDB:SetFlat(TweakDBID.new(entityPath..".entityTemplatePath"), newTemplate[1])
-    TweakDB:SetFlat(TweakDBID.new(entityPath..".appearanceName"), newTemplate[2])
-    TweakDB:SetFlat(TweakDBID.new(entityPath..".genders"), newTemplate[3])
+    TweakDB:SetFlatNoUpdate(TweakDBID.new(entityPath..".entityTemplatePath"), newTemplate[1])
+    TweakDB:SetFlatNoUpdate(TweakDBID.new(entityPath..".appearanceName"), newTemplate[2])
+    TweakDB:SetFlatNoUpdate(TweakDBID.new(entityPath..".genders"), newTemplate[3])
   else
-    TweakDB:SetFlat(TweakDBID.new(entityPath..".entityTemplatePath"), newTemplate)
+    TweakDB:SetFlatNoUpdate(TweakDBID.new(entityPath..".entityTemplatePath"), newTemplate)
   end
 
   TweakDB:Update(TweakDBID.new(entityPath))

@@ -165,7 +165,7 @@ function Scan:Draw(AMM, target, style)
           for i, appearance in ipairs(target.options) do
             if (ImGui.Button(appearance)) then
               local appearance, reverse = AMM:CheckForReverseCustomAppearance(appearance, target)
-              local custom = AMM:GetCustomAppearanceParams(appearance, reverse)
+              local custom = AMM:GetCustomAppearanceParams(target, appearance, reverse)
 
               if #custom > 0 then
                 AMM:ChangeScanCustomAppearanceTo(target, custom)

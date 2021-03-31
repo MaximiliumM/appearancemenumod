@@ -49,7 +49,7 @@ function AMM:new()
 	 AMM.TeleportMod = ''
 
 	 -- Main Properties --
-	 AMM.currentVersion = "1.8.3"
+	 AMM.currentVersion = "1.8.3c"
 	 AMM.updateNotes = require('update_notes.lua')
 	 AMM.userSettings = AMM:PrepareSettings()
 	 AMM.categories = AMM:GetCategories()
@@ -93,6 +93,9 @@ function AMM:new()
 		 AMM:ImportUserData()
 		 AMM:SetupVehicleData()
 		 AMM:SetupJohnny()
+
+		 -- Adjust Prevention System Total Entities Limit --
+		 TweakDB:SetFlat("PreventionSystem.setup.totalEntitiesLimit", 20)
 
 		 -- Check if user is in-game using WorldPosition --
 		 -- Only way to set player attached if user reload all mods --
@@ -275,11 +278,14 @@ function AMM:new()
 	 	AMM.Tools:SkipFrame()
 	 end)
 
+	 registerHotkey('amm_toggle_head', 'Toggle V Head', function()
+		 AMM.Tools:ToggleHead()
+	 end)
+
 	 registerHotkey('amm_toggle_hud', 'Toggle HUD', function()
 	    GameSettings.Toggle('/interface/hud/action_buttons')
 	    GameSettings.Toggle('/interface/hud/activity_log')
 	    GameSettings.Toggle('/interface/hud/ammo_counter')
-	    GameSettings.Toggle('/interface/hud/chatters')
 	    GameSettings.Toggle('/interface/hud/healthbar')
 	    GameSettings.Toggle('/interface/hud/input_hints')
 	    GameSettings.Toggle('/interface/hud/johnny_hud')
@@ -424,7 +430,7 @@ function AMM:new()
 								if handle:IsNPC() then
 									if AMM.spawnedNPCs[AMM.currentSpawn].parameters ~= nil then
 										if AMM.spawnedNPCs[AMM.currentSpawn].parameters == "special__vr_tutorial_ma_dummy_light" then -- Extra Handling for Johnny
-											AMM:ChangeScanCustomAppearanceTo(AMM.spawnedNPCs[AMM.currentSpawn], AMM:GetCustomAppearanceParams('silverhand_default'))
+											AMM:ChangeScanCustomAppearanceTo(AMM.spawnedNPCs[AMM.currentSpawn], AMM:GetCustomAppearanceParams(AMM.spawnedNPCs[AMM.currentSpawn].id, 'silverhand_default'))
 										else
 											AMM:ChangeScanAppearanceTo(AMM.spawnedNPCs[AMM.currentSpawn], AMM.spawnedNPCs[AMM.currentSpawn].parameters)
 										end
@@ -770,10 +776,11 @@ function AMM:Begin()
 							AMM.Editor.isEditing = true
 						end
 
-						-- ImGui.SameLine()
-						-- if ImGui.SmallButton("  Delete Theme  ") then
-						-- 	print(os.remove("test.txt"))
-						-- end
+						ImGui.SameLine()
+						if ImGui.SmallButton("  Delete Theme  ") then
+							AMM.UI:DeleteTheme(AMM.selectedTheme)
+							AMM.selectedTheme = "Default"
+						end
 					end
 					AMM.UI:Separator()
 
@@ -1035,13 +1042,13 @@ function AMM:RevertTweakDBChanges(userActivated)
 end
 
 function AMM:SetupJohnny()
-	TweakDB:SetFlat(TweakDBID.new("Character.q000_tutorial_course_01_patroller.voiceTag"), TweakDB:GetFlat(TweakDBID.new("Character.Silverhand.voiceTag")))
-	TweakDB:SetFlat(TweakDBID.new("Character.q000_tutorial_course_01_patroller.displayName"), TweakDB:GetFlat(TweakDBID.new("Character.Silverhand.displayName")))
-	TweakDB:SetFlat(TweakDBID.new("Character.q000_tutorial_course_01_patroller.alternativeDisplayName"), TweakDB:GetFlat(TweakDBID.new("Character.Silverhand.alternativeDisplayName")))
-	TweakDB:SetFlat(TweakDBID.new("Character.q000_tutorial_course_01_patroller.alternativeFullDisplayName"), TweakDB:GetFlat(TweakDBID.new("Character.Silverhand.alternativeFullDisplayName")))
-	TweakDB:SetFlat(TweakDBID.new("Character.q000_tutorial_course_01_patroller.fullDisplayName"), TweakDB:GetFlat(TweakDBID.new("Character.Silverhand.fullDisplayName")))
-	TweakDB:SetFlat(TweakDBID.new("Character.q000_tutorial_course_01_patroller.affiliation"), TweakDB:GetFlat(TweakDBID.new("Character.Silverhand.affiliation")))
-	TweakDB:SetFlat(TweakDBID.new("Character.q000_tutorial_course_01_patroller.statPools"), TweakDB:GetFlat(TweakDBID.new("Character.Silverhand.statPools")))
+	TweakDB:SetFlatNoUpdate(TweakDBID.new("Character.q000_tutorial_course_01_patroller.voiceTag"), TweakDB:GetFlat(TweakDBID.new("Character.Silverhand.voiceTag")))
+	TweakDB:SetFlatNoUpdate(TweakDBID.new("Character.q000_tutorial_course_01_patroller.displayName"), TweakDB:GetFlat(TweakDBID.new("Character.Silverhand.displayName")))
+	TweakDB:SetFlatNoUpdate(TweakDBID.new("Character.q000_tutorial_course_01_patroller.alternativeDisplayName"), TweakDB:GetFlat(TweakDBID.new("Character.Silverhand.alternativeDisplayName")))
+	TweakDB:SetFlatNoUpdate(TweakDBID.new("Character.q000_tutorial_course_01_patroller.alternativeFullDisplayName"), TweakDB:GetFlat(TweakDBID.new("Character.Silverhand.alternativeFullDisplayName")))
+	TweakDB:SetFlatNoUpdate(TweakDBID.new("Character.q000_tutorial_course_01_patroller.fullDisplayName"), TweakDB:GetFlat(TweakDBID.new("Character.Silverhand.fullDisplayName")))
+	TweakDB:SetFlatNoUpdate(TweakDBID.new("Character.q000_tutorial_course_01_patroller.affiliation"), TweakDB:GetFlat(TweakDBID.new("Character.Silverhand.affiliation")))
+	TweakDB:SetFlatNoUpdate(TweakDBID.new("Character.q000_tutorial_course_01_patroller.statPools"), TweakDB:GetFlat(TweakDBID.new("Character.Silverhand.statPools")))
 	TweakDB:Update(TweakDBID.new("Character.q000_tutorial_course_01_patroller"))
 end
 
@@ -1177,7 +1184,7 @@ function AMM:CheckSavedAppearance(t)
 			check = count
 		end
 		if check ~= 0 then
-			custom = self:GetCustomAppearanceParams(savedApp)
+			custom = self:GetCustomAppearanceParams(t.id, savedApp)
 			self:ChangeScanCustomAppearanceTo(t, custom)
 		else
 			local check = 0
@@ -1320,7 +1327,7 @@ function AMM:CheckForReverseCustomAppearance(appearance, target)
 	return appearance, reverse
 end
 
-function AMM:GetCustomAppearanceParams(appearance, reverse)
+function AMM:GetCustomAppearanceParams(target, appearance, reverse)
 	local custom = {}
 	for app in db:nrows(f("SELECT * FROM custom_appearances WHERE app_name = '%s' AND entity_id = '%s'", appearance, target.id)) do
 		app.app_toggle = not(intToBool(app.app_toggle))
@@ -1498,16 +1505,16 @@ function AMM:SetNPCAsCompanion(npcHandle)
 end
 
 function AMM:SetFollowDistance(followDistance)
- TweakDB:SetFlat(TweakDBID.new('FollowerActions.FollowCloseMovePolicy.distance'), followDistance)
+ TweakDB:SetFlatNoUpdate(TweakDBID.new('FollowerActions.FollowCloseMovePolicy.distance'), followDistance)
 
-TweakDB:SetFlat(TweakDBID.new('FollowerActions.FollowCloseMovePolicy.avoidObstacleWithinTolerance'), true)
-TweakDB:SetFlat(TweakDBID.new('FollowerActions.FollowCloseMovePolicy.ignoreCollisionAvoidance'), false)
-TweakDB:SetFlat(TweakDBID.new('FollowerActions.FollowCloseMovePolicy.ignoreSpotReservation'), false)
+TweakDB:SetFlatNoUpdate(TweakDBID.new('FollowerActions.FollowCloseMovePolicy.avoidObstacleWithinTolerance'), true)
+TweakDB:SetFlatNoUpdate(TweakDBID.new('FollowerActions.FollowCloseMovePolicy.ignoreCollisionAvoidance'), false)
+TweakDB:SetFlatNoUpdate(TweakDBID.new('FollowerActions.FollowCloseMovePolicy.ignoreSpotReservation'), false)
 
- TweakDB:SetFlat(TweakDBID.new('FollowerActions.FollowCloseMovePolicy.tolerance'), 0.0)
+ TweakDB:SetFlatNoUpdate(TweakDBID.new('FollowerActions.FollowCloseMovePolicy.tolerance'), 0.0)
 
- TweakDB:SetFlat(TweakDBID.new('FollowerActions.FollowStayPolicy.distance'), followDistance)
- TweakDB:SetFlat(TweakDBID.new('FollowerActions.FollowGetOutOfWayMovePolicy.distance'), 0.0)
+ TweakDB:SetFlatNoUpdate(TweakDBID.new('FollowerActions.FollowStayPolicy.distance'), followDistance)
+ TweakDB:SetFlatNoUpdate(TweakDBID.new('FollowerActions.FollowGetOutOfWayMovePolicy.distance'), 0.0)
 
  TweakDB:Update(TweakDBID.new('FollowerActions.FollowCloseMovePolicy'))
  TweakDB:Update(TweakDBID.new('FollowerActions.FollowStayPolicy'))
@@ -1516,7 +1523,6 @@ end
 
 function AMM:ChangeNPCEquipment(npcPath, equipmentPath)
 	TweakDB:SetFlat(TweakDBID.new(npcPath..".primaryEquipment"), TweakDBID.new(equipmentPath))
-	TweakDB:Update(TweakDBID.new(npcPath))
 end
 
 -- Helper methods

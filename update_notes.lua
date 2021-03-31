@@ -1,5 +1,13 @@
 return {
 	{
+		'1.8.3c',
+		'2021 Mar 30',
+		[[Repacked to improve 1.2 support]],
+		[[-- Now archive patches go to /archive/pc/mod folder]],
+		[[Added new Toggle V Head button and hotkey]],
+		[[-- This makes V head appear during FPP scenes, just remember to disable it in normal gameplay or you'll have nightmares]],
+	},
+	{
 		'1.8.3b',
 		'2021 Mar 29',
 		[[Added system to auto-backup user data and try to restore user data if it gets corrupted]],

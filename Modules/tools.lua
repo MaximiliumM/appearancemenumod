@@ -117,6 +117,10 @@ function Tools:DrawVActions()
     if ImGui.Button(buttonLabel, Tools.style.halfButtonWidth, Tools.style.buttonHeight) then
       Tools:ToggleGodMode()
     end
+
+    if ImGui.Button("Toggle V Head", Tools.style.buttonWidth, Tools.style.buttonHeight) then
+      Tools:ToggleHead()
+    end
   end
 end
 
@@ -187,6 +191,25 @@ function Tools:ToggleGodMode()
   Game.ModStatPlayer("StunImmunity", toggle)
 end
 
+function Tools:ToggleHead()
+
+  local isFemale = Util:GetPlayerGender()
+	if isFemale then gender = 'Wa' else gender = 'Ma' end
+
+  local headItem = f("Items.Player%sPhotomodeHead", gender)
+
+  local ts = Game.GetTransactionSystem()
+  local gameItemID = GetSingleton('gameItemID')
+  local tdbid = TweakDBID.new(headItem)
+  local itemID = gameItemID:FromTDBID(tdbid)
+
+  if ts:HasItem(Game.GetPlayer(), itemID) == false then
+    Game.AddToInventory(headItem, 1)
+  end
+
+  Game.EquipItemOnPlayer(headItem, "TppHead")
+end
+
 -- Teleport actions
 function Tools:DrawTeleportActions()
   Tools.userLocations = Tools:GetUserLocations()
@@ -239,6 +262,12 @@ function Tools:DrawTeleportActions()
   if Tools.lastLocation then
     if ImGui.Button("Go Back To Last Location", Tools.style.buttonWidth, Tools.style.buttonHeight) then
       Tools:TeleportToLocation(Tools.lastLocation)
+    end
+  end
+
+  if Tools:IsUserLocation(Tools.selectedLocation) then
+    if ImGui.Button("Delete Selected User Location", Tools.style.buttonWidth, Tools.style.buttonHeight) then
+      Tools:DeleteLocation(Tools.selectedLocation)
     end
   end
 
@@ -367,6 +396,18 @@ function Tools:SaveLocation(loc)
 		file:write(contents)
 		file:close()
   end
+end
+
+function Tools:IsUserLocation(loc)
+  for _, location in ipairs(Tools.userLocations) do
+    if loc.loc_name == location.loc_name then return true end
+  end
+
+  return false
+end
+
+function Tools:DeleteLocation(loc)
+  os.remove("User/Locations/"..loc.loc_name..".json")
 end
 
 function Tools:ToggleFavoriteLocation(isFavorite, favIndex)
