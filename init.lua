@@ -49,7 +49,7 @@ function AMM:new()
 	 AMM.TeleportMod = ''
 
 	 -- Main Properties --
-	 AMM.currentVersion = "1.8.3d"
+	 AMM.currentVersion = "1.8.3e"
 	 AMM.updateNotes = require('update_notes.lua')
 	 AMM.userSettings = AMM:PrepareSettings()
 	 AMM.categories = AMM:GetCategories()
@@ -88,7 +88,6 @@ function AMM:new()
 		 spamTimer = 0.0
 		 respawnTimer = 0.0
 		 buttonPressed = false
-		 respawnAllPressed = false
 		 finishedUpdate = AMM:CheckDBVersion()
 		 AMM:ImportUserData()
 		 AMM:SetupVehicleData()
@@ -104,6 +103,10 @@ function AMM:new()
 			 if math.floor(playerPosition.z) ~= 0 then
 				 AMM.playerAttached = true
 				 AMM.playerInMenu = false
+
+				 if next(AMM.spawnedNPCs) ~= nil then
+				 	AMM:RespawnAll()
+				 end
 			 end
 		 end
 
@@ -187,10 +190,6 @@ function AMM:new()
 
 			 -- Disable Invisiblity if previously active
 			 AMM.Tools.playerVisibility = true
-
-			 if next(AMM.spawnedNPCs) ~= nil then
-			 	AMM:RespawnAll()
-			 end
 		 end)
 	 end)
 
@@ -354,44 +353,6 @@ function AMM:new()
 						if spamTimer > 0.5 then
 							buttonPressed = false
 							spamTimer = 0.0
-						end
-					end
-
-					-- Respawn All Logic --
-					if respawnAllPressed then
-						if AMM.entitiesForRespawn == '' then
-							AMM.entitiesForRespawn = {}
-							for _, ent in pairs(AMM.spawnedNPCs) do
-								if not(ent.handle:IsVehicle()) then
-									table.insert(AMM.entitiesForRespawn, ent)
-								end
-							end
-
-							AMM:DespawnAll(buttonPressed)
-							if buttonPressed then buttonPressed = false end
-						else
-							if waitTimer == 0.0 then
-								respawnTimer = respawnTimer + deltaTime
-							end
-
-							if respawnTimer > 0.5 then
-								empty = true
-								for _, ent in ipairs(AMM.entitiesForRespawn) do
-									if Game.FindEntityByID(ent.entityID) then empty = false end
-								end
-
-								if empty then
-									ent = AMM.entitiesForRespawn[1]
-									table.remove(AMM.entitiesForRespawn, 1)
-									AMM:SpawnNPC(ent)
-									respawnTimer = 0.0
-								end
-
-								if #AMM.entitiesForRespawn == 0 then
-									AMM.entitiesForRespawn = ''
-									respawnAllPressed = false
-								end
-							end
 						end
 					end
 
@@ -1144,7 +1105,31 @@ function AMM:DespawnAll(message)
 end
 
 function AMM:RespawnAll()
-	 respawnAllPressed = true
+	if AMM.entitiesForRespawn == '' then
+		AMM.entitiesForRespawn = {}
+		for _, ent in pairs(AMM.spawnedNPCs) do
+			if not(string.find(ent.path, "Vehicle")) then
+				table.insert(AMM.entitiesForRespawn, ent)
+			end
+		end
+
+		AMM:DespawnAll(buttonPressed)
+		if buttonPressed then buttonPressed = false end
+	end
+
+	Cron.Every(0.5, function(timer)
+		local entity = Game.FindEntityByID(AMM.entitiesForRespawn[1].entityID)
+		if entity == nil then
+			ent = AMM.entitiesForRespawn[1]
+			table.remove(AMM.entitiesForRespawn, 1)
+			AMM:SpawnNPC(ent)
+		end
+
+		if #AMM.entitiesForRespawn == 0 then
+			AMM.entitiesForRespawn = ''
+			Cron.Halt(timer)
+		end
+	end)
 end
 
 function AMM:PrepareSettings()

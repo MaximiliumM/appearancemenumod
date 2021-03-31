@@ -1,7 +1,16 @@
 return {
 	{
+		'1.8.3e',
+		'2021 Mar 31',
+		[[Added new Infinite Oxygen V action button]],
+		[[-- You must reload your save to disable it]],
+		[[Fixed an issue where NPCs spawned prior to exiting the game wouldn't respawn after game reload]],
+	},
+	{
 		'1.8.3d',
 		'2021 Mar 31',
+		[[Added 10 additional spawnable NPCs including:]],
+		[[-- the Voodoo Boys Elder Netrunners from Cyberspace]],
 		[[Removed double quotation from some characters' names to avoid issues]],
 		[[Restored Time Actions access while in Photo mode]],
 		[[Fixed issue where Save Appearance button wouldn't appear when targeting some player vehicles]],

@@ -21,6 +21,7 @@ local Tools = {
   -- V Properties --
   playerVisibility = true,
   godModeToggle = false,
+  infiniteOxygen = false,
   makeupToggle = true,
   accessoryToggle = true,
 
@@ -122,7 +123,27 @@ function Tools:DrawVActions()
       Tools:ToggleGodMode()
     end
 
-    if ImGui.Button("Toggle V Head", Tools.style.buttonWidth, Tools.style.buttonHeight) then
+    local buttonLabel = "Infinite Oxygen"
+    if Tools.infiniteOxygen then
+      buttonLabel = "Reload To Disable"
+      ImGui.PushStyleColor(ImGuiCol.Button, 0.56, 0.06, 0.03, 0.25)
+			ImGui.PushStyleColor(ImGuiCol.ButtonHovered, 0.56, 0.06, 0.03, 0.25)
+			ImGui.PushStyleColor(ImGuiCol.ButtonActive, 0.56, 0.06, 0.03, 0.25)
+    end
+
+    if ImGui.Button(buttonLabel, Tools.style.halfButtonWidth, Tools.style.buttonHeight) then
+      if not Tools.infiniteOxygen then
+        Tools.infiniteOxygen = not Tools.infiniteOxygen
+        Game.ModStatPlayer("CanBreatheUnderwater", "1")
+      end
+    end
+
+    if Tools.infiniteOxygen then
+      ImGui.PopStyleColor(3)
+    end
+
+    ImGui.SameLine()
+    if ImGui.Button("Toggle V Head", Tools.style.halfButtonWidth, Tools.style.buttonHeight) then
       Tools:ToggleHead()
     end
   end
@@ -443,7 +464,7 @@ function Tools:GetUserLocations()
     for _, loc in ipairs(files) do
       if string.find(loc.name, '.json') then
         local loc_name, x, y, z, w, yaw = Tools:LoadLocationData(loc.name)
-        table.insert(userLocations, {loc_name = loc.name:gsub(".json", ""), x = x, y = y, z = z, w = w, yaw = yaw})
+        table.insert(userLocations, {loc_name = loc_name, x = x, y = y, z = z, w = w, yaw = yaw})
       end
     end
     return userLocations
