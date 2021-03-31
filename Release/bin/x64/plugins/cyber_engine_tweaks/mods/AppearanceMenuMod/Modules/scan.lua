@@ -21,7 +21,7 @@ function Scan:Draw(AMM, target, style)
           },
         },
       },
-      ['vehicleCarBaseObject'] = {
+      ['vehicle'] = {
         currentTitle = "Current Model:",
         buttons = {
           {

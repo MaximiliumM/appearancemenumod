@@ -49,7 +49,7 @@ function AMM:new()
 	 AMM.TeleportMod = ''
 
 	 -- Main Properties --
-	 AMM.currentVersion = "1.8.3c"
+	 AMM.currentVersion = "1.8.3d"
 	 AMM.updateNotes = require('update_notes.lua')
 	 AMM.userSettings = AMM:PrepareSettings()
 	 AMM.categories = AMM:GetCategories()
@@ -362,7 +362,9 @@ function AMM:new()
 						if AMM.entitiesForRespawn == '' then
 							AMM.entitiesForRespawn = {}
 							for _, ent in pairs(AMM.spawnedNPCs) do
-								table.insert(AMM.entitiesForRespawn, ent)
+								if not(ent.handle:IsVehicle()) then
+									table.insert(AMM.entitiesForRespawn, ent)
+								end
 							end
 
 							AMM:DespawnAll(buttonPressed)
@@ -430,7 +432,7 @@ function AMM:new()
 								if handle:IsNPC() then
 									if AMM.spawnedNPCs[AMM.currentSpawn].parameters ~= nil then
 										if AMM.spawnedNPCs[AMM.currentSpawn].parameters == "special__vr_tutorial_ma_dummy_light" then -- Extra Handling for Johnny
-											AMM:ChangeScanCustomAppearanceTo(AMM.spawnedNPCs[AMM.currentSpawn], AMM:GetCustomAppearanceParams(AMM.spawnedNPCs[AMM.currentSpawn].id, 'silverhand_default'))
+											AMM:ChangeScanCustomAppearanceTo(AMM.spawnedNPCs[AMM.currentSpawn], AMM:GetCustomAppearanceParams(AMM.spawnedNPCs[AMM.currentSpawn], 'silverhand_default'))
 										else
 											AMM:ChangeScanAppearanceTo(AMM.spawnedNPCs[AMM.currentSpawn], AMM.spawnedNPCs[AMM.currentSpawn].parameters)
 										end
@@ -631,6 +633,7 @@ function AMM:Begin()
 
 						ImGui.PushItemWidth(AMM.searchBarWidth)
 						AMM.searchQuery = ImGui.InputTextWithHint(" ", "Search", AMM.searchQuery, 100)
+						AMM.searchQuery = AMM.searchQuery:gsub('"', '')
 						ImGui.PopItemWidth()
 
 						if AMM.searchQuery ~= '' then
@@ -1055,7 +1058,7 @@ end
 function AMM:SetupVehicleData()
 	local unlockableVehicles = TweakDB:GetFlat(TweakDBID.new('Vehicle.vehicle_list.list'))
 	AMM.originalVehicles = unlockableVehicles
-	for vehicle in db:urows("SELECT entity_path FROM entities WHERE cat_id = 24") do
+	for vehicle in db:urows("SELECT entity_path FROM entities WHERE cat_id = 24 OR cat_id = 25 AND entity_path LIKE '%Vehicle%'") do
 		table.insert(unlockableVehicles, TweakDBID.new(vehicle))
 	end
 
@@ -1184,7 +1187,7 @@ function AMM:CheckSavedAppearance(t)
 			check = count
 		end
 		if check ~= 0 then
-			custom = self:GetCustomAppearanceParams(t.id, savedApp)
+			custom = self:GetCustomAppearanceParams(t, savedApp)
 			self:ChangeScanCustomAppearanceTo(t, custom)
 		else
 			local check = 0
@@ -1366,7 +1369,7 @@ function AMM:GetTarget()
 			if target:IsNPC() or target:IsReplacer() then
 				t = AMM:NewTarget(target, AMM:GetScanClass(target), AMM:GetScanID(target), AMM:GetNPCName(target),AMM:GetScanAppearance(target), AMM:GetAppearanceOptions(target))
 			elseif target:IsVehicle() then
-				t = AMM:NewTarget(target, AMM:GetScanClass(target), AMM:GetScanID(target), AMM:GetVehicleName(target),AMM:GetScanAppearance(target), AMM:GetAppearanceOptions(target))
+				t = AMM:NewTarget(target, 'vehicle', AMM:GetScanID(target), AMM:GetVehicleName(target),AMM:GetScanAppearance(target), AMM:GetAppearanceOptions(target))
 			else
 				if AMM.userSettings.experimental then
 					t = AMM:NewTarget(target, AMM:GetScanClass(target), 'None', AMM:GetObjectName(target),AMM:GetScanAppearance(target), nil)

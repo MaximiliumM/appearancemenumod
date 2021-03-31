@@ -1,5 +1,15 @@
 return {
 	{
+		'1.8.3d',
+		'2021 Mar 31',
+		[[Removed double quotation from some characters' names to avoid issues]],
+		[[Restored Time Actions access while in Photo mode]],
+		[[Fixed issue where Save Appearance button wouldn't appear when targeting some player vehicles]],
+		[[Fixed issue where Toggle Makeup/Accessories and Toggle Head wouldn't work for Male characters]],
+		[[Fixed issue where Respawn All would trigger constantly, reach spawn limit and basically break the whole mod. Yeah, my bad.]],
+		[[Fixed issue (again) where Saved Custom Appearances wouldn't load when looking at target]],
+	},
+	{
 		'1.8.3c',
 		'2021 Mar 30',
 		[[Repacked to improve 1.2 support]],

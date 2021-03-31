@@ -108,6 +108,7 @@ function Swap:Draw(AMM, target)
 
       ImGui.PushItemWidth(Swap.searchBarWidth)
       Swap.searchQuery = ImGui.InputTextWithHint(" ", "Search", Swap.searchQuery, 100)
+      Swap.searchQuery = Swap.searchQuery:gsub('"', '')
       ImGui.PopItemWidth()
 
       if Swap.searchQuery ~= '' then

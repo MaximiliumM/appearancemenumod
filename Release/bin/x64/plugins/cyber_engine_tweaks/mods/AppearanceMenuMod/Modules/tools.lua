@@ -16,7 +16,7 @@ local Tools = {
   userLocations = {},
   favoriteLocations = {},
   useTeleportAnimation = false,
-  isTeleporting = true,
+  isTeleporting = false,
 
   -- V Properties --
   playerVisibility = true,
@@ -47,9 +47,13 @@ function Tools:Draw(AMM, target)
     elseif AMM.playerInPhoto then
       if target ~= nil and target.name == 'V' then
         Tools:DrawVActions()
+        AMM.UI:Separator()
+        Tools:DrawTimeActions()
       else
         AMM.UI:TextColored("Player In Photo Mode")
         ImGui.Text("Target V to see available actions")
+        AMM.UI:Separator()
+        Tools:DrawTimeActions()
       end
     else
       Tools:DrawTeleportActions()
@@ -128,7 +132,7 @@ function Tools:ToggleMakeup(target)
 	Tools.makeupToggle = not Tools.makeupToggle
 
 	local isFemale = Util:GetPlayerGender()
-	if isFemale then gender = 'pwa' else gender = 'pma' end
+	if isFemale == "_Female" then gender = 'pwa' else gender = 'pma' end
 
 	local makeup = target.handle:FindComponentByName(CName.new(f("hx_000_%s__basehead_makeup_lips_01", gender)))
 	if makeup then makeup:Toggle(Tools.makeupToggle) end
@@ -194,7 +198,7 @@ end
 function Tools:ToggleHead()
 
   local isFemale = Util:GetPlayerGender()
-	if isFemale then gender = 'Wa' else gender = 'Ma' end
+	if isFemale == "_Female" then gender = 'Wa' else gender = 'Ma' end
 
   local headItem = f("Items.Player%sPhotomodeHead", gender)
 

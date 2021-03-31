@@ -1,11 +1,25 @@
 return {
 	{
+		'1.8.3d',
+		'2021 Mar 31',
+		[[Removed double quotation from some characters' names to avoid issues]],
+		[[Restored Time Actions access while in Photo mode]],
+		[[Fixed issue where Save Appearance button wouldn't appear when targeting some player vehicles]],
+		[[Fixed issue where Toggle Makeup/Accessories and Toggle Head wouldn't work for Male characters]],
+		[[Fixed issue where Respawn All would trigger constantly, reach spawn limit and basically break the whole mod. Yeah, my bad.]],
+		[[Fixed issue (again) where Saved Custom Appearances wouldn't load when looking at target]],
+	},
+	{
 		'1.8.3c',
 		'2021 Mar 30',
 		[[Repacked to improve 1.2 support]],
 		[[-- Now archive patches go to /archive/pc/mod folder]],
 		[[Added new Toggle V Head button and hotkey]],
 		[[-- This makes V head appear during FPP scenes, just remember to disable it in normal gameplay or you'll have nightmares]],
+		[[Added new Delete Theme button]],
+		[[Added new Delete User Location button]],
+		[[-- This button will only appear when a User Location is selected]],
+		[[Fixed Toggle HUD hotkey crashing the game]],
 	},
 	{
 		'1.8.3b',
