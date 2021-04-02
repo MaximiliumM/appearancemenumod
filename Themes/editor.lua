@@ -127,8 +127,8 @@ function Editor:Draw(AMM)
     end
 
     Editor:UpdateTheme(Theme)
-    ImGui.End()
   end
+  ImGui.End()
 
   if not(Editor.open) and Editor.isEditing then
     Theme = ''

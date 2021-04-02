@@ -124,7 +124,8 @@ function Tools:DrawVActions()
     end
 
     local buttonLabel = "Infinite Oxygen"
-    if Tools.infiniteOxygen then
+    local isInfiniteOxygenEnabled = Tools.infiniteOxygen
+    if isInfiniteOxygenEnabled then
       buttonLabel = "Reload To Disable"
       ImGui.PushStyleColor(ImGuiCol.Button, 0.56, 0.06, 0.03, 0.25)
 			ImGui.PushStyleColor(ImGuiCol.ButtonHovered, 0.56, 0.06, 0.03, 0.25)
@@ -138,7 +139,7 @@ function Tools:DrawVActions()
       end
     end
 
-    if Tools.infiniteOxygen then
+    if isInfiniteOxygenEnabled then
       ImGui.PopStyleColor(3)
     end
 

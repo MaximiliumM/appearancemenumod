@@ -1,5 +1,13 @@
 return {
 	{
+		'1.8.4',
+		'2021 Apr 03',
+		[[Fixed compatibility issue with future CET versions]],
+		[[Added some Cyberpsychos to Swap list]],
+		[[Improved Vortex compatibility]],
+		[[-- Installing with Vortex might work now. If it doesn't, install manually]],
+	},
+	{
 		'1.8.3e',
 		'2021 Mar 31',
 		[[Added new Infinite Oxygen V action button]],

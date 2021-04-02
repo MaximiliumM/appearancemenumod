@@ -54,7 +54,7 @@ function Scan:Draw(AMM, target, style)
       ImGui.Text(target.name)
 
       -- Check if target is V
-      if t.appearance ~= "None" then
+      if target.appearance ~= nil and target.appearance ~= "None" then
 
         AMM.UI:Separator()
 
@@ -97,9 +97,9 @@ function Scan:Draw(AMM, target, style)
             AMM:DrawButton("Clear Saved Appearance", style.buttonWidth, style.buttonHeight, "Clear", target)
           end
         end
-
-        AMM.UI:Separator()
       end
+
+      AMM.UI:Separator()
 
       AMM.UI:TextColored("Possible Actions:")
 
@@ -164,14 +164,7 @@ function Scan:Draw(AMM, target, style)
         if ImGui.BeginChild("Scrolling", x, y) then
           for i, appearance in ipairs(target.options) do
             if (ImGui.Button(appearance)) then
-              local appearance, reverse = AMM:CheckForReverseCustomAppearance(appearance, target)
-              local custom = AMM:GetCustomAppearanceParams(target, appearance, reverse)
-
-              if #custom > 0 then
-                AMM:ChangeScanCustomAppearanceTo(target, custom)
-              else
-                AMM:ChangeScanAppearanceTo(target, appearance)
-              end
+              AMM:ChangeAppearanceTo(target, appearance)
             end
           end
         end

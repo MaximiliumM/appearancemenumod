@@ -49,7 +49,7 @@ function AMM:new()
 	 AMM.TeleportMod = ''
 
 	 -- Main Properties --
-	 AMM.currentVersion = "1.8.3e"
+	 AMM.currentVersion = "1.8.4"
 	 AMM.updateNotes = require('update_notes.lua')
 	 AMM.userSettings = AMM:PrepareSettings()
 	 AMM.categories = AMM:GetCategories()
@@ -432,6 +432,7 @@ function AMM:new()
 	 	ImGui.SetNextWindowPos(500, 500, ImGuiCond.FirstUseEver)
 
 	 	if drawWindow then
+
 			-- Load Theme --
 			if AMM.UI.currentTheme ~= AMM.selectedTheme then
 				AMM.UI:Load(AMM.selectedTheme)
@@ -446,6 +447,8 @@ function AMM:new()
 			else
 				AMM:Begin()
 			end
+
+			AMM.UI:End()
 	 	end
 	end)
 
@@ -477,6 +480,7 @@ function AMM:Begin()
 			AMM.UI:Separator()
 
 			for i, versionArray in ipairs(AMM.updateNotes) do
+				ImGui.TreePush(tostring(i))
 				local treeNode = ImGui.TreeNodeEx(versionArray[1], ImGuiTreeNodeFlags.DefaultOpen + ImGuiTreeNodeFlags.NoTreePushOnOpen + ImGuiTreeNodeFlags.Framed)
 				local releaseDate = versionArray[2]
 				local dateLength = ImGui.CalcTextSize(releaseDate)
@@ -518,6 +522,9 @@ function AMM:Begin()
 						end
 					end
 				end
+				if GetVersion() ~= "d5beed3" then
+					ImGui.TreePop()
+				end
 			end
 		else
 			-- Target Setup --
@@ -525,9 +532,9 @@ function AMM:Begin()
 
 			if ImGui.BeginTabBar("TABS") then
 				local style = {
-		        buttonWidth = ImGui.GetFontSize() * 20.7,
-		        buttonHeight = ImGui.GetFontSize() * 2,
-		        halfButtonWidth = (ImGui.GetFontSize() * 20) / 2
+	        buttonWidth = ImGui.GetFontSize() * 20.7,
+	        buttonHeight = ImGui.GetFontSize() * 2,
+	        halfButtonWidth = (ImGui.GetFontSize() * 20) / 2
 		    }
 
 				-- Scan Tab --
@@ -731,9 +738,8 @@ function AMM:Begin()
 									AMM.selectedTheme = theme.name
 								end
 							end
+							ImGui.EndListBox()
 						end
-
-						ImGui.EndListBox()
 
 						if ImGui.SmallButton("  Create Theme  ") then
 							AMM.Editor:Setup()
@@ -762,11 +768,11 @@ function AMM:Begin()
 				if AMM.Debug ~= '' then
 					AMM.Debug.CreateTab(AMM, target)
 				end
+				ImGui.EndTabBar()
 			end
 		end
 	end
-		AMM.UI:End()
-		ImGui.End()
+	ImGui.End()
 end
 
 -- AMM Objects
@@ -1271,15 +1277,21 @@ function AMM:GetAppearanceOptions(t)
 		end
 	end
 
-	if self.Swap.activeSwaps[scanID] ~= nil then
-	 	scanID = self.Swap.activeSwaps[scanID].newID
+	return self:GetAppearanceOptionsWithID(scanID)
+end
+
+function AMM:GetAppearanceOptionsWithID(id)
+	local options = {}
+
+	if self.Swap.activeSwaps[id] ~= nil then
+	 	id = self.Swap.activeSwaps[id].newID
 	end
 
-	for app in db:urows(f("SELECT DISTINCT app_name FROM custom_appearances WHERE entity_id = '%s' ORDER BY app_base ASC", scanID)) do
+	for app in db:urows(f("SELECT DISTINCT app_name FROM custom_appearances WHERE entity_id = '%s' ORDER BY app_base ASC", id)) do
 		table.insert(options, app)
 	end
 
-	for app in db:urows(f("SELECT app_name FROM appearances WHERE entity_id = '%s' ORDER BY app_name ASC", scanID)) do
+	for app in db:urows(f("SELECT app_name FROM appearances WHERE entity_id = '%s' ORDER BY app_name ASC", id)) do
 		table.insert(options, app)
 	end
 
@@ -1343,6 +1355,17 @@ function AMM:ChangeScanAppearanceTo(t, newAppearance)
 		if self.activeCustomApps[t.id] ~= nil and self.activeCustomApps[t.id] ~= 'reverse' then
 			self.activeCustomApps[t.id] = nil
 		end
+	end
+end
+
+function AMM:ChangeAppearanceTo(entity, appearance)
+	local appearance, reverse = AMM:CheckForReverseCustomAppearance(appearance, entity)
+	local custom = AMM:GetCustomAppearanceParams(entity, appearance, reverse)
+
+	if #custom > 0 then
+		AMM:ChangeScanCustomAppearanceTo(entity, custom)
+	else
+		AMM:ChangeScanAppearanceTo(entity, appearance)
 	end
 end
 

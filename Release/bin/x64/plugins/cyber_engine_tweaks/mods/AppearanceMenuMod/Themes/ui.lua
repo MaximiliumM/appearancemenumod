@@ -27,6 +27,13 @@ function UI:Load(selectedTheme)
   end
 end
 
+function UI:DeleteTheme(theme)
+  if theme ~= "Default" then
+    os.remove("Themes/"..theme..".json")
+    UI.userThemes = UI:UserThemes()
+  end
+end
+
 function UI:UserThemes()
   local files = dir("./Themes")
   local userThemes = {}
@@ -103,8 +110,8 @@ function UI:Start()
 end
 
 function UI:End()
-	ImGui.PopStyleColor(22)
-	ImGui.PopStyleVar(6)
+  ImGui.PopStyleVar(6)
+  ImGui.PopStyleColor(23)
 end
 
 function UI:Spacing(amount)
@@ -127,9 +134,9 @@ function UI:DrawCrossHair()
     ImGui.SetNextWindowPos((resX / 2) - 20, (resY / 2) - 20)
     ImGui.SetNextWindowSize(40, 40)
     UI:CrossHairStyling()
-    if ImGui.Begin("Crosshair", ImGuiWindowFlags.NoMove + ImGuiWindowFlags.NoCollapse + ImGuiWindowFlags.NoTitleBar + ImGuiWindowFlags.NoResize) then end
-    UI:EndCrossHairStyling()
+    ImGui.Begin("Crosshair", ImGuiWindowFlags.NoMove + ImGuiWindowFlags.NoCollapse + ImGuiWindowFlags.NoTitleBar + ImGuiWindowFlags.NoResize)
     ImGui.End()
+    UI:EndCrossHairStyling()
   end
 end
 
@@ -142,8 +149,8 @@ function UI:CrossHairStyling()
 end
 
 function UI:EndCrossHairStyling()
-  ImGui.PopStyleColor(1)
   ImGui.PopStyleVar(2)
+  ImGui.PopStyleColor(1)
 end
 
 UI.userThemes = UI:UserThemes()
