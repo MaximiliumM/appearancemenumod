@@ -525,7 +525,7 @@ function AMM:Begin()
 						if not(finishedUpdate) then
 							AMM.UI:Separator()
 							AMM.UI:Spacing(4)
-							if ImGui.Button("Cool!", ImGui.GetWindowContentRegionWidth(), 40) then
+							if ImGui.Button("Cool!", ImGui.GetWindowContentRegionWidth() - 40, 40) then
 								AMM:FinishUpdate()
 							end
 							AMM.UI:Separator()
