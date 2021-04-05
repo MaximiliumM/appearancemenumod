@@ -1,5 +1,14 @@
 return {
 	{
+		'1.8.5',
+		'2021 Apr 05',
+		[[Added new Look At Camera lock button and hotkey]],
+		[[-- Now you can lock head and eyes movement and use that position in all Photo mode poses]],
+		[[-- Thanks axefrog for developing the original mod that made this possible]],
+		[[Added new experimental NPC Action: Movement]],
+		[[-- Now you can move NPCs around, pick them up and drop them where you want. Unfortunately, this usually stops any animation :(]],
+	},
+	{
 		'1.8.4',
 		'2021 Apr 03',
 		[[Fixed compatibility issue with future CET versions]],
