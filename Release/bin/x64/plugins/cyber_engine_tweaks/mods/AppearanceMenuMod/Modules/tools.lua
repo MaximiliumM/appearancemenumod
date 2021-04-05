@@ -24,9 +24,15 @@ local Tools = {
   infiniteOxygen = false,
   makeupToggle = true,
   accessoryToggle = true,
+  lookAtLocked = false,
 
   -- NPC Properties --
   protectedNPCs = {},
+  holdingNPC = false,
+  currentNPC = '',
+  npcUpDown = 0,
+  npcLeftRight = 0,
+  npcRotation = 0,
 }
 
 -- ALIAS for string.format --
@@ -99,6 +105,15 @@ function Tools:DrawVActions()
     if ImGui.Button("Toggle Piercings", Tools.style.halfButtonWidth, Tools.style.buttonHeight) then
       Tools:ToggleAccessories(target)
     end
+
+    local buttonLabel = "Lock Look At Camera"
+    if Tools.lookAtLocked then
+      buttonLabel = "Unlock Look At Camera"
+    end
+
+    if ImGui.Button(buttonLabel, Tools.style.buttonWidth, Tools.style.buttonHeight) then
+      Tools:ToggleLookAt()
+    end
   else
     local buttonLabel = "Disable Invisibility"
     if Tools.playerVisibility then
@@ -147,6 +162,23 @@ function Tools:DrawVActions()
     if ImGui.Button("Toggle V Head", Tools.style.halfButtonWidth, Tools.style.buttonHeight) then
       Tools:ToggleHead()
     end
+  end
+end
+
+function Tools:ToggleLookAt()
+  Tools.lookAtLocked = not Tools.lookAtLocked
+
+  if AMM.playerInPhoto then
+    if Tools.lookAtLocked then
+      print("[AMM] Setting Value (CET limitation - can't remove this message)")
+      GameOptions.SetFloat("LookAt", "MaxIterationsCount", 0.9)
+    else
+      print("[AMM] Setting Value (CET limitation - can't remove this message)")
+      GameOptions.SetFloat("LookAt", "MaxIterationsCount", 1.0)
+    end
+  else
+    print("[AMM] Setting Value (CET limitation - can't remove this message)")
+    GameOptions.SetFloat("LookAt", "MaxIterationsCount", 3.0)
   end
 end
 
@@ -257,23 +289,26 @@ function Tools:DrawTeleportActions()
 
   ImGui.Spacing()
 
-  if ImGui.Button("Teleport To Location", Tools.style.buttonWidth, Tools.style.buttonHeight) then
-    Tools:TeleportToLocation(Tools.selectedLocation)
+  if Tools.selectedLocation.loc_name ~= "Select Location" then
+
+    if ImGui.Button("Teleport To Location", Tools.style.buttonWidth, Tools.style.buttonHeight) then
+      Tools:TeleportToLocation(Tools.selectedLocation)
+    end
+
+    ImGui.Spacing()
+
+    local isFavorite, favIndex = Tools:IsFavorite(Tools.selectedLocation)
+    local favLabel = "Favorite Selected Location"
+    if isFavorite then
+      favLabel = "Unfavorite Selected Location"
+    end
+
+    if ImGui.Button(favLabel, Tools.style.buttonWidth, Tools.style.buttonHeight) then
+      Tools:ToggleFavoriteLocation(isFavorite, favIndex)
+    end
+
+    ImGui.Spacing()
   end
-
-  ImGui.Spacing()
-
-  local isFavorite, favIndex = Tools:IsFavorite(Tools.selectedLocation)
-  local favLabel = "Favorite Selected Location"
-  if isFavorite then
-    favLabel = "Unfavorite Selected Location"
-  end
-
-  if ImGui.Button(favLabel, Tools.style.buttonWidth, Tools.style.buttonHeight) then
-    Tools:ToggleFavoriteLocation(isFavorite, favIndex)
-  end
-
-  ImGui.Spacing()
 
   if ImGui.Button("Share Current Location", Tools.style.buttonWidth, Tools.style.buttonHeight) then
     Tools:GetShareablePlayerLocation()
@@ -491,9 +526,89 @@ end
 
 -- NPC actions
 function Tools:DrawNPCActions()
-  AMM.UI:TextColored("All NPCs Actions:")
+  AMM.UI:TextColored("NPC Actions:")
 
   AMM.UI:DrawCrossHair()
+
+  if Tools.currentNPC ~= '' then
+    if not Game.FindEntityByID(Tools.currentNPC.handle:GetEntityID()) then
+      Tools.currentNPC = ''
+    end
+  end
+
+  AMM.UI:Spacing(3)
+  if target ~= nil and target.handle:IsNPC() or Tools.currentNPC ~= '' then
+
+    if Tools.currentNPC == '' or (target ~= nil and target.handle:IsNPC() and Tools.currentNPC ~= '' and Tools.currentNPC.id ~= target.id) then
+      Tools.currentNPC = target
+
+      local pos = Tools.currentNPC.handle:GetWorldPosition()
+      local angles = GetSingleton('Quaternion'):ToEulerAngles(Tools.currentNPC.handle:GetWorldOrientation())
+      Tools.npcRotation = angles.roll
+      Tools.npcUpDown = pos.z
+      Tools.npcLeftRight = {pos.x, pos.y}
+    end
+
+    ImGui.Text(Tools.currentNPC.name)
+
+    ImGui.SameLine()
+    if ImGui.SmallButton(" Refresh Target ") then
+      Tools.currentNPC = ''
+    end
+
+    Tools.npcUpDown, upDownUsed = ImGui.DragFloat("Up/Down", Tools.npcUpDown, 0.01)
+
+    if upDownUsed then
+      local pos = Tools.currentNPC.handle:GetWorldPosition()
+      pos = Vector4.new(pos.x, pos.y, Tools.npcUpDown, pos.w)
+      Tools:TeleportNPCTo(Tools.currentNPC.handle, pos, Tools.npcRotation)
+    end
+
+    Tools.npcLeftRight, leftRightUsed = ImGui.DragFloat2("X/Y", Tools.npcLeftRight, 0.01)
+
+    if leftRightUsed then
+      local pos = Tools.currentNPC.handle:GetWorldPosition()
+      pos = Vector4.new(Tools.npcLeftRight[1], Tools.npcLeftRight[2], pos.z, pos.w)
+      Tools:TeleportNPCTo(Tools.currentNPC.handle, pos, Tools.npcRotation)
+    end
+
+    Tools.npcRotation, rotationUsed = ImGui.SliderFloat("Rotation", Tools.npcRotation, -180, 180)
+
+    if rotationUsed then
+      local pos = Tools.currentNPC.handle:GetWorldPosition()
+      Tools:TeleportNPCTo(Tools.currentNPC.handle, pos, Tools.npcRotation)
+    end
+
+    AMM.UI:Spacing(3)
+
+    local buttonLabel = "Pick Up NPC"
+    if Tools.holdingNPC then
+      buttonLabel = "Drop NPC"
+    end
+    if ImGui.Button(buttonLabel, Tools.style.buttonWidth, Tools.style.buttonHeight) then
+      if target.handle:IsNPC() then
+        Tools.holdingNPC = not Tools.holdingNPC
+        local npcHandle = target.handle
+
+        Cron.Every(0.000001, function(timer)
+          local pos = Game.GetPlayer():GetWorldPosition()
+          local heading = Game.GetPlayer():GetWorldForward()
+          local newPos = Vector4.new(pos.x + (heading.x * 2), pos.y + (heading.y * 2), pos.z, pos.w)
+
+          Tools:TeleportNPCTo(npcHandle, newPos, Tools.npcRotation)
+
+          if Tools.holdingNPC == false then
+            Cron.Halt(timer)
+          end
+        end)
+      end
+    end
+  else
+    ImGui.Text("")
+    AMM.UI:TextCenter("Target NPC to see Movement Actions")
+
+    AMM.UI:Spacing(3)
+  end
 
   if ImGui.Button("Protect NPC from Actions", Tools.style.buttonWidth, Tools.style.buttonHeight) then
     if target.handle:IsNPC() then
@@ -571,6 +686,17 @@ function Tools:DrawNPCActions()
   end
 end
 
+function Tools:TeleportNPCTo(targetPuppet, targetPosition, targetRotation)
+	local teleportCmd = NewObject('handle:AITeleportCommand')
+	teleportCmd.position = targetPosition
+	teleportCmd.rotation = targetRotation or 0.0
+	teleportCmd.doNavTest = false
+
+	targetPuppet:GetAIControllerComponent():SendCommand(teleportCmd)
+
+	return teleportCmd, targetPuppet
+end
+
 function Tools:ProtectTarget(t)
   local mappinData = NewObject('gamemappinsMappinData')
   mappinData.mappinType = TweakDBID.new('Mappins.DefaultStaticMappin')
@@ -626,25 +752,27 @@ function Tools:DrawTimeActions()
     Tools:SetTime(Tools.timeValue)
   end
 
-  Tools.slowMotionSpeed, slowMotionUsed = ImGui.SliderFloat("Slow Motion", Tools.slowMotionSpeed, 0.000001, Tools.slowMotionMaxValue)
-  if slowMotionUsed then
-    Tools:SetSlowMotionSpeed(Tools.slowMotionSpeed)
-  end
+  if not AMM.playerInPhoto then
+    Tools.slowMotionSpeed, slowMotionUsed = ImGui.SliderFloat("Slow Motion", Tools.slowMotionSpeed, 0.000001, Tools.slowMotionMaxValue)
+    if slowMotionUsed then
+      Tools:SetSlowMotionSpeed(Tools.slowMotionSpeed)
+    end
 
-  local buttonLabel = "Unfreeze Time"
-  if Tools.timeState then
-    buttonLabel = "Freeze Time"
-  end
+    local buttonLabel = "Unfreeze Time"
+    if Tools.timeState then
+      buttonLabel = "Freeze Time"
+    end
 
-  ImGui.Spacing()
-  if ImGui.Button(buttonLabel, Tools.style.buttonWidth, Tools.style.buttonHeight) then
-    Tools:PauseTime()
-  end
-
-  if not Tools.timeState then
     ImGui.Spacing()
-    if ImGui.Button("Skip Frame", Tools.style.buttonWidth, Tools.style.buttonHeight) then
-      Tools:SkipFrame()
+    if ImGui.Button(buttonLabel, Tools.style.buttonWidth, Tools.style.buttonHeight) then
+      Tools:PauseTime()
+    end
+
+    if not Tools.timeState then
+      ImGui.Spacing()
+      if ImGui.Button("Skip Frame", Tools.style.buttonWidth, Tools.style.buttonHeight) then
+        Tools:SkipFrame()
+      end
     end
   end
 end

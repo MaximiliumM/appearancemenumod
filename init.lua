@@ -49,7 +49,7 @@ function AMM:new()
 	 AMM.TeleportMod = ''
 
 	 -- Main Properties --
-	 AMM.currentVersion = "1.8.4"
+	 AMM.currentVersion = "1.8.5"
 	 AMM.updateNotes = require('update_notes.lua')
 	 AMM.userSettings = AMM:PrepareSettings()
 	 AMM.categories = AMM:GetCategories()
@@ -164,10 +164,16 @@ function AMM:new()
 					end
 			 elseif actionName == 'ExitPhotoMode' then
 				 if actionType == 'BUTTON_RELEASED' then
-					 AMM.Tools.makeupToggle = true
-					 AMM.Tools.accessoryToggle = true
 					 AMM.playerInMenu = false
 					 AMM.playerInPhoto = false
+
+					 if AMM.Tools.lookAtLocked then
+						 AMM.Tools:ToggleLookAt()
+					 end
+
+					 AMM.Tools.makeupToggle = true
+					 AMM.Tools.accessoryToggle = true
+
 					 local c = AMM.Tools.slowMotionSpeed
 					 if c ~= 1 then
 						 AMM.Tools:SetSlowMotionSpeed(c)
@@ -275,6 +281,10 @@ function AMM:new()
 
 	 registerHotkey("amm_skip_frame", "Skip Frame", function()
 	 	AMM.Tools:SkipFrame()
+	 end)
+
+	 registerHotkey("amm_toggle_lookAt", "Toggle Look At", function()
+	 	AMM.Tools:ToggleLookAt()
 	 end)
 
 	 registerHotkey('amm_toggle_head', 'Toggle V Head', function()
@@ -480,7 +490,6 @@ function AMM:Begin()
 			AMM.UI:Separator()
 
 			for i, versionArray in ipairs(AMM.updateNotes) do
-				ImGui.TreePush(tostring(i))
 				local treeNode = ImGui.TreeNodeEx(versionArray[1], ImGuiTreeNodeFlags.DefaultOpen + ImGuiTreeNodeFlags.NoTreePushOnOpen + ImGuiTreeNodeFlags.Framed)
 				local releaseDate = versionArray[2]
 				local dateLength = ImGui.CalcTextSize(releaseDate)
@@ -488,6 +497,7 @@ function AMM:Begin()
 				AMM.UI:TextColored(releaseDate)
 
 				if treeNode then
+					ImGui.TreePush(tostring(i))
 					for j, note in ipairs(versionArray) do
 						if j == 1 or j == 2 then else
 							local color = "ButtonActive"
@@ -521,8 +531,6 @@ function AMM:Begin()
 							AMM.UI:Separator()
 						end
 					end
-				end
-				if GetVersion() ~= "d5beed3" then
 					ImGui.TreePop()
 				end
 			end
@@ -670,6 +678,9 @@ function AMM:Begin()
 
 				-- Tools Tab --
 				AMM.Tools:Draw(AMM, target)
+
+				-- Place for next feature Tab --
+				-- I wonder what kind of tab it is --
 
 				-- Settings Tab --
 				if (ImGui.BeginTabItem("Settings")) then
@@ -1002,8 +1013,10 @@ function AMM:GetEquipmentOptions()
 end
 
 function AMM:RevertTweakDBChanges(userActivated)
-	for swapID, swapObj in pairs(self.Swap.activeSwaps) do
-		self.Swap:ChangeEntityTemplateTo(swapObj.name, swapID, swapID)
+	if next(self.Swap.activeSwaps) ~= nil then
+		for swapID, swapObj in pairs(self.Swap.activeSwaps) do
+			self.Swap:ChangeEntityTemplateTo(swapObj.name, swapID, swapID)
+		end
 	end
 
 	if not(userActivated) then

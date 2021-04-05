@@ -9,4 +9,16 @@ function Util:GetPlayerGender()
 	end
 end
 
+function Util:ShallowCopy(copy, orig)
+  local orig_type = type(orig)
+  if orig_type == 'table' then
+    for orig_key, orig_value in pairs(orig) do
+      copy[orig_key] = orig_value
+    end
+  else -- number, string, boolean, etc
+    copy = orig
+  end
+  return copy
+end
+
 return Util
