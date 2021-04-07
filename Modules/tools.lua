@@ -1,6 +1,7 @@
 local Tools = {
   -- Style Property
   style = {},
+  actionCategories = {},
 
   -- Time Properties
   timeState = true,
@@ -29,10 +30,16 @@ local Tools = {
   -- NPC Properties --
   protectedNPCs = {},
   holdingNPC = false,
+  frozenNPCs = {},
   currentNPC = '',
   npcUpDown = 0,
   npcLeftRight = 0,
   npcRotation = 0,
+  selectedFace = {name = 'Select Expression'},
+  activatedFace = false,
+  upperBodyMovement = true,
+  lookAtV = true,
+  expressions = AMM:GetPersonalityOptions()
 }
 
 -- ALIAS for string.format --
@@ -48,36 +55,53 @@ function Tools:Draw(AMM, target)
       halfButtonWidth = ((ImGui.GetWindowContentRegionWidth() / 2) - 5)
     }
 
+    Tools.actionCategories = {
+      { name = "Teleport Actions", actions = Tools.DrawTeleportActions },
+      { name = "Time Actions", actions = Tools.DrawTimeActions },
+      { name = "V Actions", actions = Tools.DrawVActions },
+      { name = "NPC Actions", actions = Tools.DrawNPCActions },
+    }
+
     if AMM.playerInMenu and not AMM.playerInPhoto then
       AMM.UI:TextColored("Player In Menu")
       ImGui.Text("Tools only works in game")
-    elseif AMM.playerInPhoto then
-      if target ~= nil and target.name == 'V' then
-        Tools:DrawVActions()
-        AMM.UI:Separator()
-        Tools:DrawTimeActions()
-      else
-        AMM.UI:TextColored("Player In Photo Mode")
-        ImGui.Text("Target V to see available actions")
-        AMM.UI:Separator()
-        Tools:DrawTimeActions()
-      end
     else
-      Tools:DrawTeleportActions()
+      if AMM.playerInPhoto then
+        if target ~= nil and target.name == 'V' then
+          Tools.actionCategories = {
+            { name = "V Actions", actions = Tools.DrawVActions },
+            { name = "Time Actions", actions = Tools.DrawTimeActions },
+            { name = "NPC Actions", actions = Tools.DrawNPCActions },
+          }
+        else
+          AMM.UI:TextColored("Player In Photo Mode")
+          ImGui.Text("Target V to see available actions")
+          AMM.UI:Separator()
+          Tools.actionCategories = {
+            { name = "Time Actions", actions = Tools.DrawTimeActions },
+            { name = "NPC Actions", actions = Tools.DrawNPCActions },
+          }
+        end
+      end
 
-      AMM.UI:Separator()
+      for _, category in ipairs(Tools.actionCategories) do
+        AMM.UI:PushStyleColor(ImGuiCol.Text, "TextColored")
+        local treeNode = ImGui.TreeNodeEx(category.name, ImGuiTreeNodeFlags.DefaultOpen + ImGuiTreeNodeFlags.NoTreePushOnOpen)
+        ImGui.PopStyleColor(1)
 
-      Tools:DrawTimeActions()
+        if treeNode then
+          ImGui.Separator()
+          AMM.UI:Spacing(6)
 
-      AMM.UI:Separator()
+          if category.name ~= "NPC Actions" then
+            category.actions()
+          elseif category.name == "NPC Actions" and AMM.userSettings.experimental then
+            category.actions()
+          end
 
-      Tools:DrawVActions()
-
-      if AMM.userSettings.experimental then
-
-        AMM.UI:Separator()
-
-        Tools:DrawNPCActions()
+          AMM.UI:Spacing(6)
+        end
+        if not treeNode then ImGui.Separator() end
       end
 
       if ImGui.InvisibleButton("Speed", 10, 30) then
@@ -94,7 +118,7 @@ end
 
 -- V actions
 function Tools:DrawVActions()
-  AMM.UI:TextColored("V Actions:")
+  -- AMM.UI:TextColored("V Actions:")
 
   if AMM.playerInPhoto then
     if ImGui.Button("Toggle Makeup", Tools.style.halfButtonWidth, Tools.style.buttonHeight) then
@@ -272,9 +296,7 @@ end
 function Tools:DrawTeleportActions()
   Tools.userLocations = Tools:GetUserLocations()
 
-  AMM.UI:Spacing(3)
-
-  AMM.UI:TextColored("Teleport Actions:")
+  -- AMM.UI:TextColored("Teleport Actions:")
 
   if ImGui.BeginCombo("Locations", Tools.selectedLocation.loc_name, ImGuiComboFlags.HeightLarge) then
     for i, location in ipairs(Tools:GetLocations()) do
@@ -526,7 +548,7 @@ end
 
 -- NPC actions
 function Tools:DrawNPCActions()
-  AMM.UI:TextColored("NPC Actions:")
+  -- AMM.UI:TextColored("NPC Actions:")
 
   AMM.UI:DrawCrossHair()
 
@@ -536,10 +558,11 @@ function Tools:DrawNPCActions()
     end
   end
 
-  AMM.UI:Spacing(3)
   if target ~= nil and target.handle:IsNPC() or Tools.currentNPC ~= '' then
 
-    if Tools.currentNPC == '' or (target ~= nil and target.handle:IsNPC() and Tools.currentNPC ~= '' and Tools.currentNPC.id ~= target.id) then
+    AMM.UI:TextCenter("Movement", true)
+
+    if Tools.currentNPC == '' or (not(Tools.holdingNPC) and target ~= nil and target.handle:IsNPC() and Tools.currentNPC ~= '' and Tools.currentNPC.handle:GetEntityID().hash ~= target.handle:GetEntityID().hash) then
       Tools.currentNPC = target
 
       local pos = Tools.currentNPC.handle:GetWorldPosition()
@@ -551,17 +574,17 @@ function Tools:DrawNPCActions()
 
     ImGui.Text(Tools.currentNPC.name)
 
-    ImGui.SameLine()
-    if ImGui.SmallButton(" Refresh Target ") then
-      Tools.currentNPC = ''
-    end
-
+    ImGui.PushItemWidth(ImGui.GetWindowContentRegionWidth() - ImGui.CalcTextSize("Rotation "))
     Tools.npcUpDown, upDownUsed = ImGui.DragFloat("Up/Down", Tools.npcUpDown, 0.01)
 
     if upDownUsed then
       local pos = Tools.currentNPC.handle:GetWorldPosition()
       pos = Vector4.new(pos.x, pos.y, Tools.npcUpDown, pos.w)
-      Tools:TeleportNPCTo(Tools.currentNPC.handle, pos, Tools.npcRotation)
+      if Tools.currentNPC.name == "V" then
+        Game.GetTeleportationFacility():Teleport(Tools.currentNPC.handle, pos, EulerAngles.new(0, 0, Tools.npcRotation))
+      else
+        Tools:TeleportNPCTo(Tools.currentNPC.handle, pos, Tools.npcRotation)
+      end
     end
 
     Tools.npcLeftRight, leftRightUsed = ImGui.DragFloat2("X/Y", Tools.npcLeftRight, 0.01)
@@ -569,26 +592,37 @@ function Tools:DrawNPCActions()
     if leftRightUsed then
       local pos = Tools.currentNPC.handle:GetWorldPosition()
       pos = Vector4.new(Tools.npcLeftRight[1], Tools.npcLeftRight[2], pos.z, pos.w)
-      Tools:TeleportNPCTo(Tools.currentNPC.handle, pos, Tools.npcRotation)
+      if Tools.currentNPC.name == "V" then
+        Game.GetTeleportationFacility():Teleport(Tools.currentNPC.handle, pos, EulerAngles.new(0, 0, Tools.npcRotation))
+      else
+        Tools:TeleportNPCTo(Tools.currentNPC.handle, pos, Tools.npcRotation)
+      end
     end
 
     Tools.npcRotation, rotationUsed = ImGui.SliderFloat("Rotation", Tools.npcRotation, -180, 180)
 
     if rotationUsed then
       local pos = Tools.currentNPC.handle:GetWorldPosition()
-      Tools:TeleportNPCTo(Tools.currentNPC.handle, pos, Tools.npcRotation)
+      if Tools.currentNPC.name == "V" then
+        Game.GetTeleportationFacility():Teleport(Tools.currentNPC.handle, pos, EulerAngles.new(0, 0, Tools.npcRotation))
+      else
+        Tools:TeleportNPCTo(Tools.currentNPC.handle, pos, Tools.npcRotation)
+      end
     end
 
+    ImGui.PopItemWidth()
     AMM.UI:Spacing(3)
 
-    local buttonLabel = "Pick Up NPC"
-    if Tools.holdingNPC then
-      buttonLabel = "Drop NPC"
-    end
-    if ImGui.Button(buttonLabel, Tools.style.buttonWidth, Tools.style.buttonHeight) then
-      if target.handle:IsNPC() then
+    if not AMM.playerInPhoto then
+
+      local buttonLabel = "Pick Up NPC"
+      if Tools.holdingNPC then
+        buttonLabel = "Drop NPC"
+      end
+      if ImGui.Button(buttonLabel, Tools.style.halfButtonWidth, Tools.style.buttonHeight) then
         Tools.holdingNPC = not Tools.holdingNPC
-        local npcHandle = target.handle
+        local npcHandle = Tools.currentNPC.handle
+        npcHandle:GetAIControllerComponent():DisableCollider()
 
         Cron.Every(0.000001, function(timer)
           local pos = Game.GetPlayer():GetWorldPosition()
@@ -598,91 +632,167 @@ function Tools:DrawNPCActions()
           Tools:TeleportNPCTo(npcHandle, newPos, Tools.npcRotation)
 
           if Tools.holdingNPC == false then
+            npcHandle:GetAIControllerComponent():EnableCollider()
             Cron.Halt(timer)
           end
         end)
       end
     end
+
+    if not AMM.playerInPhoto then
+      local buttonLabel = " Freeze Target "
+      if Tools.frozenNPCs[tostring(Tools.currentNPC.handle:GetEntityID().hash)] ~= nil then
+        buttonLabel = " Unfreeze Target "
+      end
+      ImGui.SameLine()
+      if ImGui.Button(buttonLabel, Tools.style.halfButtonWidth, Tools.style.buttonHeight) then
+        if buttonLabel == " Freeze Target " then
+          Tools:FreezeNPC(Tools.currentNPC.handle, true)
+          print(Tools.currentNPC.handle:GetEntityID().hash)
+          Tools.frozenNPCs[tostring(Tools.currentNPC.handle:GetEntityID().hash)] = 'active'
+        else
+          Tools:FreezeNPC(Tools.currentNPC.handle, false)
+          Tools.frozenNPCs[tostring(Tools.currentNPC.handle:GetEntityID().hash)] = nil
+        end
+      end
+
+      AMM.UI:Spacing(8)
+
+      AMM.UI:TextCenter("Facial Expression", true)
+      ImGui.Spacing()
+
+      local isSelecting = false
+
+      if ImGui.BeginCombo("Expressions", Tools.selectedFace.name) then
+        for i, face in ipairs(Tools.expressions) do
+          if ImGui.Selectable(face.name, (face.name == Tools.selectedFace.name)) then
+            Tools.selectedFace = face
+            Tools.activatedFace = false
+            isSelecting = true
+          end
+        end
+        ImGui.EndCombo()
+      end
+
+      if not isSelecting and Tools.selectedFace.name ~= "Select Expression" and not Tools.activatedFace then
+        Tools:ActivateFacialExpression(Tools.currentNPC, Tools.selectedFace, Tools.upperBodyMovement, Tools.lookAtV)
+      end
+
+      ImGui.Spacing()
+
+      Tools.upperBodyMovement, clicked = ImGui.Checkbox("Upper Body Movement", Tools.upperBodyMovement)
+      ImGui.SameLine()
+      Tools.lookAtV = ImGui.Checkbox("Look At V", Tools.lookAtV)
+    end
   else
     ImGui.Text("")
-    AMM.UI:TextCenter("Target NPC to see Movement Actions")
-
-    AMM.UI:Spacing(3)
-  end
-
-  if ImGui.Button("Protect NPC from Actions", Tools.style.buttonWidth, Tools.style.buttonHeight) then
-    if target.handle:IsNPC() then
-      Tools:ProtectTarget(target)
+    if AMM.playerInPhoto then
+      AMM.UI:TextCenter("Target V or NPC to see More Actions")
+    else
+      AMM.UI:TextCenter("Target NPC to see More Actions")
     end
   end
 
-  if ImGui.Button("All Friendly", Tools.style.halfButtonWidth, Tools.style.buttonHeight) then
-    local entities = Tools:GetNPCsInRange(30)
-    for _, ent in ipairs(entities) do
-      if Tools.protectedNPCs[ent.handle:GetEntityID().hash] == nil then
-        Tools:SetNPCAttitude(ent, "friendly")
+  if not AMM.playerInPhoto then
+    AMM.UI:Spacing(8)
+
+    AMM.UI:TextCenter("General Actions", true)
+    ImGui.Spacing()
+
+    if ImGui.Button("Protect NPC from Actions", Tools.style.buttonWidth, Tools.style.buttonHeight) then
+      if target.handle:IsNPC() then
+        Tools:ProtectTarget(target)
       end
     end
 
-    Tools:ClearProtected()
-  end
-
-  ImGui.SameLine()
-  if ImGui.Button("All Follower", Tools.style.halfButtonWidth, Tools.style.buttonHeight) then
-    local entities = Tools:GetNPCsInRange(10)
-    for _, ent in ipairs(entities) do
-      if Tools.protectedNPCs[ent.handle:GetEntityID().hash] == nil then
-        AMM:SetNPCAsCompanion(ent.handle)
+    if ImGui.Button("All Friendly", Tools.style.halfButtonWidth, Tools.style.buttonHeight) then
+      local entities = Tools:GetNPCsInRange(30)
+      for _, ent in ipairs(entities) do
+        if Tools.protectedNPCs[ent.handle:GetEntityID().hash] == nil then
+          Tools:SetNPCAttitude(ent, "friendly")
+        end
       end
+
+      Tools:ClearProtected()
     end
 
-    Tools:ClearProtected()
-  end
-
-  if ImGui.Button("All Fake Die", Tools.style.halfButtonWidth, Tools.style.buttonHeight) then
-    local entities = Tools:GetNPCsInRange(20)
-    for _, ent in ipairs(entities) do
-      if Tools.protectedNPCs[ent.handle:GetEntityID().hash] == nil then
-        ent.handle:SendAIDeathSignal()
+    ImGui.SameLine()
+    if ImGui.Button("All Follower", Tools.style.halfButtonWidth, Tools.style.buttonHeight) then
+      local entities = Tools:GetNPCsInRange(10)
+      for _, ent in ipairs(entities) do
+        if Tools.protectedNPCs[ent.handle:GetEntityID().hash] == nil then
+          AMM:SetNPCAsCompanion(ent.handle)
+        end
       end
+
+      Tools:ClearProtected()
     end
 
-    Tools:ClearProtected()
-  end
-
-  ImGui.SameLine()
-  if ImGui.Button("All Die", Tools.style.halfButtonWidth, Tools.style.buttonHeight) then
-    local entities = Tools:GetNPCsInRange(20)
-    for _, ent in ipairs(entities) do
-      if Tools.protectedNPCs[ent.handle:GetEntityID().hash] == nil then
-        ent.handle:Kill(ent.handle, false, false)
+    if ImGui.Button("All Fake Die", Tools.style.halfButtonWidth, Tools.style.buttonHeight) then
+      local entities = Tools:GetNPCsInRange(20)
+      for _, ent in ipairs(entities) do
+        if Tools.protectedNPCs[ent.handle:GetEntityID().hash] == nil then
+          ent.handle:SendAIDeathSignal()
+        end
       end
+
+      Tools:ClearProtected()
     end
 
-    Tools:ClearProtected()
-  end
-
-  if ImGui.Button("All Despawn", Tools.style.halfButtonWidth, Tools.style.buttonHeight) then
-    local entities = Tools:GetNPCsInRange(20)
-    for _, ent in ipairs(entities) do
-      if Tools.protectedNPCs[ent.handle:GetEntityID().hash] == nil then
-        ent.handle:Dispose()
+    ImGui.SameLine()
+    if ImGui.Button("All Die", Tools.style.halfButtonWidth, Tools.style.buttonHeight) then
+      local entities = Tools:GetNPCsInRange(20)
+      for _, ent in ipairs(entities) do
+        if Tools.protectedNPCs[ent.handle:GetEntityID().hash] == nil then
+          ent.handle:Kill(ent.handle, false, false)
+        end
       end
+
+      Tools:ClearProtected()
     end
 
-    Tools:ClearProtected()
-  end
-
-  ImGui.SameLine()
-  if ImGui.Button("Cycle Appearance", Tools.style.halfButtonWidth, Tools.style.buttonHeight) then
-    local entities = Tools:GetNPCsInRange(20)
-    for _, ent in ipairs(entities) do
-      if Tools.protectedNPCs[ent.handle:GetEntityID().hash] == nil then
-        AMM:ChangeScanAppearanceTo(ent, "Cycle")
+    if ImGui.Button("All Despawn", Tools.style.halfButtonWidth, Tools.style.buttonHeight) then
+      local entities = Tools:GetNPCsInRange(20)
+      for _, ent in ipairs(entities) do
+        if Tools.protectedNPCs[ent.handle:GetEntityID().hash] == nil then
+          ent.handle:Dispose()
+        end
       end
+
+      Tools:ClearProtected()
     end
 
-    Tools:ClearProtected()
+    ImGui.SameLine()
+    if ImGui.Button("Cycle Appearance", Tools.style.halfButtonWidth, Tools.style.buttonHeight) then
+      local entities = Tools:GetNPCsInRange(20)
+      for _, ent in ipairs(entities) do
+        if Tools.protectedNPCs[ent.handle:GetEntityID().hash] == nil then
+          AMM:ChangeScanAppearanceTo(ent, "Cycle")
+        end
+      end
+
+      Tools:ClearProtected()
+    end
+  end
+end
+
+function Tools:ActivateFacialExpression(target, face, upperBody, lookAtV)
+  Tools.activatedFace = true
+  local stimComp = target.handle:GetStimReactionComponent()
+  if stimComp then
+    stimComp:DeactiveLookAt()
+    stimComp:ResetFacial(0)
+
+    Cron.After(0.5, function()
+      local animCon = target.handle:GetAnimationControllerComponent()
+      local animFeat = NewObject("handle:AnimFeature_FacialReaction")
+      animFeat.category = face.category
+      animFeat.idle = face.idle
+      animCon:ApplyFeature(CName.new("FacialReaction"), animFeat)
+      if lookAtV then
+        stimComp:ActivateReactionLookAt(Game.GetPlayer(), false, true, 1, upperBody)
+      end
+    end)
   end
 end
 
@@ -696,6 +806,16 @@ function Tools:TeleportNPCTo(targetPuppet, targetPosition, targetRotation)
 
 	return teleportCmd, targetPuppet
 end
+
+function Tools:FreezeNPC(handle, freeze)
+  if freeze then
+    -- (reason: CName, dilation: Float, duration: Float, easeInCurve: CName, easeOutCurve: CName, ignoreGlobalDilation: Bool),
+    handle:SetIndividualTimeDilation(CName.new("AMM"), 0.00001, 2.5, CName.new(""), CName.new(""), true)
+  else
+    handle:SetIndividualTimeDilation(CName.new("AMM"), 1.0, 2.5, CName.new(""), CName.new(""), false)
+  end
+end
+
 
 function Tools:ProtectTarget(t)
   local mappinData = NewObject('gamemappinsMappinData')
@@ -741,7 +861,7 @@ end
 
 -- Time actions
 function Tools:DrawTimeActions()
-  AMM.UI:TextColored("Time Actions:")
+  -- AMM.UI:TextColored("Time Actions:")
 
   if Tools.timeValue == nil then
     Tools.timeValue = Tools:GetCurrentHour()

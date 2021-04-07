@@ -49,7 +49,7 @@ function AMM:new()
 	 AMM.TeleportMod = ''
 
 	 -- Main Properties --
-	 AMM.currentVersion = "1.8.5"
+	 AMM.currentVersion = "1.8.6"
 	 AMM.updateNotes = require('update_notes.lua')
 	 AMM.userSettings = AMM:PrepareSettings()
 	 AMM.categories = AMM:GetCategories()
@@ -262,7 +262,12 @@ function AMM:new()
 	 registerHotkey("amm_npc_talk", "NPC Talk", function()
 		local target = AMM:GetTarget()
  		if target ~= nil and target.handle:IsNPC() then
-	 		target.handle:GetStimReactionComponent():TriggerFacialLookAtReaction(false, true)
+			local animCon = target.handle:GetAnimationControllerComponent()
+	    local animFeat = NewObject("handle:AnimFeature_FacialReaction")
+	    animFeat.category = 3
+	    animFeat.idle = 5
+	 		Util:PlayVoiceOver(target.handle, "greeting")
+			animCon:ApplyFeature(CName.new("FacialReaction"), animFeat)
 		end
 	 end)
 
@@ -679,9 +684,6 @@ function AMM:Begin()
 				-- Tools Tab --
 				AMM.Tools:Draw(AMM, target)
 
-				-- Place for next feature Tab --
-				-- I wonder what kind of tab it is --
-
 				-- Settings Tab --
 				if (ImGui.BeginTabItem("Settings")) then
 
@@ -991,6 +993,31 @@ function AMM:GetSaveables()
 	return defaults
 end
 
+function AMM:GetPersonalityOptions()
+	local personalities = {
+		{name = "Default", idle = 2, category = 2},
+		{name = "Joy", idle = 5, category = 3},
+		{name = "Aggressive", idle = 1, category = 3},
+		{name = "Fury", idle = 2, category = 3},
+		{name = "Curiosity", idle = 3, category = 1},
+		{name = "Disgust", idle = 7, category = 3},
+		{name = "Fear", idle = 10, category = 3},
+		{name = "Sad", idle = 3, category = 3},
+		{name = "Surprise", idle = 8, category = 3},
+		{name = "Are You Serious?", idle = 2, category = 1},
+		{name = "Neutral", idle = 3, category = 1},
+		{name = "Drunk", idle = 4, category = 1},
+		{name = "Sleepy", idle = 5, category = 1},
+		{name = "Bored", idle = 6, category = 1},
+		{name = "Fake Smile", idle = 6, category = 3},
+		{name = "Pissed", idle = 7, category = 3},
+		{name = "Terrified", idle = 9, category = 3},
+		{name = "Shocked", idle = 11, category = 3},
+	}
+
+	return personalities
+end
+
 function AMM:GetEquipmentOptions()
 	local equipments = {
 		{name = 'Katana', path = 'Character.afterlife_rare_fmelee3_katana_wa_elite_inline0'},
@@ -1025,6 +1052,8 @@ function AMM:RevertTweakDBChanges(userActivated)
 end
 
 function AMM:SetupJohnny()
+	TweakDB:SetFlat("Character.TPP_Player_Cutscene_Female.fullDisplayName", TweakDB:GetFlat("Character.TPP_Player.displayName"))
+	TweakDB:SetFlat("Character.TPP_Player_Cutscene_Male.fullDisplayName", TweakDB:GetFlat("Character.TPP_Player.displayName"))
 	TweakDB:SetFlatNoUpdate(TweakDBID.new("Character.q000_tutorial_course_01_patroller.voiceTag"), TweakDB:GetFlat(TweakDBID.new("Character.Silverhand.voiceTag")))
 	TweakDB:SetFlatNoUpdate(TweakDBID.new("Character.q000_tutorial_course_01_patroller.displayName"), TweakDB:GetFlat(TweakDBID.new("Character.Silverhand.displayName")))
 	TweakDB:SetFlatNoUpdate(TweakDBID.new("Character.q000_tutorial_course_01_patroller.alternativeDisplayName"), TweakDB:GetFlat(TweakDBID.new("Character.Silverhand.alternativeDisplayName")))

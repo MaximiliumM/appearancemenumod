@@ -21,4 +21,8 @@ function Util:ShallowCopy(copy, orig)
   return copy
 end
 
+function Util:PlayVoiceOver(handle, vo)
+  Game["gameObject::PlayVoiceOver;GameObjectCNameCNameFloatEntityIDBool"](handle, CName.new(vo), CName.new(""))
+end
+
 return Util

@@ -69,6 +69,9 @@ function UI:TextColored(text)
 end
 
 function UI:PushStyleColor(style, color)
+  if type(color) ~= "table" then
+    color = Theme[color]
+  end
 	ImGui.PushStyleColor(style, color[1] / 255, color[2] / 255, color[3] / 255, color[4])
 end
 

@@ -1,5 +1,20 @@
 return {
 	{
+		'1.8.6',
+		'2021 Apr 07',
+		[[Added new Facial Expressions section to Tools tab:]],
+		[[-- Select from a wide range of emotions and if the NPC will look at V while doing that expression. You can also lock upper body movement!]],
+		[[Enabled Movement Action to work in Photo mode:]],
+		[[-- You can move NPCs and V around to take THAT science photo!]],
+		[[Added new Freeze Target button]],
+		[[-- Freeze individual NPCs in place to setup the perfect photo!]],
+		[[Reorganized Tools tab into collapsing headers:]],
+		[[-- Now you can close sections you don't use too often!]],
+		[[Disabled NPC collision when picking them up]],
+		[[Adjusted NPC Talk hotkey so the NPC will always smile]],
+		[[Fixed spawned V's name when using scanner]],
+	},
+	{
 		'1.8.5',
 		'2021 Apr 05',
 		[[Added new Look At Camera lock button and hotkey]],
