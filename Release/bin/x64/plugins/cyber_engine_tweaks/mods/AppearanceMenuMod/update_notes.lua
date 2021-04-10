@@ -1,5 +1,12 @@
 return {
 	{
+		'1.8.7b',
+		'2021 Apr 10',
+		[[Fixed issue where Panam sex scene would be incorrectly detected and would stop the UI from functioning]],
+		[[Updated GameSession to latest version fixing menu detection issues]],
+		[[-- Thanks psiberx for the fast response!]],
+	},
+	{
 		'1.8.7',
 		'2021 Apr 10',
 		[[Added new Assignable Seats system]],

@@ -51,7 +51,7 @@ function AMM:new()
 	 AMM.TeleportMod = ''
 
 	 -- Main Properties --
-	 AMM.currentVersion = "1.8.7"
+	 AMM.currentVersion = "1.8.7b"
 	 AMM.updateNotes = require('update_notes.lua')
 	 AMM.userSettings = AMM:PrepareSettings()
 	 AMM.categories = AMM:GetCategories()
@@ -115,7 +115,6 @@ function AMM:new()
 		 -- Setup GameSession --
 		 GameSession.OnStart(function()
 			 AMM.playerAttached = true
-			 AMM.playerInMenu = false
 
 			 AMM.Tools:CheckGodModeIsActive()
 
@@ -126,20 +125,15 @@ function AMM:new()
 
 		 GameSession.OnEnd(function()
 			 AMM.playerAttached = false
-			 AMM.playerInMenu = true
 		 end)
 
-		 GameSession.Listen(function(state)
-			 	if state.isLoaded then
-					AMM.playerAttached = true
-				end
-
-				if state.isPaused then
-					AMM.playerInMenu = true
-				elseif state.wasPaused then
-					AMM.playerInMenu = false
-				end
+		 GameSession.OnPause(function()
+			 AMM.playerInMenu = true
      end)
+
+		 GameSession.OnResume(function()
+			 AMM.playerInMenu = false
+		 end)
 
 		 -- Setup Cron to Export User data every 10 minutes --
 		 Cron.Every(600, function()

@@ -6,7 +6,7 @@ Persistent Session Manager
 Copyright (c) 2021 psiberx
 ]]
 
-local GameSession = { version = '1.0.1' }
+local GameSession = { version = '1.0.8' }
 
 GameSession.Event = {
 	Start = 'Start',
@@ -34,7 +34,42 @@ GameSession.Scope = {
 
 local initialized = {}
 local listeners = {}
-local previousState = {}
+
+local eventScopes = {
+	[GameSession.Event.Update] = {},
+	[GameSession.Event.Load] = { [GameSession.Scope.Saves] = true },
+	[GameSession.Event.Save] = { [GameSession.Scope.Saves] = true },
+	[GameSession.Event.List] = { [GameSession.Scope.Saves] = true },
+	[GameSession.Event.LoadData] = { [GameSession.Scope.Saves] = true, [GameSession.Scope.Persistence] = true },
+	[GameSession.Event.SaveData] = { [GameSession.Scope.Saves] = true, [GameSession.Scope.Persistence] = true },
+}
+
+local function addEventListener(event, callback)
+	if not listeners[event] then
+		listeners[event] = {}
+	end
+
+	table.insert(listeners[event], callback)
+end
+
+local function dispatchEvent(event, state)
+	if listeners[event] then
+		state.event = event
+
+		for _, callback in ipairs(listeners[event]) do
+			callback(state)
+		end
+
+		state.event = nil
+	end
+end
+
+local function raiseError(msg)
+	print('[GameSession] ' .. msg)
+	error(msg, 2)
+end
+
+-- State Observing
 
 local isLoaded = false
 local isPaused = true
@@ -50,21 +85,18 @@ local stateProps = {
 	{ current = 'timestamps' },
 }
 
-local eventScopes = {
-	[GameSession.Event.Update] = {},
-	[GameSession.Event.Load] = { [GameSession.Scope.Saves] = true },
-	[GameSession.Event.Save] = { [GameSession.Scope.Saves] = true },
-	[GameSession.Event.List] = { [GameSession.Scope.Saves] = true },
-	[GameSession.Event.LoadData] = { [GameSession.Scope.Persistence] = true },
-	[GameSession.Event.SaveData] = { [GameSession.Scope.Persistence] = true },
-}
+local previousState = {}
 
 local function updateLoaded(loaded)
+	local changed = isLoaded ~= loaded
+
 	isLoaded = loaded
+
+	return changed
 end
 
 local function updatePaused(isMenuActive)
-	isPaused = isMenuActive
+	isPaused = not isLoaded or isMenuActive
 end
 
 local function updateBlurred(isBlurActive)
@@ -172,21 +204,141 @@ local function notifyObservers()
 	end
 end
 
-local function dispatchEvent(event, state)
-	if listeners[event] then
-		state.event = event
-
-		for _, callback in ipairs(listeners[event]) do
-			callback(state)
-		end
-
-		state.event = nil
-	end
-end
-
 local function pushCurrentState()
 	previousState = GameSession.GetState()
 end
+
+-- Persistent Session
+
+local sessionDataDir
+local sessionDataRef
+local sessionDataTmpl
+local sessionDataRelaxed = false
+
+local function exportSession(t, max, depth)
+	if type(t) ~= 'table' then
+		return ''
+	end
+
+	max = max or 63
+	depth = depth or 0
+
+	local dumpStr = '{\n'
+	local indent = string.rep('\t', depth)
+
+	for k, v in pairs(t) do
+		local ktype = type(k)
+		local vtype = type(v)
+
+		local kstr = ''
+		if ktype == 'string' then
+			kstr = string.format('[%q] = ', k)
+		end
+
+		local vstr = ''
+		if vtype == 'string' then
+			vstr = string.format('%q', v)
+		elseif vtype == 'table' then
+			if depth < max then
+				vstr = exportSession(v, max, depth + 1)
+			end
+		elseif vtype == 'userdata' then
+			vstr = tostring(v)
+			if vstr:find('^userdata:') or vstr:find('^sol%.') then
+				if not sessionDataRelaxed then
+					--vtype = vstr:match('^sol%.(.+):')
+					if ktype == 'string' then
+						raiseError(('Cannot store userdata in the %q field.'):format(k))
+						--raiseError(('Cannot store userdata of type %q in the %q field.'):format(vtype, k))
+					else
+						raiseError(('Cannot store userdata in the list.'))
+						--raiseError(('Cannot store userdata of type %q.'):format(vtype))
+					end
+				else
+					vstr = ''
+				end
+			end
+		elseif vtype == 'function' or vtype == 'thread' then
+			if not sessionDataRelaxed then
+				if ktype == 'string' then
+					raiseError(('Cannot store %s in the %q field.'):format(vtype, k))
+				else
+					raiseError(('Cannot store %s.'):format(vtype))
+				end
+			end
+		else
+			vstr = tostring(v)
+		end
+
+		if vstr ~= '' then
+			dumpStr = string.format('%s\t%s%s%s,\n', dumpStr, indent, kstr, vstr)
+		end
+	end
+
+	return string.format('%s%s}', dumpStr, indent)
+end
+
+local function importSession(s)
+	local chunk = loadstring('return ' .. s, '')
+
+	return chunk and chunk() or {}
+end
+
+local function writeSession(sessionName, sessionData)
+	local sessionPath = sessionDataDir .. '/' .. sessionName .. '.lua'
+	local sessionFile = io.open(sessionPath, 'w')
+
+	if not sessionFile then
+		raiseError(('Cannot write session file %q.'):format(sessionPath))
+	end
+
+	sessionFile:write('return ')
+	sessionFile:write(exportSession(sessionData))
+	sessionFile:close()
+end
+
+local function readSession(sessionName)
+	local sessionPath = sessionDataDir .. '/' .. sessionName .. '.lua'
+	local sessionChunk = loadfile(sessionPath)
+
+	if type(sessionChunk) ~= 'function' then
+		sessionPath = sessionDataDir .. '/' .. (tonumber(sessionName) + 1) .. '.lua'
+		sessionChunk = loadfile(sessionPath)
+
+		if type(sessionChunk) ~= 'function' then
+			return nil
+		end
+	end
+
+	return sessionChunk()
+end
+
+local function removeSession(sessionName)
+	local sessionPath = sessionDataDir .. '/' .. sessionName .. '.lua'
+
+	os.remove(sessionPath)
+end
+
+local function cleanUpSessions(sessionNames)
+	local validNames = {}
+
+	for _, sessionName in ipairs(sessionNames) do
+		validNames[tostring(sessionName)] = true
+		validNames[tostring(sessionName + 1)] = true
+	end
+
+	for _, sessionFile in pairs(dir(sessionDataDir)) do
+		if not sessionFile.name:find('^%.') then
+			local sessionName = sessionFile.name:gsub('%.lua$', '')
+
+			if not validNames[sessionName] then
+				removeSession(sessionName)
+			end
+		end
+	end
+end
+
+-- Initialization
 
 local function initialize(event)
 	if not initialized.data then
@@ -212,27 +364,39 @@ local function initialize(event)
 
 	local required = eventScopes[event] or eventScopes[GameSession.Event.Update]
 
-	-- Session State Listeners
+	-- Session State
 
 	if required[GameSession.Scope.Session] and not initialized[GameSession.Scope.Session] then
-		Observe('RadialWheelController', 'RegisterBlackboards', function(_, loaded)
-			--spdlog.error(('RadialWheelController::RegisterBlackboards(%s)'):format(tostring(loaded)))
+		Observe('QuestTrackerGameController', 'OnInitialize', function()
+			--spdlog.error(('QuestTrackerGameController::OnInitialize()'))
 
-			updateLoaded(loaded)
-			updatePaused(false)
-			updateBlurred(false)
-			updateDead(false)
-			notifyObservers()
+			if updateLoaded(true) then
+				updatePaused(false)
+				updateBlurred(false)
+				updateDead(false)
+				notifyObservers()
+			end
+		end)
+
+		Observe('PlayerPuppet', 'OnDetach', function()
+			--spdlog.error(('PlayerPuppet::OnDetach()'))
+
+			if updateLoaded(false) then
+				updatePaused(true)
+				updateBlurred(false)
+				updateDead(false)
+				notifyObservers()
+			end
 		end)
 
 		initialized[GameSession.Scope.Session] = true
 	end
 
-	-- Pause State Listeners
+	-- Pause State
 
 	if required[GameSession.Scope.Pause] and not initialized[GameSession.Scope.Pause] then
-		Observe('RadialWheelController', 'OnIsInMenuChanged', function(isInMenu)
-			--spdlog.error(('RadialWheelController::OnIsInMenuChanged(%s)'):format(tostring(isInMenu)))
+		Observe('gameuiPopupsManager', 'OnMenuUpdate', function(isInMenu)
+			--spdlog.error(('gameuiPopupsManager::OnMenuUpdate(%s)'):format(tostring(isInMenu)))
 
 			updatePaused(isInMenu)
 			notifyObservers()
@@ -241,7 +405,7 @@ local function initialize(event)
 		initialized[GameSession.Scope.Pause] = true
 	end
 
-	-- Blur State Listeners
+	-- Blur State
 
 	if required[GameSession.Scope.Blur] and not initialized[GameSession.Scope.Blur] then
 		local popupControllers = {
@@ -291,14 +455,18 @@ local function initialize(event)
 		initialized[GameSession.Scope.Blur] = true
 	end
 
-	-- Death State Listeners
+	-- Death State
 
-	Observe('PlayerPuppet', 'OnDeath', function()
-		updateDead(true)
-		notifyObservers()
-	end)
+	if required[GameSession.Scope.Death] and not initialized[GameSession.Scope.Death] then
+		Observe('PlayerPuppet', 'OnDeath', function()
+			updateDead(true)
+			notifyObservers()
+		end)
 
-	-- Saving and Loading Listeners
+		initialized[GameSession.Scope.Death] = true
+	end
+
+	-- Saving and Loading
 
 	if required[GameSession.Scope.Saves] and not initialized[GameSession.Scope.Saves] then
 		local saveList
@@ -308,7 +476,9 @@ local function initialize(event)
 		end)
 
 		Observe('LoadGameMenuGameController', 'OnSaveMetadataReady', function(saveInfo)
-			saveList[saveInfo.saveIndex] = saveInfo
+			saveList[saveInfo.saveIndex] = {
+				timestamp = tostring(saveInfo.timestamp):gsub('ULL$', '')
+			}
 		end)
 
 		Observe('LoadGameMenuGameController', 'LoadSaveInGame', function(_, saveIndex)
@@ -338,6 +508,46 @@ local function initialize(event)
 		initialized[GameSession.Scope.Saves] = true
 	end
 
+	-- Persistence
+
+	if not initialized[GameSession.Scope.Persistence] then
+		addEventListener(GameSession.Event.Save, function(state)
+			local sessionName = state.timestamp
+			local sessionData = sessionDataRef or {}
+
+			dispatchEvent(GameSession.Event.SaveData, sessionData)
+
+			writeSession(sessionName, sessionData)
+		end)
+
+		addEventListener(GameSession.Event.Load, function(state)
+			local sessionName = state.timestamp
+			local sessionData = readSession(sessionName)
+
+			if not sessionData then
+				if sessionDataTmpl then
+					sessionData = importSession(sessionDataTmpl)
+				else
+					sessionData = {}
+				end
+			end
+
+			dispatchEvent(GameSession.Event.LoadData, sessionData)
+
+			if sessionDataRef then
+				for prop, value in pairs(sessionData) do
+					sessionDataRef[prop] = value
+				end
+			end
+		end)
+
+		addEventListener(GameSession.Event.List, function(state)
+			cleanUpSessions(state.timestamps)
+		end)
+
+		initialized[GameSession.Scope.Persistence] = true
+	end
+
 	-- Initial state
 
 	if not initialized.state then
@@ -347,6 +557,8 @@ local function initialize(event)
 		initialized.state = true
 	end
 end
+
+-- Public Interface
 
 function GameSession.Observe(event, callback)
 	if type(event) == 'string' then
@@ -366,11 +578,7 @@ function GameSession.Observe(event, callback)
 	end
 
 	if type(callback) == 'function' then
-		if not listeners[event] then
-			listeners[event] = {}
-		end
-
-		table.insert(listeners[event], callback)
+		addEventListener(event, callback)
 	end
 end
 
@@ -386,6 +594,22 @@ function GameSession.Listen(event, callback)
 		GameSession.Observe(event, callback)
 	end
 end
+
+GameSession.On = GameSession.Listen
+
+setmetatable(GameSession, {
+	__index = function(_, key)
+		local event = string.match(key, '^On(%w+)$')
+
+		if event and GameSession.Event[event] then
+			rawset(GameSession, key, function(callback)
+				GameSession.Observe(event, callback)
+			end)
+
+			return rawget(GameSession, key)
+		end
+	end
+})
 
 function GameSession.IsLoaded()
 	return isLoaded
@@ -467,174 +691,22 @@ function GameSession.PrintState(state)
 	print('[GameSession] ' .. GameSession.ExportState(state))
 end
 
-GameSession.On = GameSession.Listen
-
-setmetatable(GameSession, {
-	__index = function(_, key)
-		local event = string.match(key, '^On(%w+)$')
-
-		if event and GameSession.Event[event] then
-			rawset(GameSession, key, function(callback)
-				GameSession.Observe(event, callback)
-			end)
-
-			return rawget(GameSession, key)
-		end
-	end
-})
-
--- Persistent Session
-
-local sessionDataDir = ''
-local sessionDataRef
-local sessionDataTmpl
-
-local function exportSession(t, max, depth)
-	if type(t) ~= 'table' then
-		return ''
-	end
-
-	max = max or 63
-	depth = depth or 0
-
-	local dumpStr = '{\n'
-	local indent = string.rep('\t', depth)
-
-	for k, v in pairs(t) do
-		local kstr = ''
-		if type(k) == 'string' then
-			kstr = string.format('[\'%s\'] = ', k)
-		end
-
-		local vstr = tostring(v)
-		if type(v) == 'string' then
-			vstr = string.format('\'%s\'', tostring(v))
-		elseif type(v) == 'table' then
-			if depth < max then
-				vstr = exportSession(v, max, depth + 1)
-			else
-				vstr = '...'
-			end
-		end
-
-		dumpStr = string.format('%s\t%s%s%s,\n', dumpStr, indent, kstr, vstr)
-	end
-
-	return string.format('%s%s}', dumpStr, indent)
-end
-
-local function importSession(s)
-	local chunk = loadstring('return ' .. s, '')
-
-	return chunk and chunk() or {}
-end
-
-local function writeSession(sessionName, sessionData)
-	local sessionPath = sessionDataDir .. '/' .. sessionName .. '.lua'
-	local sessionFile = io.open(sessionPath, 'w')
-
-	if not sessionFile then
-		error(('GameSession.Persist(): Cannot write session file %q.'):format(sessionPath))
-	end
-
-	sessionFile:write('return ')
-	sessionFile:write(exportSession(sessionData))
-	sessionFile:close()
-end
-
-local function readSession(sessionName)
-	local sessionPath = sessionDataDir .. '/' .. sessionName .. '.lua'
-	local sessionChunk = loadfile(sessionPath)
-
-	if type(sessionChunk) ~= 'function' then
-		return nil
-		--error(('GameSession.Persist(): Cannot read session file %q.'):format(sessionPath))
-	end
-
-	return sessionChunk()
-end
-
-local function removeSession(sessionName)
-	local sessionPath = sessionDataDir .. '/' .. sessionName .. '.lua'
-
-	os.remove(sessionPath)
-end
-
-local function cleanUpSessions(sessionNames)
-	local validNames = {}
-
-	for _, sessionName in ipairs(sessionNames) do
-		validNames[tostring(sessionName)] = true
-		validNames[tostring(sessionName + 1)] = true
-	end
-
-	for _, sessionFile in pairs(dir(sessionDataDir)) do
-		if not sessionFile.name:find('^%.') then
-			local sessionName = sessionFile.name:gsub('%.lua$', '')
-
-			if not validNames[sessionName] then
-				removeSession(sessionName)
-			end
-		end
-	end
-end
-
-local function setupPersistance()
-	if not initialized[GameSession.Scope.Persistence] then
-
-		GameSession.Observe(GameSession.Event.Save, function(state)
-			local sessionName = state.timestamp
-			local sessionData = sessionDataRef or {}
-
-			dispatchEvent(GameSession.Event.SaveData, sessionData)
-
-			writeSession(sessionName, sessionData)
-		end)
-
-		GameSession.Observe(GameSession.Event.Load, function(state)
-			local sessionName = state.timestamp
-			local sessionData = readSession(sessionName)
-
-			if not sessionData then
-				if sessionDataTmpl then
-					sessionData = importSession(sessionDataTmpl)
-				else
-					sessionData = {}
-				end
-			end
-
-			dispatchEvent(GameSession.Event.LoadData, sessionData)
-
-			if sessionDataRef then
-				for prop, value in pairs(sessionData) do
-					sessionDataRef[prop] = value
-				end
-			end
-		end)
-
-		GameSession.Observe(GameSession.Event.List, function(state)
-			cleanUpSessions(state.timestamps)
-		end)
-
-		initialized[GameSession.Scope.Persistence] = true
-	end
-end
-
 function GameSession.StoreInDir(sessionDir)
 	sessionDataDir = sessionDir
 
-	setupPersistance()
+	initialize(GameSession.Event.SaveData)
 end
 
-function GameSession.Persist(sessionData)
+function GameSession.Persist(sessionData, relaxedMode)
 	if type(sessionData) ~= 'table' then
-		error(('GameSession.Persist(): Session data must be a table, received %q.'):format(type(table)))
+		raiseError(('Session data must be a table, received %s.'):format(type(sessionData)))
 	end
 
 	sessionDataRef = sessionData
+	sessionDataRelaxed = relaxedMode and true or false
 	sessionDataTmpl = exportSession(sessionData)
 
-	setupPersistance()
+	initialize(GameSession.Event.SaveData)
 end
 
 return GameSession
