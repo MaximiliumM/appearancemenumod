@@ -22,7 +22,7 @@ function Util:ShallowCopy(copy, orig)
 end
 
 function Util:PlayVoiceOver(handle, vo)
-  Game["gameObject::PlayVoiceOver;GameObjectCNameCNameFloatEntityIDBool"](handle, CName.new(vo), CName.new(""))
+  Game["gameObject::PlayVoiceOver;GameObjectCNameCNameFloatEntityIDBool"](handle, CName.new(vo), CName.new(""), 1)
 end
 
 function Util:VectorDistance(pointA, pointB)
@@ -57,6 +57,20 @@ function Util:HoldPosition(targetPuppet, duration)
 	targetPuppet:GetAIControllerComponent():SendCommand(holdCmd)
 
 	return holdCmd, targetPuppet
+end
+
+function Util:NPCTalk(handle, vo, category, idle)
+	local stimComp = handle:GetStimReactionComponent()
+	local animComp = handle:GetAnimationControllerComponent()
+
+	if stimComp and animComp then
+		local animFeat = NewObject("handle:AnimFeature_FacialReaction")
+		animFeat.category = category or 3
+		animFeat.idle = idle or 5
+		stimComp:ActivateReactionLookAt(Game.GetPlayer(), false, true, 1, true)
+		Util:PlayVoiceOver(handle, vo or "greeting")
+		animComp:ApplyFeature(CName.new("FacialReaction"), animFeat)
+	end
 end
 
 return Util

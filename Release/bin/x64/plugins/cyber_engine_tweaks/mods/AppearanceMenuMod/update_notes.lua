@@ -10,6 +10,8 @@ return {
 		[[-- Photo mode's expressions won't work when this is enabled]],
 		[[Added new Incognito appearance and Custom Appearances to Lizzy]],
 		[[-- Thanks Hineytroll for making this possible!]],
+		[[Added new spawnable Camera Drone that has a light attached to it and follows you around!]],
+		[[-- Thanks Jamie for the suggestion]],
 		[[Moved User Themes to a new Themes folder inside User folder]],
 		[[-- Now you can't delete default themes using the menu]],
 		[[Adjusted legibility for the Cyberpunk (again) and Silverhand themes]],

@@ -7,7 +7,6 @@ local Scan = {
   },
   vehicleSeats = '',
   selectedSeats = {},
-  activeSeats = '',
   vehicle = '',
   activeCommands = '',
   leftBehind = '',
@@ -136,16 +135,15 @@ function Scan:Draw(AMM, target, style)
         end
 
         if next(AMM.spawnedNPCs) ~= nil then
-          --if target.handle:IsPlayerVehicle()
-            if Scan.vehicleSeats == '' then
+          if ImGui.SmallButton("  Assign Seats  ") then
+            if Scan.vehicle == '' or Scan.vehicle:GetEntityID().hash ~= target.handle:GetEntityID().hash then
               Scan:GetVehicleSeats(target.handle)
+              Scan.vehicle = target.handle
+              Scan.selectedSeats = {}
             end
 
-            if ImGui.SmallButton("  Assign Seats  ") then
-              Scan.vehicle = target.handle
-              ImGui.OpenPopup("Seats")
-            end
-          --end
+            ImGui.OpenPopup("Seats")
+          end
         else
           Scan.vehicleSeats = ''
         end
@@ -218,11 +216,7 @@ end
 
 function Scan:DrawSeatsPopup()
   if ImGui.BeginPopup("Seats", ImGuiWindowFlags.AlwaysAutoResize) then
-    local nonCompanions = {}
     for i, ent in pairs(AMM.spawnedNPCs) do
-      if not ent.handle.isPlayerCompanionCached then
-        table.insert(nonCompanions, ent)
-      end
 
       ImGui.Text(ent.name)
       ImGui.SameLine()
@@ -248,7 +242,15 @@ function Scan:DrawSeatsPopup()
     AMM.UI:Separator()
 
     if ImGui.Button("Assign", -1, 30) then
-      if #nonCompanions ~= 0 then
+      local nonCompanions = {}
+
+      for _, seat in pairs(Scan.selectedSeats) do
+        if not seat.entity.isPlayerCompanionCached then
+          nonCompanions[seat.name] = seat
+        end
+      end
+
+      if next(nonCompanions) ~= nil then
         Scan:AssignSeats(nonCompanions, true)
       end
 
@@ -260,6 +262,9 @@ function Scan:DrawSeatsPopup()
 end
 
 function Scan:AssignSeats(entities, instant)
+  Scan.activeCommands = {}
+  Scan.activeSeats = {}
+
   for _, assign in pairs(entities) do
     local cmd = NewObject('AIMountCommand')
     local mountData = NewObject('handle:gameMountEventData')
@@ -277,23 +282,24 @@ function Scan:AssignSeats(entities, instant)
     cmd.mountData = mountData
     cmd = cmd:Copy()
 
-    if Scan.activeSeats == '' then
-      Scan.activeSeats = {}
-    end
-
-    if Scan.activeSeats[assign.name] == nil or Scan.activeSeats[assign.name] ~= assign.seat.name then
-      Scan.activeSeats[assign.name] = assign.seat.name
-
-      assign.entity:GetAIControllerComponent():SendCommand(cmd)
-    end
+    assign.entity:GetAIControllerComponent():SendCommand(cmd)
   end
 end
 
 function Scan:GetVehicleSeats(vehicle)
   Scan.vehicleSeats = {}
-  for _, seat in ipairs(Scan.possibleSeats) do
-    if Game['VehicleComponent::HasSlot;GameInstanceVehicleObjectCName'](vehicle, CName.new(seat.cname)) then
-      table.insert(Scan.vehicleSeats, seat)
+
+  if AMM:GetScanID(vehicle) == '0x04201D05, 47' then
+    Scan.vehicleSeats = {
+      { name = "Front Right", cname = "seat_front_right" },
+      { name = "Back Left", cname = "seat_back_left" },
+      { name = "Front Left", cname = "seat_front_left" },
+    }
+  else
+    for _, seat in ipairs(Scan.possibleSeats) do
+      if Game['VehicleComponent::HasSlot;GameInstanceVehicleObjectCName'](vehicle, CName.new(seat.cname)) then
+        table.insert(Scan.vehicleSeats, seat)
+      end
     end
   end
 end
@@ -306,10 +312,15 @@ function Scan:AutoAssignSeats()
 
     local seatsNumber = #Scan.vehicleSeats - 1
 
-    if counter <  seatsNumber then
-      Scan.selectedSeats[ent.name] = {name = ent.name, entity = ent.handle, seat = Scan.vehicleSeats[counter]}
+    if counter <=  seatsNumber then
+      if Scan.selectedSeats[ent.name] == nil or Scan.selectedSeats[ent.name].seat.name == "Select Seat" then
+        Scan.selectedSeats[ent.name] = {name = ent.name, entity = ent.handle, seat = Scan.vehicleSeats[counter]}
+      end
     elseif counter > seatsNumber then
-      Scan.leftBehind = {}
+      if Scan.leftBehind == '' then
+        Scan.leftBehind = {}
+      end
+
       table.insert(Scan.leftBehind, { ent = ent.handle, cmd = Util:HoldPosition(ent.handle, 99999) })
     end
 

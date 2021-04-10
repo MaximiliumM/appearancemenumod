@@ -161,8 +161,8 @@ function AMM:new()
 					 	lost.ent:GetAIControllerComponent():StopExecutingCommand(lost.cmd, true)
 						local pos = Game.GetPlayer():GetWorldPosition()
 					  local heading = Game.GetPlayer():GetWorldForward()
-					  local playerFront = Vector4.new(pos.x - (heading.x * 5), pos.y - (heading.y * 5), pos.z, pos.w)
-						Util:TeleportNPCTo(lost.ent, playerFront)
+					  local behindPlayer = Vector4.new(pos.x - (heading.x * 5), pos.y - (heading.y * 5), pos.z, pos.w)
+						Util:TeleportNPCTo(lost.ent, behindPlayer)
 					 end
 
 					 AMM.Scan.leftBehind = ''
@@ -286,7 +286,7 @@ function AMM:new()
 	 registerHotkey("amm_npc_talk", "NPC Talk", function()
 		local target = AMM:GetTarget()
  		if target ~= nil and target.handle:IsNPC() then
-			AMM:NPCTalk(target.handle)
+			Util:NPCTalk(target.handle)
 		end
 	 end)
 
@@ -352,7 +352,7 @@ function AMM:new()
 					-- Travel Animation Done Check --
 					if AMM.TeleportMod ~= '' and AMM.TeleportMod.api.done then
 						if next(AMM.spawnedNPCs) ~= nil then
-							AMM:RespawnAll()
+							AMM:TeleportAll()
 						end
 						AMM.TeleportMod.api.done = false
 					end
@@ -365,7 +365,7 @@ function AMM:new()
 							waitTimer = 0.0
 							AMM.Tools.isTeleporting = false
 							if next(AMM.spawnedNPCs) ~= nil then
-					      AMM:RespawnAll()
+					      AMM:TeleportAll()
 					    end
 						end
 					end
@@ -1175,6 +1175,15 @@ function AMM:DespawnAll(message)
 	self.spawnedNPCs = {}
 end
 
+function AMM:TeleportAll()
+	for _, ent in pairs(AMM.spawnedNPCs) do
+		local pos = Game.GetPlayer():GetWorldPosition()
+		local heading = Game.GetPlayer():GetWorldForward()
+		local behindPlayer = Vector4.new(pos.x - (heading.x * 2), pos.y - (heading.y * 2), pos.z, pos.w)
+		Util:TeleportNPCTo(ent.handle, behindPlayer)
+	end
+end
+
 function AMM:RespawnAll()
 	if AMM.entitiesForRespawn == '' then
 		AMM.entitiesForRespawn = {}
@@ -1457,20 +1466,6 @@ function AMM:GetTarget()
 	end
 
 	return nil
-end
-
-function AMM:NPCTalk(handle)
-	local stimComp = handle:GetStimReactionComponent()
-	local animComp = handle:GetAnimationControllerComponent()
-
-	if stimComp and animComp then
-		local animFeat = NewObject("handle:AnimFeature_FacialReaction")
-		animFeat.category = 3
-		animFeat.idle = 5
-		stimComp:ActivateReactionLookAt(Game.GetPlayer(), false, true, 1, true)
-		Util:PlayVoiceOver(handle, "greeting")
-		animComp:ApplyFeature(CName.new("FacialReaction"), animFeat)
-	end
 end
 
 function AMM:SetGodMode(entityID, immortal)
