@@ -5,7 +5,7 @@ local UI = {
 }
 
 function UI:Preload(theme)
-  local file = io.open('Themes/'..theme, 'r')
+  local file = io.open('Themes/'..theme, 'r') or io.open('User/Themes/'..theme, 'r')
   if file then
     local contents = file:read( "*a" )
 		local themeData = json.decode(contents)
@@ -29,14 +29,20 @@ end
 
 function UI:DeleteTheme(theme)
   if theme ~= "Default" then
-    os.remove("Themes/"..theme..".json")
+    os.remove("User/Themes/"..theme..".json")
     UI.userThemes = UI:UserThemes()
   end
 end
 
 function UI:UserThemes()
-  local files = dir("./Themes")
   local userThemes = {}
+  local files = dir("./User/Themes")
+  for _, theme in ipairs(files) do
+    if string.find(theme.name, '.json') then
+      table.insert(userThemes, {name = theme.name:gsub(".json", ""), style = UI:Preload(theme.name)})
+    end
+  end
+  local files = dir("./Themes")
   for _, theme in ipairs(files) do
     if string.find(theme.name, '.json') then
       table.insert(userThemes, {name = theme.name:gsub(".json", ""), style = UI:Preload(theme.name)})

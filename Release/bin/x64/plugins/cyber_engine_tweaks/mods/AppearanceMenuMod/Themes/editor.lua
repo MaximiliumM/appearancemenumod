@@ -73,7 +73,7 @@ function Editor:Draw(AMM)
           Editor.errorMessage = "Theme name already exists"
           ImGui.OpenPopup("Error")
         else
-          local file = io.open("Themes/"..Editor.newThemeName..".json", "w")
+          local file = io.open("User/Themes/"..Editor.newThemeName..".json", "w")
           if file then
             local contents = json.encode(Editor:ConvertToRGB(Theme))
         		file:write(contents)

@@ -44,12 +44,14 @@ function AMM:new()
 	 AMM.Scan = require('Modules/scan.lua')
 	 AMM.Swap = require('Modules/swap.lua')
 	 AMM.Tools = require('Modules/tools.lua')
+	 -- This is where I load the new module for the new feature
+	 -- I won't tell you what it is though
 
 	 -- External Mods API --
 	 AMM.TeleportMod = ''
 
 	 -- Main Properties --
-	 AMM.currentVersion = "1.8.6"
+	 AMM.currentVersion = "1.8.7"
 	 AMM.updateNotes = require('update_notes.lua')
 	 AMM.userSettings = AMM:PrepareSettings()
 	 AMM.categories = AMM:GetCategories()
@@ -152,6 +154,28 @@ function AMM:new()
 		 end
 
 		 -- Setup Observers --
+		 Observe("VehicleComponent", "OnVehicleStartedMountingEvent", function(event)
+			 if event.character:IsPlayer() then
+				 if AMM.Scan.leftBehind ~= '' then
+					 for _, lost in ipairs(AMM.Scan.leftBehind) do
+					 	lost.ent:GetAIControllerComponent():StopExecutingCommand(lost.cmd, true)
+						local pos = Game.GetPlayer():GetWorldPosition()
+					  local heading = Game.GetPlayer():GetWorldForward()
+					  local playerFront = Vector4.new(pos.x - (heading.x * 5), pos.y - (heading.y * 5), pos.z, pos.w)
+						Util:TeleportNPCTo(lost.ent, playerFront)
+					 end
+
+					 AMM.Scan.leftBehind = ''
+				 elseif next(AMM.spawnedNPCs) ~= nil then
+					 local target = Game.GetTargetingSystem():GetLookAtObject(Game.GetPlayer(), false, false)
+					 if target ~= nil and target:IsVehicle() then
+						 AMM.Scan.vehicle = target
+						 AMM.Scan:AutoAssignSeats()
+					 end
+				 end
+			 end
+		 end)
+
 		 Observe("PlayerPuppet", "OnAction", function(action)
 		   local actionName = Game.NameToString(action:GetName(action))
        local actionType = action:GetType(action).value
@@ -160,7 +184,7 @@ function AMM:new()
 	        if actionType == 'BUTTON_RELEASED' then
 					 AMM.playerInMenu = true
 					 AMM.playerInPhoto = true
-	         AMM.Tools:SetSlowMotionSpeed(1)
+	         Game.SetTimeDilation(1)
 					end
 			 elseif actionName == 'ExitPhotoMode' then
 				 if actionType == 'BUTTON_RELEASED' then
@@ -262,12 +286,7 @@ function AMM:new()
 	 registerHotkey("amm_npc_talk", "NPC Talk", function()
 		local target = AMM:GetTarget()
  		if target ~= nil and target.handle:IsNPC() then
-			local animCon = target.handle:GetAnimationControllerComponent()
-	    local animFeat = NewObject("handle:AnimFeature_FacialReaction")
-	    animFeat.category = 3
-	    animFeat.idle = 5
-	 		Util:PlayVoiceOver(target.handle, "greeting")
-			animCon:ApplyFeature(CName.new("FacialReaction"), animFeat)
+			AMM:NPCTalk(target.handle)
 		end
 	 end)
 
@@ -327,6 +346,8 @@ function AMM:new()
 							AMM.shouldCheckSavedAppearance = true
 						end
 					end
+
+					-- Removed stuff from new feature soon tm --
 
 					-- Travel Animation Done Check --
 					if AMM.TeleportMod ~= '' and AMM.TeleportMod.api.done then
@@ -684,6 +705,9 @@ function AMM:Begin()
 				-- Tools Tab --
 				AMM.Tools:Draw(AMM, target)
 
+				-- Placement for new feature tab --
+				-- Are you hyped already? --
+
 				-- Settings Tab --
 				if (ImGui.BeginTabItem("Settings")) then
 
@@ -1005,7 +1029,6 @@ function AMM:GetPersonalityOptions()
 		{name = "Sad", idle = 3, category = 3},
 		{name = "Surprise", idle = 8, category = 3},
 		{name = "Are You Serious?", idle = 2, category = 1},
-		{name = "Neutral", idle = 3, category = 1},
 		{name = "Drunk", idle = 4, category = 1},
 		{name = "Sleepy", idle = 5, category = 1},
 		{name = "Bored", idle = 6, category = 1},
@@ -1434,6 +1457,20 @@ function AMM:GetTarget()
 	end
 
 	return nil
+end
+
+function AMM:NPCTalk(handle)
+	local stimComp = handle:GetStimReactionComponent()
+	local animComp = handle:GetAnimationControllerComponent()
+
+	if stimComp and animComp then
+		local animFeat = NewObject("handle:AnimFeature_FacialReaction")
+		animFeat.category = 3
+		animFeat.idle = 5
+		stimComp:ActivateReactionLookAt(Game.GetPlayer(), false, true, 1, true)
+		Util:PlayVoiceOver(handle, "greeting")
+		animComp:ApplyFeature(CName.new("FacialReaction"), animFeat)
+	end
 end
 
 function AMM:SetGodMode(entityID, immortal)

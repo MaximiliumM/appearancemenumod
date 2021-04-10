@@ -26,6 +26,7 @@ local Tools = {
   makeupToggle = true,
   accessoryToggle = true,
   lookAtLocked = false,
+  animatedHead = false,
 
   -- NPC Properties --
   protectedNPCs = {},
@@ -76,7 +77,7 @@ function Tools:Draw(AMM, target)
         else
           AMM.UI:TextColored("Player In Photo Mode")
           ImGui.Text("Target V to see available actions")
-          AMM.UI:Separator()
+          AMM.UI:Spacing(6)
           Tools.actionCategories = {
             { name = "Time Actions", actions = Tools.DrawTimeActions },
             { name = "NPC Actions", actions = Tools.DrawNPCActions },
@@ -186,6 +187,17 @@ function Tools:DrawVActions()
     if ImGui.Button("Toggle V Head", Tools.style.halfButtonWidth, Tools.style.buttonHeight) then
       Tools:ToggleHead()
     end
+
+    ImGui.Spacing()
+    Tools.animatedHead, clicked = ImGui.Checkbox("Animated Head in Photo Mode", Tools.animatedHead)
+
+    if clicked then
+      Tools:ToggleAnimatedHead()
+    end
+
+    if ImGui.IsItemHovered() then
+      ImGui.SetTooltip("Photo mode expressions won't work while Animated Head is enabled.")
+    end
   end
 end
 
@@ -273,12 +285,23 @@ function Tools:ToggleGodMode()
   Game.ModStatPlayer("StunImmunity", toggle)
 end
 
+function Tools:ToggleAnimatedHead()
+
+  local isFemale = Util:GetPlayerGender()
+  if isFemale == "_Female" then gender = 'wa' else gender = 'ma' end
+  if Tools.animatedHead then mode = "tpp" else mode = "photomode" end
+
+  local headItem = f("player_%s_%s_head", gender, mode)
+
+  TweakDB:SetFlat(f("Items.Player%sPhotomodeHead.entityName", gender:gsub("^%l", string.upper)), headItem)
+end
+
 function Tools:ToggleHead()
 
   local isFemale = Util:GetPlayerGender()
 	if isFemale == "_Female" then gender = 'Wa' else gender = 'Ma' end
 
-  local headItem = f("Items.Player%sPhotomodeHead", gender)
+  local headItem = f("Items.CharacterCustomization%sHead", gender)
 
   local ts = Game.GetTransactionSystem()
   local gameItemID = GetSingleton('gameItemID')
