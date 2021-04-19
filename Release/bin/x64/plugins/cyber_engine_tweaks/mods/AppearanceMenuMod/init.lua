@@ -50,7 +50,7 @@ function AMM:new()
 	 AMM.TeleportMod = ''
 
 	 -- Main Properties --
-	 AMM.currentVersion = "1.9"
+	 AMM.currentVersion = "1.9.1"
 	 AMM.updateNotes = require('update_notes.lua')
 	 AMM.credits = require("credits.lua")
 	 AMM.updateLabel = "WHAT'S NEW"
@@ -309,7 +309,7 @@ function AMM:new()
 	 end)
 
 	 registerHotkey("amm_freeze_time", "Freeze Time", function()
-	 	AMM.Tools:PauseTime()
+	 	AMM.Tools:FreezeTime()
 	 end)
 
 	 registerHotkey("amm_skip_frame", "Skip Frame", function()
@@ -397,7 +397,7 @@ function AMM:new()
 
 						if waitTimer > 0.01 then
 							AMM.skipFrame = false
-							AMM.Tools:PauseTime()
+							AMM.Tools:FreezeTime()
 							waitTimer = 0.0
 						end
 					end
@@ -653,7 +653,7 @@ function AMM:Begin()
 									end
 								end
 
-								if spawn.handle ~= '' and not(spawn.handle:IsVehicle()) and not(spawn.handle:IsDead()) and AMM:CanBeHostile(spawn.handle) then
+								if spawn.handle ~= '' and not(spawn.handle:IsVehicle()) and not(spawn.handle:IsDevice()) and not(spawn.handle:IsDead()) and AMM:CanBeHostile(spawn.handle) then
 
 									local hostileButtonLabel = "Hostile"
 									if not(spawn.handle.isPlayerCompanionCached) then
@@ -742,9 +742,7 @@ function AMM:Begin()
 				end
 
 				-- Swap Tab --
-				if AMM.userSettings.experimental then
-					AMM.Swap:Draw(AMM, target)
-				end
+				AMM.Swap:Draw(AMM, target)
 
 				-- Tools Tab --
 				AMM.Tools:Draw(AMM, target)
@@ -1154,7 +1152,14 @@ function AMM:GetCustomAppearanceDefaults()
 				['kerry_eurodyne__q203__shower'] = true,
 			},
 			component = 'hx_001_ma_c__kerry_eurodyne_old_pimples_01'
-		}
+		},
+		-- ["0x8D34B4F2, 18"] = {
+		-- 	apps = {
+		-- 		['Custom Yorinobu Kimono Naked'] = true,
+		-- 		['Custom Yorinobu Kimono Naked No Cloth'] = true,
+		-- 	},
+		-- 	component = 'hx_001_ma_a__yorinobu_arasaka_pimples_01'
+		-- },
 	}
 
 	return customs
@@ -1229,12 +1234,7 @@ function AMM:SpawnNPC(spawn)
 		local offSetSpawn = self.spawnsCounter % 2 == 0 and self.spawnsCounter / 4 or -self.spawnsCounter / 4
 
 		local distanceFromPlayer = 1
-		local distanceFromGround = 0
-
-		if type(spawn.parameters) == 'table' then
-			distanceFromPlayer = -15
-			distanceFromGround = spawn.parameters.distance or 0
-		end
+		local distanceFromGround = tonumber(spawn.parameters) or 0
 
 		local player = AMM.player
 		local heading = player:GetWorldForward()

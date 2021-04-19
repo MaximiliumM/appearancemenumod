@@ -1,5 +1,17 @@
 return {
 	{
+		'1.9.1',
+		'2021 Apr 19',
+		[[Introducing Props:]],
+		[[-- We have added a very limited amount of Props that can be moved around to help with your photos. We will add more Props as we test them!]],
+		[[-- Some of the Props you have to target at their very bottom to be able to move them]],
+		[[-- You can also move TVs and other targetable objects in the game world]],
+		[[Fixed issue where NPCs would fight their own Teams]],
+		[[Fixed issue where adding multiples of the same NPC wouldn't save properly to the script file]],
+		[[Fixed issue where Freeze time hotkey wouldn't work]],
+		[[Fixed issue where Skip Frame hotkey and button wouldn't work]],
+	},
+	{
 		'1.9',
 		'2021 Apr 19',
 		[[Introducing Director Tab:]],

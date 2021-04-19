@@ -68,7 +68,7 @@ function Director:NewActor(name)
   local obj = {}
 
   obj.name = name
-  obj.uniqueName = name.."##"..tostring(os.time())
+  obj.uniqueName = name.."##"..tostring(os.clock())
   obj.id = ''
   obj.nodes = {}
   obj.entityID = ''
@@ -762,7 +762,8 @@ function Director:StopScript(script)
     end
 
     if allGone then
-      script.isRunning = false
+      script = Util:ShallowCopy(script, Director:LoadScriptData(script.title..".json"))
+
       Director.stopPressed = false
       Director.allowTalk = false
 
@@ -805,28 +806,24 @@ function Director:PlayScript(script, systemActivated)
 
   local systemActivated = systemActivated or false
 
-  if script.done then
-    Director:RestartScript(script)
-  else
-    Director:SaveScript(script)
-    table.insert(Director.activeScripts, script)
-    script.spawnLevel = #Director.activeScripts
-    script.isRunning = true
+  Director:SaveScript(script)
+  table.insert(Director.activeScripts, script)
+  script.spawnLevel = #Director.activeScripts
+  script.isRunning = true
 
-    local actors = Director:GetActors(script)
+  local actors = Director:GetActors(script)
 
-    if not systemActivated then
-      Director:SpawnActors(script, actors)
-    end
-
-    Cron.Every(0.1, function(timer)
-      if Director.finishedSpawning then
-        Cron.Halt(timer)
-        Director.finishedSpawning = false
-        Director:MoveActors(script, actors)
-      end
-    end)
+  if not systemActivated then
+    Director:SpawnActors(script, actors)
   end
+
+  Cron.Every(0.1, function(timer)
+    if Director.finishedSpawning then
+      Cron.Halt(timer)
+      Director.finishedSpawning = false
+      Director:MoveActors(script, actors)
+    end
+  end)
 end
 
 function Director:MoveActors(script, actors)
@@ -1152,6 +1149,7 @@ function Director:SetHostileTowards(handle, target, group)
 
   local AIC = handle:GetAIControllerComponent()
   local targetAttAgent = handle:GetAttitudeAgent()
+  print(Dump(targetAttAgent, false))
   local reactionComp = handle.reactionComponent
 
   local aiRole = NewObject('handle:AIRole')
@@ -1164,16 +1162,16 @@ function Director:SetHostileTowards(handle, target, group)
 
   if group == "Team A" then
     targetAttAgent:SetAttitudeGroup(CName.new("judy"))
-    Game.GetAttitudeSystem():SetAttitudeRelation(CName.new("judy"), CName.new("panam"), Enum.new("EAIAttitude", "AIA_Hostile"))
+    Game.GetAttitudeSystem():SetAttitudeRelationFromTweak(TweakDBID.new("Attitudes.Group_Judy"), TweakDBID.new("Attitudes.Group_Panam"), Enum.new("EAIAttitude", "AIA_Hostile"))
   elseif group == "Team B" then
     targetAttAgent:SetAttitudeGroup(CName.new("panam"))
-    Game.GetAttitudeSystem():SetAttitudeRelation(CName.new("panam"), CName.new("judy"), Enum.new("EAIAttitude", "AIA_Hostile"))
-  else
-    targetAttAgent:SetAttitudeTowards(target:GetAttitudeAgent(), Enum.new("EAIAttitude", "AIA_Hostile"))
+    Game.GetAttitudeSystem():SetAttitudeRelationFromTweak(TweakDBID.new("Attitudes.Group_Panam"), TweakDBID.new("Attitudes.Group_Judy"), Enum.new("EAIAttitude", "AIA_Hostile"))
   end
 
   reactionComp:SetReactionPreset(GetSingleton("gamedataTweakDBInterface"):GetReactionPresetRecord(TweakDBID.new("ReactionPresets.Ganger_Aggressive")))
 
+  targetAttAgent:SetAttitudeTowardsAgentGroup(targetAttAgent, targetAttAgent, Enum.new("EAIAttitude", "AIA_Friendly"))
+  targetAttAgent:SetAttitudeTowards(target:GetAttitudeAgent(), Enum.new("EAIAttitude", "AIA_Hostile"))
   reactionComp:TriggerCombat(target)
 end
 
@@ -1569,7 +1567,7 @@ function Director:PrepareExportData(script)
       table.insert(exportNodes, exportNode)
     end
 
-    exportScript.actors[actor.name] = {team = actor.team, sequenceType = actor.sequenceType, nodes = exportNodes, autoTalk = boolToInt(actor.autoTalk)}
+    table.insert(exportScript.actors, {name = actor.name, uniqueName = actor.uniqueName, team = actor.team, sequenceType = actor.sequenceType, nodes = exportNodes, autoTalk = boolToInt(actor.autoTalk)})
   end
 
   return exportScript
@@ -1593,11 +1591,23 @@ function Director:LoadScriptData(title)
     file:close()
     local newScript = Director:NewScript(scriptData["title"])
 
-    for actor, actorData in pairs(scriptData["actors"]) do
-      local newActor = Director:NewActor(actor)
+    -- Migrating old script
+    local migrate = {}
+    for i, actorData in pairs(scriptData["actors"]) do
+      if type(i) == 'number' then break end
+
+      actorData.name = i
+      table.insert(migrate, actorData)
+    end
+
+    if #migrate > 0 then scriptData['actors'] = migrate end
+
+    for i, actorData in ipairs(scriptData["actors"]) do
+      local newActor = Director:NewActor(actorData.name)
       newActor.sequenceType = actorData.sequenceType
       newActor.autoTalk = intToBool(actorData.autoTalk or 0)
       newActor.team = actorData.team or ''
+      newActor.uniqueName = actorData.uniqueName or (actorData.name.."##"..i..tostring(os.clock()))
 
       for _, node in ipairs(actorData.nodes) do
         local newNode = Director:NewNode(node.name)

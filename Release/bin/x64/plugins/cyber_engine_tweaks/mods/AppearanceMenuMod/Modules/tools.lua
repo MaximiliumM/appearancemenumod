@@ -69,7 +69,7 @@ function Tools:Draw(AMM, target)
       { name = "Teleport Actions", actions = Tools.DrawTeleportActions },
       { name = "Time Actions", actions = Tools.DrawTimeActions },
       { name = "V Actions", actions = Tools.DrawVActions },
-      { name = "NPC Actions", actions = Tools.DrawNPCActions },
+      { name = "Target Actions", actions = Tools.DrawNPCActions },
     }
 
     if AMM.playerInMenu and not AMM.playerInPhoto then
@@ -81,7 +81,7 @@ function Tools:Draw(AMM, target)
           Tools.actionCategories = {
             { name = "V Actions", actions = Tools.DrawVActions },
             { name = "Time Actions", actions = Tools.DrawTimeActions },
-            { name = "NPC Actions", actions = Tools.DrawNPCActions },
+            { name = "Target Actions", actions = Tools.DrawNPCActions },
           }
         else
           AMM.UI:TextColored("Player In Photo Mode")
@@ -89,7 +89,7 @@ function Tools:Draw(AMM, target)
           AMM.UI:Spacing(6)
           Tools.actionCategories = {
             { name = "Time Actions", actions = Tools.DrawTimeActions },
-            { name = "NPC Actions", actions = Tools.DrawNPCActions },
+            { name = "Target Actions", actions = Tools.DrawNPCActions },
           }
         end
       end
@@ -103,9 +103,9 @@ function Tools:Draw(AMM, target)
           ImGui.Separator()
           AMM.UI:Spacing(6)
 
-          if category.name ~= "NPC Actions" then
+          if category.name ~= "Target Actions" then
             category.actions()
-          elseif category.name == "NPC Actions" and AMM.userSettings.experimental then
+          elseif category.name == "Target Actions" and AMM.userSettings.experimental then
             category.actions()
           end
 
@@ -578,9 +578,8 @@ function Tools:SetLocationNamePopup()
 	ImGui.OpenPopup("Share Location")
 end
 
--- NPC actions
+-- Target actions
 function Tools:DrawNPCActions()
-  -- AMM.UI:TextColored("NPC Actions:")
 
   AMM.UI:DrawCrossHair()
 
@@ -590,18 +589,20 @@ function Tools:DrawNPCActions()
     end
   end
 
-  if target ~= nil and target.handle:IsNPC() or Tools.currentNPC ~= '' then
+  if target ~= nil or Tools.currentNPC ~= '' then
 
     AMM.UI:TextCenter("Movement", true)
 
     if not Tools.lockTarget or Tools.currentNPC == '' then
       Tools.lockTarget = false
-      if Tools.currentNPC == '' or (not(Tools.holdingNPC) and target ~= nil and target.handle:IsNPC() and Tools.currentNPC ~= '' and Tools.currentNPC.handle:GetEntityID().hash ~= target.handle:GetEntityID().hash) then
+      if target == nil and Tools.currentNPC ~= '' then
+        Tools.currentNPC = ''
+      elseif Tools.currentNPC == '' or (not(Tools.holdingNPC) and Tools.currentNPC.handle:GetEntityID().hash ~= target.handle:GetEntityID().hash) then
         Tools.currentNPC = target
 
         local pos = Tools.currentNPC.handle:GetWorldPosition()
         local angles = GetSingleton('Quaternion'):ToEulerAngles(Tools.currentNPC.handle:GetWorldOrientation())
-        Tools.npcRotation = angles.roll
+        Tools.npcRotation = {angles.roll, angles.pitch, angles.yaw}
         Tools.npcUpDown = pos.z
         Tools.npcLeftRight = {pos.x, pos.y}
       end
@@ -618,16 +619,16 @@ function Tools:DrawNPCActions()
       Tools.lockTarget = not Tools.lockTarget
     end
 
-    ImGui.PushItemWidth(ImGui.GetWindowContentRegionWidth() - ImGui.CalcTextSize("Rotation "))
+    ImGui.PushItemWidth(ImGui.GetWindowContentRegionWidth() - ImGui.CalcTextSize("Tilt/Rotation "))
     Tools.npcUpDown, upDownUsed = ImGui.DragFloat("Up/Down", Tools.npcUpDown, 0.01)
 
     if upDownUsed then
       local pos = Tools.currentNPC.handle:GetWorldPosition()
       pos = Vector4.new(pos.x, pos.y, Tools.npcUpDown, pos.w)
-      if Tools.currentNPC.name == "V" then
-        Game.GetTeleportationFacility():Teleport(Tools.currentNPC.handle, pos, EulerAngles.new(0, 0, Tools.npcRotation))
+      if Tools.currentNPC.name ~= 'V' and Tools.currentNPC.handle:IsNPC() then
+        Tools:TeleportNPCTo(Tools.currentNPC.handle, pos, Tools.npcRotation[3])
       else
-        Tools:TeleportNPCTo(Tools.currentNPC.handle, pos, Tools.npcRotation)
+        Game.GetTeleportationFacility():Teleport(Tools.currentNPC.handle, pos, EulerAngles.new(Tools.npcRotation[1], Tools.npcRotation[2], Tools.npcRotation[3]))
       end
     end
 
@@ -636,21 +637,25 @@ function Tools:DrawNPCActions()
     if leftRightUsed then
       local pos = Tools.currentNPC.handle:GetWorldPosition()
       pos = Vector4.new(Tools.npcLeftRight[1], Tools.npcLeftRight[2], pos.z, pos.w)
-      if Tools.currentNPC.name == "V" then
-        Game.GetTeleportationFacility():Teleport(Tools.currentNPC.handle, pos, EulerAngles.new(0, 0, Tools.npcRotation))
+      if Tools.currentNPC.name ~= 'V' and Tools.currentNPC.handle:IsNPC() then
+        Tools:TeleportNPCTo(Tools.currentNPC.handle, pos, Tools.npcRotation[3])
       else
-        Tools:TeleportNPCTo(Tools.currentNPC.handle, pos, Tools.npcRotation)
+        Game.GetTeleportationFacility():Teleport(Tools.currentNPC.handle, pos, EulerAngles.new(Tools.npcRotation[1], Tools.npcRotation[2], Tools.npcRotation[3]))
       end
     end
 
-    Tools.npcRotation, rotationUsed = ImGui.SliderFloat("Rotation", Tools.npcRotation, -180, 180)
+    if Tools.currentNPC.name ~= 'V' and Tools.currentNPC.handle:IsNPC() then
+      Tools.npcRotation[1], rotationUsed = ImGui.SliderFloat("Rotation", Tools.npcRotation[1], -180, 180)
+    elseif Tools.currentNPC ~= '' then
+      Tools.npcRotation, rotationUsed = ImGui.DragFloat3("Tilt/Rotation", Tools.npcRotation, 0.1)
+    end
 
     if rotationUsed then
       local pos = Tools.currentNPC.handle:GetWorldPosition()
-      if Tools.currentNPC.name == "V" then
-        Game.GetTeleportationFacility():Teleport(Tools.currentNPC.handle, pos, EulerAngles.new(0, 0, Tools.npcRotation))
+      if Tools.currentNPC.name == "V" or Tools.currentNPC.handle:IsDevice() then
+        Game.GetTeleportationFacility():Teleport(Tools.currentNPC.handle, pos, EulerAngles.new(Tools.npcRotation[1], Tools.npcRotation[2], Tools.npcRotation[3]))
       else
-        Tools:TeleportNPCTo(Tools.currentNPC.handle, pos, Tools.npcRotation)
+        Tools:TeleportNPCTo(Tools.currentNPC.handle, pos, Tools.npcRotation[1])
       end
     end
 
@@ -659,31 +664,46 @@ function Tools:DrawNPCActions()
 
     if not AMM.playerInPhoto then
 
-      local buttonLabel = "Pick Up NPC"
+      local buttonLabel = "Pick Up Target"
       if Tools.holdingNPC then
-        buttonLabel = "Drop NPC"
+        buttonLabel = "Drop Target"
       end
-      if ImGui.Button(buttonLabel, Tools.style.halfButtonWidth, Tools.style.buttonHeight) then
+
+      local buttonWidth = Tools.style.buttonWidth
+      if Tools.currentNPC.handle:IsNPC() then
+        buttonWidth = Tools.style.halfButtonWidth
+      end
+
+      if ImGui.Button(buttonLabel, buttonWidth, Tools.style.buttonHeight) then
         Tools.holdingNPC = not Tools.holdingNPC
         local npcHandle = Tools.currentNPC.handle
-        npcHandle:GetAIControllerComponent():DisableCollider()
+
+        if npcHandle:IsNPC() then
+          npcHandle:GetAIControllerComponent():DisableCollider()
+        end
 
         Cron.Every(0.000001, function(timer)
           local pos = Game.GetPlayer():GetWorldPosition()
           local heading = Game.GetPlayer():GetWorldForward()
           local newPos = Vector4.new(pos.x + (heading.x * 2), pos.y + (heading.y * 2), pos.z, pos.w)
 
-          Tools:TeleportNPCTo(npcHandle, newPos, Tools.npcRotation)
+          if Tools.currentNPC.name == "V" or target.handle:IsDevice() then
+            Game.GetTeleportationFacility():Teleport(npcHandle, newPos, EulerAngles.new(Tools.npcRotation[1], Tools.npcRotation[2], Tools.npcRotation[3]))
+          else
+            Tools:TeleportNPCTo(npcHandle, newPos, Tools.npcRotation)
+          end
 
           if Tools.holdingNPC == false then
-            npcHandle:GetAIControllerComponent():EnableCollider()
+            if npcHandle:IsNPC() then
+              npcHandle:GetAIControllerComponent():EnableCollider()
+            end
             Cron.Halt(timer)
           end
         end)
       end
     end
 
-    if not AMM.playerInPhoto then
+    if not AMM.playerInPhoto and Tools.currentNPC.handle:IsNPC() then
       local buttonLabel = " Freeze Target "
       if Tools.frozenNPCs[tostring(Tools.currentNPC.handle:GetEntityID().hash)] ~= nil then
         buttonLabel = " Unfreeze Target "
@@ -733,7 +753,7 @@ function Tools:DrawNPCActions()
     if AMM.playerInPhoto then
       AMM.UI:TextCenter("Target V or NPC to see More Actions")
     else
-      AMM.UI:TextCenter("Target NPC to see More Actions")
+      AMM.UI:TextCenter("Target NPC or Prop to see More Actions")
     end
   end
 
