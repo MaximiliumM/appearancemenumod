@@ -73,4 +73,42 @@ function Util:NPCTalk(handle, vo, category, idle)
 	end
 end
 
+function Util:GetNPCsInRange(maxDistance)
+	local searchQuery = Game["TSQ_NPC;"]()
+	searchQuery.maxDistance = maxDistance
+	local success, parts = Game.GetTargetingSystem():GetTargetParts(Game.GetPlayer(), searchQuery, {})
+	if success then
+		local entities = {}
+		for i, v in ipairs(parts) do
+			local entity = v:GetComponent(v):GetEntity()
+      if entity:IsNPC() then
+        entity = AMM:NewTarget(entity, "NPC", AMM:GetScanID(entity), AMM:GetNPCName(entity),AMM:GetScanAppearance(entity), AMM:GetAppearanceOptions(entity))
+        table.insert(entities, entity)
+      end
+	  end
+
+		return entities
+	end
+end
+
+function Util:SetGodMode(entity, immortal)
+  local entityID = entity:GetEntityID()
+	local gs = Game.GetGodModeSystem()
+
+	if immortal then
+		gs:AddGodMode(entityID, Enum.new("gameGodModeType", "Invulnerable"), CName.new("Default"))
+	else
+    gs:ClearGodMode(entityID, CName.new("Default"))
+    gs:AddGodMode(entityID, Enum.new("gameGodModeType", "Mortal"), CName.new("Default"))
+	end
+end
+
+function Util:Despawn(handle)
+  if handle:IsVehicle() then
+    local vehPS = handle:GetVehiclePS()
+    vehPS:SetHasExploded(true)
+  end
+  handle:Dispose()
+end
+
 return Util

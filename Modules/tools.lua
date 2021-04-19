@@ -26,12 +26,14 @@ local Tools = {
   makeupToggle = true,
   accessoryToggle = true,
   lookAtLocked = false,
+  animatedHead = false,
 
   -- NPC Properties --
   protectedNPCs = {},
   holdingNPC = false,
   frozenNPCs = {},
   currentNPC = '',
+  lockTarget = false,
   npcUpDown = 0,
   npcLeftRight = 0,
   npcRotation = 0,
@@ -76,7 +78,7 @@ function Tools:Draw(AMM, target)
         else
           AMM.UI:TextColored("Player In Photo Mode")
           ImGui.Text("Target V to see available actions")
-          AMM.UI:Separator()
+          AMM.UI:Spacing(6)
           Tools.actionCategories = {
             { name = "Time Actions", actions = Tools.DrawTimeActions },
             { name = "NPC Actions", actions = Tools.DrawNPCActions },
@@ -186,6 +188,17 @@ function Tools:DrawVActions()
     if ImGui.Button("Toggle V Head", Tools.style.halfButtonWidth, Tools.style.buttonHeight) then
       Tools:ToggleHead()
     end
+
+    ImGui.Spacing()
+    Tools.animatedHead, clicked = ImGui.Checkbox("Animated Head in Photo Mode", Tools.animatedHead)
+
+    if clicked then
+      Tools:ToggleAnimatedHead()
+    end
+
+    if ImGui.IsItemHovered() then
+      ImGui.SetTooltip("Photo mode expressions won't work while Animated Head is enabled.")
+    end
   end
 end
 
@@ -273,12 +286,23 @@ function Tools:ToggleGodMode()
   Game.ModStatPlayer("StunImmunity", toggle)
 end
 
+function Tools:ToggleAnimatedHead()
+
+  local isFemale = Util:GetPlayerGender()
+  if isFemale == "_Female" then gender = 'wa' else gender = 'ma' end
+  if Tools.animatedHead then mode = "tpp" else mode = "photomode" end
+
+  local headItem = f("player_%s_%s_head", gender, mode)
+
+  TweakDB:SetFlat(f("Items.Player%sPhotomodeHead.entityName", gender:gsub("^%l", string.upper)), headItem)
+end
+
 function Tools:ToggleHead()
 
   local isFemale = Util:GetPlayerGender()
 	if isFemale == "_Female" then gender = 'Wa' else gender = 'Ma' end
 
-  local headItem = f("Items.Player%sPhotomodeHead", gender)
+  local headItem = f("Items.CharacterCustomization%sHead", gender)
 
   local ts = Game.GetTransactionSystem()
   local gameItemID = GetSingleton('gameItemID')
@@ -562,17 +586,29 @@ function Tools:DrawNPCActions()
 
     AMM.UI:TextCenter("Movement", true)
 
-    if Tools.currentNPC == '' or (not(Tools.holdingNPC) and target ~= nil and target.handle:IsNPC() and Tools.currentNPC ~= '' and Tools.currentNPC.handle:GetEntityID().hash ~= target.handle:GetEntityID().hash) then
-      Tools.currentNPC = target
+    if not Tools.lockTarget or Tools.currentNPC == '' then
+      Tools.lockTarget = false
+      if Tools.currentNPC == '' or (not(Tools.holdingNPC) and target ~= nil and target.handle:IsNPC() and Tools.currentNPC ~= '' and Tools.currentNPC.handle:GetEntityID().hash ~= target.handle:GetEntityID().hash) then
+        Tools.currentNPC = target
 
-      local pos = Tools.currentNPC.handle:GetWorldPosition()
-      local angles = GetSingleton('Quaternion'):ToEulerAngles(Tools.currentNPC.handle:GetWorldOrientation())
-      Tools.npcRotation = angles.roll
-      Tools.npcUpDown = pos.z
-      Tools.npcLeftRight = {pos.x, pos.y}
+        local pos = Tools.currentNPC.handle:GetWorldPosition()
+        local angles = GetSingleton('Quaternion'):ToEulerAngles(Tools.currentNPC.handle:GetWorldOrientation())
+        Tools.npcRotation = angles.roll
+        Tools.npcUpDown = pos.z
+        Tools.npcLeftRight = {pos.x, pos.y}
+      end
     end
 
     ImGui.Text(Tools.currentNPC.name)
+
+    local buttonLabel = " Lock Target "
+    if Tools.lockTarget then
+      buttonLabel = " Unlock Target "
+    end
+    ImGui.SameLine()
+    if ImGui.SmallButton(buttonLabel) then
+      Tools.lockTarget = not Tools.lockTarget
+    end
 
     ImGui.PushItemWidth(ImGui.GetWindowContentRegionWidth() - ImGui.CalcTextSize("Rotation "))
     Tools.npcUpDown, upDownUsed = ImGui.DragFloat("Up/Down", Tools.npcUpDown, 0.01)

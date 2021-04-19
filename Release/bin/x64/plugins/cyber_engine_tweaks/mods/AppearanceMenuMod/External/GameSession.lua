@@ -6,7 +6,7 @@ Persistent Session Manager
 Copyright (c) 2021 psiberx
 ]]
 
-local GameSession = { version = '1.0.8' }
+local GameSession = { version = '1.1.1' }
 
 GameSession.Event = {
 	Start = 'Start',
@@ -18,7 +18,7 @@ GameSession.Event = {
 	Update = 'Update',
 	Load = 'Load',
 	Save = 'Save',
-	List = 'List',
+	Clean = 'Clean',
 	LoadData = 'LoadData',
 	SaveData = 'SaveData',
 }
@@ -39,7 +39,7 @@ local eventScopes = {
 	[GameSession.Event.Update] = {},
 	[GameSession.Event.Load] = { [GameSession.Scope.Saves] = true },
 	[GameSession.Event.Save] = { [GameSession.Scope.Saves] = true },
-	[GameSession.Event.List] = { [GameSession.Scope.Saves] = true },
+	[GameSession.Event.Clean] = { [GameSession.Scope.Saves] = true },
 	[GameSession.Event.LoadData] = { [GameSession.Scope.Saves] = true, [GameSession.Scope.Persistence] = true },
 	[GameSession.Event.SaveData] = { [GameSession.Scope.Saves] = true, [GameSession.Scope.Persistence] = true },
 }
@@ -111,14 +111,20 @@ local function refreshCurrentState()
 	local player = Game.GetPlayer()
 	local blackboardDefs = Game.GetAllBlackboardDefs()
 	local blackboardUI = Game.GetBlackboardSystem():Get(blackboardDefs.UI_System)
+	local blackboardPM = Game.GetBlackboardSystem():Get(blackboardDefs.PhotoMode)
 
-	updatePaused(blackboardUI:GetBool(blackboardDefs.UI_System.IsInMenu))
-	updateBlurred(blackboardUI:GetBool(blackboardDefs.UI_System.CircularBlurEnabled))
-	updateDead(player:IsDeadNoStatPool())
+	local menuActive = blackboardUI:GetBool(blackboardDefs.UI_System.IsInMenu)
+	local blurActive = blackboardUI:GetBool(blackboardDefs.UI_System.CircularBlurEnabled)
+	local photoModeActive = blackboardPM:GetBool(blackboardDefs.PhotoMode.IsActive)
+	local tutorialActive = Game.GetTimeSystem():IsTimeDilationActive('UI_TutorialPopup')
 
 	if not isLoaded then
 		updateLoaded(player:IsAttached() and not GetSingleton('inkMenuScenario'):GetSystemRequestsHandler():IsPreGame())
 	end
+
+	updatePaused(menuActive or photoModeActive or tutorialActive)
+	updateBlurred(blurActive)
+	updateDead(player:IsDeadNoStatPool())
 end
 
 local function determineEvents(currentState)
@@ -285,6 +291,10 @@ local function importSession(s)
 end
 
 local function writeSession(sessionName, sessionData)
+	if not sessionDataDir then
+		return
+	end
+
 	local sessionPath = sessionDataDir .. '/' .. sessionName .. '.lua'
 	local sessionFile = io.open(sessionPath, 'w')
 
@@ -298,6 +308,10 @@ local function writeSession(sessionName, sessionData)
 end
 
 local function readSession(sessionName)
+	if not sessionDataDir then
+		return nil
+	end
+
 	local sessionPath = sessionDataDir .. '/' .. sessionName .. '.lua'
 	local sessionChunk = loadfile(sessionPath)
 
@@ -314,12 +328,20 @@ local function readSession(sessionName)
 end
 
 local function removeSession(sessionName)
+	if not sessionDataDir then
+		return
+	end
+
 	local sessionPath = sessionDataDir .. '/' .. sessionName .. '.lua'
 
 	os.remove(sessionPath)
 end
 
 local function cleanUpSessions(sessionNames)
+	if not sessionDataDir then
+		return
+	end
+
 	local validNames = {}
 
 	for _, sessionName in ipairs(sessionNames) do
@@ -344,18 +366,25 @@ local function initialize(event)
 	if not initialized.data then
 		for _, stateProp in ipairs(stateProps) do
 			if stateProp.event then
-				local eventScope = stateProp.event.scope or stateProp.event.change or stateProp.current
+				local eventScope = stateProp.event.scope or stateProp.event.change
 
-				for _, eventKey in ipairs({ 'change', 'on', 'off' }) do
-					local eventName = stateProp.event[eventKey]
+				if eventScope then
+					for _, eventKey in ipairs({ 'change', 'on', 'off' }) do
+						local eventName = stateProp.event[eventKey]
 
-					if eventName then
-						eventScopes[eventName] = {}
-						eventScopes[eventName][eventScope] = true
+						if eventName then
+							if not eventScopes[eventName] then
+								eventScopes[eventName] = {}
+							end
+
+							eventScopes[eventName][eventScope] = true
+						end
+					end
+
+					if eventScope ~= GameSession.Scope.Persistence then
+						eventScopes[GameSession.Event.Update][eventScope] = true
 					end
 				end
-
-				eventScopes[GameSession.Event.Update][eventScope] = true
 			end
 		end
 
@@ -378,14 +407,16 @@ local function initialize(event)
 			end
 		end)
 
-		Observe('PlayerPuppet', 'OnDetach', function()
-			--spdlog.error(('PlayerPuppet::OnDetach()'))
+		Observe('QuestTrackerGameController', 'OnUninitialize', function()
+			--spdlog.error(('QuestTrackerGameController::OnUninitialize()'))
 
-			if updateLoaded(false) then
-				updatePaused(true)
-				updateBlurred(false)
-				updateDead(false)
-				notifyObservers()
+			if Game.GetPlayer() == nil then
+				if updateLoaded(false) then
+					updatePaused(true)
+					updateBlurred(false)
+					updateDead(false)
+					notifyObservers()
+				end
 			end
 		end)
 
@@ -395,11 +426,67 @@ local function initialize(event)
 	-- Pause State
 
 	if required[GameSession.Scope.Pause] and not initialized[GameSession.Scope.Pause] then
+		local fastTravelActive, fastTravelStart
+
 		Observe('gameuiPopupsManager', 'OnMenuUpdate', function(isInMenu)
 			--spdlog.error(('gameuiPopupsManager::OnMenuUpdate(%s)'):format(tostring(isInMenu)))
 
-			updatePaused(isInMenu)
+			if not fastTravelActive then
+				updatePaused(isInMenu)
+				notifyObservers()
+			end
+		end)
+
+		Observe('gameuiPhotoModeMenuController', 'OnShow', function()
+			--spdlog.error(('PhotoModeMenuController::OnShow()'))
+
+			updatePaused(true)
 			notifyObservers()
+		end)
+
+		Observe('gameuiPhotoModeMenuController', 'OnHide', function()
+			--spdlog.error(('PhotoModeMenuController::OnHide()'))
+
+			updatePaused(false)
+			notifyObservers()
+		end)
+
+		Observe('gameuiTutorialPopupGameController', 'PauseGame', function(_, tutorialActive)
+			--spdlog.error(('gameuiTutorialPopupGameController::PauseGame(%s)'):format(tostring(tutorialActive)))
+
+			updatePaused(tutorialActive)
+			notifyObservers()
+		end)
+
+		Observe('FastTravelSystem', 'OnToggleFastTravelAvailabilityOnMapRequest', function(request)
+			--spdlog.error(('FastTravelSystem::OnToggleFastTravelAvailabilityOnMapRequest()'))
+
+			if request.isEnabled then
+				fastTravelStart = request.pointRecord
+			end
+		end)
+
+		Observe('FastTravelSystem', 'OnPerformFastTravelRequest', function(request)
+			--spdlog.error(('FastTravelSystem::OnPerformFastTravelRequest()'))
+
+			local fastTravelDestination = request.pointData.pointRecord
+
+			if tostring(fastTravelStart) ~= tostring(fastTravelDestination) then
+				fastTravelActive = true
+			else
+				fastTravelStart = nil
+			end
+		end)
+
+		Observe('FastTravelSystem', 'OnLoadingScreenFinished', function(finished)
+			--spdlog.error(('FastTravelSystem::OnLoadingScreenFinished(%s)'):format(tostring(finished)))
+
+			if finished then
+				fastTravelActive = false
+				fastTravelStart = nil
+				updatePaused(false)
+				notifyObservers()
+			end
 		end)
 
 		initialized[GameSession.Scope.Pause] = true
@@ -452,6 +539,13 @@ local function initialize(event)
 			end
 		end
 
+		Observe('PhoneMessagePopupGameController', 'SetTimeDilatation', function(_, popupActive)
+			--spdlog.error(('PhoneMessagePopupGameController::SetTimeDilatation()'))
+
+			updateBlurred(popupActive)
+			notifyObservers()
+		end)
+
 		initialized[GameSession.Scope.Blur] = true
 	end
 
@@ -459,6 +553,8 @@ local function initialize(event)
 
 	if required[GameSession.Scope.Death] and not initialized[GameSession.Scope.Death] then
 		Observe('PlayerPuppet', 'OnDeath', function()
+			--spdlog.error(('PlayerPuppet::OnDeath()'))
+
 			updateDead(true)
 			notifyObservers()
 		end)
@@ -477,11 +573,13 @@ local function initialize(event)
 
 		Observe('LoadGameMenuGameController', 'OnSaveMetadataReady', function(saveInfo)
 			saveList[saveInfo.saveIndex] = {
-				timestamp = tostring(saveInfo.timestamp):gsub('ULL$', '')
+				timestamp = tonumber(saveInfo.timestamp)
 			}
 		end)
 
 		Observe('LoadGameMenuGameController', 'LoadSaveInGame', function(_, saveIndex)
+			--spdlog.error(('LoadGameMenuGameController::LoadSaveInGame(%d)'):format(saveIndex))
+
 			local timestamp = saveList[saveIndex].timestamp
 
 			dispatchEvent(GameSession.Event.Load, { timestamp = timestamp })
@@ -492,12 +590,14 @@ local function initialize(event)
 				table.insert(timestamps, saveInfo.timestamp)
 			end
 
-			dispatchEvent(GameSession.Event.List, { timestamps = timestamps })
+			dispatchEvent(GameSession.Event.Clean, { timestamps = timestamps })
 
 			saveList = nil
 		end)
 
 		Observe('gameuiInGameMenuGameController', 'OnSavingComplete', function(success)
+			--spdlog.error(('gameuiInGameMenuGameController::OnSavingComplete(%s)'):format(tostring(success)))
+
 			if success then
 				local timestamp = os.time()
 
@@ -510,7 +610,7 @@ local function initialize(event)
 
 	-- Persistence
 
-	if not initialized[GameSession.Scope.Persistence] then
+	if required[GameSession.Scope.Persistence] and not initialized[GameSession.Scope.Persistence] then
 		addEventListener(GameSession.Event.Save, function(state)
 			local sessionName = state.timestamp
 			local sessionData = sessionDataRef or {}
@@ -541,7 +641,7 @@ local function initialize(event)
 			end
 		end)
 
-		addEventListener(GameSession.Event.List, function(state)
+		addEventListener(GameSession.Event.Clean, function(state)
 			cleanUpSessions(state.timestamps)
 		end)
 

@@ -164,7 +164,7 @@ function Scan:Draw(AMM, target, style)
 
       if AMM.userSettings.experimental then
         if ImGui.SmallButton("  Despawn  ") then
-          target.handle:Dispose()
+          Util:Despawn(target.handle)
         end
       end
 
@@ -289,6 +289,7 @@ end
 function Scan:GetVehicleSeats(vehicle)
   Scan.vehicleSeats = {}
 
+  -- Hard code fix for Claire's vehicle
   if AMM:GetScanID(vehicle) == '0x04201D05, 47' then
     Scan.vehicleSeats = {
       { name = "Front Right", cname = "seat_front_right" },
@@ -319,6 +320,10 @@ function Scan:AutoAssignSeats()
     elseif counter > seatsNumber then
       if Scan.leftBehind == '' then
         Scan.leftBehind = {}
+      end
+
+      if Scan.selectedSeats[ent.name] then
+        Scan.selectedSeats[ent.name] = nil
       end
 
       table.insert(Scan.leftBehind, { ent = ent.handle, cmd = Util:HoldPosition(ent.handle, 99999) })

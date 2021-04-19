@@ -1,51 +1,60 @@
-local Tools = {
-  -- Style Property
-  style = {},
-  actionCategories = {},
-
-  -- Time Properties
-  timeState = true,
-  timeValue = nil,
-  slowMotionSpeed = 1,
-  slowMotionMaxValue = 1,
-  slowMotionToggle = false,
-
-  -- Teleport Properties
-  lastLocation = nil,
-  selectedLocation = {loc_name = "Select Location"},
-  shareLocationName = '',
-  userLocations = {},
-  favoriteLocations = {},
-  useTeleportAnimation = false,
-  isTeleporting = false,
-
-  -- V Properties --
-  playerVisibility = true,
-  godModeToggle = false,
-  infiniteOxygen = false,
-  makeupToggle = true,
-  accessoryToggle = true,
-  lookAtLocked = false,
-  animatedHead = false,
-
-  -- NPC Properties --
-  protectedNPCs = {},
-  holdingNPC = false,
-  frozenNPCs = {},
-  currentNPC = '',
-  npcUpDown = 0,
-  npcLeftRight = 0,
-  npcRotation = 0,
-  selectedFace = {name = 'Select Expression'},
-  activatedFace = false,
-  upperBodyMovement = true,
-  lookAtV = true,
-  expressions = AMM:GetPersonalityOptions()
-}
+Tools = {}
 
 -- ALIAS for string.format --
 local f = string.format
 local Util = require('Modules/util.lua')
+
+function Tools:new()
+
+  -- Layout Properties
+  Tools.style = {}
+  Tools.actionCategories = {}
+
+  -- Time Properties
+  Tools.pauseTime = false
+  Tools.timeState = true
+  Tools.timeValue = nil
+  Tools.slowMotionSpeed = 1
+  Tools.slowMotionMaxValue = 1
+  Tools.slowMotionToggle = false
+  Tools.relicEffect = true
+  Tools.relicOriginalFlats = Tools:GetRelicFlats()
+
+  -- Teleport Properties
+  Tools.lastLocation = nil
+  Tools.selectedLocation = {loc_name = "Select Location"}
+  Tools.shareLocationName = ''
+  Tools.userLocations = {}
+  Tools.favoriteLocations = {}
+  Tools.useTeleportAnimation = false
+  Tools.isTeleporting = false
+
+  -- V Properties --
+  Tools.playerVisibility = true
+  Tools.godModeToggle = false
+  Tools.infiniteOxygen = false
+  Tools.makeupToggle = true
+  Tools.accessoryToggle = true
+  Tools.lookAtLocked = false
+  Tools.animatedHead = false
+
+  -- NPC Properties --
+  Tools.protectedNPCs = {}
+  Tools.holdingNPC = false
+  Tools.frozenNPCs = {}
+  Tools.currentNPC = ''
+  Tools.lockTarget = false
+  Tools.npcUpDown = 0
+  Tools.npcLeftRight = 0
+  Tools.npcRotation = 0
+  Tools.selectedFace = {name = 'Select Expression'}
+  Tools.activatedFace = false
+  Tools.upperBodyMovement = true
+  Tools.lookAtV = true
+  Tools.expressions = AMM:GetPersonalityOptions()
+
+  return Tools
+end
 
 function Tools:Draw(AMM, target)
   if ImGui.BeginTabItem("Tools") then
@@ -585,17 +594,29 @@ function Tools:DrawNPCActions()
 
     AMM.UI:TextCenter("Movement", true)
 
-    if Tools.currentNPC == '' or (not(Tools.holdingNPC) and target ~= nil and target.handle:IsNPC() and Tools.currentNPC ~= '' and Tools.currentNPC.handle:GetEntityID().hash ~= target.handle:GetEntityID().hash) then
-      Tools.currentNPC = target
+    if not Tools.lockTarget or Tools.currentNPC == '' then
+      Tools.lockTarget = false
+      if Tools.currentNPC == '' or (not(Tools.holdingNPC) and target ~= nil and target.handle:IsNPC() and Tools.currentNPC ~= '' and Tools.currentNPC.handle:GetEntityID().hash ~= target.handle:GetEntityID().hash) then
+        Tools.currentNPC = target
 
-      local pos = Tools.currentNPC.handle:GetWorldPosition()
-      local angles = GetSingleton('Quaternion'):ToEulerAngles(Tools.currentNPC.handle:GetWorldOrientation())
-      Tools.npcRotation = angles.roll
-      Tools.npcUpDown = pos.z
-      Tools.npcLeftRight = {pos.x, pos.y}
+        local pos = Tools.currentNPC.handle:GetWorldPosition()
+        local angles = GetSingleton('Quaternion'):ToEulerAngles(Tools.currentNPC.handle:GetWorldOrientation())
+        Tools.npcRotation = angles.roll
+        Tools.npcUpDown = pos.z
+        Tools.npcLeftRight = {pos.x, pos.y}
+      end
     end
 
     ImGui.Text(Tools.currentNPC.name)
+
+    local buttonLabel = " Lock Target "
+    if Tools.lockTarget then
+      buttonLabel = " Unlock Target "
+    end
+    ImGui.SameLine()
+    if ImGui.SmallButton(buttonLabel) then
+      Tools.lockTarget = not Tools.lockTarget
+    end
 
     ImGui.PushItemWidth(ImGui.GetWindowContentRegionWidth() - ImGui.CalcTextSize("Rotation "))
     Tools.npcUpDown, upDownUsed = ImGui.DragFloat("Up/Down", Tools.npcUpDown, 0.01)
@@ -729,7 +750,7 @@ function Tools:DrawNPCActions()
     end
 
     if ImGui.Button("All Friendly", Tools.style.halfButtonWidth, Tools.style.buttonHeight) then
-      local entities = Tools:GetNPCsInRange(30)
+      local entities = Util:GetNPCsInRange(30)
       for _, ent in ipairs(entities) do
         if Tools.protectedNPCs[ent.handle:GetEntityID().hash] == nil then
           Tools:SetNPCAttitude(ent, "friendly")
@@ -741,7 +762,7 @@ function Tools:DrawNPCActions()
 
     ImGui.SameLine()
     if ImGui.Button("All Follower", Tools.style.halfButtonWidth, Tools.style.buttonHeight) then
-      local entities = Tools:GetNPCsInRange(10)
+      local entities = Util:GetNPCsInRange(10)
       for _, ent in ipairs(entities) do
         if Tools.protectedNPCs[ent.handle:GetEntityID().hash] == nil then
           AMM:SetNPCAsCompanion(ent.handle)
@@ -752,7 +773,7 @@ function Tools:DrawNPCActions()
     end
 
     if ImGui.Button("All Fake Die", Tools.style.halfButtonWidth, Tools.style.buttonHeight) then
-      local entities = Tools:GetNPCsInRange(20)
+      local entities = Util:GetNPCsInRange(20)
       for _, ent in ipairs(entities) do
         if Tools.protectedNPCs[ent.handle:GetEntityID().hash] == nil then
           ent.handle:SendAIDeathSignal()
@@ -764,7 +785,7 @@ function Tools:DrawNPCActions()
 
     ImGui.SameLine()
     if ImGui.Button("All Die", Tools.style.halfButtonWidth, Tools.style.buttonHeight) then
-      local entities = Tools:GetNPCsInRange(20)
+      local entities = Util:GetNPCsInRange(20)
       for _, ent in ipairs(entities) do
         if Tools.protectedNPCs[ent.handle:GetEntityID().hash] == nil then
           ent.handle:Kill(ent.handle, false, false)
@@ -775,7 +796,7 @@ function Tools:DrawNPCActions()
     end
 
     if ImGui.Button("All Despawn", Tools.style.halfButtonWidth, Tools.style.buttonHeight) then
-      local entities = Tools:GetNPCsInRange(20)
+      local entities = Util:GetNPCsInRange(20)
       for _, ent in ipairs(entities) do
         if Tools.protectedNPCs[ent.handle:GetEntityID().hash] == nil then
           ent.handle:Dispose()
@@ -787,7 +808,7 @@ function Tools:DrawNPCActions()
 
     ImGui.SameLine()
     if ImGui.Button("Cycle Appearance", Tools.style.halfButtonWidth, Tools.style.buttonHeight) then
-      local entities = Tools:GetNPCsInRange(20)
+      local entities = Util:GetNPCsInRange(20)
       for _, ent in ipairs(entities) do
         if Tools.protectedNPCs[ent.handle:GetEntityID().hash] == nil then
           AMM:ChangeScanAppearanceTo(ent, "Cycle")
@@ -866,22 +887,6 @@ function Tools:SetNPCAttitude(entity, attitude)
 	entAttAgent:SetAttitudeGroup(CName.new(attitude))
 end
 
-function Tools:GetNPCsInRange(maxDistance)
-	local searchQuery = Game["TSQ_NPC;"]()
-	searchQuery.maxDistance = maxDistance
-	local success, parts = Game.GetTargetingSystem():GetTargetParts(Game.GetPlayer(), searchQuery, {})
-	if success then
-		local entities = {}
-		for i, v in ipairs(parts) do
-			local entity = v:GetComponent(v):GetEntity()
-			entity = AMM:NewTarget(entity, "NPC", AMM:GetScanID(entity), AMM:GetNPCName(entity),AMM:GetScanAppearance(entity), AMM:GetAppearanceOptions(entity))
-	    table.insert(entities, entity)
-	  end
-
-		return entities
-	end
-end
-
 -- Time actions
 function Tools:DrawTimeActions()
   -- AMM.UI:TextColored("Time Actions:")
@@ -892,6 +897,12 @@ function Tools:DrawTimeActions()
 
   Tools.timeValue, changeTimeUsed = ImGui.SliderInt("Time of Day", Tools.timeValue, 0, 23)
   if changeTimeUsed then
+    if Tools.relicEffect then
+      Tools:SetRelicEffect(false)
+      Cron.After(60.0, function()
+        Tools:SetRelicEffect(true)
+      end)
+    end
     Tools:SetTime(Tools.timeValue)
   end
 
@@ -901,6 +912,27 @@ function Tools:DrawTimeActions()
       Tools:SetSlowMotionSpeed(Tools.slowMotionSpeed)
     end
 
+    local buttonLabel = "Pause Time Progression"
+    if Tools.pauseTime then
+      buttonLabel = "Unpause Time Progression"
+    end
+
+    ImGui.Spacing()
+    if ImGui.Button(buttonLabel, Tools.style.buttonWidth, Tools.style.buttonHeight) then
+      Tools.pauseTime = not Tools.pauseTime
+      Tools:SetRelicEffect(false)
+
+      Cron.Every(0.1, function(timer)
+        Tools:SetTime(Tools.timeValue)
+        if not Tools.pauseTime then
+          Cron.After(60.0, function()
+            Tools:SetRelicEffect(true)
+          end)
+          Cron.Halt(timer)
+        end
+      end)
+    end
+
     local buttonLabel = "Unfreeze Time"
     if Tools.timeState then
       buttonLabel = "Freeze Time"
@@ -908,7 +940,7 @@ function Tools:DrawTimeActions()
 
     ImGui.Spacing()
     if ImGui.Button(buttonLabel, Tools.style.buttonWidth, Tools.style.buttonHeight) then
-      Tools:PauseTime()
+      Tools:FreezeTime()
     end
 
     if not Tools.timeState then
@@ -927,11 +959,11 @@ function Tools:SetSlowMotionSpeed(c)
 end
 
 function Tools:SkipFrame()
-  Tools:PauseTime()
+  Tools:FreezeTime()
   AMM.skipFrame = true
 end
 
-function Tools:PauseTime()
+function Tools:FreezeTime()
   if Tools.timeState then
     Game.GetTimeSystem():SetIgnoreTimeDilationOnLocalPlayerZero(true)
     Game.SetTimeDilation(0.0000000000001)
@@ -953,6 +985,22 @@ function Tools:SetTime(hour)
   Game.GetTimeSystem():SetGameTimeByHMS(hour, 0, 0)
 end
 
-Tools.userLocations = Tools:GetUserLocations()
+function Tools:SetRelicEffect(state)
+  Tools.relicEffect = state
+  for flat, og in pairs(Tools.relicOriginalFlats) do
+    TweakDB:SetFlat(flat, state and og or CName.new("0"))
+  end
+end
 
-return Tools
+function Tools:GetRelicFlats()
+  local flats = {
+    ["BaseStatusEffect.JohnnySicknessMediumQuest_inline2.name"] = CName.new('johnny_sickness_lvl2'),
+    ["BaseStatusEffect.JohnnySicknessMedium_inline0.name"] = CName.new('johnny_sickness_lvl2'),
+    ["BaseStatusEffect.JohnnySicknessLow_inline0.name"] = CName.new('johnny_sickness_lvl1'),
+    ["BaseStatusEffect.JohnnySicknessHeavy_inline0.name"] = CName.new('johnny_sickness_lvl3')
+  }
+
+  return flats
+end
+
+return Tools:new()

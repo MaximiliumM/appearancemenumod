@@ -44,17 +44,19 @@ function AMM:new()
 	 AMM.Scan = require('Modules/scan.lua')
 	 AMM.Swap = require('Modules/swap.lua')
 	 AMM.Tools = require('Modules/tools.lua')
-	 -- This is where I load the new module for the new feature
-	 -- I won't tell you what it is though
+	 AMM.Director = require('Modules/director.lua')
 
 	 -- External Mods API --
 	 AMM.TeleportMod = ''
 
 	 -- Main Properties --
-	 AMM.currentVersion = "1.8.7b"
+	 AMM.currentVersion = "1.9"
 	 AMM.updateNotes = require('update_notes.lua')
+	 AMM.credits = require("credits.lua")
+	 AMM.updateLabel = "WHAT'S NEW"
 	 AMM.userSettings = AMM:PrepareSettings()
 	 AMM.categories = AMM:GetCategories()
+	 AMM.player = nil
 	 AMM.currentTarget = ''
 	 AMM.spawnedNPCs = {}
 	 AMM.entitiesForRespawn = ''
@@ -68,6 +70,7 @@ function AMM:new()
 	 -- Custom Appearance Properties --
 	 AMM.setCustomApp = ''
 	 AMM.activeCustomApps = {}
+	 AMM.customAppDefaults = AMM:GetCustomAppearanceDefaults()
 
 	 -- Modal Popup Properties --
 	 AMM.currentFavoriteName = ''
@@ -89,6 +92,7 @@ function AMM:new()
 		 waitTimer = 0.0
 		 spamTimer = 0.0
 		 respawnTimer = 0.0
+		 delayTimer = 0.0
 		 buttonPressed = false
 		 finishedUpdate = AMM:CheckDBVersion()
 		 AMM:ImportUserData()
@@ -98,10 +102,12 @@ function AMM:new()
 		 -- Adjust Prevention System Total Entities Limit --
 		 TweakDB:SetFlat("PreventionSystem.setup.totalEntitiesLimit", 20)
 
+		 AMM.player = Game.GetPlayer()
+
 		 -- Check if user is in-game using WorldPosition --
 		 -- Only way to set player attached if user reload all mods --
-		 if Game.GetPlayer() then
-			 local playerPosition = Game.GetPlayer():GetWorldPosition()
+		 if AMM.player then
+			 local playerPosition = AMM.player:GetWorldPosition()
 			 if math.floor(playerPosition.z) ~= 0 then
 				 AMM.playerAttached = true
 				 AMM.playerInMenu = false
@@ -114,6 +120,7 @@ function AMM:new()
 
 		 -- Setup GameSession --
 		 GameSession.OnStart(function()
+			 AMM.player = Game.GetPlayer()
 			 AMM.playerAttached = true
 
 			 AMM.Tools:CheckGodModeIsActive()
@@ -153,15 +160,15 @@ function AMM:new()
 				 if AMM.Scan.leftBehind ~= '' then
 					 for _, lost in ipairs(AMM.Scan.leftBehind) do
 					 	lost.ent:GetAIControllerComponent():StopExecutingCommand(lost.cmd, true)
-						local pos = Game.GetPlayer():GetWorldPosition()
-					  local heading = Game.GetPlayer():GetWorldForward()
+						local pos = AMM.player:GetWorldPosition()
+					  local heading = AMM.player:GetWorldForward()
 					  local behindPlayer = Vector4.new(pos.x - (heading.x * 5), pos.y - (heading.y * 5), pos.z, pos.w)
 						Util:TeleportNPCTo(lost.ent, behindPlayer)
 					 end
 
 					 AMM.Scan.leftBehind = ''
 				 elseif next(AMM.spawnedNPCs) ~= nil then
-					 local target = Game.GetTargetingSystem():GetLookAtObject(Game.GetPlayer(), false, false)
+					 local target = Game.GetTargetingSystem():GetLookAtObject(AMM.player, false, false)
 					 if target ~= nil and target:IsVehicle() then
 						 AMM.Scan.vehicle = target
 						 AMM.Scan:AutoAssignSeats()
@@ -178,7 +185,7 @@ function AMM:new()
 	        if actionType == 'BUTTON_RELEASED' then
 					 AMM.playerInMenu = true
 					 AMM.playerInPhoto = true
-	         Game.SetTimeDilation(1)
+	         Game.SetTimeDilation(0)
 					end
 			 elseif actionName == 'ExitPhotoMode' then
 				 if actionType == 'BUTTON_RELEASED' then
@@ -230,8 +237,9 @@ function AMM:new()
 	 registerHotkey("amm_cycle", "Cycle Appearance", function()
 		local target = AMM:GetTarget()
 		if target ~= nil then
-			waitTimer = 0.0
+			delayTimer = 0.0
 			AMM.shouldCheckSavedAppearance = false
+			buttonPressed = true
 			AMM:ChangeScanAppearanceTo(target, 'Cycle')
 		end
 	 end)
@@ -269,6 +277,13 @@ function AMM:new()
 					AMM:SpawnNPC(spawn)
 				end
 			end
+		end
+	 end)
+
+	 registerHotkey("amm_despawn_target", "Despawn Target", function()
+		local target = AMM:GetTarget()
+		if target ~= nil then
+			Util:Despawn(target.handle)
 		end
 	 end)
 
@@ -327,21 +342,32 @@ function AMM:new()
      Cron.Update(deltaTime)
 
 		 if AMM.playerAttached and not(AMM.playerInMenu) then
-				if finishedUpdate and Game.GetPlayer() ~= nil then
+				if finishedUpdate and AMM.player ~= nil then
+					-- Check Custom Defaults --
+					local target = AMM:GetTarget()
+					AMM:CheckCustomDefaults(target)
 			 		-- Load Saved Appearance --
 			 		if not drawWindow and AMM.shouldCheckSavedAppearance then
-			 			target = AMM:GetTarget()
 			 			AMM:CheckSavedAppearance(target)
+						AMM.shouldCheckSavedAppearance = false
 			 		elseif AMM.shouldCheckSavedAppearance == false then
-						waitTimer = waitTimer + deltaTime
+						delayTimer = delayTimer + deltaTime
+						delay = 1.0
 
-						if waitTimer > 8 then
-							waitTimer = 0.0
+						if buttonPressed then delay = 8 end
+
+						if delayTimer > delay then
+							delayTimer = 0.0
 							AMM.shouldCheckSavedAppearance = true
+							if buttonPressed then buttonPressed = false end
 						end
 					end
 
-					-- Removed stuff from new feature soon tm --
+					-- Director Trigger Sensing Check --
+					if not drawWindow then
+						AMM.Director:SenseNPCTalk()
+						AMM.Director:SenseTriggers()
+					end
 
 					-- Travel Animation Done Check --
 					if AMM.TeleportMod ~= '' and AMM.TeleportMod.api.done then
@@ -414,13 +440,14 @@ function AMM:new()
 						if waitTimer > 0.2 then
 							local handle
 							if AMM.spawnedNPCs[AMM.currentSpawn] ~= nil and string.find(AMM.spawnedNPCs[AMM.currentSpawn].path, "Vehicle") then
-								handle = Game.GetTargetingSystem():GetLookAtObject(Game.GetPlayer(), false, false)
+								handle = Game.GetTargetingSystem():GetLookAtObject(AMM.player, false, false)
 							elseif AMM.spawnedNPCs[AMM.currentSpawn] ~= nil then
 								handle = Game.FindEntityByID(AMM.spawnedNPCs[AMM.currentSpawn].entityID)
 							end
 							if handle then
 								AMM.spawnedNPCs[AMM.currentSpawn].handle = handle
 								if handle:IsNPC() then
+									Util:TeleportNPCTo(handle)
 									if AMM.spawnedNPCs[AMM.currentSpawn].parameters ~= nil then
 										if AMM.spawnedNPCs[AMM.currentSpawn].parameters == "special__vr_tutorial_ma_dummy_light" then -- Extra Handling for Johnny
 											AMM:ChangeScanCustomAppearanceTo(AMM.spawnedNPCs[AMM.currentSpawn], AMM:GetCustomAppearanceParams(AMM.spawnedNPCs[AMM.currentSpawn], 'silverhand_default'))
@@ -495,21 +522,42 @@ function AMM:Begin()
 	if ImGui.Begin("Appearance Menu Mod", shouldResize) then
 
 		if (not(finishedUpdate) or AMM.playerAttached == false) then
-			local updateLabel = "WHAT'S NEW"
+			local notes = AMM.updateNotes
 
 			if finishedUpdate and AMM.playerAttached == false then
 				AMM.UI:TextColored("Player In Menu")
 				ImGui.Text("AMM only functions in game")
+
+				if AMM.updateLabel ~= "CREDITS" then
+					AMM.updateLabel = 'UPDATE HISTORY'
+					notes = AMM.updateNotes
+				else
+					notes = AMM.credits
+				end
+
+				ImGui.SameLine(ImGui.GetWindowContentRegionWidth() - ImGui.CalcTextSize(" Updates "))
+
+				local buttonLabel = " Credits "
+				if AMM.updateLabel == "CREDITS" then
+					buttonLabel = " Updates "
+				end
+				if ImGui.SmallButton(buttonLabel) then
+					if AMM.updateLabel == "CREDITS" then
+						AMM.updateLabel = 'UPDATE HISTORY'
+					else
+						AMM.updateLabel = "CREDITS"
+					end
+				end
+
 				AMM.UI:Separator()
-				updateLabel = 'UPDATE HISTORY'
 			end
 
 			-- UPDATE NOTES
 			AMM.UI:Spacing(8)
-			AMM.UI:TextCenter(updateLabel, true)
+			AMM.UI:TextCenter(AMM.updateLabel, true)
 			AMM.UI:Separator()
 
-			for i, versionArray in ipairs(AMM.updateNotes) do
+			for i, versionArray in ipairs(notes) do
 				local treeNode = ImGui.TreeNodeEx(versionArray[1], ImGuiTreeNodeFlags.DefaultOpen + ImGuiTreeNodeFlags.NoTreePushOnOpen + ImGuiTreeNodeFlags.Framed)
 				local releaseDate = versionArray[2]
 				local dateLength = ImGui.CalcTextSize(releaseDate)
@@ -551,6 +599,8 @@ function AMM:Begin()
 							AMM.UI:Separator()
 						end
 					end
+
+					AMM.UI:Spacing(3)
 					ImGui.TreePop()
 				end
 			end
@@ -699,8 +749,8 @@ function AMM:Begin()
 				-- Tools Tab --
 				AMM.Tools:Draw(AMM, target)
 
-				-- Placement for new feature tab --
-				-- Are you hyped already? --
+				-- Director Tab --
+				AMM.Director:Draw(AMM)
 
 				-- Settings Tab --
 				if (ImGui.BeginTabItem("Settings")) then
@@ -1011,6 +1061,46 @@ function AMM:GetSaveables()
 	return defaults
 end
 
+function AMM:GetPossibleVOs()
+	local VOs = {
+		{label = "Greet V", param = "greeting"},
+		{label = "Fear Foll", param = "fear_foll"},
+		{label = "Fear Toll", param = "fear_toll"},
+		{label = "Fear Beg", param = "fear_beg"},
+		{label = "Fear Run", param = "fear_run"},
+		{label = "Stealth Search", param = "stlh_search"},
+		{label = "Stealth Death", param = "stlh_death"},
+		{label = "Stealth Restore", param = "stealth_restored"},
+		{label = "Stealth End", param = "stealth_ended"},
+		{label = "Curious Grunt", param = "stlh_curious_grunt"},
+		{label = "Grapple Grunt", param = "grapple_grunt"},
+		{label = "Bump", param = "bump"},
+		{label = "Vehicle Bump", param = "vehicle_bump"},
+		{label = "Turret Warning", param = "turret_warning"},
+		{label = "Octant Warning", param = "octant_warning"},
+		{label = "Drone Warning", param = "drones_warning"},
+		{label = "Mech Warning", param = "mech_warning"},
+		{label = "Elite Warning", param = "elite_warning"},
+		{label = "Camera Warning", param = "camera_warning"},
+		{label = "Enemy Warning", param = "enemy_warning"},
+		{label = "Heavy Warning", param = "heavy_warning"},
+		{label = "Sniper Warning", param = "sniper_warning"},
+		{label = "Any Damage", param = "vo_any_damage_hit"},
+		{label = "Danger", param = "danger"},
+		{label = "Combat Start", param = "start_combat"},
+		{label = "Combat End", param = "combat_ended"},
+		{label = "Combat Target Hit", param = "combat_target_hit"},
+		{label = "Pedestrian Hit", param = "pedestrian_hit"},
+		{label = "Light Hit", param = "hit_reaction_light"},
+		{label = "Curse", param = "battlecry_curse"},
+		{label = "Irritated", param = "coop_irritation"},
+		{label = "Grenade Throw", param = "grenade_throw"},
+		{label = "Got a kill!", param = "coop_reports_kill"},
+	}
+
+	return VOs
+end
+
 function AMM:GetPersonalityOptions()
 	local personalities = {
 		{name = "Default", idle = 2, category = 2},
@@ -1054,6 +1144,20 @@ function AMM:GetEquipmentOptions()
 	}
 
 	return equipments
+end
+
+function AMM:GetCustomAppearanceDefaults()
+	local customs = {
+		["0x3024F03E, 15"] = {
+			apps = {
+				['kerry_eurodyne_nude'] = true,
+				['kerry_eurodyne__q203__shower'] = true,
+			},
+			component = 'hx_001_ma_c__kerry_eurodyne_old_pimples_01'
+		}
+	}
+
+	return customs
 end
 
 function AMM:RevertTweakDBChanges(userActivated)
@@ -1132,13 +1236,13 @@ function AMM:SpawnNPC(spawn)
 			distanceFromGround = spawn.parameters.distance or 0
 		end
 
-		local player = Game.GetPlayer()
+		local player = AMM.player
 		local heading = player:GetWorldForward()
 		local offsetDir = Vector3.new(heading.x * distanceFromPlayer, heading.y * distanceFromPlayer, heading.z)
 		local spawnTransform = player:GetWorldTransform()
 		local spawnPosition = spawnTransform.Position:ToVector4(spawnTransform.Position)
 		spawnTransform:SetPosition(spawnTransform, Vector4.new((spawnPosition.x - offSetSpawn) - offsetDir.x, (spawnPosition.y - offSetSpawn) - offsetDir.y, spawnPosition.z + distanceFromGround, spawnPosition.w))
-		spawn.entityID = Game.GetPreventionSpawnSystem():RequestSpawn(self:GetNPCTweakDBID(spawn.path), -1, spawnTransform)
+		spawn.entityID = Game.GetPreventionSpawnSystem():RequestSpawn(self:GetNPCTweakDBID(spawn.path), -99, spawnTransform)
 		self.spawnsCounter = self.spawnsCounter + 1
 		while self.spawnedNPCs[spawn.uniqueName()] ~= nil do
 			local num = spawn.name:match("%((%g+)%)")
@@ -1149,12 +1253,12 @@ function AMM:SpawnNPC(spawn)
 		self.spawnedNPCs[spawn.uniqueName()] = spawn
 		self.currentSpawn = spawn.uniqueName()
 	else
-		Game.GetPlayer():SetWarningMessage("Spawn limit reached!")
+		AMM.player:SetWarningMessage("Spawn limit reached!")
 	end
 end
 
 function AMM:DespawnNPC(npcName, spawnID)
-	--Game.GetPlayer():SetWarningMessage(npcName:match("(.+)##(.+)").." will despawn once you look away")
+	--AMM.player:SetWarningMessage(npcName:match("(.+)##(.+)").." will despawn once you look away")
 	self.spawnedNPCs[npcName] = nil
 	self.spawnsCounter = self.spawnsCounter - 1
 	local handle = Game.FindEntityByID(spawnID)
@@ -1163,16 +1267,18 @@ function AMM:DespawnNPC(npcName, spawnID)
 end
 
 function AMM:DespawnAll(message)
-	if message then Game.GetPlayer():SetWarningMessage("Despawning will occur once you look away") end
-	Game.GetPreventionSpawnSystem():RequestDespawnPreventionLevel(-1)
+	if message then AMM.player:SetWarningMessage("Despawning will occur once you look away") end
+	for i = 0, 99 do
+		Game.GetPreventionSpawnSystem():RequestDespawnPreventionLevel(i * -1)
+	end
 	self.spawnsCounter = 0
 	self.spawnedNPCs = {}
 end
 
 function AMM:TeleportAll()
 	for _, ent in pairs(AMM.spawnedNPCs) do
-		local pos = Game.GetPlayer():GetWorldPosition()
-		local heading = Game.GetPlayer():GetWorldForward()
+		local pos = AMM.player:GetWorldPosition()
+		local heading = AMM.player:GetWorldForward()
 		local behindPlayer = Vector4.new(pos.x - (heading.x * 2), pos.y - (heading.y * 2), pos.z, pos.w)
 		Util:TeleportNPCTo(ent.handle, behindPlayer)
 	end
@@ -1220,45 +1326,104 @@ function AMM:UpdateSettings()
 	end
 end
 
-function AMM:CheckSavedAppearance(t)
-	local handle, currentApp, savedApp = nil, nil, nil
-	if t ~= nil then
-		handle = t.handle
-		currentApp = t.appearance
-		for app in db:urows(f("SELECT app_name FROM saved_appearances WHERE entity_id = '%s'", t.id)) do
-			savedApp = app
-		end
-	else
-		local qm = Game.GetPlayer():GetQuickSlotsManager()
-		handle = qm:GetVehicleObject()
-		if handle ~= nil then
-			local vehicleID = self:GetScanID(handle)
-			currentApp = self:GetScanAppearance(handle)
-			for app in db:urows(f("SELECT app_name FROM saved_appearances WHERE entity_id = '%s'", vehicleID)) do
-				savedApp = app
+function AMM:CheckCustomDefaults(target)
+	if target ~= nil and (target.type == "NPCPuppet" or target.type == "vehicle") then
+		if AMM.customAppDefaults[target.id] ~= nil then
+			if not AMM.customAppDefaults[target.id].apps[target.appearance] then
+				local appParam = target.handle:FindComponentByName(CName.new(AMM.customAppDefaults[target.id].component))
+				if appParam then
+					appParam:TemporaryHide(true)
+				end
 			end
+		end
+	end
+end
+
+function AMM:CheckSavedAppearance(target)
+	if target ~= nil and (target.type == "NPCPuppet" or target.type == "vehicle") then
+		if AMM:CheckSavedAppearanceForEntity(target) then return end
+	end
+
+	if AMM:CheckSavedAppearanceForMountedVehicle() then return end
+
+	local searchQuery = Game["TSQ_ALL;"]()
+	searchQuery.maxDistance = 10
+	local success, parts = Game.GetTargetingSystem():GetTargetParts(Game.GetPlayer(), searchQuery, {})
+	if success then
+		for i, v in ipairs(parts) do
+			local ent = nil
+			local entity = v:GetComponent(v):GetEntity()
+
+			if entity:IsNPC() then
+				ent = AMM:NewTarget(entity, "NPCPuppet", AMM:GetScanID(entity), AMM:GetNPCName(entity),AMM:GetScanAppearance(entity), nil)
+			elseif entity:IsVehicle() and entity:IsPlayerVehicle() then
+				ent = AMM:NewTarget(entity, 'vehicle', AMM:GetScanID(entity), AMM:GetVehicleName(entity), AMM:GetScanAppearance(entity), nil)
+			end
+
+			if ent ~= nil then
+				AMM:CheckCustomDefaults(ent)
+				AMM:CheckSavedAppearanceForEntity(ent)
+			end
+		end
+	end
+end
+
+function AMM:CheckSavedAppearanceForEntity(ent)
+	local currentApp, savedApp = nil, nil
+
+	if ent ~= nil then
+		currentApp = ent.appearance
+		for app in db:urows(f("SELECT app_name FROM saved_appearances WHERE entity_id = '%s'", ent.id)) do
+			savedApp = app
 		end
 	end
 
 	if savedApp ~= nil and savedApp ~= currentApp then
+		AMM:ChangeToSavedAppearance(ent, savedApp)
+		return true
+	end
+
+	return false
+end
+
+function AMM:CheckSavedAppearanceForMountedVehicle()
+	local ent, currentApp, savedApp = nil, nil, nil
+	local qm = AMM.player:GetQuickSlotsManager()
+	ent = qm:GetVehicleObject()
+	if ent ~= nil then
+		ent = AMM:NewTarget(ent, 'vehicle', AMM:GetScanID(ent), AMM:GetVehicleName(ent), AMM:GetScanAppearance(ent), nil)
+		currentApp = ent.appearance
+		for app in db:urows(f("SELECT app_name FROM saved_appearances WHERE entity_id = '%s'", ent.id)) do
+			savedApp = app
+		end
+	end
+
+	if savedApp ~= nil and savedApp ~= currentApp then
+		self:ChangeScanAppearanceTo(ent, savedApp)
+		return true
+	end
+
+	return false
+end
+
+function AMM:ChangeToSavedAppearance(ent, savedApp)
+	local check = 0
+	for count in db:urows(f("SELECT COUNT(1) FROM custom_appearances WHERE app_name = '%s'", savedApp)) do
+		check = count
+	end
+	if check ~= 0 then
+		custom = self:GetCustomAppearanceParams(ent, savedApp)
+		self:ChangeScanCustomAppearanceTo(ent, custom)
+	else
 		local check = 0
-		for count in db:urows(f("SELECT COUNT(1) FROM custom_appearances WHERE app_name = '%s'", savedApp)) do
+		for count in db:urows(f("SELECT COUNT(1) FROM appearances WHERE app_name = '%s'", savedApp)) do
 			check = count
 		end
 		if check ~= 0 then
-			custom = self:GetCustomAppearanceParams(t, savedApp)
-			self:ChangeScanCustomAppearanceTo(t, custom)
+			self:ChangeScanAppearanceTo(ent, savedApp)
 		else
-			local check = 0
-			for count in db:urows(f("SELECT COUNT(1) FROM appearances WHERE app_name = '%s'", savedApp)) do
-				check = count
-			end
-			if check ~= 0 then
-				self:ChangeScanAppearanceTo(t, savedApp)
-			else
-				-- This is a custom renamed appearance
-				self:ClearSavedAppearance(t)
-			end
+			-- This is a custom renamed appearance
+			self:ClearSavedAppearance(ent)
 		end
 	end
 end
@@ -1438,8 +1603,8 @@ function AMM:ChangeAppearanceTo(entity, appearance)
 end
 
 function AMM:GetTarget()
-	if Game.GetPlayer() then
-		target = Game.GetTargetingSystem():GetLookAtObject(Game.GetPlayer(), true, false) or Game.GetTargetingSystem():GetLookAtObject(Game.GetPlayer(), false, false)
+	if AMM.player then
+		target = Game.GetTargetingSystem():GetLookAtObject(AMM.player, true, false) or Game.GetTargetingSystem():GetLookAtObject(AMM.player, false, false)
 
 		if target ~= nil then
 			if target:IsNPC() or target:IsReplacer() then
@@ -1462,28 +1627,8 @@ function AMM:GetTarget()
 	return nil
 end
 
-function AMM:SetGodMode(entityID, immortal)
-	local gs = Game.GetGodModeSystem()
-
-	-- print("setting god mode")
-
-	if immortal then
-		gs:AddGodMode(entityID, 4, CName.new("Default"))
-	else
-
-		modes = {1, 2, 3, 4, 5}
-
-		for _, mode in ipairs(modes) do
-			if gs:HasGodMode(entityID, mode) then
-				gs:ClearGodMode(entityID, CName.new("Default"))
-			end
-		end
-	end
-
-end
-
 function AMM:ToggleHostile(spawn)
-	self:SetGodMode(spawn.entityID, false)
+	Util:SetGodMode(spawn.handle, false)
 
 	local handle = spawn.handle
 
@@ -1505,7 +1650,7 @@ function AMM:ToggleHostile(spawn)
 		handle.movePolicies:Toggle(true)
 		targetAttAgent:SetAttitudeGroup(CName.new("hostile"))
 		reactionComp:SetReactionPreset(GetSingleton("gamedataTweakDBInterface"):GetReactionPresetRecord(TweakDBID.new("ReactionPresets.Ganger_Aggressive")))
-		reactionComp:TriggerCombat(Game.GetPlayer())
+		reactionComp:TriggerCombat(AMM.player)
 	else
 		self:SetNPCAsCompanion(handle)
 	end
@@ -1546,7 +1691,7 @@ end
 function AMM:SetNPCAsCompanion(npcHandle)
 	-- print("setting companion")
 	if not(self.isCompanionInvulnerable) then
-		self:SetGodMode(npcHandle:GetEntityID(), false)
+		Util:SetGodMode(npcHandle, false)
 	end
 
 	waitTimer = 0.0

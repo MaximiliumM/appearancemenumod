@@ -44,12 +44,13 @@ function AMM:new()
 	 AMM.Scan = require('Modules/scan.lua')
 	 AMM.Swap = require('Modules/swap.lua')
 	 AMM.Tools = require('Modules/tools.lua')
+	 AMM.Director = require('Modules/director.lua')
 
 	 -- External Mods API --
 	 AMM.TeleportMod = ''
 
 	 -- Main Properties --
-	 AMM.currentVersion = "1.8.6"
+	 AMM.currentVersion = "1.8.7b"
 	 AMM.updateNotes = require('update_notes.lua')
 	 AMM.userSettings = AMM:PrepareSettings()
 	 AMM.categories = AMM:GetCategories()
@@ -113,7 +114,6 @@ function AMM:new()
 		 -- Setup GameSession --
 		 GameSession.OnStart(function()
 			 AMM.playerAttached = true
-			 AMM.playerInMenu = false
 
 			 AMM.Tools:CheckGodModeIsActive()
 
@@ -124,20 +124,15 @@ function AMM:new()
 
 		 GameSession.OnEnd(function()
 			 AMM.playerAttached = false
-			 AMM.playerInMenu = true
 		 end)
 
-		 GameSession.Listen(function(state)
-			 	if state.isLoaded then
-					AMM.playerAttached = true
-				end
-
-				if state.isPaused then
-					AMM.playerInMenu = true
-				elseif state.wasPaused then
-					AMM.playerInMenu = false
-				end
+		 GameSession.OnPause(function()
+			 AMM.playerInMenu = true
      end)
+
+		 GameSession.OnResume(function()
+			 AMM.playerInMenu = false
+		 end)
 
 		 -- Setup Cron to Export User data every 10 minutes --
 		 Cron.Every(600, function()
@@ -152,6 +147,28 @@ function AMM:new()
 		 end
 
 		 -- Setup Observers --
+		 Observe("VehicleComponent", "OnVehicleStartedMountingEvent", function(event)
+			 if event.character:IsPlayer() then
+				 if AMM.Scan.leftBehind ~= '' then
+					 for _, lost in ipairs(AMM.Scan.leftBehind) do
+					 	lost.ent:GetAIControllerComponent():StopExecutingCommand(lost.cmd, true)
+						local pos = Game.GetPlayer():GetWorldPosition()
+					  local heading = Game.GetPlayer():GetWorldForward()
+					  local behindPlayer = Vector4.new(pos.x - (heading.x * 5), pos.y - (heading.y * 5), pos.z, pos.w)
+						Util:TeleportNPCTo(lost.ent, behindPlayer)
+					 end
+
+					 AMM.Scan.leftBehind = ''
+				 elseif next(AMM.spawnedNPCs) ~= nil then
+					 local target = Game.GetTargetingSystem():GetLookAtObject(Game.GetPlayer(), false, false)
+					 if target ~= nil and target:IsVehicle() then
+						 AMM.Scan.vehicle = target
+						 AMM.Scan:AutoAssignSeats()
+					 end
+				 end
+			 end
+		 end)
+
 		 Observe("PlayerPuppet", "OnAction", function(action)
 		   local actionName = Game.NameToString(action:GetName(action))
        local actionType = action:GetType(action).value
@@ -160,7 +177,7 @@ function AMM:new()
 	        if actionType == 'BUTTON_RELEASED' then
 					 AMM.playerInMenu = true
 					 AMM.playerInPhoto = true
-	         AMM.Tools:SetSlowMotionSpeed(1)
+	         Game.SetTimeDilation(0)
 					end
 			 elseif actionName == 'ExitPhotoMode' then
 				 if actionType == 'BUTTON_RELEASED' then
@@ -254,6 +271,13 @@ function AMM:new()
 		end
 	 end)
 
+	 registerHotkey("amm_despawn_target", "Despawn Target", function()
+		local target = AMM:GetTarget()
+		if target ~= nil then
+			target.handle:Dispose()
+		end
+	 end)
+
 	 registerHotkey("amm_respawn_all", "Respawn All", function()
 		buttonPressed = true
 	 	AMM:RespawnAll()
@@ -262,12 +286,7 @@ function AMM:new()
 	 registerHotkey("amm_npc_talk", "NPC Talk", function()
 		local target = AMM:GetTarget()
  		if target ~= nil and target.handle:IsNPC() then
-			local animCon = target.handle:GetAnimationControllerComponent()
-	    local animFeat = NewObject("handle:AnimFeature_FacialReaction")
-	    animFeat.category = 3
-	    animFeat.idle = 5
-	 		Util:PlayVoiceOver(target.handle, "greeting")
-			animCon:ApplyFeature(CName.new("FacialReaction"), animFeat)
+			Util:NPCTalk(target.handle)
 		end
 	 end)
 
@@ -328,10 +347,16 @@ function AMM:new()
 						end
 					end
 
+					-- Director Trigger Sensing Check --
+					if not drawWindow then
+						AMM.Director:SenseNPCTalk()
+						AMM.Director:SenseTriggers()
+					end
+
 					-- Travel Animation Done Check --
 					if AMM.TeleportMod ~= '' and AMM.TeleportMod.api.done then
 						if next(AMM.spawnedNPCs) ~= nil then
-							AMM:RespawnAll()
+							AMM:TeleportAll()
 						end
 						AMM.TeleportMod.api.done = false
 					end
@@ -344,7 +369,7 @@ function AMM:new()
 							waitTimer = 0.0
 							AMM.Tools.isTeleporting = false
 							if next(AMM.spawnedNPCs) ~= nil then
-					      AMM:RespawnAll()
+					      AMM:TeleportAll()
 					    end
 						end
 					end
@@ -406,6 +431,7 @@ function AMM:new()
 							if handle then
 								AMM.spawnedNPCs[AMM.currentSpawn].handle = handle
 								if handle:IsNPC() then
+									Util:TeleportNPCTo(handle)
 									if AMM.spawnedNPCs[AMM.currentSpawn].parameters ~= nil then
 										if AMM.spawnedNPCs[AMM.currentSpawn].parameters == "special__vr_tutorial_ma_dummy_light" then -- Extra Handling for Johnny
 											AMM:ChangeScanCustomAppearanceTo(AMM.spawnedNPCs[AMM.currentSpawn], AMM:GetCustomAppearanceParams(AMM.spawnedNPCs[AMM.currentSpawn], 'silverhand_default'))
@@ -683,6 +709,9 @@ function AMM:Begin()
 
 				-- Tools Tab --
 				AMM.Tools:Draw(AMM, target)
+
+				-- Director Tab --
+				AMM.Director:Draw(AMM)
 
 				-- Settings Tab --
 				if (ImGui.BeginTabItem("Settings")) then
@@ -1005,7 +1034,6 @@ function AMM:GetPersonalityOptions()
 		{name = "Sad", idle = 3, category = 3},
 		{name = "Surprise", idle = 8, category = 3},
 		{name = "Are You Serious?", idle = 2, category = 1},
-		{name = "Neutral", idle = 3, category = 1},
 		{name = "Drunk", idle = 4, category = 1},
 		{name = "Sleepy", idle = 5, category = 1},
 		{name = "Bored", idle = 6, category = 1},
@@ -1121,7 +1149,7 @@ function AMM:SpawnNPC(spawn)
 		local spawnTransform = player:GetWorldTransform()
 		local spawnPosition = spawnTransform.Position:ToVector4(spawnTransform.Position)
 		spawnTransform:SetPosition(spawnTransform, Vector4.new((spawnPosition.x - offSetSpawn) - offsetDir.x, (spawnPosition.y - offSetSpawn) - offsetDir.y, spawnPosition.z + distanceFromGround, spawnPosition.w))
-		spawn.entityID = Game.GetPreventionSpawnSystem():RequestSpawn(self:GetNPCTweakDBID(spawn.path), -1, spawnTransform)
+		spawn.entityID = Game.GetPreventionSpawnSystem():RequestSpawn(self:GetNPCTweakDBID(spawn.path), -99, spawnTransform)
 		self.spawnsCounter = self.spawnsCounter + 1
 		while self.spawnedNPCs[spawn.uniqueName()] ~= nil do
 			local num = spawn.name:match("%((%g+)%)")
@@ -1147,9 +1175,20 @@ end
 
 function AMM:DespawnAll(message)
 	if message then Game.GetPlayer():SetWarningMessage("Despawning will occur once you look away") end
-	Game.GetPreventionSpawnSystem():RequestDespawnPreventionLevel(-1)
+	for i = 0, 99 do
+		Game.GetPreventionSpawnSystem():RequestDespawnPreventionLevel(i * -1)
+	end
 	self.spawnsCounter = 0
 	self.spawnedNPCs = {}
+end
+
+function AMM:TeleportAll()
+	for _, ent in pairs(AMM.spawnedNPCs) do
+		local pos = Game.GetPlayer():GetWorldPosition()
+		local heading = Game.GetPlayer():GetWorldForward()
+		local behindPlayer = Vector4.new(pos.x - (heading.x * 2), pos.y - (heading.y * 2), pos.z, pos.w)
+		Util:TeleportNPCTo(ent.handle, behindPlayer)
+	end
 end
 
 function AMM:RespawnAll()
