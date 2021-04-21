@@ -652,10 +652,10 @@ function Tools:DrawNPCActions()
 
     if rotationUsed then
       local pos = Tools.currentNPC.handle:GetWorldPosition()
-      if Tools.currentNPC.name == "V" or Tools.currentNPC.handle:IsDevice() then
-        Game.GetTeleportationFacility():Teleport(Tools.currentNPC.handle, pos, EulerAngles.new(Tools.npcRotation[1], Tools.npcRotation[2], Tools.npcRotation[3]))
-      else
+      if Tools.currentNPC.name ~= 'V' and Tools.currentNPC.handle:IsNPC() then
         Tools:TeleportNPCTo(Tools.currentNPC.handle, pos, Tools.npcRotation[1])
+      else
+        Game.GetTeleportationFacility():Teleport(Tools.currentNPC.handle, pos, EulerAngles.new(Tools.npcRotation[1], Tools.npcRotation[2], Tools.npcRotation[3]))
       end
     end
 

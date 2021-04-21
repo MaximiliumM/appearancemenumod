@@ -33,12 +33,28 @@ function Util:CheckIfCommandIsActive(handle, cmd)
   return GetSingleton('AIbehaviorUniqueActiveCommandList'):IsActionCommandById(handle:GetAIControllerComponent().activeCommands, cmd.id)
 end
 
+function Util:GetBehindPlayerPosition(distance)
+  local pos = AMM.player:GetWorldPosition()
+  local heading = AMM.player:GetWorldForward()
+  local behindPlayer = Vector4.new(pos.x - (heading.x * distance), pos.y - (heading.y * distance), pos.z, pos.w)
+  return behindPlayer
+end
+
+function Util:TeleportTo(targetHandle, targetPosition, targetRotation, distanceFromGround)
+  local pos = Game.GetPlayer():GetWorldPosition()
+  local heading = Game.GetPlayer():GetWorldForward()
+  local teleportPosition = Vector4.new(pos.x + heading.x, pos.y + heading.y, (pos.z + heading.z) + distanceFromGround, pos.w + heading.w)
+
+  Game.GetTeleportationFacility():Teleport(targetHandle, targetPosition or teleportPosition, EulerAngles.new(0, 0, targetRotation or 0))
+end
+
 function Util:TeleportNPCTo(targetPuppet, targetPosition, targetRotation)
   local pos = Game.GetPlayer():GetWorldPosition()
   local heading = Game.GetPlayer():GetWorldForward()
-  local playerFront = Vector4.new(pos.x + heading.x, pos.y + heading.y, pos.z + heading.z, pos.w + heading.w)
+  local teleportPosition = Vector4.new(pos.x + heading.x, pos.y + heading.y, pos.z + heading.z, pos.w + heading.w)
+
 	local teleportCmd = NewObject('handle:AITeleportCommand')
-	teleportCmd.position = targetPosition or playerFront
+	teleportCmd.position = targetPosition or teleportPosition
 	teleportCmd.rotation = targetRotation or 0.0
 	teleportCmd.doNavTest = false
 
@@ -109,6 +125,27 @@ function Util:Despawn(handle)
     vehPS:SetHasExploded(true)
   end
   handle:Dispose()
+end
+
+function Util:UnlockDoor(handle)
+  local handlePS = handle:GetDevicePS()
+
+  if handlePS:IsLocked() then handlePS:ToggleLockOnDoor() end
+  if handlePS:IsSealed() then handlePS:ToggleSealOnDoor() end
+
+  handle:OpenDoor()
+
+end
+
+function Util:RepairVehicle(handle)
+  local vehPS = handle:GetVehiclePS()
+  local vehVC = handle:GetVehicleComponent()
+
+  handle:DestructionResetGrid()
+  handle:DestructionResetGlass()
+
+  vehPS:RepairVehicle()
+  vehVC:ForcePersistentStateChanged()
 end
 
 return Util

@@ -50,7 +50,7 @@ function AMM:new()
 	 AMM.TeleportMod = ''
 
 	 -- Main Properties --
-	 AMM.currentVersion = "1.9.1"
+	 AMM.currentVersion = "1.9.1b"
 	 AMM.updateNotes = require('update_notes.lua')
 	 AMM.credits = require("credits.lua")
 	 AMM.updateLabel = "WHAT'S NEW"
@@ -160,10 +160,7 @@ function AMM:new()
 				 if AMM.Scan.leftBehind ~= '' then
 					 for _, lost in ipairs(AMM.Scan.leftBehind) do
 					 	lost.ent:GetAIControllerComponent():StopExecutingCommand(lost.cmd, true)
-						local pos = AMM.player:GetWorldPosition()
-					  local heading = AMM.player:GetWorldForward()
-					  local behindPlayer = Vector4.new(pos.x - (heading.x * 5), pos.y - (heading.y * 5), pos.z, pos.w)
-						Util:TeleportNPCTo(lost.ent, behindPlayer)
+						Util:TeleportNPCTo(lost.ent, Util:GetBehindPlayerPosition(5))
 					 end
 
 					 AMM.Scan.leftBehind = ''
@@ -290,6 +287,21 @@ function AMM:new()
 	 registerHotkey("amm_respawn_all", "Respawn All", function()
 		buttonPressed = true
 	 	AMM:RespawnAll()
+	 end)
+
+	 registerHotkey("amm_repair_vehicle", "Repair Vehicle", function()
+		 local handle
+		 local target = AMM:GetTarget()
+  	 if target ~= nil and target.handle:IsVehicle() then
+ 			 handle = target.handle
+		 else
+			 local qm = AMM.player:GetQuickSlotsManager()
+		 	 handle = qm:GetVehicleObject()
+ 		 end
+
+		 if handle ~= nil then
+		 	Util:RepairVehicle(handle)
+		 end
 	 end)
 
 	 registerHotkey("amm_npc_talk", "NPC Talk", function()
@@ -437,7 +449,7 @@ function AMM:new()
 					if AMM.currentSpawn ~= '' then
 						waitTimer = waitTimer + deltaTime
 						-- print('trying to set companion')
-						if waitTimer > 0.2 then
+						if waitTimer > 0.2 and waitTimer < 8.0 then
 							local handle
 							if AMM.spawnedNPCs[AMM.currentSpawn] ~= nil and string.find(AMM.spawnedNPCs[AMM.currentSpawn].path, "Vehicle") then
 								handle = Game.GetTargetingSystem():GetLookAtObject(AMM.player, false, false)
@@ -458,6 +470,7 @@ function AMM:new()
 									if AMM.spawnAsCompanion and AMM.spawnedNPCs[AMM.currentSpawn].canBeCompanion then
 										AMM:SetNPCAsCompanion(handle)
 									else
+										waitTimer = 0.0
 										AMM.currentSpawn = ''
 									end
 								elseif handle:IsVehicle() then
@@ -465,9 +478,13 @@ function AMM:new()
 									waitTimer = 0.0
 									AMM.currentSpawn = ''
 								else
+									waitTimer = 0.0
 									AMM.currentSpawn = ''
 								end
 							end
+						elseif waitTimer > 8.0 then
+							waitTimer = 0.0
+							AMM.currentSpawn = ''
 						end
 					else
 						AMM.currentSpawn = ''
@@ -640,7 +657,9 @@ function AMM:Begin()
 								if spawn.handle ~= '' and not(spawn.handle:IsVehicle()) then
 									if ImGui.SmallButton("Respawn##"..spawn.name) then
 										AMM:DespawnNPC(spawn.uniqueName(), spawn.entityID)
-										AMM:SpawnNPC(spawn)
+										Cron.After(0.2, function()
+											AMM:SpawnNPC(spawn)
+										end)
 									end
 								end
 
@@ -867,6 +886,10 @@ function AMM:NewSpawn(name, id, parameters, companion, path)
 	obj.path = path
 	obj.type = 'Spawn'
 	obj.entityID = ''
+
+	if string.find(obj.path, "Props") then
+		obj.type = 'Props'
+	end
 
 	if obj.parameters == "Player" then
 		obj.path = path..Util:GetPlayerGender()
@@ -1241,7 +1264,13 @@ function AMM:SpawnNPC(spawn)
 		local offsetDir = Vector3.new(heading.x * distanceFromPlayer, heading.y * distanceFromPlayer, heading.z)
 		local spawnTransform = player:GetWorldTransform()
 		local spawnPosition = spawnTransform.Position:ToVector4(spawnTransform.Position)
-		spawnTransform:SetPosition(spawnTransform, Vector4.new((spawnPosition.x - offSetSpawn) - offsetDir.x, (spawnPosition.y - offSetSpawn) - offsetDir.y, spawnPosition.z + distanceFromGround, spawnPosition.w))
+		local newPosition = Vector4.new((spawnPosition.x - offSetSpawn) - offsetDir.x, (spawnPosition.y - offSetSpawn) - offsetDir.y, spawnPosition.z + distanceFromGround, spawnPosition.w)
+
+		if spawn.type == "Props" then
+			newPosition = Vector4.new((spawnPosition.x - offSetSpawn) + offsetDir.x, (spawnPosition.y - offSetSpawn) + offsetDir.y, spawnPosition.z + distanceFromGround, spawnPosition.w)
+		end
+
+		spawnTransform:SetPosition(spawnTransform, newPosition)
 		spawn.entityID = Game.GetPreventionSpawnSystem():RequestSpawn(self:GetNPCTweakDBID(spawn.path), -99, spawnTransform)
 		self.spawnsCounter = self.spawnsCounter + 1
 		while self.spawnedNPCs[spawn.uniqueName()] ~= nil do
@@ -1262,7 +1291,11 @@ function AMM:DespawnNPC(npcName, spawnID)
 	self.spawnedNPCs[npcName] = nil
 	self.spawnsCounter = self.spawnsCounter - 1
 	local handle = Game.FindEntityByID(spawnID)
-	if handle then handle:Dispose() end
+	if handle then
+		if handle:IsNPC() then
+			Util:TeleportNPCTo(handle, Util:GetBehindPlayerPosition(2))
+		end
+	end
 	Game.GetPreventionSpawnSystem():RequestDespawn(spawnID)
 end
 
@@ -1277,10 +1310,7 @@ end
 
 function AMM:TeleportAll()
 	for _, ent in pairs(AMM.spawnedNPCs) do
-		local pos = AMM.player:GetWorldPosition()
-		local heading = AMM.player:GetWorldForward()
-		local behindPlayer = Vector4.new(pos.x - (heading.x * 2), pos.y - (heading.y * 2), pos.z, pos.w)
-		Util:TeleportNPCTo(ent.handle, behindPlayer)
+		Util:TeleportNPCTo(ent.handle, Util:GetBehindPlayerPosition(2))
 	end
 end
 
@@ -1327,7 +1357,7 @@ function AMM:UpdateSettings()
 end
 
 function AMM:CheckCustomDefaults(target)
-	if target ~= nil and (target.type == "NPCPuppet" or target.type == "vehicle") then
+	if target ~= nil and target.type == "NPCPuppet" then
 		if AMM.customAppDefaults[target.id] ~= nil then
 			if not AMM.customAppDefaults[target.id].apps[target.appearance] then
 				local appParam = target.handle:FindComponentByName(CName.new(AMM.customAppDefaults[target.id].component))
@@ -1348,7 +1378,9 @@ function AMM:CheckSavedAppearance(target)
 
 	local searchQuery = Game["TSQ_ALL;"]()
 	searchQuery.maxDistance = 10
-	local success, parts = Game.GetTargetingSystem():GetTargetParts(Game.GetPlayer(), searchQuery, {})
+	searchQuery.includeSecondaryTargets = false
+	searchQuery.ignoreInstigator = true
+	local success, parts = Game.GetTargetingSystem():GetTargetParts(AMM.player, searchQuery, {})
 	if success then
 		for i, v in ipairs(parts) do
 			local ent = nil

@@ -1,5 +1,24 @@
 return {
 	{
+		'1.9.1b',
+		'2021 Apr 21',
+		[[Added more Props including:]],
+		[[-- Iguana, Dumbbell, Cellphone with screen ON, Champagne Glass and many more!]],
+		[[-- Thanks Jamie for helping with testing]],
+		[[Added new Unlock Door button to Scan tab]],
+		[[-- Now you can go inside the mansion again ;)]],
+		[[Added new Repair Vehicle hotkey]],
+		[[Improved NPC despawning]],
+		[[Adjusted Props spawning to be always in front of the Player]],
+		[[Fixed issue where Props wouldn't despawn correctly]],
+		[[Fixed issue where Props rotation wouldn't work]],
+		[[Fixed MAJOR issue where changing Shion MZ2's appearance would crash the game]],
+		[[Fixed issue where Meredith Custom Appearance would remove the underwear from all women]],
+		[[-- Thanks, Hineytroll!]],
+		[[Fixed issue where Look At and Go To actions would have Team A and B as possible targets]],
+		[[Fixed issue where spawned vehicles would appear in Assign Seats view]],
+	},
+	{
 		'1.9.1',
 		'2021 Apr 19',
 		[[Introducing Props:]],
@@ -8,7 +27,7 @@ return {
 		[[-- You can also move TVs and other targetable objects in the game world]],
 		[[Fixed issue where NPCs would fight their own Teams]],
 		[[Fixed issue where adding multiples of the same NPC wouldn't save properly to the script file]],
-		[[Fixed issue where Freeze time hotkey wouldn't work]],
+		[[Fixed issue where Freeze Time hotkey wouldn't work]],
 		[[Fixed issue where Skip Frame hotkey and button wouldn't work]],
 	},
 	{

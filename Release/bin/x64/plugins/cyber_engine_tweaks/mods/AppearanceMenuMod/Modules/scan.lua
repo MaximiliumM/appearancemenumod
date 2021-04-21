@@ -117,24 +117,22 @@ function Scan:Draw(AMM, target, style)
 
       ImGui.Spacing()
 
-      if target.handle:IsVehicle() then
+      if target.name == "Door" then
+        if ImGui.SmallButton("  Unlock Door  ") then
+          Util:UnlockDoor(target.handle)
+        end
+      elseif target.handle:IsVehicle() then
         if ImGui.SmallButton("  Unlock Vehicle  ") then
           AMM:UnlockVehicle(target.handle)
         end
 
         ImGui.SameLine()
         if ImGui.SmallButton("  Repair Vehicle  ") then
-          local vehPS = target.handle:GetVehiclePS()
-          local vehVC = target.handle:GetVehicleComponent()
-
-          target.handle:DestructionResetGrid()
-          target.handle:DestructionResetGlass()
-
-          vehPS:RepairVehicle()
-          vehVC:ForcePersistentStateChanged()
+          Util:RepairVehicle(target.handle)
         end
 
-        if next(AMM.spawnedNPCs) ~= nil then
+        local status, ent = next(AMM.spawnedNPCs)
+        if status and ent.handle:IsNPC() then
           if ImGui.SmallButton("  Assign Seats  ") then
             if Scan.vehicle == '' or Scan.vehicle:GetEntityID().hash ~= target.handle:GetEntityID().hash then
               Scan:GetVehicleSeats(target.handle)
@@ -217,26 +215,27 @@ end
 function Scan:DrawSeatsPopup()
   if ImGui.BeginPopup("Seats", ImGuiWindowFlags.AlwaysAutoResize) then
     for i, ent in pairs(AMM.spawnedNPCs) do
+      if ent.handle:IsNPC() then
+        ImGui.Text(ent.name)
+        ImGui.SameLine()
+        ImGui.Dummy(20, 20)
 
-      ImGui.Text(ent.name)
-      ImGui.SameLine()
-      ImGui.Dummy(20, 20)
-
-      if Scan.selectedSeats[ent.name] == nil then
-        Scan.selectedSeats[ent.name] = {seat = {name = "Select Seat"}}
-      end
-
-      ImGui.SameLine()
-      if ImGui.BeginCombo("##"..tostring(i), Scan.selectedSeats[ent.name].seat.name) then
-        for i, seat in ipairs(Scan.vehicleSeats) do
-          if ImGui.Selectable(seat.name, (seat.name == Scan.selectedSeats[ent.name].seat.name)) then
-            Scan.selectedSeats[ent.name] = {name = ent.name, entity = ent.handle, seat = seat}
-          end
+        if Scan.selectedSeats[ent.name] == nil then
+          Scan.selectedSeats[ent.name] = {seat = {name = "Select Seat"}}
         end
-        ImGui.EndCombo()
-      end
 
-      ImGui.Spacing()
+        ImGui.SameLine()
+        if ImGui.BeginCombo("##"..tostring(i), Scan.selectedSeats[ent.name].seat.name) then
+          for i, seat in ipairs(Scan.vehicleSeats) do
+            if ImGui.Selectable(seat.name, (seat.name == Scan.selectedSeats[ent.name].seat.name)) then
+              Scan.selectedSeats[ent.name] = {name = ent.name, entity = ent.handle, seat = seat}
+            end
+          end
+          ImGui.EndCombo()
+        end
+
+        ImGui.Spacing()
+      end
     end
 
     AMM.UI:Separator()

@@ -1260,13 +1260,15 @@ function Director:DrawNodesPopup()
 
     local actors = Director:GetActorsNames(Director.selectedScript, Director.selectedActor.name, true)
 
-    if ImGui.BeginCombo("Go To", Director.newNode.goTo or "No Target") then
+    if ImGui.BeginCombo("Go To Target", Director.newNode.goTo or "No Target") then
       for i, actor in ipairs(actors) do
-        if ImGui.Selectable(actor, (actor == (Director.newNode.goTo or "No Target"))) then
-          if actor == "No Target" then
-            Director.newNode.goTo = false
-          else
-            Director.newNode.goTo = actor
+        if i == 2 or i == 3 then else
+          if ImGui.Selectable(actor, (actor == (Director.newNode.goTo or "No Target"))) then
+            if actor == "No Target" then
+              Director.newNode.goTo = false
+            else
+              Director.newNode.goTo = actor
+            end
           end
         end
       end
@@ -1278,11 +1280,13 @@ function Director:DrawNodesPopup()
 
     if ImGui.BeginCombo("Look At", Director.newNode.lookAt or "No Target") then
       for i, actor in ipairs(actors) do
-        if ImGui.Selectable(actor, (actor == (Director.newNode.lookAt or "No Target"))) then
-          if actor == "No Target" then
-            Director.newNode.lookAt = false
-          else
-            Director.newNode.lookAt = actor
+        if i == 2 or i == 3 then else
+          if ImGui.Selectable(actor, (actor == (Director.newNode.lookAt or "No Target"))) then
+            if actor == "No Target" then
+              Director.newNode.lookAt = false
+            else
+              Director.newNode.lookAt = actor
+            end
           end
         end
       end
