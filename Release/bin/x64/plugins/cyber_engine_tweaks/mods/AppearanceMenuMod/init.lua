@@ -50,7 +50,7 @@ function AMM:new()
 	 AMM.TeleportMod = ''
 
 	 -- Main Properties --
-	 AMM.currentVersion = "1.9.1b"
+	 AMM.currentVersion = "1.9.1c"
 	 AMM.updateNotes = require('update_notes.lua')
 	 AMM.credits = require("credits.lua")
 	 AMM.updateLabel = "WHAT'S NEW"
@@ -80,6 +80,7 @@ function AMM:new()
 	 AMM.playerAttached = false
 	 AMM.playerInMenu = true
 	 AMM.playerInPhoto = false
+	 AMM.playerInVehicle = false
 	 AMM.settings = false
 	 AMM.currentSpawn = ''
 	 AMM.maxSpawns = 5
@@ -156,18 +157,29 @@ function AMM:new()
 
 		 -- Setup Observers --
 		 Observe("VehicleComponent", "OnVehicleStartedMountingEvent", function(event)
-			 if event.character:IsPlayer() then
-				 if AMM.Scan.leftBehind ~= '' then
-					 for _, lost in ipairs(AMM.Scan.leftBehind) do
-					 	lost.ent:GetAIControllerComponent():StopExecutingCommand(lost.cmd, true)
-						Util:TeleportNPCTo(lost.ent, Util:GetBehindPlayerPosition(5))
+			 if AMM.Scan.drivers[event.character:GetTweakDBDisplayName(true)] ~= nil then
+				 local driver = AMM.Scan.drivers[event.character:GetTweakDBDisplayName(true)]
+				 -- Future code
+		 	 elseif event.character:IsPlayer() then
+				 AMM.playerInVehicle = not AMM.playerInVehicle
+
+				 if not AMM.playerInVehicle then
+					 if AMM.Scan.leftBehind ~= '' then
+						 for _, lost in ipairs(AMM.Scan.leftBehind) do
+						 	lost.ent:GetAIControllerComponent():StopExecutingCommand(lost.cmd, true)
+							Util:TeleportNPCTo(lost.ent, Util:GetBehindPlayerPosition(5))
+						 end
+
+						 AMM.Scan.leftBehind = ''
 					 end
 
-					 AMM.Scan.leftBehind = ''
-				 elseif next(AMM.spawnedNPCs) ~= nil then
+					 if next(AMM.Scan.drivers) ~= nil then
+						 AMM.Scan:UnmountDrivers()
+					 end
+				 elseif AMM.playerInVehicle and next(AMM.spawnedNPCs) ~= nil then
 					 local target = Game.GetTargetingSystem():GetLookAtObject(AMM.player, false, false)
 					 if target ~= nil and target:IsVehicle() then
-						 AMM.Scan.vehicle = target
+						 AMM.Scan.vehicle = {handle = target, hash = tostring(target:GetEntityID().hash)}
 						 AMM.Scan:AutoAssignSeats()
 					 end
 				 end
@@ -449,7 +461,7 @@ function AMM:new()
 					if AMM.currentSpawn ~= '' then
 						waitTimer = waitTimer + deltaTime
 						-- print('trying to set companion')
-						if waitTimer > 0.2 and waitTimer < 8.0 then
+						if waitTimer > 0.2 and waitTimer < 30.0 then
 							local handle
 							if AMM.spawnedNPCs[AMM.currentSpawn] ~= nil and string.find(AMM.spawnedNPCs[AMM.currentSpawn].path, "Vehicle") then
 								handle = Game.GetTargetingSystem():GetLookAtObject(AMM.player, false, false)
@@ -459,7 +471,9 @@ function AMM:new()
 							if handle then
 								AMM.spawnedNPCs[AMM.currentSpawn].handle = handle
 								if handle:IsNPC() then
-									Util:TeleportNPCTo(handle)
+									if not(string.find(AMM.spawnedNPCs[AMM.currentSpawn].name, "Drone")) then
+										Util:TeleportNPCTo(handle)
+									end
 									if AMM.spawnedNPCs[AMM.currentSpawn].parameters ~= nil then
 										if AMM.spawnedNPCs[AMM.currentSpawn].parameters == "special__vr_tutorial_ma_dummy_light" then -- Extra Handling for Johnny
 											AMM:ChangeScanCustomAppearanceTo(AMM.spawnedNPCs[AMM.currentSpawn], AMM:GetCustomAppearanceParams(AMM.spawnedNPCs[AMM.currentSpawn], 'silverhand_default'))
@@ -482,7 +496,7 @@ function AMM:new()
 									AMM.currentSpawn = ''
 								end
 							end
-						elseif waitTimer > 8.0 then
+						elseif waitTimer > 30.0 then
 							waitTimer = 0.0
 							AMM.currentSpawn = ''
 						end
@@ -514,13 +528,7 @@ function AMM:new()
 
 			AMM.UI:Start()
 
-			if AMM.Debug == '' then
-				pcall(function()
-					AMM:Begin()
-				end)
-			else
-				AMM:Begin()
-			end
+			AMM:Begin()
 
 			AMM.UI:End()
 	 	end
@@ -681,7 +689,7 @@ function AMM:Begin()
 
 									ImGui.SameLine()
 									if ImGui.SmallButton(hostileButtonLabel.."##"..spawn.name) then
-										AMM:ToggleHostile(spawn)
+										AMM:ToggleHostile(spawn.handle)
 									end
 
 									ImGui.SameLine()
@@ -1410,7 +1418,7 @@ function AMM:CheckSavedAppearanceForEntity(ent)
 		end
 	end
 
-	if savedApp ~= nil and savedApp ~= currentApp then
+	if savedApp ~= nil then
 		AMM:ChangeToSavedAppearance(ent, savedApp)
 		return true
 	end
@@ -1659,10 +1667,10 @@ function AMM:GetTarget()
 	return nil
 end
 
-function AMM:ToggleHostile(spawn)
-	Util:SetGodMode(spawn.handle, false)
+function AMM:ToggleHostile(spawnHandle)
+	Util:SetGodMode(spawnHandle, false)
 
-	local handle = spawn.handle
+	local handle = spawnHandle
 
 	if handle.isPlayerCompanionCached then
 		local AIC = handle:GetAIControllerComponent()
@@ -1676,7 +1684,6 @@ function AMM:ToggleHostile(spawn)
 		handle.isPlayerCompanionCachedTimeStamp = 0
 
 		Game['senseComponent::RequestMainPresetChange;GameObjectString'](handle, "Combat")
-		Game['NPCPuppet::ChangeStanceState;GameObjectgamedataNPCStanceState'](handle, "Combat")
 		AIC:GetCurrentRole():OnRoleCleared(handle)
 		AIC:SetAIRole(aiRole)
 		handle.movePolicies:Toggle(true)
@@ -1742,8 +1749,6 @@ function AMM:SetNPCAsCompanion(npcHandle)
 		targetAttAgent:SetAttitudeGroup(CName.new("player"))
 		roleComp.attitudeGroupName = CName.new("player")
 		Game['senseComponent::RequestMainPresetChange;GameObjectString'](targCompanion, "Follower")
-		Game['senseComponent::ShouldIgnoreIfPlayerCompanion;EntityEntity'](targCompanion, Game:GetPlayer())
-		Game['NPCPuppet::ChangeStanceState;GameObjectgamedataNPCStanceState'](targCompanion, "Relaxed")
 		targCompanion.isPlayerCompanionCached = true
 		targCompanion.isPlayerCompanionCachedTimeStamp = currTime
 

@@ -1,5 +1,17 @@
 return {
 	{
+		'1.9.1c',
+		'2021 Apr 26',
+		[[Added many new Custom Appearances for Hanako]],
+		[[Added requested NPCs to Swap list]],
+		[[Assignable Seats now works with more than one vehicle at a time]],
+		[[-- Your companions won't drive their own vehicles... yet]],
+		[[Fixed issue where Drones wouldn't be companions when spawned]],
+		[[-- Unfortunately, current workaround is spawning them behind the player]],
+		[[Fixed issue where sometimes the Saved Appearance wouldn't load]],
+		[[Fixed issue when using Movement Tools on NPCs]],
+	},
+	{
 		'1.9.1b',
 		'2021 Apr 21',
 		[[Added more Props including:]],

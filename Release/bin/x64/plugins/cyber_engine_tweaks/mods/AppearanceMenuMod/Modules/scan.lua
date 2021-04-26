@@ -8,7 +8,8 @@ local Scan = {
   vehicleSeats = '',
   selectedSeats = {},
   vehicle = '',
-  activeCommands = '',
+  drivers = {},
+  assignedVehicles = {},
   leftBehind = '',
 }
 
@@ -134,10 +135,9 @@ function Scan:Draw(AMM, target, style)
         local status, ent = next(AMM.spawnedNPCs)
         if status and ent.handle:IsNPC() then
           if ImGui.SmallButton("  Assign Seats  ") then
-            if Scan.vehicle == '' or Scan.vehicle:GetEntityID().hash ~= target.handle:GetEntityID().hash then
+            if Scan.vehicle == '' or Scan.vehicle.hash ~= target.handle:GetEntityID().hash then
               Scan:GetVehicleSeats(target.handle)
-              Scan.vehicle = target.handle
-              Scan.selectedSeats = {}
+              Scan.vehicle = {handle = target.handle, hash = tostring(target.handle:GetEntityID().hash)}
             end
 
             ImGui.OpenPopup("Seats")
@@ -220,15 +220,18 @@ function Scan:DrawSeatsPopup()
         ImGui.SameLine()
         ImGui.Dummy(20, 20)
 
-        if Scan.selectedSeats[ent.name] == nil then
-          Scan.selectedSeats[ent.name] = {seat = {name = "Select Seat"}}
+        local comboLabel = nil
+        if Scan.selectedSeats[ent.name] == nil or Scan.selectedSeats[ent.name].vehicle.hash ~= Scan.vehicle.hash then
+          comboLabel = "Select Seat"
+        else
+          comboLabel = Scan.selectedSeats[ent.name].seat.name
         end
 
         ImGui.SameLine()
-        if ImGui.BeginCombo("##"..tostring(i), Scan.selectedSeats[ent.name].seat.name) then
+        if ImGui.BeginCombo("##"..tostring(i), comboLabel) then
           for i, seat in ipairs(Scan.vehicleSeats) do
-            if ImGui.Selectable(seat.name, (seat.name == Scan.selectedSeats[ent.name].seat.name)) then
-              Scan.selectedSeats[ent.name] = {name = ent.name, entity = ent.handle, seat = seat}
+            if ImGui.Selectable(seat.name, (seat.name == comboLabel)) then
+              Scan.selectedSeats[ent.name] = {name = ent.name, entity = ent.handle, seat = seat, vehicle = Scan.vehicle}
             end
           end
           ImGui.EndCombo()
@@ -241,10 +244,12 @@ function Scan:DrawSeatsPopup()
     AMM.UI:Separator()
 
     if ImGui.Button("Assign", -1, 30) then
+      Scan.assignedVehicles[Scan.vehicle.hash] = 'active'
+
       local nonCompanions = {}
 
       for _, seat in pairs(Scan.selectedSeats) do
-        if not seat.entity.isPlayerCompanionCached then
+        if seat.entity and not seat.entity.isPlayerCompanionCached then
           nonCompanions[seat.name] = seat
         end
       end
@@ -260,21 +265,21 @@ function Scan:DrawSeatsPopup()
   end
 end
 
-function Scan:AssignSeats(entities, instant)
-  Scan.activeCommands = {}
-  Scan.activeSeats = {}
+function Scan:AssignSeats(entities, instant, unmount)
+  local command = 'AIMountCommand'
+  if unmount then command = 'AIUnmountCommand' end
 
   for _, assign in pairs(entities) do
-    local cmd = NewObject('AIMountCommand')
+    local cmd = NewObject(command)
     local mountData = NewObject('handle:gameMountEventData')
-    mountData.mountParentEntityId = Scan.vehicle:GetEntityID()
+    mountData.mountParentEntityId = assign.vehicle.handle:GetEntityID()
     mountData.isInstant = instant
     mountData.setEntityVisibleWhenMountFinish = true
     mountData.removePitchRollRotationOnDismount = false
     mountData.ignoreHLS = false
     mountData.mountEventOptions = NewObject('handle:gameMountEventOptions')
     mountData.mountEventOptions.silentUnmount = false
-    mountData.mountEventOptions.entityID = Scan.vehicle:GetEntityID()
+    mountData.mountEventOptions.entityID = assign.vehicle.handle:GetEntityID()
     mountData.mountEventOptions.alive = true
     mountData.mountEventOptions.occupiedByNeutral = true
     mountData.slotName = CName.new(assign.seat.cname)
@@ -305,32 +310,43 @@ function Scan:GetVehicleSeats(vehicle)
 end
 
 function Scan:AutoAssignSeats()
-  Scan:GetVehicleSeats(Scan.vehicle)
+  Scan:GetVehicleSeats(Scan.vehicle.handle)
+  local playerMountedVehicle = Scan.vehicle.hash
 
   local counter = 1
   for _, ent in pairs(AMM.spawnedNPCs) do
-
-    local seatsNumber = #Scan.vehicleSeats - 1
-
-    if counter <=  seatsNumber then
-      if Scan.selectedSeats[ent.name] == nil or Scan.selectedSeats[ent.name].seat.name == "Select Seat" then
-        Scan.selectedSeats[ent.name] = {name = ent.name, entity = ent.handle, seat = Scan.vehicleSeats[counter]}
-      end
-    elseif counter > seatsNumber then
-      if Scan.leftBehind == '' then
-        Scan.leftBehind = {}
-      end
+    if ent.handle:IsNPC() then
+      local seatsNumber = #Scan.vehicleSeats - 1
 
       if Scan.selectedSeats[ent.name] then
-        Scan.selectedSeats[ent.name] = nil
+        if Game.FindEntityByID(Scan.selectedSeats[ent.name].vehicle.handle:GetEntityID()) then
+          if Scan.selectedSeats[ent.name].seat.name == "Front Left" then
+            Scan.drivers[ent.name] = Scan.selectedSeats[ent.name]
+          end
+        else
+          Scan.selectedSeats[ent.name] = nil
+        end
+      elseif counter <= seatsNumber then
+        if Scan.selectedSeats[ent.name] == nil then
+          Scan.selectedSeats[ent.name] = {name = ent.name, entity = ent.handle, seat = Scan.vehicleSeats[counter], vehicle = Scan.vehicle}
+        end
+      elseif counter > seatsNumber then
+        if Scan.leftBehind == '' then
+          Scan.leftBehind = {}
+        end
+
+        table.insert(Scan.leftBehind, { ent = ent.handle, cmd = Util:HoldPosition(ent.handle, 99999) })
       end
 
-      table.insert(Scan.leftBehind, { ent = ent.handle, cmd = Util:HoldPosition(ent.handle, 99999) })
+      counter = counter + 1
     end
-
-    counter = counter + 1
   end
+
   Scan:AssignSeats(Scan.selectedSeats, false)
+end
+
+function Scan:UnmountDrivers()
+  Scan:AssignSeats(Scan.drivers, false, true)
 end
 
 return Scan

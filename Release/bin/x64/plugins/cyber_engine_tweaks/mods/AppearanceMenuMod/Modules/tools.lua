@@ -608,7 +608,9 @@ function Tools:DrawNPCActions()
       end
     end
 
-    ImGui.Text(Tools.currentNPC.name)
+    if Tools.currentNPC ~= '' then
+      ImGui.Text(Tools.currentNPC.name)
+    end
 
     local buttonLabel = " Lock Target "
     if Tools.lockTarget then
@@ -626,7 +628,7 @@ function Tools:DrawNPCActions()
       local pos = Tools.currentNPC.handle:GetWorldPosition()
       pos = Vector4.new(pos.x, pos.y, Tools.npcUpDown, pos.w)
       if Tools.currentNPC.name ~= 'V' and Tools.currentNPC.handle:IsNPC() then
-        Tools:TeleportNPCTo(Tools.currentNPC.handle, pos, Tools.npcRotation[3])
+        Tools:TeleportNPCTo(Tools.currentNPC.handle, pos, Tools.npcRotation[1])
       else
         Game.GetTeleportationFacility():Teleport(Tools.currentNPC.handle, pos, EulerAngles.new(Tools.npcRotation[1], Tools.npcRotation[2], Tools.npcRotation[3]))
       end
@@ -638,7 +640,7 @@ function Tools:DrawNPCActions()
       local pos = Tools.currentNPC.handle:GetWorldPosition()
       pos = Vector4.new(Tools.npcLeftRight[1], Tools.npcLeftRight[2], pos.z, pos.w)
       if Tools.currentNPC.name ~= 'V' and Tools.currentNPC.handle:IsNPC() then
-        Tools:TeleportNPCTo(Tools.currentNPC.handle, pos, Tools.npcRotation[3])
+        Tools:TeleportNPCTo(Tools.currentNPC.handle, pos, Tools.npcRotation[1])
       else
         Game.GetTeleportationFacility():Teleport(Tools.currentNPC.handle, pos, EulerAngles.new(Tools.npcRotation[1], Tools.npcRotation[2], Tools.npcRotation[3]))
       end
@@ -676,6 +678,7 @@ function Tools:DrawNPCActions()
 
       if ImGui.Button(buttonLabel, buttonWidth, Tools.style.buttonHeight) then
         Tools.holdingNPC = not Tools.holdingNPC
+        Tools.lockTarget = not Tools.lockTarget
         local npcHandle = Tools.currentNPC.handle
 
         if npcHandle:IsNPC() then
@@ -683,14 +686,15 @@ function Tools:DrawNPCActions()
         end
 
         Cron.Every(0.000001, function(timer)
-          local pos = Game.GetPlayer():GetWorldPosition()
-          local heading = Game.GetPlayer():GetWorldForward()
-          local newPos = Vector4.new(pos.x + (heading.x * 2), pos.y + (heading.y * 2), pos.z, pos.w)
+          local pos = AMM.player:GetWorldPosition()
+          local heading = AMM.player:GetWorldForward()
+          local currentPos = Tools.currentNPC.handle:GetWorldPosition()
+          local newPos = Vector4.new(pos.x + (heading.x * 2), pos.y + (heading.y * 2), currentPos.z, pos.w)
 
-          if Tools.currentNPC.name == "V" or target.handle:IsDevice() then
-            Game.GetTeleportationFacility():Teleport(npcHandle, newPos, EulerAngles.new(Tools.npcRotation[1], Tools.npcRotation[2], Tools.npcRotation[3]))
+          if Tools.currentNPC.name ~= 'V' and Tools.currentNPC.handle:IsNPC() then
+            Tools:TeleportNPCTo(npcHandle, newPos, Tools.npcRotation[1])
           else
-            Tools:TeleportNPCTo(npcHandle, newPos, Tools.npcRotation)
+            Game.GetTeleportationFacility():Teleport(npcHandle, newPos, EulerAngles.new(Tools.npcRotation[1], Tools.npcRotation[2], Tools.npcRotation[3]))
           end
 
           if Tools.holdingNPC == false then
