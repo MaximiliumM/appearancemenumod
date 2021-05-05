@@ -1,5 +1,21 @@
 return {
 	{
+		'1.9.2',
+		'2021 May 05',
+		[[Added new system that allows Companions to drive their own vehicles following you around]],
+		[[-- Assign Front Left to set your companion as driver of the target vehicle]],
+		[[Added new Blacklist system]],
+		[[-- Now you can block specific appearances from appearing on NPCs!]],
+		[[Changed position of the 'Cool' button in the update screen]],
+		[[Added more Props including:]],
+		[[-- Newspaper, Yakitori, Painting and more]],
+		[[Added some new variations for gang NPCs to the Spawn tab including:]],
+		[[-- Valentino Elite, Voodoo Girl Ranged, Male Tyger Claw Katana and more]],
+		[[Fixed issue where removing an actor would not remove their respective Marks]],
+		[[Fixed issue where despawning using the Scan tab button wouldn't update the Spawn tab]],
+		[[Fixed many issues where the UI colors would leak because of bad error handling]],
+	},
+	{
 		'1.9.1c',
 		'2021 Apr 26',
 		[[Added many new Custom Appearances for Hanako]],
