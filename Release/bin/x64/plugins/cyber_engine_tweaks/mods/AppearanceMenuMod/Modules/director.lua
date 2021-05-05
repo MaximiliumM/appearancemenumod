@@ -669,6 +669,10 @@ function Director:RemoveNodeFromActor(actor, node)
 end
 
 function Director:RemoveActorFromScript(script, actorName)
+  if Director.showNodes then
+    Director:RemoveNodeMarks(Director.selectedActor.nodes)
+  end
+
   script.actors[actorName] = nil
 
   if next(script.actors) ~= nil then
@@ -1698,7 +1702,7 @@ function Director:GetScripts()
 end
 
 function Director:DeleteScript(script)
-  if Director.showNodes then
+  if Director.showNodes and Director.selectedActor ~= '' then
     Director:RemoveNodeMarks(Director.selectedActor.nodes)
   end
   os.remove("User/Scripts/"..script.title..".json")

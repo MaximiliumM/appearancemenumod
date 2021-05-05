@@ -260,8 +260,8 @@ end
 
 function Tools:CheckGodModeIsActive()
   -- Check if God Mode is active after reload all mods
-  if Game.GetPlayer() ~= nil then
-    local playerID = Game.GetPlayer():GetEntityID()
+  if AMM.player ~= nil then
+    local playerID = AMM.player:GetEntityID()
     local currentHP = Game.GetStatsSystem():GetStatValue(playerID, "Health")
     if currentHP < 0 then Tools.godModeToggle = true end
   end
@@ -624,7 +624,7 @@ function Tools:DrawNPCActions()
     ImGui.PushItemWidth(ImGui.GetWindowContentRegionWidth() - ImGui.CalcTextSize("Tilt/Rotation "))
     Tools.npcUpDown, upDownUsed = ImGui.DragFloat("Up/Down", Tools.npcUpDown, 0.01)
 
-    if upDownUsed then
+    if upDownUsed and Tools.currentNPC ~= '' then
       local pos = Tools.currentNPC.handle:GetWorldPosition()
       pos = Vector4.new(pos.x, pos.y, Tools.npcUpDown, pos.w)
       if Tools.currentNPC.name ~= 'V' and Tools.currentNPC.handle:IsNPC() then
@@ -636,7 +636,7 @@ function Tools:DrawNPCActions()
 
     Tools.npcLeftRight, leftRightUsed = ImGui.DragFloat2("X/Y", Tools.npcLeftRight, 0.01)
 
-    if leftRightUsed then
+    if leftRightUsed and Tools.currentNPC ~= '' then
       local pos = Tools.currentNPC.handle:GetWorldPosition()
       pos = Vector4.new(Tools.npcLeftRight[1], Tools.npcLeftRight[2], pos.z, pos.w)
       if Tools.currentNPC.name ~= 'V' and Tools.currentNPC.handle:IsNPC() then
@@ -646,13 +646,13 @@ function Tools:DrawNPCActions()
       end
     end
 
-    if Tools.currentNPC.name ~= 'V' and Tools.currentNPC.handle:IsNPC() then
+    if Tools.currentNPC ~= '' and (Tools.currentNPC.name ~= 'V' and Tools.currentNPC.handle:IsNPC()) then
       Tools.npcRotation[1], rotationUsed = ImGui.SliderFloat("Rotation", Tools.npcRotation[1], -180, 180)
     elseif Tools.currentNPC ~= '' then
       Tools.npcRotation, rotationUsed = ImGui.DragFloat3("Tilt/Rotation", Tools.npcRotation, 0.1)
     end
 
-    if rotationUsed then
+    if rotationUsed and Tools.currentNPC ~= '' then
       local pos = Tools.currentNPC.handle:GetWorldPosition()
       if Tools.currentNPC.name ~= 'V' and Tools.currentNPC.handle:IsNPC() then
         Tools:TeleportNPCTo(Tools.currentNPC.handle, pos, Tools.npcRotation[1])
@@ -672,42 +672,45 @@ function Tools:DrawNPCActions()
       end
 
       local buttonWidth = Tools.style.buttonWidth
-      if Tools.currentNPC.handle:IsNPC() then
+      if Tools.currentNPC ~= '' and Tools.currentNPC.handle:IsNPC() then
         buttonWidth = Tools.style.halfButtonWidth
       end
 
       if ImGui.Button(buttonLabel, buttonWidth, Tools.style.buttonHeight) then
         Tools.holdingNPC = not Tools.holdingNPC
         Tools.lockTarget = not Tools.lockTarget
-        local npcHandle = Tools.currentNPC.handle
 
-        if npcHandle:IsNPC() then
-          npcHandle:GetAIControllerComponent():DisableCollider()
-        end
+        if Tools.currentNPC ~= '' then
+          local npcHandle = Tools.currentNPC.handle
 
-        Cron.Every(0.000001, function(timer)
-          local pos = AMM.player:GetWorldPosition()
-          local heading = AMM.player:GetWorldForward()
-          local currentPos = Tools.currentNPC.handle:GetWorldPosition()
-          local newPos = Vector4.new(pos.x + (heading.x * 2), pos.y + (heading.y * 2), currentPos.z, pos.w)
-
-          if Tools.currentNPC.name ~= 'V' and Tools.currentNPC.handle:IsNPC() then
-            Tools:TeleportNPCTo(npcHandle, newPos, Tools.npcRotation[1])
-          else
-            Game.GetTeleportationFacility():Teleport(npcHandle, newPos, EulerAngles.new(Tools.npcRotation[1], Tools.npcRotation[2], Tools.npcRotation[3]))
+          if npcHandle:IsNPC() then
+            npcHandle:GetAIControllerComponent():DisableCollider()
           end
 
-          if Tools.holdingNPC == false then
-            if npcHandle:IsNPC() then
-              npcHandle:GetAIControllerComponent():EnableCollider()
+          Cron.Every(0.000001, function(timer)
+            local pos = AMM.player:GetWorldPosition()
+            local heading = AMM.player:GetWorldForward()
+            local currentPos = Tools.currentNPC.handle:GetWorldPosition()
+            local newPos = Vector4.new(pos.x + (heading.x * 2), pos.y + (heading.y * 2), currentPos.z, pos.w)
+
+            if Tools.currentNPC.name ~= 'V' and Tools.currentNPC.handle:IsNPC() then
+              Tools:TeleportNPCTo(npcHandle, newPos, Tools.npcRotation[1])
+            else
+              Game.GetTeleportationFacility():Teleport(npcHandle, newPos, EulerAngles.new(Tools.npcRotation[1], Tools.npcRotation[2], Tools.npcRotation[3]))
             end
-            Cron.Halt(timer)
-          end
-        end)
+
+            if Tools.holdingNPC == false then
+              if npcHandle:IsNPC() then
+                npcHandle:GetAIControllerComponent():EnableCollider()
+              end
+              Cron.Halt(timer)
+            end
+          end)
+        end
       end
     end
 
-    if not AMM.playerInPhoto and Tools.currentNPC.handle:IsNPC() then
+    if not AMM.playerInPhoto and Tools.currentNPC ~= '' and Tools.currentNPC.handle:IsNPC() then
       local buttonLabel = " Freeze Target "
       if Tools.frozenNPCs[tostring(Tools.currentNPC.handle:GetEntityID().hash)] ~= nil then
         buttonLabel = " Unfreeze Target "

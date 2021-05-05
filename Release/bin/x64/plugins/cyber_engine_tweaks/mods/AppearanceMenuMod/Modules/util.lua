@@ -1,4 +1,7 @@
-local Util = {}
+local Util = {
+  openPopup = false,
+  popup = {},
+}
 
 function Util:GetPlayerGender()
   -- True = Female / False = Male
@@ -122,7 +125,7 @@ end
 function Util:Despawn(handle)
   if handle:IsVehicle() then
     local vehPS = handle:GetVehiclePS()
-    vehPS:SetHasExploded(true)
+    vehPS:SetHasExploded(false)
   end
   handle:Dispose()
 end
@@ -146,6 +149,29 @@ function Util:RepairVehicle(handle)
 
   vehPS:RepairVehicle()
   vehVC:ForcePersistentStateChanged()
+end
+
+function Util:SetupPopup()
+  if Util.openPopup then
+    if ImGui.BeginPopupModal("Error", ImGuiWindowFlags.AlwaysAutoResize) then
+      ImGui.Text(Util.popup.text)
+      ImGui.Spacing()
+      
+      if ImGui.Button("Ok", -1, 40) then
+        Util.openPopup = false
+        ImGui.CloseCurrentPopup()
+      end
+
+      ImGui.EndPopup()
+    end
+  end
+end
+
+function Util:OpenPopup(popupInfo)
+  Util.popup = {}
+  Util.popup.text = popupInfo.text
+  Util.openPopup = true
+  ImGui.OpenPopup("Error")
 end
 
 return Util

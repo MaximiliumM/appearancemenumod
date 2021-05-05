@@ -9,12 +9,15 @@ local Scan = {
   selectedSeats = {},
   vehicle = '',
   drivers = {},
+  distanceMin = 0,
   assignedVehicles = {},
   leftBehind = '',
 }
 
 function Scan:Draw(AMM, target, style)
   if ImGui.BeginTabItem("Scan") then
+    -- Util Popup Helper --
+    Util:SetupPopup()
 
     AMM.UI:DrawCrossHair()
 
@@ -31,6 +34,11 @@ function Scan:Draw(AMM, target, style)
             title = "Save Appearance",
             width = style.halfButtonWidth,
             action = "Save"
+          },
+          {
+            title = "Blacklist Appearance",
+            width = style.buttonWidth,
+            action = "Blacklist"
           },
         },
       },
@@ -81,22 +89,33 @@ function Scan:Draw(AMM, target, style)
 
         if tabConfig[target.type] ~= nil then
           for _, button in ipairs(tabConfig[target.type].buttons) do
-            ImGui.SameLine()
-
-            if drawSaveButton == false or target.id == "0x903E76AF, 43" then
-              button.width = style.buttonWidth
+            repeat
+            if button.action ~= "Blacklist" and button.action ~= "Cycle" then
+              ImGui.SameLine()
             end
 
-            if button.action == "Cycle" and target.id ~= "0x903E76AF, 43" then -- Extra Handling for Johnny
-              AMM:DrawButton(button.title, button.width, style.buttonHeight, button.action, target)
+            if button.action == "Cycle" and target.id == "0x903E76AF, 43" then -- Extra Handling for Johnny
+              do break end
             end
 
-            if drawSaveButton and button.action == "Save" then
-              AMM:DrawButton(button.title, button.width, style.buttonHeight, button.action, target)
+            if not drawSaveButton and button.action == "Save" then
+              do break end
             end
+
+            AMM:DrawButton(button.title, button.width, style.buttonHeight, button.action, target)
+
+            until true
           end
 
-          ImGui.Spacing()
+          local check = nil
+          local query = f("SELECT COUNT(1) FROM blacklist_appearances WHERE app_name = '%s'", target.appearance)
+          for count in db:urows(query) do
+            check = count
+          end
+
+          if check ~= 0 then
+            AMM:DrawButton("Remove Appearance From Blacklist", style.buttonWidth, style.buttonHeight, "Unblack", target)
+          end
 
           local savedApp = nil
           local query = f("SELECT app_name FROM saved_appearances WHERE entity_id = '%s'", target.id)
@@ -105,6 +124,7 @@ function Scan:Draw(AMM, target, style)
           end
 
           if savedApp ~= nil then
+            AMM.UI:Spacing(3)
             AMM.UI:TextColored("Saved Appearance:")
             ImGui.Text(savedApp)
             AMM:DrawButton("Clear Saved Appearance", style.buttonWidth, style.buttonHeight, "Clear", target)
@@ -162,7 +182,16 @@ function Scan:Draw(AMM, target, style)
 
       if AMM.userSettings.experimental then
         if ImGui.SmallButton("  Despawn  ") then
-          Util:Despawn(target.handle)
+          local spawnedNPC = nil
+    			for _, spawn in pairs(AMM.spawnedNPCs) do
+    				if target.id == spawn.id then spawnedNPC = spawn break end
+    			end
+
+    			if spawnedNPC then
+    				AMM:DespawnNPC(spawnedNPC.uniqueName(), spawnedNPC.entityID)
+    			else
+    				Util:Despawn(target.handle)
+    			end
         end
       end
 
@@ -347,6 +376,35 @@ end
 
 function Scan:UnmountDrivers()
   Scan:AssignSeats(Scan.drivers, false, true)
+
+  for _, driver in pairs(Scan.drivers) do
+    local vehComp = driver.vehicle.handle:GetVehicleComponent()
+    vehComp.mappinID = nil
+    vehComp:CreateMappin()
+  end
+
+  Scan.drivers = {}
+  Scan.distanceMin = 0
+end
+
+function Scan:SetDriverVehicleToFollow(driver)
+  Scan.distanceMin = Scan.distanceMin + 8
+  local cmd = NewObject("handle:AIVehicleFollowCommand")
+  cmd.target = AMM.player
+  cmd.distanceMin = Scan.distanceMin
+  cmd.stopWhenTargetReached = false
+  cmd.needDriver = true
+  cmd.useTraffic = false
+  cmd.useKinematic = true
+  cmd = cmd:Copy()
+
+  local event = NewObject("handle:AINPCCommandEvent")
+  event.command = cmd
+  driver.vehicle.handle:QueueEvent(event)
+
+  local vehComp = driver.vehicle.handle:GetVehicleComponent()
+  vehComp:DestroyMappin()
+
 end
 
 return Scan

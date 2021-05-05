@@ -50,7 +50,7 @@ function AMM:new()
 	 AMM.TeleportMod = ''
 
 	 -- Main Properties --
-	 AMM.currentVersion = "1.9.1c"
+	 AMM.currentVersion = "1.9.2"
 	 AMM.updateNotes = require('update_notes.lua')
 	 AMM.credits = require("credits.lua")
 	 AMM.updateLabel = "WHAT'S NEW"
@@ -159,7 +159,7 @@ function AMM:new()
 		 Observe("VehicleComponent", "OnVehicleStartedMountingEvent", function(event)
 			 if AMM.Scan.drivers[event.character:GetTweakDBDisplayName(true)] ~= nil then
 				 local driver = AMM.Scan.drivers[event.character:GetTweakDBDisplayName(true)]
-				 -- Future code
+				 AMM.Scan:SetDriverVehicleToFollow(driver)
 		 	 elseif event.character:IsPlayer() then
 				 AMM.playerInVehicle = not AMM.playerInVehicle
 
@@ -292,7 +292,16 @@ function AMM:new()
 	 registerHotkey("amm_despawn_target", "Despawn Target", function()
 		local target = AMM:GetTarget()
 		if target ~= nil then
-			Util:Despawn(target.handle)
+			local spawnedNPC = nil
+			for _, spawn in pairs(AMM.spawnedNPCs) do
+				if target.id == spawn.id then spawnedNPC = spawn break end
+			end
+
+			if spawnedNPC then
+				AMM:DespawnNPC(spawnedNPC.uniqueName(), spawnedNPC.entityID)
+			else
+				Util:Despawn(target.handle)
+			end
 		end
 	 end)
 
@@ -580,7 +589,19 @@ function AMM:Begin()
 			-- UPDATE NOTES
 			AMM.UI:Spacing(8)
 			AMM.UI:TextCenter(AMM.updateLabel, true)
+			if AMM.updateLabel == "WHAT'S NEW" then
+				ImGui.Spacing()
+				AMM.UI:TextCenter(AMM.currentVersion, false)
+			end
 			AMM.UI:Separator()
+
+			if not(finishedUpdate) then
+				AMM.UI:Spacing(4)
+				if ImGui.Button("Cool!", ImGui.GetWindowContentRegionWidth(), 40) then
+					AMM:FinishUpdate()
+				end
+				AMM.UI:Separator()
+			end
 
 			for i, versionArray in ipairs(notes) do
 				local treeNode = ImGui.TreeNodeEx(versionArray[1], ImGuiTreeNodeFlags.DefaultOpen + ImGuiTreeNodeFlags.NoTreePushOnOpen + ImGuiTreeNodeFlags.Framed)
@@ -614,17 +635,6 @@ function AMM:Begin()
 						end
 					end
 
-					if i == 1 then
-						if not(finishedUpdate) then
-							AMM.UI:Separator()
-							AMM.UI:Spacing(4)
-							if ImGui.Button("Cool!", ImGui.GetWindowContentRegionWidth() - 40, 40) then
-								AMM:FinishUpdate()
-							end
-							AMM.UI:Separator()
-						end
-					end
-
 					AMM.UI:Spacing(3)
 					ImGui.TreePop()
 				end
@@ -634,10 +644,11 @@ function AMM:Begin()
 			target = AMM:GetTarget()
 
 			if ImGui.BeginTabBar("TABS") then
+
 				local style = {
-	        buttonWidth = ImGui.GetFontSize() * 20.7,
+	        buttonWidth = -1,
 	        buttonHeight = ImGui.GetFontSize() * 2,
-	        halfButtonWidth = (ImGui.GetFontSize() * 20) / 2
+	        halfButtonWidth = ((ImGui.GetWindowContentRegionWidth() / 2) - 5)
 		    }
 
 				-- Scan Tab --
@@ -972,14 +983,19 @@ function AMM:ImportUserData()
 					self.Swap:LoadSavedSwaps(userData['savedSwaps'])
 				end
 
-				self.selectedTheme = userData['selectedTheme']
-				for _, obj in ipairs(userData['settings']) do
-					db:execute(f("UPDATE settings SET setting_name = '%s', setting_value = %i WHERE setting_name = '%s'", obj.setting_name, boolToInt( obj.setting_value),  obj.setting_name))
+				self.selectedTheme = userData['selectedTheme'] or "Default"
+
+				if userData['settings'] ~= nil then
+					for _, obj in ipairs(userData['settings']) do
+						db:execute(f("UPDATE settings SET setting_name = '%s', setting_value = %i WHERE setting_name = '%s'", obj.setting_name, boolToInt( obj.setting_value),  obj.setting_name))
+					end
 				end
-				for _, obj in ipairs(userData['favorites']) do
-					local command = f("INSERT INTO favorites (position, entity_id, entity_name, parameters) VALUES (%i, '%s', '%s', '%s')", obj.position, obj.entity_id, obj.entity_name, obj.parameters)
-					command = command:gsub("'nil'", "NULL")
-					db:execute(command)
+				if userData['favorites'] ~= nil then
+					for _, obj in ipairs(userData['favorites']) do
+						local command = f("INSERT INTO favorites (position, entity_id, entity_name, parameters) VALUES (%i, '%s', '%s', '%s')", obj.position, obj.entity_id, obj.entity_name, obj.parameters)
+						command = command:gsub("'nil'", "NULL")
+						db:execute(command)
+					end
 				end
 				if userData['favorites_swap'] ~= nil then
 					for _, obj in ipairs(userData['favorites_swap']) do
@@ -987,8 +1003,15 @@ function AMM:ImportUserData()
 						db:execute(command)
 					end
 				end
-				for _, obj in ipairs(userData['saved_appearances']) do
-					db:execute(f("INSERT INTO saved_appearances (entity_id, app_name) VALUES ('%s', '%s')", obj.entity_id, obj.app_name))
+				if userData['saved_appearances'] ~= nil then
+					for _, obj in ipairs(userData['saved_appearances']) do
+						db:execute(f("INSERT INTO saved_appearances (entity_id, app_name) VALUES ('%s', '%s')", obj.entity_id, obj.app_name))
+					end
+				end
+				if userData['blacklist_appearances'] ~= nil then
+					for _, obj in ipairs(userData['blacklist_appearances']) do
+						db:execute(f("INSERT INTO blacklist_appearances (entity_id, app_name) VALUES ('%s', '%s')", obj.entity_id, obj.app_name))
+					end
 				end
 			end
 		end
@@ -1026,6 +1049,10 @@ function AMM:ExportUserData()
 	userData['saved_appearances'] = {}
 	for r in db:nrows("SELECT * FROM saved_appearances") do
 		table.insert(userData['saved_appearances'], {entity_id = r.entity_id, app_name = r.app_name})
+	end
+	userData['blacklist_appearances'] = {}
+	for r in db:nrows("SELECT * FROM blacklist_appearances") do
+		table.insert(userData['blacklist_appearances'], {entity_id = r.entity_id, app_name = r.app_name})
 	end
 	userData['selectedTheme'] = self.selectedTheme
 	userData['spawnedNPCs'] = self:PrepareExportSpawnedData()
@@ -1403,6 +1430,7 @@ function AMM:CheckSavedAppearance(target)
 			if ent ~= nil then
 				AMM:CheckCustomDefaults(ent)
 				AMM:CheckSavedAppearanceForEntity(ent)
+				AMM:CheckBlacklistAppearance(ent)
 			end
 		end
 	end
@@ -1446,6 +1474,28 @@ function AMM:CheckSavedAppearanceForMountedVehicle()
 	return false
 end
 
+function AMM:CheckBlacklistAppearance(ent)
+	local currentApp, check = nil, nil
+
+	if ent ~= nil then
+		for count in db:urows(f("SELECT COUNT(1) FROM blacklist_appearances WHERE app_name = '%s'", ent.appearance)) do
+			check = count
+		end
+
+		local newApp = nil
+		if check ~= 0 then
+			local query = f("SELECT app_name FROM appearances WHERE app_name NOT IN (SELECT app_name FROM blacklist_appearances WHERE entity_id = '%s') AND app_name != '%s' AND entity_id = '%s' ORDER BY RANDOM() LIMIT 1", ent.id, ent.appearance, ent.id)
+			for app in db:urows(query) do
+				newApp = app
+			end
+
+			if newApp then
+				AMM:ChangeScanAppearanceTo(ent, newApp)
+			end
+		end
+	end
+end
+
 function AMM:ChangeToSavedAppearance(ent, savedApp)
 	local check = 0
 	for count in db:urows(f("SELECT COUNT(1) FROM custom_appearances WHERE app_name = '%s'", savedApp)) do
@@ -1476,7 +1526,6 @@ function AMM:ClearSavedAppearance(t)
 	end
 
 	db:execute(f("DELETE FROM saved_appearances WHERE entity_id = '%s'", t.id))
-
 end
 
 function AMM:ClearAllSavedAppearances()
@@ -1489,14 +1538,32 @@ end
 
 function AMM:SaveAppearance(t)
 	local check = 0
-	for count in db:urows(f("SELECT COUNT(1) FROM saved_appearances WHERE entity_id = '%s'", t.id)) do
+	for count in db:urows(f("SELECT COUNT(1) FROM blacklist_appearances WHERE app_name = '%s'", t.appearance)) do
 		check = count
 	end
+
 	if check ~= 0 then
-		db:execute(f("UPDATE saved_appearances SET app_name = '%s' WHERE entity_id = '%s'", t.appearance, t.id))
+		local popupInfo = {text = "You can't save a blacklisted appearance!"}
+		Util:OpenPopup(popupInfo)
 	else
-		db:execute(f("INSERT INTO saved_appearances (entity_id, app_name) VALUES ('%s', '%s')", t.id, t.appearance))
+		check = 0
+		for count in db:urows(f("SELECT COUNT(1) FROM saved_appearances WHERE entity_id = '%s'", t.id)) do
+			check = count
+		end
+		if check ~= 0 then
+			db:execute(f("UPDATE saved_appearances SET app_name = '%s' WHERE entity_id = '%s'", t.appearance, t.id))
+		else
+			db:execute(f("INSERT INTO saved_appearances (entity_id, app_name) VALUES ('%s', '%s')", t.id, t.appearance))
+		end
 	end
+end
+
+function AMM:BlacklistAppearance(t)
+	db:execute(f("INSERT INTO blacklist_appearances (entity_id, app_name) VALUES ('%s', '%s')", t.id, t.appearance))
+end
+
+function AMM:RemoveFromBlacklist(t)
+	db:execute(f("DELETE FROM blacklist_appearances WHERE app_name = '%s'", t.appearance))
 end
 
 function AMM:GetNPCName(t)
@@ -2044,6 +2111,10 @@ function AMM:DrawButton(title, width, height, action, target)
 			AMM:SaveAppearance(target)
 		elseif action == "Clear" then
 			AMM:ClearSavedAppearance(target)
+		elseif action == "Blacklist" then
+			AMM:BlacklistAppearance(target)
+		elseif action == "Unblack" then
+			AMM:RemoveFromBlacklist(target)
 		elseif action == "SpawnNPC" then
 			AMM:SpawnNPC(target)
 			buttonPressed = true
