@@ -1,9 +1,19 @@
 return {
 	{
+		'1.9.2b',
+		'2021 May 06',
+		[[Adjusted following distance to be a tiny bit farther when 3 or more companions are active]],
+		[[Adjusted following distance for when you have only one companion on a bike]],
+		[[-- Now they will be much closer (and probably hit you much more frequently)]],
+		[[Fixed issue where some characters wouldn't drive their vehicles]],
+		[[Fixed issue where Triggers made by the user would get overwritten when updating to a new AMM version (Sorry)]],
+	},
+	{
 		'1.9.2',
 		'2021 May 05',
 		[[Added new system that allows Companions to drive their own vehicles following you around]],
 		[[-- Assign Front Left to set your companion as driver of the target vehicle]],
+		[[-- Disclaimer: Vehicle damage done by companions are not covered by AMM insurance]],
 		[[Added new Blacklist system]],
 		[[-- Now you can block specific appearances from appearing on NPCs!]],
 		[[Changed position of the 'Cool' button in the update screen]],

@@ -1681,7 +1681,14 @@ function Director:GetTriggers()
 
     return triggers
   else
-    return {}
+    local triggers = {}
+    local newTrigger = Director:NewTrigger('Mansion')
+    newTrigger.pos = Vector4.new(-1341.8415527344, 1230.8139648438, 111.10000610352, 1)
+    newTrigger.script = "Judy and Nibbles - Mansion"
+    newTrigger.repeatable = true
+    newTrigger.radius = 3
+    table.insert(triggers, newTrigger)
+    return triggers
   end
 end
 

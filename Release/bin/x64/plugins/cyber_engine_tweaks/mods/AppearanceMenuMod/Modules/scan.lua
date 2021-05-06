@@ -350,7 +350,7 @@ function Scan:AutoAssignSeats()
       if Scan.selectedSeats[ent.name] then
         if Game.FindEntityByID(Scan.selectedSeats[ent.name].vehicle.handle:GetEntityID()) then
           if Scan.selectedSeats[ent.name].seat.name == "Front Left" then
-            Scan.drivers[ent.name] = Scan.selectedSeats[ent.name]
+            Scan.drivers[ent.id] = Scan.selectedSeats[ent.name]
           end
         else
           Scan.selectedSeats[ent.name] = nil
@@ -388,7 +388,13 @@ function Scan:UnmountDrivers()
 end
 
 function Scan:SetDriverVehicleToFollow(driver)
-  Scan.distanceMin = Scan.distanceMin + 8
+  local vehicleClass = AMM:GetScanClass(driver.vehicle.handle)
+  if vehicleClass == "vehicleBikeBaseObject" and AMM.spawnsCounter == 1 then
+    Scan.distanceMin = Scan.distanceMin + 3
+  else
+    Scan.distanceMin = Scan.distanceMin + 8
+  end
+
   local cmd = NewObject("handle:AIVehicleFollowCommand")
   cmd.target = AMM.player
   cmd.distanceMin = Scan.distanceMin
@@ -404,7 +410,6 @@ function Scan:SetDriverVehicleToFollow(driver)
 
   local vehComp = driver.vehicle.handle:GetVehicleComponent()
   vehComp:DestroyMappin()
-
 end
 
 return Scan

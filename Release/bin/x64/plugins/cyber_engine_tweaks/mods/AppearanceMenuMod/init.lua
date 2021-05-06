@@ -50,7 +50,7 @@ function AMM:new()
 	 AMM.TeleportMod = ''
 
 	 -- Main Properties --
-	 AMM.currentVersion = "1.9.2"
+	 AMM.currentVersion = "1.9.2b"
 	 AMM.updateNotes = require('update_notes.lua')
 	 AMM.credits = require("credits.lua")
 	 AMM.updateLabel = "WHAT'S NEW"
@@ -157,8 +157,8 @@ function AMM:new()
 
 		 -- Setup Observers --
 		 Observe("VehicleComponent", "OnVehicleStartedMountingEvent", function(event)
-			 if AMM.Scan.drivers[event.character:GetTweakDBDisplayName(true)] ~= nil then
-				 local driver = AMM.Scan.drivers[event.character:GetTweakDBDisplayName(true)]
+			 if AMM.Scan.drivers[AMM:GetScanID(event.character)] ~= nil then
+				 local driver = AMM.Scan.drivers[AMM:GetScanID(event.character)]
 				 AMM.Scan:SetDriverVehicleToFollow(driver)
 		 	 elseif event.character:IsPlayer() then
 				 AMM.playerInVehicle = not AMM.playerInVehicle
@@ -1825,9 +1825,9 @@ function AMM:SetNPCAsCompanion(npcHandle)
 		if self.spawnsCounter < 3 then
 			self:SetFollowDistance(-0.8)
 		elseif self.spawnsCounter == 3 then
-			self:SetFollowDistance(1)
-		else
 			self:SetFollowDistance(2)
+		else
+			self:SetFollowDistance(2.5)
 		end
 	end
 end
