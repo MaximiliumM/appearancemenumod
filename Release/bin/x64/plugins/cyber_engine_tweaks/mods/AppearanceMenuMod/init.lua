@@ -50,7 +50,7 @@ function AMM:new()
 	 AMM.TeleportMod = ''
 
 	 -- Main Properties --
-	 AMM.currentVersion = "1.9.2b"
+	 AMM.currentVersion = "1.9.2c"
 	 AMM.updateNotes = require('update_notes.lua')
 	 AMM.credits = require("credits.lua")
 	 AMM.updateLabel = "WHAT'S NEW"
@@ -64,6 +64,7 @@ function AMM:new()
 	 AMM.searchQuery = ''
 	 AMM.searchBarWidth = 500
 	 AMM.equipmentOptions = AMM:GetEquipmentOptions()
+	 AMM.followDistanceOptions = AMM:GetFollowDistanceOptions()
 	 AMM.originalVehicles = ''
 	 AMM.skipFrame = false
 
@@ -497,6 +498,9 @@ function AMM:new()
 										AMM.currentSpawn = ''
 									end
 								elseif handle:IsVehicle() then
+									if AMM.spawnedNPCs[AMM.currentSpawn].parameters ~= nil then
+										AMM:ChangeScanAppearanceTo(AMM.spawnedNPCs[AMM.currentSpawn], AMM.spawnedNPCs[AMM.currentSpawn].parameters)
+									end
 									AMM:UnlockVehicle(handle)
 									waitTimer = 0.0
 									AMM.currentSpawn = ''
@@ -533,6 +537,7 @@ function AMM:new()
 			-- Load Theme --
 			if AMM.UI.currentTheme ~= AMM.selectedTheme then
 				AMM.UI:Load(AMM.selectedTheme)
+				AMM:UpdateSettings()
 			end
 
 			AMM.UI:Start()
@@ -805,6 +810,21 @@ function AMM:Begin()
 						AMM.maxSpawns = ImGui.InputInt("Max Spawns", AMM.maxSpawns, 1)
 						ImGui.PopItemWidth()
 					end
+
+					AMM.UI:Spacing(3)
+
+					AMM.UI:TextColored("Companion Distance:")
+
+					for _, option in ipairs(AMM.followDistanceOptions) do
+						if ImGui.RadioButton(option[1], AMM.followDistance[1] == option[1]) then
+							AMM.followDistance = option
+							AMM:UpdateFollowDistance()
+						end
+
+						ImGui.SameLine()
+					end
+
+					ImGui.Spacing()
 
 					if clicked then AMM:UpdateSettings() end
 
@@ -1202,6 +1222,18 @@ function AMM:GetEquipmentOptions()
 	return equipments
 end
 
+function AMM:GetFollowDistanceOptions()
+	local options = {
+		{"Close", -0.8, 2, 2.5},
+		{"Default", 1, 2, 2.5},
+		{"Far", 1.5, 2.5, 3},
+	}
+
+	-- Set Default
+	AMM.followDistance = options[2]
+	return options
+end
+
 function AMM:GetCustomAppearanceDefaults()
 	local customs = {
 		["0x3024F03E, 15"] = {
@@ -1389,6 +1421,8 @@ function AMM:UpdateSettings()
 	for name, value in pairs(self.userSettings) do
 		db:execute(f("UPDATE settings SET setting_value = %i WHERE setting_name = '%s'", boolToInt(value), name))
 	end
+
+	AMM:ExportUserData()
 end
 
 function AMM:CheckCustomDefaults(target)
@@ -1822,13 +1856,17 @@ function AMM:SetNPCAsCompanion(npcHandle)
 		AIC:SetAIRole(roleComp)
 		targCompanion.movePolicies:Toggle(true)
 
-		if self.spawnsCounter < 3 then
-			self:SetFollowDistance(-0.8)
-		elseif self.spawnsCounter == 3 then
-			self:SetFollowDistance(2)
-		else
-			self:SetFollowDistance(2.5)
-		end
+		AMM:UpdateFollowDistance()
+	end
+end
+
+function AMM:UpdateFollowDistance()
+	if self.spawnsCounter < 3 then
+		self:SetFollowDistance(AMM.followDistance[2])
+	elseif self.spawnsCounter == 3 then
+		self:SetFollowDistance(AMM.followDistance[3])
+	else
+		self:SetFollowDistance(AMM.followDistance[4])
 	end
 end
 

@@ -77,21 +77,11 @@ function Tools:Draw(AMM, target)
       ImGui.Text("Tools only works in game")
     else
       if AMM.playerInPhoto then
-        if target ~= nil and target.name == 'V' then
-          Tools.actionCategories = {
-            { name = "V Actions", actions = Tools.DrawVActions },
-            { name = "Time Actions", actions = Tools.DrawTimeActions },
-            { name = "Target Actions", actions = Tools.DrawNPCActions },
-          }
-        else
-          AMM.UI:TextColored("Player In Photo Mode")
-          ImGui.Text("Target V to see available actions")
-          AMM.UI:Spacing(6)
-          Tools.actionCategories = {
-            { name = "Time Actions", actions = Tools.DrawTimeActions },
-            { name = "Target Actions", actions = Tools.DrawNPCActions },
-          }
-        end
+        Tools.actionCategories = {
+          { name = "V Actions", actions = Tools.DrawVActions },
+          { name = "Time Actions", actions = Tools.DrawTimeActions },
+          { name = "Target Actions", actions = Tools.DrawNPCActions },
+        }
       end
 
       for _, category in ipairs(Tools.actionCategories) do
@@ -132,12 +122,12 @@ function Tools:DrawVActions()
 
   if AMM.playerInPhoto then
     if ImGui.Button("Toggle Makeup", Tools.style.halfButtonWidth, Tools.style.buttonHeight) then
-      Tools:ToggleMakeup(target)
+      Tools:ToggleMakeup()
     end
 
     ImGui.SameLine()
     if ImGui.Button("Toggle Piercings", Tools.style.halfButtonWidth, Tools.style.buttonHeight) then
-      Tools:ToggleAccessories(target)
+      Tools:ToggleAccessories()
     end
 
     local buttonLabel = "Lock Look At Camera"
@@ -145,8 +135,14 @@ function Tools:DrawVActions()
       buttonLabel = "Unlock Look At Camera"
     end
 
-    if ImGui.Button(buttonLabel, Tools.style.buttonWidth, Tools.style.buttonHeight) then
+    if ImGui.Button(buttonLabel, Tools.style.halfButtonWidth, Tools.style.buttonHeight) then
       Tools:ToggleLookAt()
+    end
+
+    ImGui.SameLine()
+    if ImGui.Button("Target V", Tools.style.halfButtonWidth, Tools.style.buttonHeight) then
+      Tools.currentNPC = Tools:GetVTarget()
+      Tools.lockTarget = true
     end
   else
     local buttonLabel = "Disable Invisibility"
@@ -227,28 +223,36 @@ function Tools:ToggleLookAt()
   end
 end
 
-function Tools:ToggleMakeup(target)
+function Tools:ToggleMakeup()
+  local target = Tools:GetVTarget()
 	Tools.makeupToggle = not Tools.makeupToggle
 
 	local isFemale = Util:GetPlayerGender()
 	if isFemale == "_Female" then gender = 'pwa' else gender = 'pma' end
 
-	local makeup = target.handle:FindComponentByName(CName.new(f("hx_000_%s__basehead_makeup_lips_01", gender)))
+  local makeup
+  if gender == "pma" then
+    makeup = target.handle:FindComponentByName(CName.new("MorphTargetSkinnedMesh1265"))
+  elseif gender == "pwa" then
+	   makeup = target.handle:FindComponentByName(CName.new("hx_000_pwa__basehead_makeup_lips_01"))
+  end
 	if makeup then makeup:Toggle(Tools.makeupToggle) end
 
-	local makeup = target.handle:FindComponentByName(CName.new(f("hx_000_%s__basehead_makeup_eyes_01", gender)))
+	makeup = target.handle:FindComponentByName(CName.new(f("hx_000_%s__basehead_makeup_eyes_01", gender)))
 	if makeup then makeup:Toggle(Tools.makeupToggle) end
 end
 
-function Tools:ToggleAccessories(target)
+function Tools:ToggleAccessories()
+  local target = Tools:GetVTarget()
   Tools.accessoryToggle = not Tools.accessoryToggle
 
   local isFemale = Util:GetPlayerGender()
-	if isFemale then gender = 'pwa' else gender = 'pma' end
+	if isFemale == "_Female" then gender = 'pwa' else gender = 'pma' end
 
   for i = 1, 4 do
+    print(f("i1_000_%s__morphs_earring_0%i", gender, i))
     local accessory = target.handle:FindComponentByName(CName.new(f("i1_000_%s__morphs_earring_0%i", gender, i)))
-	   if accessory then accessory:Toggle(Tools.accessoryToggle) end
+	  if accessory then accessory:Toggle(Tools.accessoryToggle) end
   end
 end
 
@@ -322,6 +326,22 @@ function Tools:ToggleHead()
   end
 
   Game.EquipItemOnPlayer(headItem, "TppHead")
+end
+
+function Tools:GetVTarget()
+  local searchQuery = Game["TSQ_NPC;"]()
+  searchQuery.maxDistance = 10
+  searchQuery.includeSecondaryTargets = false
+  searchQuery.ignoreInstigator = true
+  local success, parts = Game.GetTargetingSystem():GetTargetParts(Game.GetPlayer(), searchQuery, {})
+  if success then
+    for i, v in ipairs(parts) do
+      local entity = v:GetComponent(v):GetEntity()
+      if AMM:GetScanID(entity) == "0x9EDC71E0, 33" then
+        return AMM:NewTarget(entity, "NPCPuppet", AMM:GetScanID(entity), AMM:GetNPCName(entity),AMM:GetScanAppearance(entity), nil)
+      end
+    end
+  end
 end
 
 -- Teleport actions
@@ -522,7 +542,8 @@ function Tools:IsUserLocation(loc)
 end
 
 function Tools:DeleteLocation(loc)
-  os.remove("User/Locations/"..loc.loc_name..".json")
+  os.remove("User/Locations/"..loc.file_name)
+  Tools.selectedLocation = {loc_name = "Select Location"}
 end
 
 function Tools:ToggleFavoriteLocation(isFavorite, favIndex)
@@ -531,6 +552,8 @@ function Tools:ToggleFavoriteLocation(isFavorite, favIndex)
   else
     table.insert(Tools.favoriteLocations, Tools.selectedLocation)
   end
+
+  AMM:UpdateSettings()
 end
 
 function Tools:GetFavoriteLocations()
@@ -554,7 +577,7 @@ function Tools:GetUserLocations()
     for _, loc in ipairs(files) do
       if string.find(loc.name, '.json') then
         local loc_name, x, y, z, w, yaw = Tools:LoadLocationData(loc.name)
-        table.insert(userLocations, {loc_name = loc_name, x = x, y = y, z = z, w = w, yaw = yaw})
+        table.insert(userLocations, {file_name = loc.name, loc_name = loc_name, x = x, y = y, z = z, w = w, yaw = yaw})
       end
     end
     return userLocations

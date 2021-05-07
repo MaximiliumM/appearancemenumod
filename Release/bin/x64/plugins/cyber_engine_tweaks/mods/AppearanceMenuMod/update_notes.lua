@@ -1,5 +1,23 @@
 return {
 	{
+		'1.9.2c',
+		'2021 May 07',
+		[[Added many NPC vehicles to the Vehicles category in Spawn tab]],
+		[[-- Now it's easier to get your companion's specific vehicle spawned :)]],
+		[[-- Thanks, Jamie!]],
+		[[Added new Target V button in Photo mode]],
+		[[-- For these times you have the perfect frame and don't want to move the camera to be able to target V]],
+		[[Now all V actions work without targeting V]],
+		[[Added Companion Distance in the Settings tab]],
+		[[-- Default is a tad farther than it has always been. If you want the same setting that it was before this update, select Close]],
+		[[Adjusted Woodman's name in the database to make him easier to find]],
+		[[Fixed issue where AMM wouldn't save to file when changing themes]],
+		[[Fixed issue where Delete Selected Location wouldn't work]],
+		[[Fixed Ziggy Q not working in Swap tab]],
+		[[Fixed issue where Toggle Makeup and Piercings wouldn't work for Male V]],
+		[[-- Thanks, Porg!]],
+	},
+	{
 		'1.9.2b',
 		'2021 May 06',
 		[[Adjusted following distance to be a tiny bit farther when 3 or more companions are active]],
