@@ -1,6 +1,6 @@
 return {
 	{
-		'1.9.2c',
+		'1.9.3',
 		'2021 May 07',
 		[[Added many NPC vehicles to the Vehicles category in Spawn tab]],
 		[[-- Now it's easier to get your companion's specific vehicle spawned :)]],
