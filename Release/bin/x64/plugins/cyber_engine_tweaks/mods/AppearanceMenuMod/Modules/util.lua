@@ -156,7 +156,7 @@ function Util:SetupPopup()
     if ImGui.BeginPopupModal("Error", ImGuiWindowFlags.AlwaysAutoResize) then
       ImGui.Text(Util.popup.text)
       ImGui.Spacing()
-      
+
       if ImGui.Button("Ok", -1, 40) then
         Util.openPopup = false
         ImGui.CloseCurrentPopup()
@@ -172,6 +172,19 @@ function Util:OpenPopup(popupInfo)
   Util.popup.text = popupInfo.text
   Util.openPopup = true
   ImGui.OpenPopup("Error")
+end
+
+function Util:CheckVByID(id)
+  local possibleIDs = {
+    "0x2A16D43E, 34", "0x9EDC71E0, 33",
+    "0x15982ADF, 28",
+  }
+
+  for _, possibleID in ipairs(possibleIDs) do
+    if id == possibleID then return true end
+  end
+
+  return false
 end
 
 return Util

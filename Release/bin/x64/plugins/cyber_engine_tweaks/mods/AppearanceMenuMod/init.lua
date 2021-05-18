@@ -50,7 +50,7 @@ function AMM:new()
 	 AMM.TeleportMod = ''
 
 	 -- Main Properties --
-	 AMM.currentVersion = "1.9.3"
+	 AMM.currentVersion = "1.9.4"
 	 AMM.updateNotes = require('update_notes.lua')
 	 AMM.credits = require("credits.lua")
 	 AMM.updateLabel = "WHAT'S NEW"
@@ -945,6 +945,11 @@ function AMM:NewTarget(handle, targetType, id, name, app, options)
 	obj.appearance = app
 	obj.type = targetType
 	obj.options = options or nil
+
+	-- Check if target is V
+	if obj.name == "V" or Util:CheckVByID(obj.id) then
+		obj.type = "Player"
+	end
 
 	-- Check if model is swappedModels
 	if self.Swap.activeSwaps[obj.id] ~= nil then

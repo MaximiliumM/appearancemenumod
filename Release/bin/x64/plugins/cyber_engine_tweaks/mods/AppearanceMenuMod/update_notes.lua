@@ -1,5 +1,14 @@
 return {
 	{
+		'1.9.4',
+		'2021 May 18',
+		[[Added support for selecting Facial Expressions on V in Photo mode or while V is swapped]],
+		[[-- To be able to use this feature in Photo mode, you must have Animated Head toggled ON before entering Photo mode]],
+		[[-- This feature wouldn't be possible without PinkyDude diggings! Huge thanks!]],
+		[[Fixed issue where Unfreeze time would reset Slow Motion speed]],
+		[[Fixed issue where V wouldn't be targetable when playing the game in non-latin character languages]],
+	},
+	{
 		'1.9.3',
 		'2021 May 07',
 		[[Added many NPC vehicles to the Vehicles category in Spawn tab]],

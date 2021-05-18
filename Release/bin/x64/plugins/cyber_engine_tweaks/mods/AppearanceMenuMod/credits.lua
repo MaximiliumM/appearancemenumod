@@ -20,6 +20,7 @@ return {
 		[[-- Lizzy Incognito appearance]],
 		[[-- Meredith Sex appearance]],
 		[[PinkyDude]],
+		[[-- V Facial Expressions]],
 		[[-- Johnny Replacer Invisible]],
 	},
 	{

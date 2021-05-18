@@ -332,12 +332,12 @@ function Tools:GetVTarget()
   local searchQuery = Game["TSQ_NPC;"]()
   searchQuery.maxDistance = 10
   searchQuery.includeSecondaryTargets = false
-  searchQuery.ignoreInstigator = true
+  searchQuery.ignoreInstigator = AMM.playerInPhoto and true or false
   local success, parts = Game.GetTargetingSystem():GetTargetParts(Game.GetPlayer(), searchQuery, {})
   if success then
     for i, v in ipairs(parts) do
       local entity = v:GetComponent(v):GetEntity()
-      if AMM:GetScanID(entity) == "0x9EDC71E0, 33" then
+      if Util:CheckVByID(AMM:GetScanID(entity)) then
         return AMM:NewTarget(entity, "NPCPuppet", AMM:GetScanID(entity), AMM:GetNPCName(entity),AMM:GetScanAppearance(entity), nil)
       end
     end
@@ -617,18 +617,20 @@ function Tools:DrawNPCActions()
     AMM.UI:TextCenter("Movement", true)
 
     if not Tools.lockTarget or Tools.currentNPC == '' then
-      Tools.lockTarget = false
-      if target == nil and Tools.currentNPC ~= '' then
-        Tools.currentNPC = ''
-      elseif Tools.currentNPC == '' or (not(Tools.holdingNPC) and Tools.currentNPC.handle:GetEntityID().hash ~= target.handle:GetEntityID().hash) then
-        Tools.currentNPC = target
+     Tools.lockTarget = false
+     if target == nil and Tools.currentNPC ~= '' and Tools.currentNPC.type ~= "Player" then
+       Tools.currentNPC = ''
+     elseif Tools.currentNPC == '' or (not(Tools.holdingNPC) and Tools.currentNPC.handle:GetEntityID().hash ~= target.handle:GetEntityID().hash) then
+        if Tools.currentNPC.type ~= "Player" then
+          Tools.currentNPC = target
+        end
 
         local pos = Tools.currentNPC.handle:GetWorldPosition()
         local angles = GetSingleton('Quaternion'):ToEulerAngles(Tools.currentNPC.handle:GetWorldOrientation())
         Tools.npcRotation = {angles.roll, angles.pitch, angles.yaw}
         Tools.npcUpDown = pos.z
         Tools.npcLeftRight = {pos.x, pos.y}
-      end
+     end
     end
 
     if Tools.currentNPC ~= '' then
@@ -650,7 +652,7 @@ function Tools:DrawNPCActions()
     if upDownUsed and Tools.currentNPC ~= '' then
       local pos = Tools.currentNPC.handle:GetWorldPosition()
       pos = Vector4.new(pos.x, pos.y, Tools.npcUpDown, pos.w)
-      if Tools.currentNPC.name ~= 'V' and Tools.currentNPC.handle:IsNPC() then
+      if Tools.currentNPC.type ~= 'Player' and Tools.currentNPC.handle:IsNPC() then
         Tools:TeleportNPCTo(Tools.currentNPC.handle, pos, Tools.npcRotation[1])
       else
         Game.GetTeleportationFacility():Teleport(Tools.currentNPC.handle, pos, EulerAngles.new(Tools.npcRotation[1], Tools.npcRotation[2], Tools.npcRotation[3]))
@@ -662,14 +664,14 @@ function Tools:DrawNPCActions()
     if leftRightUsed and Tools.currentNPC ~= '' then
       local pos = Tools.currentNPC.handle:GetWorldPosition()
       pos = Vector4.new(Tools.npcLeftRight[1], Tools.npcLeftRight[2], pos.z, pos.w)
-      if Tools.currentNPC.name ~= 'V' and Tools.currentNPC.handle:IsNPC() then
+      if Tools.currentNPC.type ~= 'Player' and Tools.currentNPC.handle:IsNPC() then
         Tools:TeleportNPCTo(Tools.currentNPC.handle, pos, Tools.npcRotation[1])
       else
         Game.GetTeleportationFacility():Teleport(Tools.currentNPC.handle, pos, EulerAngles.new(Tools.npcRotation[1], Tools.npcRotation[2], Tools.npcRotation[3]))
       end
     end
 
-    if Tools.currentNPC ~= '' and (Tools.currentNPC.name ~= 'V' and Tools.currentNPC.handle:IsNPC()) then
+    if Tools.currentNPC ~= '' and (Tools.currentNPC.type ~= 'Player' and Tools.currentNPC.handle:IsNPC()) then
       Tools.npcRotation[1], rotationUsed = ImGui.SliderFloat("Rotation", Tools.npcRotation[1], -180, 180)
     elseif Tools.currentNPC ~= '' then
       Tools.npcRotation, rotationUsed = ImGui.DragFloat3("Tilt/Rotation", Tools.npcRotation, 0.1)
@@ -677,7 +679,7 @@ function Tools:DrawNPCActions()
 
     if rotationUsed and Tools.currentNPC ~= '' then
       local pos = Tools.currentNPC.handle:GetWorldPosition()
-      if Tools.currentNPC.name ~= 'V' and Tools.currentNPC.handle:IsNPC() then
+      if Tools.currentNPC.type ~= 'Player' and Tools.currentNPC.handle:IsNPC() then
         Tools:TeleportNPCTo(Tools.currentNPC.handle, pos, Tools.npcRotation[1])
       else
         Game.GetTeleportationFacility():Teleport(Tools.currentNPC.handle, pos, EulerAngles.new(Tools.npcRotation[1], Tools.npcRotation[2], Tools.npcRotation[3]))
@@ -716,7 +718,7 @@ function Tools:DrawNPCActions()
             local currentPos = Tools.currentNPC.handle:GetWorldPosition()
             local newPos = Vector4.new(pos.x + (heading.x * 2), pos.y + (heading.y * 2), currentPos.z, pos.w)
 
-            if Tools.currentNPC.name ~= 'V' and Tools.currentNPC.handle:IsNPC() then
+            if Tools.currentNPC.type ~= 'Player' and Tools.currentNPC.handle:IsNPC() then
               Tools:TeleportNPCTo(npcHandle, newPos, Tools.npcRotation[1])
             else
               Game.GetTeleportationFacility():Teleport(npcHandle, newPos, EulerAngles.new(Tools.npcRotation[1], Tools.npcRotation[2], Tools.npcRotation[3]))
@@ -733,50 +735,61 @@ function Tools:DrawNPCActions()
       end
     end
 
-    if not AMM.playerInPhoto and Tools.currentNPC ~= '' and Tools.currentNPC.handle:IsNPC() then
-      local buttonLabel = " Freeze Target "
-      if Tools.frozenNPCs[tostring(Tools.currentNPC.handle:GetEntityID().hash)] ~= nil then
-        buttonLabel = " Unfreeze Target "
-      end
-      ImGui.SameLine()
-      if ImGui.Button(buttonLabel, Tools.style.halfButtonWidth, Tools.style.buttonHeight) then
-        if buttonLabel == " Freeze Target " then
-          Tools:FreezeNPC(Tools.currentNPC.handle, true)
-          print(Tools.currentNPC.handle:GetEntityID().hash)
-          Tools.frozenNPCs[tostring(Tools.currentNPC.handle:GetEntityID().hash)] = 'active'
-        else
-          Tools:FreezeNPC(Tools.currentNPC.handle, false)
-          Tools.frozenNPCs[tostring(Tools.currentNPC.handle:GetEntityID().hash)] = nil
+    if Tools.currentNPC ~= '' then
+
+      if not AMM.playerInPhoto then
+        local buttonLabel = " Freeze Target "
+        if Tools.frozenNPCs[tostring(Tools.currentNPC.handle:GetEntityID().hash)] ~= nil then
+          buttonLabel = " Unfreeze Target "
+        end
+        ImGui.SameLine()
+        if ImGui.Button(buttonLabel, Tools.style.halfButtonWidth, Tools.style.buttonHeight) then
+          if buttonLabel == " Freeze Target " then
+            Tools:FreezeNPC(Tools.currentNPC.handle, true)
+            print(Tools.currentNPC.handle:GetEntityID().hash)
+            Tools.frozenNPCs[tostring(Tools.currentNPC.handle:GetEntityID().hash)] = 'active'
+          else
+            Tools:FreezeNPC(Tools.currentNPC.handle, false)
+            Tools.frozenNPCs[tostring(Tools.currentNPC.handle:GetEntityID().hash)] = nil
+          end
         end
       end
 
       AMM.UI:Spacing(8)
 
-      AMM.UI:TextCenter("Facial Expression", true)
-      ImGui.Spacing()
+      local targetIsPlayer = Tools.currentNPC.type == "Player"
+      if (not AMM.playerInPhoto and not targetIsPlayer) or (AMM.playerInPhoto and targetIsPlayer and Tools.animatedHead) then
+        AMM.UI:TextCenter("Facial Expression", true)
+        ImGui.Spacing()
 
-      local isSelecting = false
+        local isSelecting = false
 
-      if ImGui.BeginCombo("Expressions", Tools.selectedFace.name) then
-        for i, face in ipairs(Tools.expressions) do
-          if ImGui.Selectable(face.name, (face.name == Tools.selectedFace.name)) then
-            Tools.selectedFace = face
-            Tools.activatedFace = false
-            isSelecting = true
+        if ImGui.BeginCombo("Expressions", Tools.selectedFace.name) then
+          for i, face in ipairs(Tools.expressions) do
+            if ImGui.Selectable(face.name, (face.name == Tools.selectedFace.name)) then
+              Tools.selectedFace = face
+              Tools.activatedFace = false
+              isSelecting = true
+            end
           end
+          ImGui.EndCombo()
         end
-        ImGui.EndCombo()
+
+        if not isSelecting and Tools.selectedFace.name ~= "Select Expression" and not Tools.activatedFace then
+          Tools:ActivateFacialExpression(Tools.currentNPC, Tools.selectedFace, Tools.upperBodyMovement, Tools.lookAtV)
+        end
+
+        ImGui.Spacing()
+
+        Tools.upperBodyMovement, clicked = ImGui.Checkbox("Upper Body Movement", Tools.upperBodyMovement)
+
+        if not targetIsPlayer then
+          ImGui.SameLine()
+          Tools.lookAtV = ImGui.Checkbox("Look At V", Tools.lookAtV)
+        elseif targetIsPlayer then
+          Tools.lookAtV = false
+        end
       end
-
-      if not isSelecting and Tools.selectedFace.name ~= "Select Expression" and not Tools.activatedFace then
-        Tools:ActivateFacialExpression(Tools.currentNPC, Tools.selectedFace, Tools.upperBodyMovement, Tools.lookAtV)
-      end
-
-      ImGui.Spacing()
-
-      Tools.upperBodyMovement, clicked = ImGui.Checkbox("Upper Body Movement", Tools.upperBodyMovement)
-      ImGui.SameLine()
-      Tools.lookAtV = ImGui.Checkbox("Look At V", Tools.lookAtV)
     end
   else
     ImGui.Text("")
@@ -1018,9 +1031,13 @@ function Tools:FreezeTime()
     Game.GetTimeSystem():SetIgnoreTimeDilationOnLocalPlayerZero(true)
     Game.SetTimeDilation(0.0000000000001)
   else
-    Game.GetTimeSystem():SetIgnoreTimeDilationOnLocalPlayerZero(false)
-    Game.SetTimeDilation(0)
-    Tools.slowMotionSpeed = 1
+    if Tools.slowMotionSpeed ~= 1 then
+      Tools:SetSlowMotionSpeed(Tools.slowMotionSpeed)
+    else
+      Game.GetTimeSystem():SetIgnoreTimeDilationOnLocalPlayerZero(false)
+      Game.SetTimeDilation(0)
+      Tools.slowMotionSpeed = 1
+    end
   end
 
   Tools.timeState = not Tools.timeState
