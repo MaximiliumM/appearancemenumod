@@ -94,7 +94,7 @@ function Swap:Draw(AMM, target)
       end
     end
 
-    if target ~= nil and target.name == 'V' then
+    if target ~= nil and target.type == "Player" then
       ImGui.Text("V can't be swapped. Sorry :(")
 
     elseif target ~= nil and target.type == 'NPCPuppet' then

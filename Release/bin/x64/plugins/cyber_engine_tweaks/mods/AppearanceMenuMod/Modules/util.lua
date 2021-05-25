@@ -66,6 +66,35 @@ function Util:TeleportNPCTo(targetPuppet, targetPosition, targetRotation)
 	return teleportCmd, targetPuppet
 end
 
+function Util:EquipPrimaryWeaponCommand(targetPuppet, equip)
+  local cmd = NewObject("handle:AISwitchToPrimaryWeaponCommand")
+  cmd.unEquip = equip
+  cmd = cmd:Copy()
+
+  targetPuppet:GetAIControllerComponent():SendCommand(cmd)
+end
+
+function Util:EquipSecondaryWeaponCommand(targetPuppet, equip)
+  local cmd = NewObject("handle:AISwitchToSecondaryWeaponCommand")
+  cmd.unEquip = equip
+  cmd = cmd:Copy()
+
+  targetPuppet:GetAIControllerComponent():SendCommand(cmd)
+end
+
+function Util:EquipGivenWeapon(targetPuppet, weapon, override)
+  local cmd = NewObject("AIEquipCommand")
+  cmd.slotId = TweakDBID.new("AttachmentSlots.WeaponRight")
+  cmd.itemId = weapon
+  cmd.failIfItemNotFound = false
+  if override then
+    cmd.durationOverride = 99999
+  end
+  cmd = cmd:Copy()
+
+  target.handle:GetAIControllerComponent():SendCommand(cmd)
+end
+
 function Util:HoldPosition(targetPuppet, duration)
 	local holdCmd = NewObject('handle:AIHoldPositionCommand')
 	holdCmd.duration = duration or 1.0

@@ -37,11 +37,14 @@ function Tools:new()
   Tools.accessoryToggle = true
   Tools.lookAtLocked = false
   Tools.animatedHead = false
+  Tools.invisibleBody = false
 
   -- NPC Properties --
   Tools.protectedNPCs = {}
   Tools.holdingNPC = false
   Tools.frozenNPCs = {}
+  Tools.equippedWeaponNPCs = {}
+  Tools.forceWeapon = false
   Tools.currentNPC = ''
   Tools.lockTarget = false
   Tools.npcUpDown = 0
@@ -51,6 +54,7 @@ function Tools:new()
   Tools.activatedFace = false
   Tools.upperBodyMovement = true
   Tools.lookAtV = true
+  Tools.lookAtTarget = nil
   Tools.expressions = AMM:GetPersonalityOptions()
 
   return Tools
@@ -203,6 +207,13 @@ function Tools:DrawVActions()
     if ImGui.IsItemHovered() then
       ImGui.SetTooltip("Photo mode expressions won't work while Animated Head is enabled.")
     end
+
+    -- ImGui.Spacing()
+    Tools.invisibleBody, invisClicked = ImGui.Checkbox("Invisible Body", Tools.invisibleBody)
+
+    if invisClicked then
+      Tools:ToggleInvisibleBody()
+    end
   end
 end
 
@@ -253,6 +264,68 @@ function Tools:ToggleAccessories()
     print(f("i1_000_%s__morphs_earring_0%i", gender, i))
     local accessory = target.handle:FindComponentByName(CName.new(f("i1_000_%s__morphs_earring_0%i", gender, i)))
 	  if accessory then accessory:Toggle(Tools.accessoryToggle) end
+  end
+end
+
+function Tools:ToggleInvisibleBody()
+  local bodyParts = {
+    Female = {
+      "left_arm",
+      "right_arm",
+      "a0_000_pwa_fpp__nails_l",
+      "a0_000_pwa_fpp__nails_r",
+      "a0_002_wa__monowire_whip_r_cableless",
+      "a0_002_wa__monowire_whip_l_cableless",
+      "a0_003_wa__mantisblade_holstered_right",
+      "a0_003_wa__mantisblade_holstered_upperarm_right",
+      "a0_003_wa__mantisblade_holstered_upperarm_left",
+      "a0_003_wa__mantisblade_holstered_left",
+      "a0_006_wa__launcher_holstered4156",
+      "a0_006_wa__launcher_holstered_upperarm",
+      "a0_006_wa__launcher_holstered_right",
+      "a0_001__personal_link_default_holstered",
+      "a0_004__weapon_grip_device0226",
+      "a0_004__weapon_grip_decal_01",
+      "a0_005_wa__strongarms_holstered_cyberware_r",
+      "a0_005_wa__strongarms_holstered_r",
+      "a0_005_wa__strongarms_holstered_cyberware_l",
+      "a0_005_wa__strongarms_holstered_l",
+      "MorphTargetSkinnedMesh0531",
+      "l0_000_pwa_base__cs_flat",
+      "t0_000_pwa_fpp__torso",
+      "n0_000_pwa_fpp__neck0160",
+      "a0_001_wa__personal_link_prototype",
+    },
+    Male = {
+      "t0_000_pma_base__full",
+      "n0_000_pma_fpp__neck2814",
+      "i0_000_pma_base__nipple",
+      "a0_000_pma_base__nails_r",
+      "a0_000_pma_base__nails_l",
+      "a0_000_ma_base__full_ag_hq1491",
+      "a0_000_ma_base__full_ag_hq6168",
+      "a0_003_ma__mantisblade_holstered_left6562",
+      "a0_003_ma__mantisblade_holstered_right",
+      "a0_003_ma__mantisblade_holstered_upperarm_left",
+      "a0_003_ma__mantisblade_holstered_upperarm_right",
+      "a0_006_ma__launcher_holstered1283",
+      "a0_006_ma__launcher_holstered_upperarm",
+      "a0_006_ma__launcher_holstered_upperarm_right",
+      "a0_001__personal_link_default_holstered",
+      "a0_005_ma__strongarms_holstered_cyberware_r",
+      "a0_005_ma__strongarms_holstered_r",
+      "a0_005_ma__strongarms_holstered_cyberware_l",
+      "a0_005_ma__strongarms_holstered_l",
+    }
+  }
+
+  local parts = {}
+  local isFemale = Util:GetPlayerGender()
+  if isFemale == "_Female" then parts = bodyParts.Female else parts = bodyParts.Male end
+
+  for _, part in ipairs(parts) do
+    local comp = AMM.player:FindComponentByName(CName.new(part))
+	  if comp then comp:Toggle(not(Tools.invisibleBody)) end
   end
 end
 
@@ -332,8 +405,8 @@ function Tools:GetVTarget()
   local searchQuery = Game["TSQ_NPC;"]()
   searchQuery.maxDistance = 10
   searchQuery.includeSecondaryTargets = false
-  searchQuery.ignoreInstigator = AMM.playerInPhoto and true or false
-  local success, parts = Game.GetTargetingSystem():GetTargetParts(Game.GetPlayer(), searchQuery, {})
+  searchQuery.ignoreInstigator = true
+  local success, parts = Game.GetTargetingSystem():GetTargetParts(AMM.player, searchQuery, {})
   if success then
     for i, v in ipairs(parts) do
       local entity = v:GetComponent(v):GetEntity()
@@ -617,10 +690,10 @@ function Tools:DrawNPCActions()
     AMM.UI:TextCenter("Movement", true)
 
     if not Tools.lockTarget or Tools.currentNPC == '' then
-     Tools.lockTarget = false
-     if target == nil and Tools.currentNPC ~= '' and Tools.currentNPC.type ~= "Player" then
-       Tools.currentNPC = ''
-     elseif Tools.currentNPC == '' or (not(Tools.holdingNPC) and Tools.currentNPC.handle:GetEntityID().hash ~= target.handle:GetEntityID().hash) then
+      Tools.lockTarget = false
+      if target == nil and Tools.currentNPC ~= '' and Tools.currentNPC.type ~= "Player" then
+        Tools.currentNPC = ''
+      elseif Tools.currentNPC == '' or (not(Tools.holdingNPC) and Tools.currentNPC.handle:GetEntityID().hash ~= target.handle:GetEntityID().hash) then
         if Tools.currentNPC.type ~= "Player" then
           Tools.currentNPC = target
         end
@@ -630,7 +703,7 @@ function Tools:DrawNPCActions()
         Tools.npcRotation = {angles.roll, angles.pitch, angles.yaw}
         Tools.npcUpDown = pos.z
         Tools.npcLeftRight = {pos.x, pos.y}
-     end
+      end
     end
 
     if Tools.currentNPC ~= '' then
@@ -709,6 +782,7 @@ function Tools:DrawNPCActions()
           local npcHandle = Tools.currentNPC.handle
 
           if npcHandle:IsNPC() then
+            Tools:FreezeNPC(npcHandle, true)
             npcHandle:GetAIControllerComponent():DisableCollider()
           end
 
@@ -726,6 +800,7 @@ function Tools:DrawNPCActions()
 
             if Tools.holdingNPC == false then
               if npcHandle:IsNPC() then
+                Tools:FreezeNPC(npcHandle, false)
                 npcHandle:GetAIControllerComponent():EnableCollider()
               end
               Cron.Halt(timer)
@@ -746,7 +821,7 @@ function Tools:DrawNPCActions()
         if ImGui.Button(buttonLabel, Tools.style.halfButtonWidth, Tools.style.buttonHeight) then
           if buttonLabel == " Freeze Target " then
             Tools:FreezeNPC(Tools.currentNPC.handle, true)
-            print(Tools.currentNPC.handle:GetEntityID().hash)
+            -- print(Tools.currentNPC.handle:GetEntityID().hash)
             Tools.frozenNPCs[tostring(Tools.currentNPC.handle:GetEntityID().hash)] = 'active'
           else
             Tools:FreezeNPC(Tools.currentNPC.handle, false)
@@ -776,7 +851,11 @@ function Tools:DrawNPCActions()
         end
 
         if not isSelecting and Tools.selectedFace.name ~= "Select Expression" and not Tools.activatedFace then
-          Tools:ActivateFacialExpression(Tools.currentNPC, Tools.selectedFace, Tools.upperBodyMovement, Tools.lookAtV)
+          if Tools.lookAtTarget then
+            local ent = Game.FindEntityByID(Tools.lookAtTarget.handle:GetEntityID())
+            if not ent then Tools.lookAtTarget = nil end
+          end
+          Tools:ActivateFacialExpression(Tools.currentNPC, Tools.selectedFace, Tools.upperBodyMovement, Tools.lookAtV, Tools.lookAtTarget)
         end
 
         ImGui.Spacing()
@@ -785,9 +864,87 @@ function Tools:DrawNPCActions()
 
         if not targetIsPlayer then
           ImGui.SameLine()
-          Tools.lookAtV = ImGui.Checkbox("Look At V", Tools.lookAtV)
+          Tools.lookAtV = ImGui.Checkbox("Look At ", Tools.lookAtV)
+
+          ImGui.SameLine()
+          local lookAtTargetName = "V"
+          if Tools.lookAtTarget ~= nil then
+            lookAtTargetName = Tools.lookAtTarget.name
+          end
+
+          AMM.UI:TextColored(lookAtTargetName)
+
+          AMM.UI:Spacing(3)
+
+          if ImGui.Button("Change Look At Target", Tools.style.buttonWidth, Tools.style.buttonHeight) then
+            if target ~= nil then
+              Tools.lookAtTarget = target
+            end
+          end
+
+          if ImGui.Button("Reset Look At Target", Tools.style.buttonWidth, Tools.style.buttonHeight) then
+            if target ~= nil then
+              Tools.lookAtTarget = nil
+            end
+          end
         elseif targetIsPlayer then
           Tools.lookAtV = false
+        end
+      end
+
+      if AMM.userSettings.experimental and Tools.currentNPC.handle:IsNPC() then
+
+        local es = Game.GetScriptableSystemsContainer():Get(CName.new("EquipmentSystem"))
+        local weapon = es:GetActiveWeaponObject(AMM.player, 39)
+        local npcHasWeapon = Tools.currentNPC.handle:HasPrimaryOrSecondaryEquipment()
+
+        if npcHasWeapon or weapon then
+          AMM.UI:Spacing(8)
+          AMM.UI:TextCenter("Equipment", true)
+          ImGui.Spacing()
+        end
+
+        if npcHasWeapon then
+          if ImGui.Button("Toggle Primary Weapon", Tools.style.halfButtonWidth, Tools.style.buttonHeight) then
+            local npcHash = tostring(Tools.currentNPC.handle:GetEntityID().hash)
+            if Tools.equippedWeaponNPCs[npcHash] == nil then
+              Tools.equippedWeaponNPCs[npcHash] = {primary = true, secondary = false}
+            else
+              Tools.equippedWeaponNPCs[npcHash].primary = not Tools.equippedWeaponNPCs[npcHash].primary
+            end
+
+            Util:EquipPrimaryWeaponCommand(Tools.currentNPC.handle, Tools.equippedWeaponNPCs[npcHash].primary)
+          end
+
+          ImGui.SameLine()
+          if ImGui.Button("Toggle Secondary Weapon", Tools.style.halfButtonWidth, Tools.style.buttonHeight) then
+            local npcHash = tostring(Tools.currentNPC.handle:GetEntityID().hash)
+            if Tools.equippedWeaponNPCs[npcHash] == nil then
+              Tools.equippedWeaponNPCs[npcHash] = {primary = false, secondary = true}
+            else
+              Tools.equippedWeaponNPCs[npcHash].secondary = not Tools.equippedWeaponNPCs[npcHash].secondary
+            end
+
+            Util:EquipSecondaryWeaponCommand(Tools.currentNPC.handle, Tools.equippedWeaponNPCs[npcHash].secondary)
+          end
+        end
+
+        if weapon then
+          if ImGui.Button("Give Current Equipped Weapon", Tools.style.buttonWidth, Tools.style.buttonHeight) then
+            local weaponTDBID = weapon:GetItemID().tdbid
+            Util:EquipGivenWeapon(Tools.currentNPC.handle, weaponTDBID, Tools.forceWeapon)
+          end
+
+          if ImGui.IsItemHovered() then
+            ImGui.SetTooltip("Note: Out of combat, the NPC will unequip the given weapon immediately.")
+          end
+
+          ImGui.Spacing()
+          Tools.forceWeapon = ImGui.Checkbox("Force Given Weapon", Tools.forceWeapon)
+
+          if ImGui.IsItemHovered() then
+            ImGui.SetTooltip("This will stop the NPC from unequipping your given weapon. Note: the NPC will still unequip at will during combat.")
+          end
         end
       end
     end
@@ -883,7 +1040,9 @@ function Tools:DrawNPCActions()
   end
 end
 
-function Tools:ActivateFacialExpression(target, face, upperBody, lookAtV)
+function Tools:ActivateFacialExpression(target, face, upperBody, lookAtV, lookAtTarget)
+  local lookAtTarget = lookAtTarget and lookAtTarget.handle or AMM.player
+
   Tools.activatedFace = true
   local stimComp = target.handle:GetStimReactionComponent()
   if stimComp then
@@ -897,7 +1056,7 @@ function Tools:ActivateFacialExpression(target, face, upperBody, lookAtV)
       animFeat.idle = face.idle
       animCon:ApplyFeature(CName.new("FacialReaction"), animFeat)
       if lookAtV then
-        stimComp:ActivateReactionLookAt(Game.GetPlayer(), false, true, 1, upperBody)
+        stimComp:ActivateReactionLookAt(lookAtTarget, false, true, 1, upperBody)
       end
     end)
   end

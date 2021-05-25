@@ -50,7 +50,7 @@ function AMM:new()
 	 AMM.TeleportMod = ''
 
 	 -- Main Properties --
-	 AMM.currentVersion = "1.9.4"
+	 AMM.currentVersion = "1.9.5"
 	 AMM.updateNotes = require('update_notes.lua')
 	 AMM.credits = require("credits.lua")
 	 AMM.updateLabel = "WHAT'S NEW"
@@ -270,6 +270,30 @@ function AMM:new()
 		end
 	 end)
 
+	 registerHotkey("amm_spawn_favorite", "Spawn Favorite", function()
+		 if AMM.currentSpawn == '' then
+			 local favorites = {}
+			 for ent in db:nrows("SELECT * FROM entities WHERE entity_id IN (SELECT entity_id FROM favorites)") do
+				 table.insert(favorites, AMM:NewSpawn(ent.entity_name, ent.entity_id, ent.entity_parameters, ent.can_be_comp, ent.entity_path))
+			 end
+
+			 for _, spawn in ipairs(favorites) do
+				 local spawned = false
+				 for _, ent in pairs(AMM.spawnedNPCs) do
+					 if spawn.uniqueName() == ent.uniqueName() then
+						 spawned = true
+						 break
+					 end
+				 end
+
+				 if not spawned then
+					 AMM:SpawnNPC(spawn)
+					 break
+				 end
+			 end
+		 end
+	 end)
+
 	 registerHotkey("amm_spawn_target", "Spawn Target", function()
 		local target = AMM:GetTarget()
 		if target ~= nil and target.handle:IsNPC() then
@@ -330,6 +354,19 @@ function AMM:new()
 		local target = AMM:GetTarget()
  		if target ~= nil and target.handle:IsNPC() then
 			Util:NPCTalk(target.handle)
+		end
+	 end)
+
+	 registerHotkey("amm_give_weapon", "Give Weapon", function()
+		local target = AMM:GetTarget()
+ 		if target ~= nil and target.handle:IsNPC() then
+			local es = Game.GetScriptableSystemsContainer():Get(CName.new("EquipmentSystem"))
+      local weapon = es:GetActiveWeaponObject(AMM.player, 39)
+
+      if weapon then
+				local weaponTDBID = weapon:GetItemID().tdbid
+				Util:EquipGivenWeapon(target.handle, weaponTDBID, AMM.Tools.forceWeapon)
+			end
 		end
 	 end)
 
@@ -455,8 +492,25 @@ function AMM:new()
 							if currentAppearance == customAppearance[1].app_base then
 								for _, param in ipairs(customAppearance) do
 									local appParam = handle:FindComponentByName(CName.new(param.app_param))
-									if appParam then
-										appParam:TemporaryHide(param.app_toggle)
+									if param.mesh_type == "body" then
+										if param.mesh_app then
+											appParam.meshAppearance = CName.new(param.mesh_app)
+										end
+										appParam.chunkMask = 18446744073709551615ULL
+										if param.mesh_mask then
+											appParam.chunkMask = param.mesh_mask
+										end
+										appParam:Toggle(false)
+										appParam:Toggle(true)
+									elseif appParam then
+										if not param.app_toggle then
+											appParam.chunkMask = 18446744073709551615ULL
+											appParam:Toggle(false)
+											appParam:Toggle(true)
+											appParam:TemporaryHide(false)
+										else
+											appParam:TemporaryHide(true)
+										end
 									end
 								end
 
@@ -1738,14 +1792,20 @@ function AMM:ChangeScanAppearanceTo(t, newAppearance)
 end
 
 function AMM:ChangeAppearanceTo(entity, appearance)
-	local appearance, reverse = AMM:CheckForReverseCustomAppearance(appearance, entity)
-	local custom = AMM:GetCustomAppearanceParams(entity, appearance, reverse)
+	-- local appearance, reverse = AMM:CheckForReverseCustomAppearance(appearance, entity)
+	local custom = AMM:GetCustomAppearanceParams(entity, appearance)
 
-	if #custom > 0 then
-		AMM:ChangeScanCustomAppearanceTo(entity, custom)
-	else
-		AMM:ChangeScanAppearanceTo(entity, appearance)
+	if (not string.find(appearance, " No ")) and (not string.find(appearance, " With ")) then
+		AMM:ChangeScanAppearanceTo(entity, "Cycle")
 	end
+
+	Cron.After(0.1, function()
+		if #custom > 0 then
+				AMM:ChangeScanCustomAppearanceTo(entity, custom)
+		else
+			AMM:ChangeScanAppearanceTo(entity, appearance)
+		end
+	end)
 end
 
 function AMM:GetTarget()
