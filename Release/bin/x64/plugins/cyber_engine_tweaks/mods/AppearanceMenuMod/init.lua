@@ -50,7 +50,7 @@ function AMM:new()
 	 AMM.TeleportMod = ''
 
 	 -- Main Properties --
-	 AMM.currentVersion = "1.9.5"
+	 AMM.currentVersion = "1.9.5b"
 	 AMM.updateNotes = require('update_notes.lua')
 	 AMM.credits = require("credits.lua")
 	 AMM.updateLabel = "WHAT'S NEW"
@@ -1795,7 +1795,7 @@ function AMM:ChangeAppearanceTo(entity, appearance)
 	-- local appearance, reverse = AMM:CheckForReverseCustomAppearance(appearance, entity)
 	local custom = AMM:GetCustomAppearanceParams(entity, appearance)
 
-	if (not string.find(appearance, " No ")) and (not string.find(appearance, " With ")) then
+	if (not string.find(appearance, " No ")) and (not string.find(appearance, " With ")) and (not string.find(appearance, "Underwear")) then
 		AMM:ChangeScanAppearanceTo(entity, "Cycle")
 	end
 

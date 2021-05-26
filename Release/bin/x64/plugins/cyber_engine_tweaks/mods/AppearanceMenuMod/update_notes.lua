@@ -1,5 +1,18 @@
 return {
 	{
+		'1.9.5b',
+		'2021 May 26',
+		[[Added many new Custom Appearances including:]],
+		[[-- Judy, Benjamin Stone, Maman Brigitte, Carol, Roxanne, Iris Tanner, Cassidy, Nancy and more.]],
+		[[Added new archives that include new bodies for Judy and Panam]],
+		[[-- These bodies include better nipples and kitty!]],
+		[[-- This also includes pubic hair for Panam's body]],
+		[[-- You can also download the optional 4K body option for Panam]],
+		[[Fixed many issues with Custom Appearances not loading properly. Sorry!]],
+		[[Fixed issue with Evelyn's boots clipping]],
+		[[-- It's not 100% yet, it still clips when she walks. I will keep trying!]],
+	},
+	{
 		'1.9.5',
 		'2021 May 25',
 		[[Complete overhaul of the Custom Appearances system!]],
