@@ -50,7 +50,7 @@ function AMM:new()
 	 AMM.TeleportMod = ''
 
 	 -- Main Properties --
-	 AMM.currentVersion = "1.9.5b"
+	 AMM.currentVersion = "1.9.5c"
 	 AMM.updateNotes = require('update_notes.lua')
 	 AMM.credits = require("credits.lua")
 	 AMM.updateLabel = "WHAT'S NEW"
@@ -496,12 +496,14 @@ function AMM:new()
 										if param.mesh_app then
 											appParam.meshAppearance = CName.new(param.mesh_app)
 										end
-										appParam.chunkMask = 18446744073709551615ULL
-										if param.mesh_mask then
-											appParam.chunkMask = param.mesh_mask
+										if appParam.chunkMask ~= 18446744073709551615ULL and appParam.chunkMask ~= param.mesh_mask then
+											appParam.chunkMask = 18446744073709551615ULL
+											if param.mesh_mask then
+												appParam.chunkMask = param.mesh_mask
+											end
+											appParam:Toggle(false)
+											appParam:Toggle(true)
 										end
-										appParam:Toggle(false)
-										appParam:Toggle(true)
 									elseif appParam then
 										if not param.app_toggle then
 											appParam.chunkMask = 18446744073709551615ULL
@@ -1302,13 +1304,13 @@ function AMM:GetCustomAppearanceDefaults()
 			},
 			component = 'hx_001_ma_c__kerry_eurodyne_old_pimples_01'
 		},
-		-- ["0x8D34B4F2, 18"] = {
-		-- 	apps = {
-		-- 		['Custom Yorinobu Kimono Naked'] = true,
-		-- 		['Custom Yorinobu Kimono Naked No Cloth'] = true,
-		-- 	},
-		-- 	component = 'hx_001_ma_a__yorinobu_arasaka_pimples_01'
-		-- },
+		["0x8D34B4F2, 18"] = {
+			apps = {
+				['Custom Yorinobu Naked'] = true,
+				['Custom Yorinobu Kimono Naked'] = true,
+			},
+			component = 'hx_001_ma_a__yorinobu_arasaka_pimples_01'
+		},
 	}
 
 	return customs

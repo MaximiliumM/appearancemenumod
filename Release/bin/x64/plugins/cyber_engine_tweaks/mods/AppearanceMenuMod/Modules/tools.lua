@@ -209,7 +209,7 @@ function Tools:DrawVActions()
     end
 
     -- ImGui.Spacing()
-    Tools.invisibleBody, invisClicked = ImGui.Checkbox("Invisible Body", Tools.invisibleBody)
+    Tools.invisibleBody, invisClicked = ImGui.Checkbox("Invisible V", Tools.invisibleBody)
 
     if invisClicked then
       Tools:ToggleInvisibleBody()
@@ -268,63 +268,8 @@ function Tools:ToggleAccessories()
 end
 
 function Tools:ToggleInvisibleBody()
-  local bodyParts = {
-    Female = {
-      "left_arm",
-      "right_arm",
-      "a0_000_pwa_fpp__nails_l",
-      "a0_000_pwa_fpp__nails_r",
-      "a0_002_wa__monowire_whip_r_cableless",
-      "a0_002_wa__monowire_whip_l_cableless",
-      "a0_003_wa__mantisblade_holstered_right",
-      "a0_003_wa__mantisblade_holstered_upperarm_right",
-      "a0_003_wa__mantisblade_holstered_upperarm_left",
-      "a0_003_wa__mantisblade_holstered_left",
-      "a0_006_wa__launcher_holstered4156",
-      "a0_006_wa__launcher_holstered_upperarm",
-      "a0_006_wa__launcher_holstered_right",
-      "a0_001__personal_link_default_holstered",
-      "a0_004__weapon_grip_device0226",
-      "a0_004__weapon_grip_decal_01",
-      "a0_005_wa__strongarms_holstered_cyberware_r",
-      "a0_005_wa__strongarms_holstered_r",
-      "a0_005_wa__strongarms_holstered_cyberware_l",
-      "a0_005_wa__strongarms_holstered_l",
-      "MorphTargetSkinnedMesh0531",
-      "l0_000_pwa_base__cs_flat",
-      "t0_000_pwa_fpp__torso",
-      "n0_000_pwa_fpp__neck0160",
-      "a0_001_wa__personal_link_prototype",
-    },
-    Male = {
-      "t0_000_pma_base__full",
-      "n0_000_pma_fpp__neck2814",
-      "i0_000_pma_base__nipple",
-      "a0_000_pma_base__nails_r",
-      "a0_000_pma_base__nails_l",
-      "a0_000_ma_base__full_ag_hq1491",
-      "a0_000_ma_base__full_ag_hq6168",
-      "a0_003_ma__mantisblade_holstered_left6562",
-      "a0_003_ma__mantisblade_holstered_right",
-      "a0_003_ma__mantisblade_holstered_upperarm_left",
-      "a0_003_ma__mantisblade_holstered_upperarm_right",
-      "a0_006_ma__launcher_holstered1283",
-      "a0_006_ma__launcher_holstered_upperarm",
-      "a0_006_ma__launcher_holstered_upperarm_right",
-      "a0_001__personal_link_default_holstered",
-      "a0_005_ma__strongarms_holstered_cyberware_r",
-      "a0_005_ma__strongarms_holstered_r",
-      "a0_005_ma__strongarms_holstered_cyberware_l",
-      "a0_005_ma__strongarms_holstered_l",
-    }
-  }
-
-  local parts = {}
-  local isFemale = Util:GetPlayerGender()
-  if isFemale == "_Female" then parts = bodyParts.Female else parts = bodyParts.Male end
-
-  for _, part in ipairs(parts) do
-    local comp = AMM.player:FindComponentByName(CName.new(part))
+  for cname in db:urows("SELECT cname FROM components") do
+    local comp = AMM.player:FindComponentByName(CName.new(cname))
 	  if comp then comp:Toggle(not(Tools.invisibleBody)) end
   end
 end
@@ -693,10 +638,8 @@ function Tools:DrawNPCActions()
       Tools.lockTarget = false
       if target == nil and Tools.currentNPC ~= '' and Tools.currentNPC.type ~= "Player" then
         Tools.currentNPC = ''
-      elseif Tools.currentNPC == '' or (not(Tools.holdingNPC) and Tools.currentNPC.handle:GetEntityID().hash ~= target.handle:GetEntityID().hash) then
-        if Tools.currentNPC.type ~= "Player" then
-          Tools.currentNPC = target
-        end
+      elseif Tools.currentNPC == '' or (not(Tools.holdingNPC) and (target ~= nil and Tools.currentNPC.handle:GetEntityID().hash ~= target.handle:GetEntityID().hash)) then
+        Tools.currentNPC = target
 
         local pos = Tools.currentNPC.handle:GetWorldPosition()
         local angles = GetSingleton('Quaternion'):ToEulerAngles(Tools.currentNPC.handle:GetWorldOrientation())

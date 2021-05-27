@@ -1,5 +1,18 @@
 return {
 	{
+		'1.9.5c',
+		'2021 May 27',
+		[[Added Yorinobu's PP]],
+		[[Invisible Body toggle now is called Invisible V]],
+		[[-- No need to remove your clothes anymore. The toggle will make V completely invisible now (minus a hand cyberware)]],
+		[[-- Thanks PinkyDude for the hard work doing the list of components!]],
+		[[Fixed issue where after locking target on V in Photo mode you wouldn't be able to target anything else even if you unlocked target]],
+		[[Fixed issue with Judy new nips clipping through her clothing]],
+		[[Fixed issue where saving certain Custom Appearances would make the character flicker constantly]],
+		[[Fixed issue with 8ug8ear's body not appearing in certain cases]],
+		[[Fixed issue with Rogue's top being all messed up]],
+	},
+	{
 		'1.9.5b',
 		'2021 May 26',
 		[[Added many new Custom Appearances including:]],
