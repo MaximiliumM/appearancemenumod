@@ -50,7 +50,7 @@ function AMM:new()
 	 AMM.TeleportMod = ''
 
 	 -- Main Properties --
-	 AMM.currentVersion = "1.9.5c"
+	 AMM.currentVersion = "1.9.6"
 	 AMM.updateNotes = require('update_notes.lua')
 	 AMM.credits = require("credits.lua")
 	 AMM.updateLabel = "WHAT'S NEW"
@@ -68,10 +68,16 @@ function AMM:new()
 	 AMM.originalVehicles = ''
 	 AMM.skipFrame = false
 
+	 -- Hotkeys Properties --
+	 AMM.selectedHotkeys = {}
+
 	 -- Custom Appearance Properties --
 	 AMM.setCustomApp = ''
 	 AMM.activeCustomApps = {}
 	 AMM.customAppDefaults = AMM:GetCustomAppearanceDefaults()
+	 AMM.customAppOptions = {"Top", "Bottom", "Off"}
+	 AMM.customAppPosition = "Top"
+	 AMM.collabs = AMM:SetupCollabAppearances()
 
 	 -- Modal Popup Properties --
 	 AMM.currentFavoriteName = ''
@@ -100,6 +106,7 @@ function AMM:new()
 		 AMM:ImportUserData()
 		 AMM:SetupVehicleData()
 		 AMM:SetupJohnny()
+		 AMM:SetupCustomProps()
 
 		 -- Adjust Prevention System Total Entities Limit --
 		 TweakDB:SetFlat("PreventionSystem.setup.totalEntitiesLimit", 20)
@@ -196,6 +203,13 @@ function AMM:new()
 					 AMM.playerInMenu = true
 					 AMM.playerInPhoto = true
 	         Game.SetTimeDilation(0)
+
+					 if AMM.Tools.invisibleBody then
+						Cron.After(1.0, function()
+							local v = AMM.Tools:GetVTarget()
+							AMM.Tools:ToggleInvisibleBody(v.handle)
+						end)
+					 end
 					end
 			 elseif actionName == 'ExitPhotoMode' then
 				 if actionType == 'BUTTON_RELEASED' then
@@ -408,6 +422,18 @@ function AMM:new()
 	    GameSettings.Toggle('/interface/hud/stamina_oxygen')
 	 end)
 
+	 for i = 1, 3 do
+		 registerHotkey(f('amm_appearance_hotkey%i', i), f('Appearance Hotkey %i', i), function()
+				local target = AMM:GetTarget()
+		 		if target ~= nil and AMM.selectedHotkeys[target.id][i] ~= '' then
+		 			delayTimer = 0.0
+		 			AMM.shouldCheckSavedAppearance = false
+		 			buttonPressed = true
+		 			AMM:ChangeAppearanceTo(target, AMM.selectedHotkeys[target.id][i])
+		 		end
+		 end)
+	 end
+
 	 registerForEvent("onUpdate", function(deltaTime)
 		 -- This is required for Cron to function
      Cron.Update(deltaTime)
@@ -496,14 +522,19 @@ function AMM:new()
 										if param.mesh_app then
 											appParam.meshAppearance = CName.new(param.mesh_app)
 										end
-										if appParam.chunkMask ~= 18446744073709551615ULL and appParam.chunkMask ~= param.mesh_mask then
-											appParam.chunkMask = 18446744073709551615ULL
+
+										if appParam.chunkMask ~= param.mesh_mask and not(string.find(param.app_name, "Underwear")) then
+											local collabMask = AMM:CheckForCollabMask(param.app_base)
+											appParam.chunkMask = collabMask or 18446744073709551615ULL
 											if param.mesh_mask then
 												appParam.chunkMask = param.mesh_mask
+												print(appParam.chunkMask)
 											end
-											appParam:Toggle(false)
-											appParam:Toggle(true)
 										end
+
+										appParam:Toggle(false)
+										appParam:Toggle(true)
+										appParam:TemporaryHide(false)
 									elseif appParam then
 										if not param.app_toggle then
 											appParam.chunkMask = 18446744073709551615ULL
@@ -723,7 +754,7 @@ function AMM:Begin()
 						ImGui.Text("Spawning only works in game")
 					else
 						if next(AMM.spawnedNPCs) ~= nil then
-							AMM.UI:TextColored("Active NPC Spawns "..AMM.spawnsCounter.."/"..AMM.maxSpawns)
+							AMM.UI:TextColored("Active Spawns "..AMM.spawnsCounter.."/"..AMM.maxSpawns)
 
 							for _, spawn in pairs(AMM.spawnedNPCs) do
 								local nameLabel = spawn.name
@@ -750,6 +781,12 @@ function AMM:Begin()
 									else
 										AMM:DespawnNPC(spawn.uniqueName(), spawn.entityID)
 									end
+								end
+
+								ImGui.SameLine()
+								if ImGui.SmallButton("Target".."##"..spawn.name) then
+									AMM.Tools:SetCurrentTarget(AMM:NewTarget(spawn.handle, AMM:GetScanClass(spawn.handle), 'None', AMM:GetObjectName(spawn.handle),AMM:GetScanAppearance(spawn.handle), nil))
+									AMM.Tools.lockTarget = true
 								end
 
 								if spawn.handle ~= '' and not(spawn.handle:IsVehicle()) and not(spawn.handle:IsDevice()) and not(spawn.handle:IsDead()) and AMM:CanBeHostile(spawn.handle) then
@@ -880,6 +917,29 @@ function AMM:Begin()
 						ImGui.SameLine()
 					end
 
+					AMM.UI:Spacing(3)
+
+					AMM.UI:TextColored("Custom Appearances:")
+
+					for _, option in ipairs(AMM.customAppOptions) do
+						if ImGui.RadioButton(option, AMM.customAppPosition == option) then
+							AMM.customAppPosition = option
+						end
+
+						ImGui.SameLine()
+					end
+
+					AMM.UI:Spacing(3)
+
+					AMM.UI:TextColored("Saved Appearances Hotkeys:")
+
+					if target ~= nil and (target.type == "NPCPuppet" or target.type == "vehicle") then
+						AMM:DrawHotkeySelection()
+					else
+						AMM.UI:Spacing(3)
+						AMM.UI:TextCenter("Target NPC or Vehicle to Set Hotkeys")
+					end
+
 					ImGui.Spacing()
 
 					if clicked then AMM:UpdateSettings() end
@@ -895,29 +955,36 @@ function AMM:Begin()
 
 					AMM.UI:Separator()
 
+					ImGui.Spacing()
+
+					AMM.UI:TextColored("Reset Actions:")
+
 					if AMM.userSettings.experimental then
-						if (ImGui.Button("Revert All Model Swaps")) then
+						if ImGui.Button("Revert All Model Swaps", style.halfButtonWidth, style.buttonHeight) then
 							AMM:RevertTweakDBChanges(true)
 						end
 
 						ImGui.SameLine()
-						if (ImGui.Button("Respawn All")) then
+						if ImGui.Button("Respawn All", style.halfButtonWidth, style.buttonHeight) then
 							AMM:RespawnAll()
 						end
 					end
 
 
-					if (ImGui.Button("Force Despawn All")) then
+					if ImGui.Button("Force Despawn All", style.halfButtonWidth, style.buttonHeight) then
 						AMM:DespawnAll(true)
 					end
 
-					if (ImGui.Button("Clear All Saved Appearances")) then
+					ImGui.SameLine()
+					if ImGui.Button("Clear All Favorites", style.halfButtonWidth, style.buttonHeight) then
+						popupDelegate = AMM:OpenPopup("Favorites")
+					end
+
+					if ImGui.Button("Clear All Saved Appearances", style.buttonWidth, style.buttonHeight) then
 						popupDelegate = AMM:OpenPopup("Appearances")
 					end
 
-					if (ImGui.Button("Clear All Favorites")) then
-						popupDelegate = AMM:OpenPopup("Favorites")
-					end
+
 
 					AMM:BeginPopup("WARNING", nil, true, popupDelegate, style)
 
@@ -1063,8 +1130,13 @@ function AMM:ImportUserData()
 				if userData['savedSwaps'] ~= nil then
 					self.Swap:LoadSavedSwaps(userData['savedSwaps'])
 				end
+				if userData['followDistance'] ~= nil then
+					self.followDistance = userData['followDistance']
+				end
 
+				self.customAppPosition = userData['customAppPosition'] or "Top"
 				self.selectedTheme = userData['selectedTheme'] or "Default"
+				self.selectedHotkeys = userData['selectedHotkeys'] or {}
 
 				if userData['settings'] ~= nil then
 					for _, obj in ipairs(userData['settings']) do
@@ -1139,6 +1211,9 @@ function AMM:ExportUserData()
 	userData['spawnedNPCs'] = self:PrepareExportSpawnedData()
 	userData['savedSwaps'] = self.Swap:GetSavedSwaps()
 	userData['favoriteLocations'] = self.Tools:GetFavoriteLocations()
+	userData['followDistance'] = self.followDistance
+	userData['customAppPosition'] = self.customAppPosition
+	userData['selectedHotkeys'] = self.selectedHotkeys
 
 	local validJson, contents = pcall(function() return json.encode(userData) end)
 	if validJson and contents ~= nil then
@@ -1297,19 +1372,28 @@ end
 
 function AMM:GetCustomAppearanceDefaults()
 	local customs = {
-		["0x3024F03E, 15"] = {
+		{
 			apps = {
 				['kerry_eurodyne_nude'] = true,
 				['kerry_eurodyne__q203__shower'] = true,
+				['Custom Young Kerry Naked'] = true,
+				['Custom Young Kerry 2013 Naked'] = true,
 			},
 			component = 'hx_001_ma_c__kerry_eurodyne_old_pimples_01'
 		},
-		["0x8D34B4F2, 18"] = {
+		{
 			apps = {
 				['Custom Yorinobu Naked'] = true,
 				['Custom Yorinobu Kimono Naked'] = true,
 			},
 			component = 'hx_001_ma_a__yorinobu_arasaka_pimples_01'
+		},
+		{
+			apps = {
+				['Custom Benjamin Stone Naked'] = true,
+				['JM Benjamin Stone Naked'] = true,
+			},
+			component = 'hx_793_mb_c__ma_758_pimples_01'
 		},
 	}
 
@@ -1326,6 +1410,28 @@ function AMM:RevertTweakDBChanges(userActivated)
 	if not(userActivated) then
 		TweakDB:SetFlat(TweakDBID.new('Vehicle.vehicle_list.list'), self.originalVehicles)
 	end
+end
+
+function AMM:SetupCustomProps()
+	for prop in db:nrows("SELECT * FROM entities WHERE entity_path LIKE '%AMM_Props%'") do
+		TweakDB:CloneRecord(prop.entity_path, "Props.prop_test")
+		TweakDB:SetFlat(prop.entity_path..".entityTemplatePath", CName.new(prop.template_path))
+	end
+end
+
+function AMM:SetupCollabAppearances()
+	local files = dir("./Collabs")
+  local collabs = {}
+  for _, mod in ipairs(files) do
+    if string.find(mod.name, '.lua') then
+			local collabData = require("Collabs/"..mod.name)
+			for _, data in ipairs(collabData) do
+				table.insert(collabs, data)
+			end
+    end
+  end
+
+  return collabs
 end
 
 function AMM:SetupJohnny()
@@ -1486,12 +1592,21 @@ function AMM:UpdateSettings()
 	AMM:ExportUserData()
 end
 
+function AMM:CheckForCollabMask(app)
+	for _, collab in ipairs(AMM.collabs) do
+		if collab.appearance == app then return collab.chunkMask end
+	end
+
+	return false
+end
+
 function AMM:CheckCustomDefaults(target)
 	if target ~= nil and target.type == "NPCPuppet" then
-		if AMM.customAppDefaults[target.id] ~= nil then
-			if not AMM.customAppDefaults[target.id].apps[target.appearance] then
-				local appParam = target.handle:FindComponentByName(CName.new(AMM.customAppDefaults[target.id].component))
-				if appParam then
+		for _, default in ipairs(AMM.customAppDefaults) do
+			local appParam = target.handle:FindComponentByName(CName.new(default.component))
+			if appParam then
+				if not default.apps[target.appearance] then
+					print(target.appearance)
 					appParam:TemporaryHide(true)
 				end
 			end
@@ -1722,12 +1837,16 @@ function AMM:GetAppearanceOptionsWithID(id)
 	 	id = self.Swap.activeSwaps[id].newID
 	end
 
-	for app in db:urows(f("SELECT DISTINCT app_name FROM custom_appearances WHERE entity_id = '%s' ORDER BY app_base ASC", id)) do
-		table.insert(options, app)
+	if self.customAppPosition == "Top" then
+		options = self:LoadCustomAppearances(options, id)
 	end
 
 	for app in db:urows(f("SELECT app_name FROM appearances WHERE entity_id = '%s' ORDER BY app_name ASC", id)) do
 		table.insert(options, app)
+	end
+
+	if self.customAppPosition == "Bottom" then
+		options = self:LoadCustomAppearances(options, id)
 	end
 
 	if next(options) ~= nil then
@@ -1735,6 +1854,30 @@ function AMM:GetAppearanceOptionsWithID(id)
 	end
 
 	return nil
+end
+
+function AMM:LoadCustomAppearances(options, id)
+	if #AMM.collabs ~= 0 then
+		local collabsAppBase = '('
+		for i, collab in ipairs(AMM.collabs) do
+			collabsAppBase = collabsAppBase..f("'%s'", collab.appearance)
+			if i ~= #AMM.collabs then collabsAppBase = collabsAppBase..", " end
+			for app in db:urows(f("SELECT DISTINCT app_name FROM custom_appearances WHERE collab_tag = '%s' AND entity_id = '%s' ORDER BY app_base ASC", collab.tag, id)) do
+				table.insert(options, app)
+			end
+		end
+		collabsAppBase = collabsAppBase..")"
+
+		for app in db:urows(f("SELECT DISTINCT app_name FROM custom_appearances WHERE collab_tag IS NULL AND app_base NOT IN %s AND entity_id = '%s' ORDER BY app_base ASC", collabsAppBase, id)) do
+			table.insert(options, app)
+		end
+	else
+		for app in db:urows(f("SELECT DISTINCT app_name FROM custom_appearances WHERE collab_tag IS NULL AND entity_id = '%s' ORDER BY app_base ASC", id)) do
+			table.insert(options, app)
+		end
+	end
+
+	return options
 end
 
 function AMM:GetScanAppearance(t)
@@ -1797,13 +1940,13 @@ function AMM:ChangeAppearanceTo(entity, appearance)
 	-- local appearance, reverse = AMM:CheckForReverseCustomAppearance(appearance, entity)
 	local custom = AMM:GetCustomAppearanceParams(entity, appearance)
 
-	if (not string.find(appearance, " No ")) and (not string.find(appearance, " With ")) and (not string.find(appearance, "Underwear")) then
+	if (not string.find(appearance, " No ")) and (not string.find(appearance, " With ")) and (not string.find(appearance, "Underwear")) and (not string.find(appearance, "Naked")) then
 		AMM:ChangeScanAppearanceTo(entity, "Cycle")
 	end
 
 	Cron.After(0.1, function()
 		if #custom > 0 then
-				AMM:ChangeScanCustomAppearanceTo(entity, custom)
+			AMM:ChangeScanCustomAppearanceTo(entity, custom)
 		else
 			AMM:ChangeScanAppearanceTo(entity, appearance)
 		end
@@ -2271,6 +2414,23 @@ function AMM:DrawEntitiesButtons(entities, categoryName, style)
 		if categoryName == 'Favorites' then
 			ImGui.SameLine()
 			AMM:DrawArrowButton("down", newSpawn, i)
+		end
+	end
+end
+
+function AMM:DrawHotkeySelection()
+	if AMM.selectedHotkeys[target.id] == nil then
+		AMM.selectedHotkeys[target.id] = {'', '', ''}
+	end
+
+	for i, hotkey in ipairs(AMM.selectedHotkeys[target.id]) do
+		local app = hotkey ~= '' and hotkey or "No Appearance Set"
+		ImGui.InputText(f("Hotkey %i", i), app, 100, ImGuiInputTextFlags.ReadOnly)
+
+		ImGui.SameLine()
+
+		if ImGui.SmallButton("Set##"..i) then
+			AMM.selectedHotkeys[target.id][i] = target.appearance
 		end
 	end
 end

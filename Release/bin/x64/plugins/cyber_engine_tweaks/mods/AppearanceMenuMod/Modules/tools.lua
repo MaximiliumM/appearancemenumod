@@ -145,7 +145,7 @@ function Tools:DrawVActions()
 
     ImGui.SameLine()
     if ImGui.Button("Target V", Tools.style.halfButtonWidth, Tools.style.buttonHeight) then
-      Tools.currentNPC = Tools:GetVTarget()
+      Tools:SetCurrentTarget(Tools:GetVTarget())
       Tools.lockTarget = true
     end
   else
@@ -212,7 +212,7 @@ function Tools:DrawVActions()
     Tools.invisibleBody, invisClicked = ImGui.Checkbox("Invisible V", Tools.invisibleBody)
 
     if invisClicked then
-      Tools:ToggleInvisibleBody()
+      Tools:ToggleInvisibleBody(AMM.player)
     end
   end
 end
@@ -267,9 +267,9 @@ function Tools:ToggleAccessories()
   end
 end
 
-function Tools:ToggleInvisibleBody()
+function Tools:ToggleInvisibleBody(playerHandle)
   for cname in db:urows("SELECT cname FROM components") do
-    local comp = AMM.player:FindComponentByName(CName.new(cname))
+    local comp = playerHandle:FindComponentByName(CName.new(cname))
 	  if comp then comp:Toggle(not(Tools.invisibleBody)) end
   end
 end
@@ -639,13 +639,7 @@ function Tools:DrawNPCActions()
       if target == nil and Tools.currentNPC ~= '' and Tools.currentNPC.type ~= "Player" then
         Tools.currentNPC = ''
       elseif Tools.currentNPC == '' or (not(Tools.holdingNPC) and (target ~= nil and Tools.currentNPC.handle:GetEntityID().hash ~= target.handle:GetEntityID().hash)) then
-        Tools.currentNPC = target
-
-        local pos = Tools.currentNPC.handle:GetWorldPosition()
-        local angles = GetSingleton('Quaternion'):ToEulerAngles(Tools.currentNPC.handle:GetWorldOrientation())
-        Tools.npcRotation = {angles.roll, angles.pitch, angles.yaw}
-        Tools.npcUpDown = pos.z
-        Tools.npcLeftRight = {pos.x, pos.y}
+        Tools:SetCurrentTarget(target)
       end
     end
 
@@ -705,6 +699,21 @@ function Tools:DrawNPCActions()
     ImGui.PopItemWidth()
     AMM.UI:Spacing(3)
 
+    if ImGui.Button("Reset Position", Tools.style.buttonWidth, Tools.style.buttonHeight) then
+      local pos = AMM.player:GetWorldPosition()
+      if Tools.currentNPC.type ~= 'Player' and Tools.currentNPC.handle:IsNPC() then
+        Tools:TeleportNPCTo(Tools.currentNPC.handle, pos, Tools.npcRotation[1])
+      else
+        Game.GetTeleportationFacility():Teleport(Tools.currentNPC.handle, pos, EulerAngles.new(Tools.npcRotation[1], Tools.npcRotation[2], Tools.npcRotation[3]))
+      end
+
+      Cron.After(0.2, function()
+        Tools:SetCurrentTarget(Tools.currentNPC)
+      end)
+    end
+
+    AMM.UI:Spacing(3)
+
     if not AMM.playerInPhoto then
 
       local buttonLabel = "Pick Up Target"
@@ -753,7 +762,7 @@ function Tools:DrawNPCActions()
       end
     end
 
-    if Tools.currentNPC ~= '' then
+    if Tools.currentNPC ~= '' and Tools.currentNPC.handle:IsNPC() then
 
       if not AMM.playerInPhoto then
         local buttonLabel = " Freeze Target "
@@ -981,6 +990,15 @@ function Tools:DrawNPCActions()
       Tools:ClearProtected()
     end
   end
+end
+
+function Tools:SetCurrentTarget(target)
+  Tools.currentNPC = target
+  local pos = Tools.currentNPC.handle:GetWorldPosition()
+  local angles = GetSingleton('Quaternion'):ToEulerAngles(Tools.currentNPC.handle:GetWorldOrientation())
+  Tools.npcRotation = {angles.roll, angles.pitch, angles.yaw}
+  Tools.npcUpDown = pos.z
+  Tools.npcLeftRight = {pos.x, pos.y}
 end
 
 function Tools:ActivateFacialExpression(target, face, upperBody, lookAtV, lookAtTarget)

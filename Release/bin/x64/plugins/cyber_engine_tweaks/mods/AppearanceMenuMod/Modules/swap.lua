@@ -2,7 +2,8 @@ local Swap = {
   activeSwaps = {},
   searchQuery = '',
   searchBarWidth = 500,
-  savedSwaps = {}
+  savedSwaps = {},
+  specialSwap = false,
 }
 
 function Swap:RevertModelSwap(swapID)
@@ -45,6 +46,10 @@ end
 
 function Swap:Draw(AMM, target)
   if (ImGui.BeginTabItem("Swap")) then
+
+    if io.open("specialSwap.lua", "r") then
+ 		   Swap.specialSwap = require('specialSwap.lua')
+    end
 
     AMM.UI:DrawCrossHair()
 
@@ -278,7 +283,7 @@ function Swap:DrawEntitiesButtons(entities, categoryName)
 
 		if ImGui.Button(name, style.buttonWidth - favOffset, style.buttonHeight) then
       Game.GetPlayer():SetWarningMessage("Reload your save game to update changes!")
-      if targetID ~= "0x903E76AF, 43" then
+      if targetID ~= "0x903E76AF, 43" or Swap.specialSwap then
         Swap:ChangeEntityTemplateTo(target.name, targetID, id)
       end
     end
@@ -291,7 +296,7 @@ function Swap:DrawEntitiesButtons(entities, categoryName)
 end
 
 function Swap:ChangeEntityTemplateTo(targetName, fromID, toID)
-  if toID == "0x903E76AF, 43" then toID = '0xB1B50FFA, 14' end
+  if toID == "0x903E76AF, 43" and not Swap.specialSwap then toID = '0xB1B50FFA, 14' end
 
   local toPath = Swap:GetEntityPathFromID(toID)
   local fromPath = Swap:GetEntityPathFromID(fromID)
