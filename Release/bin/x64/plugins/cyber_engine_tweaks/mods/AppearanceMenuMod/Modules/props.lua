@@ -266,12 +266,14 @@ end
 function Props:GetTagBasedOnLocation()
   if AMM.Tools then
     local playerPos = AMM.player:GetWorldPosition()
-    for loc in ipairs(AMM.Tools.userLocations) do
-      local pos = Vector4.new(loc.x, loc.y, loc.z, loc.w)
-      local dist = Util:VectorDistance(playerPos, pos)
+    for _, loc in ipairs(AMM.Tools:GetLocations()) do
+      if loc.loc_name:match("%-%-%-%-") == nil then
+        local pos = Vector4.new(loc.x, loc.y, loc.z, loc.w)
+        local dist = Util:VectorDistance(playerPos, pos)
 
-      if dist <= 10 then
-        return loc.loc_name
+        if dist <= 60 then
+          return loc.loc_name
+        end
       end
     end
 

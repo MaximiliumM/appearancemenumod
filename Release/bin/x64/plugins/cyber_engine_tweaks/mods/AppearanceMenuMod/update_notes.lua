@@ -1,5 +1,13 @@
 return {
 	{
+		'1.9.7b',
+		'2021 Jun 18',
+		[[Added Custom Appearances for Bryce Mosley]],
+		[[Fixed issue with saving Props to Decor tab]],
+		[[Fixed issue where tags weren't appropriately assigned]],
+		[[Fixed conflict with AMM's Custom Appearances and Collab's appearances]],
+	},
+	{
 		'1.9.7',
 		'2021 Jun 18',
 		[[Introducing Decor tab:]],

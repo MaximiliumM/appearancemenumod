@@ -22,6 +22,8 @@ return {
 		[[PinkyDude]],
 		[[-- V Facial Expressions]],
 		[[-- Johnny Replacer Invisible]],
+		[[Jamie Cross]],
+		[[-- Benjamin Stone PP]],
 		[[Vesna]],
 		[[-- Hanako Body]],
 	},

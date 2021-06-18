@@ -41,7 +41,7 @@ function AMM:new()
 	 AMM.TeleportMod = ''
 
 	 -- Main Properties --
-	 AMM.currentVersion = "1.9.7"
+	 AMM.currentVersion = "1.9.7b"
 	 AMM.updateNotes = require('update_notes.lua')
 	 AMM.credits = require("credits.lua")
 	 AMM.updateLabel = "WHAT'S NEW"
@@ -1432,27 +1432,20 @@ end
 
 function AMM:GetCustomAppearanceDefaults()
 	local customs = {
-		{
-			apps = {
-				['kerry_eurodyne_nude'] = true,
-				['kerry_eurodyne__q203__shower'] = true,
-				['Custom Young Kerry Naked'] = true,
-				['Custom Young Kerry 2013 Naked'] = true,
-			},
-			component = 'hx_001_ma_c__kerry_eurodyne_old_pimples_01'
+		['hx_001_ma_c__kerry_eurodyne_old_pimples_01'] = {
+			['kerry_eurodyne_nude'] = true,
+			['kerry_eurodyne__q203__shower'] = true,
+			['Custom Young Kerry Naked'] = true,
+			['Custom Young Kerry 2013 Naked'] = true,
 		},
-		{
-			apps = {
-				['Custom Yorinobu Naked'] = true,
-				['Custom Yorinobu Kimono Naked'] = true,
-			},
-			component = 'hx_001_ma_a__yorinobu_arasaka_pimples_01'
+
+		['hx_001_ma_a__yorinobu_arasaka_pimples_01'] = {
+			['Custom Yorinobu Naked'] = true,
+			['Custom Yorinobu Kimono Naked'] = true,
 		},
-		{
-			apps = {
-				['Custom Benjamin Stone Naked'] = true,
-			},
-			component = 'hx_793_mb_c__ma_758_pimples_01'
+
+		['hx_793_mb_c__ma_758_pimples_01'] = {
+			['Custom Benjamin Stone Naked'] = true,
 		},
 	}
 
@@ -1460,17 +1453,9 @@ function AMM:GetCustomAppearanceDefaults()
 		for _, collab in ipairs(AMM.collabs) do
 			if collab.disabledByDefault then
 				for _, default in ipairs(collab.disabledByDefault) do
-					local allowedApps = {}
 					for _, app in ipairs(default.allowedApps) do
-						allowedApps[app] = true
+						customs[default.component][app] = true
 					end
-
-					local newDefault = {
-						apps = allowedApps,
-						component = default.component
-					}
-
-					table.insert(customs, newDefault)
 				end
 			end
 		end
@@ -1511,22 +1496,25 @@ function AMM:SetupCollabAppearances()
 					newApp.disabledByDefault = collab.disabledByDefault
 					table.insert(collabs, newApp)
 
-					local check = 0
-					for count in db:urows(f("SELECT COUNT(1) FROM custom_appearances WHERE collab_tag = '%s'", newApp.tag)) do
-						check = count
-					end
-
-					if check ~= 0 then
-						db:execute(f("DELETE FROM custom_appearances WHERE collab_tag = '%s'", newApp.tag))
-					end
-
 					local customApps = collab.customApps[newApp.tag]
 
-					for _, customApp in ipairs(customApps) do
-						local tables = '("entity_id", "app_name", "app_base", "app_param", "app_toggle", "mesh_app", "mesh_type", "mesh_mask", "collab_tag")'
-						local values = f('("%s", "%s", "%s", "%s", "%s", "%s", "%s", "%s", "%s")', newApp.entity_id, customApp.app_name, newApp.appearance, customApp.app_param, customApp.app_toggle, customApp.mesh_app, customApp.mesh_type, customApp.mesh_mask, newApp.tag)
-						values = values:gsub('"nil"', "NULL")
-						db:execute(f('INSERT INTO custom_appearances %s VALUES %s', tables, values))
+					if customApps then
+
+						local check = 0
+						for count in db:urows(f("SELECT COUNT(1) FROM custom_appearances WHERE collab_tag = '%s'", newApp.tag)) do
+							check = count
+						end
+
+						if check ~= 0 then
+							db:execute(f("DELETE FROM custom_appearances WHERE collab_tag = '%s'", newApp.tag))
+						end
+
+						for _, customApp in ipairs(customApps) do
+							local tables = '("entity_id", "app_name", "app_base", "app_param", "app_toggle", "mesh_app", "mesh_type", "mesh_mask", "collab_tag")'
+							local values = f('("%s", "%s", "%s", "%s", "%s", "%s", "%s", "%s", "%s")', newApp.entity_id, customApp.app_name, newApp.appearance, customApp.app_param, customApp.app_toggle, customApp.mesh_app, customApp.mesh_type, customApp.mesh_mask, newApp.tag)
+							values = values:gsub('"nil"', "NULL")
+							db:execute(f('INSERT INTO custom_appearances %s VALUES %s', tables, values))
+						end
 					end
 				end
 	    end
@@ -1748,10 +1736,10 @@ end
 
 function AMM:CheckCustomDefaults(target)
 	if target ~= nil and target.type == "NPCPuppet" then
-		for _, default in ipairs(AMM.customAppDefaults) do
-			local appParam = target.handle:FindComponentByName(CName.new(default.component))
+		for component, apps in pairs(AMM.customAppDefaults) do
+			local appParam = target.handle:FindComponentByName(CName.new(component))
 			if appParam then
-				if not default.apps[target.appearance] then
+				if not apps[target.appearance] then
 					-- print(target.appearance)
 					appParam:Toggle(false)
 				else
