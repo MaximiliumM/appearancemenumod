@@ -25,7 +25,7 @@ function Util:ShallowCopy(copy, orig)
 end
 
 function Util:PlayVoiceOver(handle, vo)
-  Game["gameObject::PlayVoiceOver;GameObjectCNameCNameFloatEntityIDBool"](handle, CName.new(vo), CName.new(""), 1)
+  Game["gameObject::PlayVoiceOver;GameObjectCNameCNameFloatEntityIDBool"](handle, CName.new(vo), CName.new(""), 1, handle:GetEntityID(), true)
 end
 
 function Util:VectorDistance(pointA, pointB)
@@ -124,7 +124,7 @@ end
 function Util:GetNPCsInRange(maxDistance)
 	local searchQuery = Game["TSQ_NPC;"]()
 	searchQuery.maxDistance = maxDistance
-	local success, parts = Game.GetTargetingSystem():GetTargetParts(Game.GetPlayer(), searchQuery, {})
+	local success, parts = Game.GetTargetingSystem():GetTargetParts(Game.GetPlayer(), searchQuery)
 	if success then
 		local entities = {}
 		for i, v in ipairs(parts) do

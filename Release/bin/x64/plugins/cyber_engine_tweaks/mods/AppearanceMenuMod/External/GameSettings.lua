@@ -5,12 +5,12 @@ Game Settings Manager
 Copyright (c) 2021 psiberx
 ]]
 
-local GameSettings = { version = '1.0.0' }
+local GameSettings = { version = '1.0.4' }
 
 local module = {}
 
 function module.parsePath(setting)
-	return setting:match('^(/.+)/([A-Za-z_]+)$')
+	return setting:match('^(/.+)/([A-Za-z0-9_]+)$')
 end
 
 function module.makePath(groupPath, varName)
@@ -39,6 +39,22 @@ function module.isNumberType(target)
 	end
 
 	return target == 'Int' or target == 'Float'
+end
+
+function module.isIntType(target)
+	if type(target) == 'userdata' then
+		target = target.value
+	end
+
+	return target == 'Int' or target == 'IntList'
+end
+
+function module.isFloatType(target)
+	if type(target) == 'userdata' then
+		target = target.value
+	end
+
+	return target == 'Float' or target == 'FloatList'
 end
 
 function module.isListType(target)
@@ -152,7 +168,6 @@ end
 
 function GameSettings.Set(setting, value)
 	local path, name = module.parsePath(setting)
-
 	local var = Game.GetSettingsSystem():GetVar(path, name)
 
 	if not var then
@@ -192,6 +207,31 @@ function GameSettings.Toggle(setting)
 	end
 
 	var:Toggle()
+end
+
+function GameSettings.ToggleAll(settings)
+	local state = not GameSettings.Get(settings[1])
+
+	for _, setting in ipairs(settings) do
+		GameSettings.Set(setting, state)
+	end
+end
+
+function GameSettings.ToggleGroup(path)
+	local group = Game.GetSettingsSystem():GetGroup(path)
+	local vars = group:GetVars(false)
+	local state = nil
+
+	for _, var in ipairs(vars) do
+		if module.isBoolType(var:GetType()) then
+			-- Invert the first bool option
+			if state == nil then
+				state = not var:GetValue()
+			end
+
+			var:SetValue(state)
+		end
+	end
 end
 
 function GameSettings.Options(setting)
@@ -238,6 +278,10 @@ function GameSettings.Reject()
 	Game.GetSettingsSystem():RejectChanges()
 end
 
+function GameSettings.Save()
+	GetSingleton('inkMenuScenario'):GetSystemRequestsHandler():RequestSaveUserSettings()
+end
+
 function GameSettings.Export(isPreGame)
 	return module.exportVars(isPreGame)
 end
@@ -267,6 +311,12 @@ function GameSettings.ExportTo(exportPath, isPreGame)
 			end
 
 			options = ' -- ' .. table.concat(options, ' | ')
+		elseif var.min then
+			if module.isIntType(var.type) then
+				options = (' -- %d to %d / %d'):format(var.min, var.max, var.step)
+			else
+				options = (' -- %.2f to %.2f / %.2f'):format(var.min, var.max, var.step)
+			end
 		end
 
 		table.insert(output, ('  ["%s"] = %s,%s'):format(var.path, value, options or ''))

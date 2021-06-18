@@ -142,7 +142,7 @@ function Director:SenseNPCTalk()
             Cron.After(2.0, function()
               local stimComp = actor.handle:GetStimReactionComponent()
               if stimComp then
-                stimComp:DeactiveLookAt()
+                stimComp:DeactiveLookAt(false)
               end
             end)
 
@@ -861,7 +861,7 @@ function Director:MoveActors(script, actors)
 
           local stimComp = actor.handle:GetStimReactionComponent()
           if stimComp then
-            stimComp:DeactiveLookAt()
+            stimComp:DeactiveLookAt(false)
           end
 
           if node.startApp ~= nil then
@@ -1082,7 +1082,7 @@ function Director:SpawnActors(script, actors)
         local player = Game.GetPlayer()
         local heading = player:GetWorldForward()
         local spawnTransform = player:GetWorldTransform()
-        local spawnPosition = spawnTransform.Position:ToVector4(spawnTransform.Position)
+        local spawnPosition = GetSingleton('WorldPosition'):ToVector4(spawnTransform.Position)
         spawnTransform:SetPosition(spawnTransform, Vector4.new(spawnPosition.x - heading.x, spawnPosition.y - heading.y, spawnPosition.z, spawnPosition.w))
         local entityID = Game.GetPreventionSpawnSystem():RequestSpawn(TweakDBID.new(actorPath), script.spawnLevel * -1, spawnTransform)
         script.actors[actor.uniqueName].entityID = entityID

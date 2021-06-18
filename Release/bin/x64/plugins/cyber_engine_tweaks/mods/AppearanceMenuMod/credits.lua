@@ -22,6 +22,8 @@ return {
 		[[PinkyDude]],
 		[[-- V Facial Expressions]],
 		[[-- Johnny Replacer Invisible]],
+		[[Vesna]],
+		[[-- Hanako Body]],
 	},
 	{
 		'Community Shout Outs',
@@ -42,6 +44,14 @@ return {
 		[[-- For creating content and helping with our Discord and moderation]],
 		[[Jamie Cross]],
 		[[-- For brainstorming ideas and helping out with testing]],
+		[[ladyinthebluebox]],
+		[[-- For helping with testing and giving me emotional support always]],
+		[[hay]],
+		[[-- For helping with testing and giving me opinions on all the clothes I make]],
+		[[Lucielani]],
+		[[-- For testing and helping with the Props list]],
+		[[Vesna]],
+		[[-- For creating our beloved Hanako content]],
 
 		[[Special thanks to all Community Champions for helping out in our Discord with bugs, requests and support. And finally we would like to thank the community for all of the support and love! You're why we do what we do!]],
 	},

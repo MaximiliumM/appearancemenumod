@@ -39,7 +39,7 @@ function Tools:new()
   Tools.animatedHead = false
   Tools.invisibleBody = false
 
-  -- NPC Properties --
+  -- Target Properties --
   Tools.protectedNPCs = {}
   Tools.holdingNPC = false
   Tools.frozenNPCs = {}
@@ -50,6 +50,8 @@ function Tools:new()
   Tools.npcUpDown = 0
   Tools.npcLeftRight = 0
   Tools.npcRotation = 0
+  Tools.movingProp = false
+  Tools.savedPosition = ''
   Tools.selectedFace = {name = 'Select Expression'}
   Tools.activatedFace = false
   Tools.upperBodyMovement = true
@@ -70,10 +72,10 @@ function Tools:Draw(AMM, target)
     }
 
     Tools.actionCategories = {
+      { name = "Target Actions", actions = Tools.DrawNPCActions },
       { name = "Teleport Actions", actions = Tools.DrawTeleportActions },
       { name = "Time Actions", actions = Tools.DrawTimeActions },
       { name = "V Actions", actions = Tools.DrawVActions },
-      { name = "Target Actions", actions = Tools.DrawNPCActions },
     }
 
     if AMM.playerInMenu and not AMM.playerInPhoto then
@@ -83,8 +85,8 @@ function Tools:Draw(AMM, target)
       if AMM.playerInPhoto then
         Tools.actionCategories = {
           { name = "V Actions", actions = Tools.DrawVActions },
-          { name = "Time Actions", actions = Tools.DrawTimeActions },
           { name = "Target Actions", actions = Tools.DrawNPCActions },
+          { name = "Time Actions", actions = Tools.DrawTimeActions },
         }
       end
 
@@ -294,14 +296,15 @@ function Tools:ToggleGodMode()
   Tools.godModeToggle = not Tools.godModeToggle
 
   if Tools.godModeToggle then
-    hp, o2 = -99999, -999999
+    hp, o2, weight = -99999, -999999, 9999
   else
-    hp, o2 = 99999, 999999
+    hp, o2, weight = 99999, 999999, -9999
   end
 
   -- Stat Modifiers
   Game.ModStatPlayer("Health", hp)
   Game.ModStatPlayer("Oxygen", o2)
+  Game.ModStatPlayer("CarryCapacity", weight)
 
   -- Toggles
   local toggle = boolToInt(Tools.godModeToggle)
@@ -350,8 +353,9 @@ function Tools:GetVTarget()
   local searchQuery = Game["TSQ_NPC;"]()
   searchQuery.maxDistance = 10
   searchQuery.includeSecondaryTargets = false
-  searchQuery.ignoreInstigator = true
-  local success, parts = Game.GetTargetingSystem():GetTargetParts(AMM.player, searchQuery, {})
+  searchQuery.ignoreInstigator = AMM.playerInPhoto and true or false
+  print(searchQuery.ignoreInstigator)
+  local success, parts = Game.GetTargetingSystem():GetTargetParts(AMM.player, searchQuery)
   if success then
     for i, v in ipairs(parts) do
       local entity = v:GetComponent(v):GetEntity()
@@ -624,7 +628,7 @@ function Tools:DrawNPCActions()
 
   AMM.UI:DrawCrossHair()
 
-  if Tools.currentNPC ~= '' then
+  if Tools.currentNPC and Tools.currentNPC ~= '' then
     if not Game.FindEntityByID(Tools.currentNPC.handle:GetEntityID()) then
       Tools.currentNPC = ''
     end
@@ -662,7 +666,11 @@ function Tools:DrawNPCActions()
     if upDownUsed and Tools.currentNPC ~= '' then
       local pos = Tools.currentNPC.handle:GetWorldPosition()
       pos = Vector4.new(pos.x, pos.y, Tools.npcUpDown, pos.w)
-      if Tools.currentNPC.type ~= 'Player' and Tools.currentNPC.handle:IsNPC() then
+      if Tools.currentNPC.type == 'entEntity' then
+        if not Tools.movingProp then
+          Tools:TeleportPropTo(Tools.currentNPC, pos, EulerAngles.new(Tools.npcRotation[1], Tools.npcRotation[2], Tools.npcRotation[3]))
+        end
+      elseif Tools.currentNPC.type ~= 'Player' and Tools.currentNPC.handle:IsNPC() then
         Tools:TeleportNPCTo(Tools.currentNPC.handle, pos, Tools.npcRotation[1])
       else
         Game.GetTeleportationFacility():Teleport(Tools.currentNPC.handle, pos, EulerAngles.new(Tools.npcRotation[1], Tools.npcRotation[2], Tools.npcRotation[3]))
@@ -674,14 +682,18 @@ function Tools:DrawNPCActions()
     if leftRightUsed and Tools.currentNPC ~= '' then
       local pos = Tools.currentNPC.handle:GetWorldPosition()
       pos = Vector4.new(Tools.npcLeftRight[1], Tools.npcLeftRight[2], pos.z, pos.w)
-      if Tools.currentNPC.type ~= 'Player' and Tools.currentNPC.handle:IsNPC() then
+      if Tools.currentNPC.type == 'entEntity' then
+        if not Tools.movingProp then
+          Tools:TeleportPropTo(Tools.currentNPC, pos, EulerAngles.new(Tools.npcRotation[1], Tools.npcRotation[2], Tools.npcRotation[3]))
+        end
+      elseif Tools.currentNPC.type ~= 'Player' and Tools.currentNPC.handle:IsNPC() then
         Tools:TeleportNPCTo(Tools.currentNPC.handle, pos, Tools.npcRotation[1])
       else
         Game.GetTeleportationFacility():Teleport(Tools.currentNPC.handle, pos, EulerAngles.new(Tools.npcRotation[1], Tools.npcRotation[2], Tools.npcRotation[3]))
       end
     end
 
-    if Tools.currentNPC ~= '' and (Tools.currentNPC.type ~= 'Player' and Tools.currentNPC.handle:IsNPC()) then
+    if Tools.currentNPC ~= '' and (AMM:GetScanClass(Tools.currentNPC.handle) ~= 'entEntity' and Tools.currentNPC.type ~= 'Player' and Tools.currentNPC.handle:IsNPC()) then
       Tools.npcRotation[1], rotationUsed = ImGui.SliderFloat("Rotation", Tools.npcRotation[1], -180, 180)
     elseif Tools.currentNPC ~= '' then
       Tools.npcRotation, rotationUsed = ImGui.DragFloat3("Tilt/Rotation", Tools.npcRotation, 0.1)
@@ -689,7 +701,11 @@ function Tools:DrawNPCActions()
 
     if rotationUsed and Tools.currentNPC ~= '' then
       local pos = Tools.currentNPC.handle:GetWorldPosition()
-      if Tools.currentNPC.type ~= 'Player' and Tools.currentNPC.handle:IsNPC() then
+      if Tools.currentNPC.type == 'entEntity' then
+        if not Tools.movingProp then
+          Tools:TeleportPropTo(Tools.currentNPC, pos, EulerAngles.new(Tools.npcRotation[1], Tools.npcRotation[2], Tools.npcRotation[3]))
+        end
+      elseif Tools.currentNPC.type ~= 'Player' and Tools.currentNPC.handle:IsNPC() then
         Tools:TeleportNPCTo(Tools.currentNPC.handle, pos, Tools.npcRotation[1])
       else
         Game.GetTeleportationFacility():Teleport(Tools.currentNPC.handle, pos, EulerAngles.new(Tools.npcRotation[1], Tools.npcRotation[2], Tools.npcRotation[3]))
@@ -699,22 +715,35 @@ function Tools:DrawNPCActions()
     ImGui.PopItemWidth()
     AMM.UI:Spacing(3)
 
+    local buttonLabel = "Save Position"
+    if Tools.savedPosition ~= '' then
+      buttonLabel = "Restore Position"
+    end
+
+    if ImGui.Button(buttonLabel, Tools.style.buttonWidth, Tools.style.buttonHeight) then
+      if Tools.savedPosition ~= '' then
+        Tools:SetTargetPosition(Tools.savedPosition)
+      else
+        Tools.savedPosition = Tools.currentNPC.handle:GetWorldPosition()
+      end
+    end
+
+    if Tools.savedPosition ~= '' then
+      if ImGui.Button("Clear Saved Position", Tools.style.buttonWidth, Tools.style.buttonHeight) then
+        Tools.savedPosition = ''
+      end
+    end
+
+    ImGui.Spacing()
+
     if ImGui.Button("Reset Position", Tools.style.buttonWidth, Tools.style.buttonHeight) then
       local pos = AMM.player:GetWorldPosition()
-      if Tools.currentNPC.type ~= 'Player' and Tools.currentNPC.handle:IsNPC() then
-        Tools:TeleportNPCTo(Tools.currentNPC.handle, pos, Tools.npcRotation[1])
-      else
-        Game.GetTeleportationFacility():Teleport(Tools.currentNPC.handle, pos, EulerAngles.new(Tools.npcRotation[1], Tools.npcRotation[2], Tools.npcRotation[3]))
-      end
-
-      Cron.After(0.2, function()
-        Tools:SetCurrentTarget(Tools.currentNPC)
-      end)
+      Tools:SetTargetPosition(pos)
     end
 
     AMM.UI:Spacing(3)
 
-    if not AMM.playerInPhoto then
+    if not AMM.playerInPhoto and Tools.currentNPC ~= '' and Tools.currentNPC.type ~= 'entEntity' then
 
       local buttonLabel = "Pick Up Target"
       if Tools.holdingNPC then
@@ -762,7 +791,7 @@ function Tools:DrawNPCActions()
       end
     end
 
-    if Tools.currentNPC ~= '' and Tools.currentNPC.handle:IsNPC() then
+    if Tools.currentNPC ~= '' and (Tools.currentNPC.type ~= 'entEntity' and Tools.currentNPC.handle:IsNPC()) then
 
       if not AMM.playerInPhoto then
         local buttonLabel = " Freeze Target "
@@ -785,7 +814,7 @@ function Tools:DrawNPCActions()
       AMM.UI:Spacing(8)
 
       local targetIsPlayer = Tools.currentNPC.type == "Player"
-      if (not AMM.playerInPhoto and not targetIsPlayer) or (AMM.playerInPhoto and targetIsPlayer and Tools.animatedHead) then
+      if not AMM.playerInPhoto or (AMM.playerInPhoto and targetIsPlayer and Tools.animatedHead) then
         AMM.UI:TextCenter("Facial Expression", true)
         ImGui.Spacing()
 
@@ -829,8 +858,8 @@ function Tools:DrawNPCActions()
           AMM.UI:Spacing(3)
 
           if ImGui.Button("Change Look At Target", Tools.style.buttonWidth, Tools.style.buttonHeight) then
-            if target ~= nil then
-              Tools.lookAtTarget = target
+            if Tools.currentNPC ~= '' then
+              Tools.lookAtTarget = Tools.currentNPC
             end
           end
 
@@ -897,6 +926,31 @@ function Tools:DrawNPCActions()
           if ImGui.IsItemHovered() then
             ImGui.SetTooltip("This will stop the NPC from unequipping your given weapon. Note: the NPC will still unequip at will during combat.")
           end
+        end
+      end
+    elseif Tools.currentNPC ~= '' then
+
+      AMM.UI:Spacing(3)
+
+      local lookAtTargetName = "V"
+      if Tools.lookAtTarget ~= nil then
+        lookAtTargetName = Tools.lookAtTarget.name
+      end
+
+      ImGui.Text("Current Look At Target:")
+      ImGui.SameLine()
+      AMM.UI:TextColored(lookAtTargetName)
+
+      if ImGui.Button("Change Look At Target", Tools.style.halfButtonWidth, Tools.style.buttonHeight) then
+        if Tools.currentNPC ~= '' then
+          Tools.lookAtTarget = Tools.currentNPC
+        end
+      end
+
+      ImGui.SameLine()
+      if ImGui.Button("Reset Look At Target", Tools.style.halfButtonWidth, Tools.style.buttonHeight) then
+        if target ~= nil then
+          Tools.lookAtTarget = nil
         end
       end
     end
@@ -992,10 +1046,30 @@ function Tools:DrawNPCActions()
   end
 end
 
+function Tools:SetTargetPosition(pos)
+  if Tools.currentNPC.type ~= 'Player' and Tools.currentNPC.handle:IsNPC() then
+    Tools:TeleportNPCTo(Tools.currentNPC.handle, pos, Tools.npcRotation[1])
+  else
+    Game.GetTeleportationFacility():Teleport(Tools.currentNPC.handle, pos, EulerAngles.new(Tools.npcRotation[1], Tools.npcRotation[2], Tools.npcRotation[3]))
+  end
+
+  Cron.After(0.2, function()
+    Tools:SetCurrentTarget(Tools.currentNPC)
+  end)
+end
+
 function Tools:SetCurrentTarget(target)
+  local pos, angles
   Tools.currentNPC = target
-  local pos = Tools.currentNPC.handle:GetWorldPosition()
-  local angles = GetSingleton('Quaternion'):ToEulerAngles(Tools.currentNPC.handle:GetWorldOrientation())
+
+  if Tools.currentNPC.type == 'entEntity' then
+    pos = Tools.currentNPC.parameters[1]
+    angles = Tools.currentNPC.parameters[2]
+  else
+    pos = Tools.currentNPC.handle:GetWorldPosition()
+    angles = GetSingleton('Quaternion'):ToEulerAngles(Tools.currentNPC.handle:GetWorldOrientation())
+  end
+
   Tools.npcRotation = {angles.roll, angles.pitch, angles.yaw}
   Tools.npcUpDown = pos.z
   Tools.npcLeftRight = {pos.x, pos.y}
@@ -1021,6 +1095,30 @@ function Tools:ActivateFacialExpression(target, face, upperBody, lookAtV, lookAt
       end
     end)
   end
+end
+
+function Tools:TeleportPropTo(prop, pos, angles)
+  prop.handle:Dispose()
+
+  local spawnTransform = AMM.player:GetWorldTransform()
+  spawnTransform:SetPosition(pos)
+  spawnTransform:SetOrientationEuler(angles)
+
+  prop.entityID = WorldFunctionalTests.SpawnEntity(prop.template, spawnTransform, '')
+
+  Tools.movingProp = true
+
+  Cron.Every(0.1, {tick = 1}, function(timer)
+    local entity = Game.FindEntityByID(prop.entityID)
+    if entity then
+      prop.handle = entity
+      prop.parameters = {pos, angles}
+      Tools.movingProp = false
+      Tools:SetCurrentTarget(prop)
+      Cron.Halt(timer)
+    end
+  end)
+
 end
 
 function Tools:TeleportNPCTo(targetPuppet, targetPosition, targetRotation)
