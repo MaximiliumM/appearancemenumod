@@ -1,5 +1,15 @@
 return {
 	{
+		'1.9.7c',
+		'2021 Jun 19',
+		[[Renamed Save Position button to Save Prop]],
+		[[Fixed MAJOR issue where Saved Props weren't being exported to User folder]],
+		[[Fixed issue where Save Position from Movement section wouldn't save rotation]],
+		[[Fixed issue where saving a Prop would make it disappear and not reappear back]],
+		[[Fixed issue where Target V button wouldn't be able to target V sometimes]],
+		[[-- Thanks bonan for the code snippet]],
+	},
+	{
 		'1.9.7b',
 		'2021 Jun 18',
 		[[Added Custom Appearances for Bryce Mosley]],

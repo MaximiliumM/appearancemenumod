@@ -319,8 +319,10 @@ function Props:SavePropPosition(ent)
 	  db:execute(f('INSERT INTO saved_props (entity_id, name, template_path, pos, trigger, tag) VALUES ("%s", "%s", "%s", "%s", "%s", "%s")', ent.id, ent.name, ent.template, pos, trigger, tag))
   end
 
+  Props.playerLastPos = ''
   Props:SensePropsTriggers()
   Props:Update()
+  AMM:UpdateSettings()
 
   Cron.After(2.0, function()
     AMM:DespawnProp(ent)

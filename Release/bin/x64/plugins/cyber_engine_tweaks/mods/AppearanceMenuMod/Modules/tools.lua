@@ -58,6 +58,7 @@ function Tools:new()
   Tools.lookAtV = true
   Tools.lookAtTarget = nil
   Tools.expressions = AMM:GetPersonalityOptions()
+  Tools.photoModePuppet = nil
 
   return Tools
 end
@@ -350,20 +351,8 @@ function Tools:ToggleHead()
 end
 
 function Tools:GetVTarget()
-  local searchQuery = Game["TSQ_NPC;"]()
-  searchQuery.maxDistance = 10
-  searchQuery.includeSecondaryTargets = false
-  searchQuery.ignoreInstigator = AMM.playerInPhoto and true or false
-  print(searchQuery.ignoreInstigator)
-  local success, parts = Game.GetTargetingSystem():GetTargetParts(AMM.player, searchQuery)
-  if success then
-    for i, v in ipairs(parts) do
-      local entity = v:GetComponent(v):GetEntity()
-      if Util:CheckVByID(AMM:GetScanID(entity)) then
-        return AMM:NewTarget(entity, "NPCPuppet", AMM:GetScanID(entity), AMM:GetNPCName(entity),AMM:GetScanAppearance(entity), nil)
-      end
-    end
-  end
+  local entity = Tools.photoModePuppet
+  return AMM:NewTarget(entity, "NPCPuppet", AMM:GetScanID(entity), AMM:GetNPCName(entity),AMM:GetScanAppearance(entity), nil)
 end
 
 -- Teleport actions
@@ -722,9 +711,9 @@ function Tools:DrawNPCActions()
 
     if ImGui.Button(buttonLabel, Tools.style.buttonWidth, Tools.style.buttonHeight) then
       if Tools.savedPosition ~= '' then
-        Tools:SetTargetPosition(Tools.savedPosition)
+        Tools:SetTargetPosition(Tools.savedPosition.pos, Tools.savedPosition.angles)
       else
-        Tools.savedPosition = Tools.currentNPC.handle:GetWorldPosition()
+        Tools.savedPosition = {pos = Tools.currentNPC.handle:GetWorldPosition(), angles = GetSingleton('Quaternion'):ToEulerAngles(Tools.currentNPC.handle:GetWorldOrientation())}
       end
     end
 
@@ -1046,11 +1035,11 @@ function Tools:DrawNPCActions()
   end
 end
 
-function Tools:SetTargetPosition(pos)
+function Tools:SetTargetPosition(pos, angles)
   if Tools.currentNPC.type ~= 'Player' and Tools.currentNPC.handle:IsNPC() then
-    Tools:TeleportNPCTo(Tools.currentNPC.handle, pos, Tools.npcRotation[1])
+    Tools:TeleportNPCTo(Tools.currentNPC.handle, pos, angles or Tools.npcRotation[1])
   else
-    Game.GetTeleportationFacility():Teleport(Tools.currentNPC.handle, pos, EulerAngles.new(Tools.npcRotation[1], Tools.npcRotation[2], Tools.npcRotation[3]))
+    Game.GetTeleportationFacility():Teleport(Tools.currentNPC.handle, pos, angles or EulerAngles.new(Tools.npcRotation[1], Tools.npcRotation[2], Tools.npcRotation[3]))
   end
 
   Cron.After(0.2, function()

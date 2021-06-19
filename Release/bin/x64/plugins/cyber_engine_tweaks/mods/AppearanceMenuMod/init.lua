@@ -41,7 +41,7 @@ function AMM:new()
 	 AMM.TeleportMod = ''
 
 	 -- Main Properties --
-	 AMM.currentVersion = "1.9.7b"
+	 AMM.currentVersion = "1.9.7c"
 	 AMM.updateNotes = require('update_notes.lua')
 	 AMM.credits = require("credits.lua")
 	 AMM.updateLabel = "WHAT'S NEW"
@@ -160,6 +160,10 @@ function AMM:new()
 		 end)
 
 		 -- Setup Observers --
+		 Observe('PhotoModePlayerEntityComponent', 'ListAllItems', function(self)
+			 AMM.Tools.photoModePuppet = self.fakePuppet
+		 end)
+
 		 Observe("VehicleComponent", "OnVehicleStartedMountingEvent", function(self, event)
 			 if AMM.Scan.drivers[AMM:GetScanID(event.character)] ~= nil then
 				 local driver = AMM.Scan.drivers[AMM:GetScanID(event.character)]
@@ -836,7 +840,7 @@ function AMM:Begin()
 									end)
 								else
 
-									if ImGui.SmallButton("Save Position##"..spawn.name) then
+									if ImGui.SmallButton("Save Prop##"..spawn.name) then
 										if spawn.handle ~= '' then
 											AMM.Props:SavePropPosition(spawn)
 											AMM.savingProp = spawn.name
@@ -1226,6 +1230,11 @@ function AMM:ImportUserData()
 						db:execute(f("INSERT INTO blacklist_appearances (entity_id, app_name) VALUES ('%s', '%s')", obj.entity_id, obj.app_name))
 					end
 				end
+				if userData['saved_props'] ~= nil then
+					for _, obj in ipairs(userData['saved_props']) do
+						db:execute(f("INSERT INTO saved_props (entity_id, name, template_path, pos, trigger, tag) VALUES ('%s', '%s', '%s', '%s', '%s', '%s')", obj.entity_id, obj.name, obj.template_path, obj.pos, obj.trigger, obj.tag))
+					end
+				end
 			end
 		end
 	end
@@ -1266,6 +1275,10 @@ function AMM:ExportUserData()
 	userData['blacklist_appearances'] = {}
 	for r in db:nrows("SELECT * FROM blacklist_appearances") do
 		table.insert(userData['blacklist_appearances'], {entity_id = r.entity_id, app_name = r.app_name})
+	end
+	userData['saved_props'] = {}
+	for r in db:nrows("SELECT * FROM saved_props") do
+		table.insert(userData['saved_props'], {entity_id = r.entity_id, name = r.name, template_path = r.template_path, pos = r.pos, trigger = r.trigger, tag = r.tag})
 	end
 	userData['selectedTheme'] = self.selectedTheme
 	userData['spawnedNPCs'] = self:PrepareExportSpawnedData()
