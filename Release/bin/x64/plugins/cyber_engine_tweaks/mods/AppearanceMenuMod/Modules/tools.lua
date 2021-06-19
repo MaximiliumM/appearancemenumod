@@ -352,6 +352,7 @@ end
 
 function Tools:GetVTarget()
   local entity = Tools.photoModePuppet
+  if not entity then return nil end
   return AMM:NewTarget(entity, "NPCPuppet", AMM:GetScanID(entity), AMM:GetNPCName(entity),AMM:GetScanAppearance(entity), nil)
 end
 

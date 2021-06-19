@@ -67,7 +67,7 @@ function Props:Draw(AMM)
 end
 
 function Props:DrawProps(props)
-  for _, prop in ipairs(props) do
+  for i, prop in ipairs(props) do
     ImGui.Text(prop.name)
 
     if Props.activeProps[prop.uid] ~= nil and Props.activeProps[prop.uid].handle ~= '' then
@@ -75,38 +75,38 @@ function Props:DrawProps(props)
       AMM.UI:TextColored("In World")
     end
 
-    if ImGui.SmallButton("Remove##"..prop.name) then
+    if ImGui.SmallButton("Remove##"..i) then
       Props:RemoveProp(prop)
     end
 
     if Props.activeProps[prop.uid] ~= nil and Props.activeProps[prop.uid].handle ~= '' then
       ImGui.SameLine()
-      if ImGui.SmallButton("Update Position##"..prop.name) then
+      if ImGui.SmallButton("Update Position##"..i) then
         Props:SavePropPosition(Props.activeProps[prop.uid])
       end
 
       ImGui.SameLine()
-      if ImGui.SmallButton("Target".."##"..prop.name) then
+      if ImGui.SmallButton("Target".."##"..i) then
         AMM.Tools:SetCurrentTarget(Props.activeProps[prop.uid])
         AMM.Tools.lockTarget = true
       end
 
       local buttonLabel = "Show On Map"
-      if prop.mappinData ~= nil then
+      if Props.activeProps[prop.uid].mappinData ~= nil then
         buttonLabel = "Hide From Map"
       end
 
       ImGui.SameLine()
-      if ImGui.SmallButton(buttonLabel.."##"..prop.name) then
-        if prop.mappinData ~= nil then
-          Props:HideFromMap(prop.mappinData)
-          prop.mappinData = nil
+      if ImGui.SmallButton(buttonLabel.."##"..i) then
+        if Props.activeProps[prop.uid].mappinData ~= nil then
+          Props:HideFromMap(Props.activeProps[prop.uid].mappinData)
+          Props.activeProps[prop.uid].mappinData = nil
         else
-          prop.mappinData = Props:ShowOnMap(prop.pos)
+          Props.activeProps[prop.uid].mappinData = Props:ShowOnMap(prop.pos)
         end
       end
 
-      local newTag, used = ImGui.InputText(" ##"..prop.name, prop.tag, 100)
+      local newTag, used = ImGui.InputText(" ##"..i, prop.tag, 100)
 
       if used and newTag ~= '' then
         Props:UpdatePropTag(prop, newTag)
@@ -319,13 +319,15 @@ function Props:SavePropPosition(ent)
 	  db:execute(f('INSERT INTO saved_props (entity_id, name, template_path, pos, trigger, tag) VALUES ("%s", "%s", "%s", "%s", "%s", "%s")', ent.id, ent.name, ent.template, pos, trigger, tag))
   end
 
-  Props.playerLastPos = ''
-  Props:SensePropsTriggers()
-  Props:Update()
-  AMM:UpdateSettings()
-
   Cron.After(2.0, function()
-    AMM:DespawnProp(ent)
+    if not ent.uid then
+      AMM:DespawnProp(ent)
+    end
+    
+    Props.playerLastPos = ''
+    Props:SensePropsTriggers()
+    Props:Update()
+    AMM:UpdateSettings()
   end)
 end
 

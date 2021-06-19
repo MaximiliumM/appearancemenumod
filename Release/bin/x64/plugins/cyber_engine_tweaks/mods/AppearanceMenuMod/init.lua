@@ -41,7 +41,7 @@ function AMM:new()
 	 AMM.TeleportMod = ''
 
 	 -- Main Properties --
-	 AMM.currentVersion = "1.9.7c"
+	 AMM.currentVersion = "1.9.7d"
 	 AMM.updateNotes = require('update_notes.lua')
 	 AMM.credits = require("credits.lua")
 	 AMM.updateLabel = "WHAT'S NEW"
@@ -832,6 +832,11 @@ function AMM:Begin()
 								local nameLabel = spawn.name
 								ImGui.Text(nameLabel)
 
+								local favoritesLabels = {"Favorite", "Unfavorite"}
+								AMM:DrawFavoritesButton(favoritesLabels, spawn)
+
+								ImGui.SameLine()
+
 								if AMM.savingProp == spawn.name then
 									AMM.UI:TextColored("Moving "..nameLabel.." to Decor tab")
 
@@ -1231,8 +1236,8 @@ function AMM:ImportUserData()
 					end
 				end
 				if userData['saved_props'] ~= nil then
-					for _, obj in ipairs(userData['saved_props']) do
-						db:execute(f("INSERT INTO saved_props (entity_id, name, template_path, pos, trigger, tag) VALUES ('%s', '%s', '%s', '%s', '%s', '%s')", obj.entity_id, obj.name, obj.template_path, obj.pos, obj.trigger, obj.tag))
+					for i, obj in ipairs(userData['saved_props']) do
+						db:execute(f("INSERT INTO saved_props (uid, entity_id, name, template_path, pos, trigger, tag) VALUES (%i, '%s', '%s', '%s', '%s', '%s', '%s')", obj.uid or i, obj.entity_id, obj.name, obj.template_path, obj.pos, obj.trigger, obj.tag))
 					end
 				end
 			end
@@ -1278,7 +1283,7 @@ function AMM:ExportUserData()
 	end
 	userData['saved_props'] = {}
 	for r in db:nrows("SELECT * FROM saved_props") do
-		table.insert(userData['saved_props'], {entity_id = r.entity_id, name = r.name, template_path = r.template_path, pos = r.pos, trigger = r.trigger, tag = r.tag})
+		table.insert(userData['saved_props'], {uid = r.uid, entity_id = r.entity_id, name = r.name, template_path = r.template_path, pos = r.pos, trigger = r.trigger, tag = r.tag})
 	end
 	userData['selectedTheme'] = self.selectedTheme
 	userData['spawnedNPCs'] = self:PrepareExportSpawnedData()
@@ -1643,10 +1648,15 @@ end
 function AMM:SpawnProp(spawn)
 	local offSetSpawn = 0
 	local distanceFromPlayer = 1
+	local angles = GetSingleton('Quaternion'):ToEulerAngles(AMM.player:GetWorldOrientation())
 	local distanceFromGround = tonumber(spawn.parameters) or 0
 
 	if spawn.parameters and string.find(spawn.parameters, "dist") then
 		distanceFromPlayer = spawn.parameters:match("%d+")
+	end
+
+	if spawn.parameters and string.find(spawn.parameters, "rot") then
+		rotation = tonumber(spawn.parameters:match("%d+"))
 	end
 
 	local heading = AMM.player:GetWorldForward()
@@ -1655,6 +1665,7 @@ function AMM:SpawnProp(spawn)
 	local spawnPosition = GetSingleton('WorldPosition'):ToVector4(spawnTransform.Position)
 	local newPosition = Vector4.new((spawnPosition.x - offSetSpawn) + offsetDir.x, (spawnPosition.y - offSetSpawn) + offsetDir.y, spawnPosition.z + distanceFromGround, spawnPosition.w)
 	spawnTransform:SetPosition(spawnTransform, newPosition)
+	spawnTransform:SetOrientationEuler(spawnTransform, EulerAngles.new(0, 0, angles.yaw - 180))
 
 	spawn.entityID = WorldFunctionalTests.SpawnEntity(spawn.template, spawnTransform, '')
 

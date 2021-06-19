@@ -1,5 +1,16 @@
 return {
 	{
+		'1.9.7d',
+		'2021 Jun 20',
+		[[Added 8 new Props:]],
+		[[-- Johnny's Mic, Blackish Wall, Spoon, Jambalaya, Door with Mirror, Picture Frame Small, Posters Gym and Pin-ups]],
+		[[Added ability to Favorite Props in the Spawn tab]],
+		[[Made Props spawn oriented to the player to try to avoid not being able to see certain Props that are invisible from behind]],
+		[[Fixed issue where Props would duplicate when relauching the game]],
+		[[Fixed issue where Props would disappear after using Update Position]],
+		[[Fixed issue where buttons in Decor tab wouldn't work when player had two of the same Props saved]],
+	},
+	{
 		'1.9.7c',
 		'2021 Jun 19',
 		[[Renamed Save Position button to Save Prop]],

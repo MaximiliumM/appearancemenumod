@@ -99,10 +99,10 @@ function Swap:Draw(AMM, target)
       end
     end
 
-    if target ~= nil and target.type == "Player" then
+    if target ~= nil and target.type == "Player" and AMM.Debug == '' then
       ImGui.Text("V can't be swapped. Sorry :(")
 
-    elseif target ~= nil and target.type == 'NPCPuppet' then
+    elseif target ~= nil and (target.type == 'NPCPuppet' or target.handle:IsReplacer()) then
       AMM.UI:TextColored("Current Target:")
       ImGui.Text(target.name)
 
