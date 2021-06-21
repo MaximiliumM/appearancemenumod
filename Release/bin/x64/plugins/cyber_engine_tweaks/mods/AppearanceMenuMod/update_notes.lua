@@ -1,5 +1,19 @@
 return {
 	{
+		'1.9.7e',
+		'2021 Jun 21',
+		[[Added 64 new Props including:]],
+		[[-- Ambient Light White, Sex Toys, Hand Fan, Masks Decoration, Trophy, Punching Bag and more!]],
+		[[-- Thanks Lady!]],
+		[[Added new No Beard Custom Appearance for the following characters:]],
+		[[-- Goro, Kerry, Anders and Benjamin]],
+		[[Fixed issue with importing saved props when doing AMM updates]],
+		[[-- I'm so sorry if you lost your saved props during a previous update. Please, backup your files before updating!]],
+		[[Fixed issue where the Director wouldn't stop scripts when loading another save]],
+		[[Fixed issue where Saved Props wouldn't appear when you get close to the trigger zone]],
+		[[-- To be honest, I'm not sure this is 100% fixed right now, but fingers crossed]],
+	},
+	{
 		'1.9.7d',
 		'2021 Jun 20',
 		[[Added 8 new Props:]],

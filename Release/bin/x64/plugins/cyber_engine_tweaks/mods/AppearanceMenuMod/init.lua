@@ -41,7 +41,7 @@ function AMM:new()
 	 AMM.TeleportMod = ''
 
 	 -- Main Properties --
-	 AMM.currentVersion = "1.9.7d"
+	 AMM.currentVersion = "1.9.7e"
 	 AMM.updateNotes = require('update_notes.lua')
 	 AMM.credits = require("credits.lua")
 	 AMM.updateLabel = "WHAT'S NEW"
@@ -94,6 +94,7 @@ function AMM:new()
 		 respawnTimer = 0.0
 		 delayTimer = 0.0
 		 buttonPressed = false
+		 importInProgress = false
 		 finishedUpdate = AMM:CheckDBVersion()
 
 		 -- Load Modules --
@@ -106,7 +107,9 @@ function AMM:new()
 		 AMM:ImportUserData()
 		 AMM:SetupVehicleData()
 		 AMM:SetupJohnny()
-		 AMM:SetupCustomProps()
+
+		 -- Update after importing user data
+		 AMM.Props:Update()
 
 		 -- Adjust Prevention System Total Entities Limit --
 		 TweakDB:SetFlat("PreventionSystem.setup.totalEntitiesLimit", 20)
@@ -139,6 +142,9 @@ function AMM:new()
 			 end
 
 			 AMM.Props.activeProps = {}
+			 AMM.Props.playerLastPos = ''
+
+			 AMM.Director:StopAll()
 		 end)
 
 		 GameSession.OnEnd(function()
@@ -1178,6 +1184,8 @@ function AMM:FinishUpdate()
 end
 
 function AMM:ImportUserData()
+	importInProgress = true
+
 	local file = io.open("User/user.json", "r")
 	if file then
 		local contents = file:read( "*a" )
@@ -1237,68 +1245,72 @@ function AMM:ImportUserData()
 				end
 				if userData['saved_props'] ~= nil then
 					for i, obj in ipairs(userData['saved_props']) do
-						db:execute(f("INSERT INTO saved_props (uid, entity_id, name, template_path, pos, trigger, tag) VALUES (%i, '%s', '%s', '%s', '%s', '%s', '%s')", obj.uid or i, obj.entity_id, obj.name, obj.template_path, obj.pos, obj.trigger, obj.tag))
+						db:execute(f('INSERT INTO saved_props (uid, entity_id, name, template_path, pos, trigger, tag) VALUES (%i, "%s", "%s", "%s", "%s", "%s", "%s")', obj.uid or i, obj.entity_id, obj.name, obj.template_path, obj.pos, obj.trigger, obj.tag))
 					end
 				end
 			end
 		end
 	end
+
+	importInProgress = false
 end
 
 function AMM:ExportUserData()
-	local backupData = io.open("User/user.json", "r")
-	if backupData then
-		local contents = backupData:read( "*a" )
-		local validJson = pcall(function() json.decode(contents) end)
-		if validJson and contents ~= nil and contents ~= '' and contents:len() > 0 then
-			local backup = io.open("User/user-old.json", "w")
-			if backup then
-				backup:write(contents)
-				backup:close()
+	if not importInProgress then
+		local backupData = io.open("User/user.json", "r")
+		if backupData then
+			local contents = backupData:read( "*a" )
+			local validJson = pcall(function() json.decode(contents) end)
+			if validJson and contents ~= nil and contents ~= '' and contents:len() > 0 then
+				local backup = io.open("User/user-old.json", "w")
+				if backup then
+					backup:write(contents)
+					backup:close()
+				end
 			end
 		end
-	end
 
-	-- Prepare User Data --
-	local userData = {}
-	userData['settings'] = {}
-	for r in db:nrows("SELECT * FROM settings") do
-		table.insert(userData['settings'], {setting_name = r.setting_name, setting_value = intToBool(r.setting_value)})
-	end
-	userData['favorites'] = {}
-	for r in db:nrows("SELECT * FROM favorites") do
-		table.insert(userData['favorites'], {position = r.position, entity_id = r.entity_id, entity_name = r.entity_name, parameters = r.parameters})
-	end
-	userData['favorites_swap'] = {}
-	for r in db:nrows("SELECT * FROM favorites_swap") do
-		table.insert(userData['favorites_swap'], {position = r.position, entity_id = r.entity_id})
-	end
-	userData['saved_appearances'] = {}
-	for r in db:nrows("SELECT * FROM saved_appearances") do
-		table.insert(userData['saved_appearances'], {entity_id = r.entity_id, app_name = r.app_name})
-	end
-	userData['blacklist_appearances'] = {}
-	for r in db:nrows("SELECT * FROM blacklist_appearances") do
-		table.insert(userData['blacklist_appearances'], {entity_id = r.entity_id, app_name = r.app_name})
-	end
-	userData['saved_props'] = {}
-	for r in db:nrows("SELECT * FROM saved_props") do
-		table.insert(userData['saved_props'], {uid = r.uid, entity_id = r.entity_id, name = r.name, template_path = r.template_path, pos = r.pos, trigger = r.trigger, tag = r.tag})
-	end
-	userData['selectedTheme'] = self.selectedTheme
-	userData['spawnedNPCs'] = self:PrepareExportSpawnedData()
-	userData['savedSwaps'] = self.Swap:GetSavedSwaps()
-	userData['favoriteLocations'] = self.Tools:GetFavoriteLocations()
-	userData['followDistance'] = self.followDistance
-	userData['customAppPosition'] = self.customAppPosition
-	userData['selectedHotkeys'] = self.selectedHotkeys
+		-- Prepare User Data --
+		local userData = {}
+		userData['settings'] = {}
+		for r in db:nrows("SELECT * FROM settings") do
+			table.insert(userData['settings'], {setting_name = r.setting_name, setting_value = intToBool(r.setting_value)})
+		end
+		userData['favorites'] = {}
+		for r in db:nrows("SELECT * FROM favorites") do
+			table.insert(userData['favorites'], {position = r.position, entity_id = r.entity_id, entity_name = r.entity_name, parameters = r.parameters})
+		end
+		userData['favorites_swap'] = {}
+		for r in db:nrows("SELECT * FROM favorites_swap") do
+			table.insert(userData['favorites_swap'], {position = r.position, entity_id = r.entity_id})
+		end
+		userData['saved_appearances'] = {}
+		for r in db:nrows("SELECT * FROM saved_appearances") do
+			table.insert(userData['saved_appearances'], {entity_id = r.entity_id, app_name = r.app_name})
+		end
+		userData['blacklist_appearances'] = {}
+		for r in db:nrows("SELECT * FROM blacklist_appearances") do
+			table.insert(userData['blacklist_appearances'], {entity_id = r.entity_id, app_name = r.app_name})
+		end
+		userData['saved_props'] = {}
+		for r in db:nrows("SELECT * FROM saved_props") do
+			table.insert(userData['saved_props'], {uid = r.uid, entity_id = r.entity_id, name = r.name, template_path = r.template_path, pos = r.pos, trigger = r.trigger, tag = r.tag})
+		end
+		userData['selectedTheme'] = self.selectedTheme
+		userData['spawnedNPCs'] = self:PrepareExportSpawnedData()
+		userData['savedSwaps'] = self.Swap:GetSavedSwaps()
+		userData['favoriteLocations'] = self.Tools:GetFavoriteLocations()
+		userData['followDistance'] = self.followDistance
+		userData['customAppPosition'] = self.customAppPosition
+		userData['selectedHotkeys'] = self.selectedHotkeys
 
-	local validJson, contents = pcall(function() return json.encode(userData) end)
-	if validJson and contents ~= nil then
-		local file = io.open("User/user.json", "w")
-		if file then
-			file:write(contents)
-			file:close()
+		local validJson, contents = pcall(function() return json.encode(userData) end)
+		if validJson and contents ~= nil then
+			local file = io.open("User/user.json", "w")
+			if file then
+				file:write(contents)
+				file:close()
+			end
 		end
 	end
 end
@@ -2066,8 +2078,26 @@ function AMM:CheckForReverseCustomAppearance(appearance, target)
 end
 
 function AMM:GetCustomAppearanceParams(target, appearance, reverse)
+	local collabTag
+
+	if #AMM.collabs > 0 then
+		for _, collab in ipairs(AMM.collabs) do
+			local check = 0
+			for count in db:urows(f("SELECT COUNT(1) FROM custom_appearances WHERE app_name = '%s' AND collab_tag = '%s'", appearance, collab.tag)) do
+				check = count
+			end
+
+			if check ~= 0 then
+				collabTag = collab.tag
+				break
+			end
+		end
+	end
+
 	local custom = {}
-	for app in db:nrows(f("SELECT * FROM custom_appearances WHERE app_name = '%s' AND entity_id = '%s'", appearance, target.id)) do
+	local query = f("SELECT * FROM custom_appearances WHERE app_name = '%s' AND entity_id = '%s' AND collab_tag IS '%s'", appearance, target.id, collabTag)
+	query = query:gsub("'nil'", "NULL")
+	for app in db:nrows(query) do
 		app.app_toggle = not(intToBool(app.app_toggle))
 		if reverse then app.app_toggle = not app.app_toggle end
 		table.insert(custom, app)

@@ -110,6 +110,12 @@ function Director:NewNode(name)
   return obj
 end
 
+function Director:StopAll()
+  if Director.selectedScript.isRunning then
+    Director:StopScript(Director.selectedScript)
+  end
+end
+
 function Director:DeactivateTrigger(trigger)
   Director:StopScript(Director.selectedScript)
 end

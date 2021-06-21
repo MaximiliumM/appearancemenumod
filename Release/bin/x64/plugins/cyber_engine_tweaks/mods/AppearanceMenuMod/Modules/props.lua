@@ -205,14 +205,14 @@ function Props:DrawTagActions(props, tag)
 end
 
 function Props:SensePropsTriggers()
-  local playerPos = AMM.player:GetWorldPosition()
-  local distFromLastPos = 0
+  local playerPos = Game.GetPlayer():GetWorldPosition()
+  local distFromLastPos = 60
 
   if Props.playerLastPos ~= '' then
     distFromLastPos = Util:VectorDistance(playerPos, Props.playerLastPos)
   end
 
-  if distFromLastPos <= 60 then
+  if distFromLastPos >= 60 then
     Props.playerLastPos = Game.GetPlayer():GetWorldPosition()
 
     for _, trigger in ipairs(Props.triggers) do
@@ -323,7 +323,7 @@ function Props:SavePropPosition(ent)
     if not ent.uid then
       AMM:DespawnProp(ent)
     end
-    
+
     Props.playerLastPos = ''
     Props:SensePropsTriggers()
     Props:Update()
