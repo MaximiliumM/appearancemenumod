@@ -180,6 +180,39 @@ function Util:RepairVehicle(handle)
   vehVC:ForcePersistentStateChanged()
 end
 
+function Util:ToggleDoors(handle)
+  local vehPS = handle:GetVehiclePS()
+  local state = vehPS:GetDoorState(1).value
+
+  if state == "Closed" then
+    vehPS:OpenAllRegularVehDoors()
+  elseif state == "Open" then
+    vehPS:CloseAllVehDoors()
+  end
+end
+
+function Util:ToggleWindows(handle)
+  local vehPS = handle:GetVehiclePS()
+  local state = vehPS:GetWindowState(1).value
+
+  if state == "Closed" then
+    vehPS:OpenAllVehWindows()
+  elseif state == "Open" then
+    vehPS:CloseAllVehWindows()
+  end
+end
+
+function Util:ToggleEngine(handle, state)
+  local vehVC = handle:GetVehicleComponent()
+  local vehVCPS = vehVC:GetVehicleControllerPS()
+
+  if state then
+      vehVCPS:SetState(2)
+  else
+      vehVCPS:SetState(1)
+  end
+end
+
 function Util:SetupPopup()
   if Util.openPopup then
     if ImGui.BeginPopupModal("Error", ImGuiWindowFlags.AlwaysAutoResize) then
@@ -214,6 +247,16 @@ function Util:CheckVByID(id)
   end
 
   return false
+end
+
+function Util:GetAllCategoryIDs(categories)
+  local t = {}
+  for k, v in ipairs(categories) do
+      t[#t + 1] = tostring(v.cat_id)
+  end
+  local catIDs = table.concat(t, ", ")
+  catIDs = catIDs..", 31"
+  return "("..catIDs..")"
 end
 
 return Util

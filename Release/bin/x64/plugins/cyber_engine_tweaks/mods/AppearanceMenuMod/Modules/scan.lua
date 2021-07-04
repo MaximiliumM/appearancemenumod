@@ -8,6 +8,7 @@ local Scan = {
   vehicleSeats = '',
   selectedSeats = {},
   vehicle = '',
+  vehEngine = false,
   drivers = {},
   distanceMin = 0,
   assignedVehicles = {},
@@ -152,8 +153,23 @@ function Scan:Draw(AMM, target, style)
           Util:RepairVehicle(target.handle)
         end
 
+        if ImGui.SmallButton("  Open/Close Doors  ") then
+          Util:ToggleDoors(target.handle)
+        end
+
+        ImGui.SameLine()
+        if ImGui.SmallButton("  Open/Close Windows  ") then
+          Util:ToggleWindows(target.handle)
+        end
+
+        if ImGui.SmallButton("  Toggle Engine  ") then
+          Scan.vehEngine = not Scan.vehEngine
+          Util:ToggleEngine(target.handle, Scan.vehEngine)
+        end
+
         local status, ent = next(AMM.spawnedNPCs)
         if status and ent.handle:IsNPC() then
+          ImGui.SameLine()
           if ImGui.SmallButton("  Assign Seats  ") then
             if Scan.vehicle == '' or Scan.vehicle.hash ~= target.handle:GetEntityID().hash then
               Scan:GetVehicleSeats(target.handle)
@@ -165,6 +181,7 @@ function Scan:Draw(AMM, target, style)
         else
           Scan.vehicleSeats = ''
         end
+
         ImGui.SameLine()
       end
 

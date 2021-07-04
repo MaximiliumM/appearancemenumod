@@ -30,25 +30,59 @@ function Props:NewTrigger(triggerString)
   return obj
 end
 
+function Props:NewPreset(name)
+  local obj = {}
+
+  obj.name = name or 'My Preset'
+  obj.props = {}
+  obj.customIncluded = false
+
+  while io.open(f("User/Decor/%s.json", obj.name), "r") do
+		local num = obj.name:match("%((%g+)%)")
+		if num then num = tonumber(num) + 1 else num = 1 end
+		obj.name = obj.name:gsub(" %("..tostring(num - 1).."%)", "")
+		obj.name = obj.name.." ("..tostring(num)..")"
+	end
+
+  return obj
+end
+
 function Props:new()
 
   -- Main Properties
+  Props.presets = {}
+  Props.spawnedProps = {}
+  Props.hiddenProps = {}
   Props.savedProps = Props:GetProps()
   Props.triggers = Props:GetTriggers()
   Props.tags = Props:GetTags()
+  Props.categories = Props:GetCategories()
+  Props.savingProp = ''
   Props.activeProps = {}
+  Props.activePreset = ''
+  Props.selectedPreset = {name = "No Preset Available"}
   Props.removingFromTag = ''
+  Props.savingPreset = ''
   Props.playerLastPos = ''
   Props.searchQuery = ''
+  Props.savedPropsSearchQuery = ''
   Props.searchBarWidth = 500
+  Props.moddersList = {}
 
   return Props
 end
 
 function Props:Update()
-  Props.savedProps = Props:GetProps()
-  Props.triggers = Props:GetTriggers()
-  Props.tags = Props:GetTags()
+  if Props.activePreset ~= '' then
+    Props.moddersList = {}
+    Props.activePreset.customIncluded = false
+    Props.activePreset.props = Props:GetPropsForPreset()
+    Props.savedProps = Props:GetProps()
+    Props.triggers = Props:GetTriggers()
+    Props.tags = Props:GetTags()
+    Props.playerLastPos = ''
+    Props:SavePreset(Props.activePreset)
+  end
 end
 
 function Props:Draw(AMM)
@@ -60,9 +94,174 @@ function Props:Draw(AMM)
       halfButtonWidth = ((ImGui.GetWindowContentRegionWidth() / 2) - 5)
     }
 
-    Props:DrawHeaders()
+    AMM.UI:TextColored("Decorating")
+    ImGui.TextWrapped("Spawn Props to decorate your house or anywhere you want to your heart's content! Save Props to make them persist!")
+    AMM.UI:Separator()
+
+    if ImGui.BeginTabBar("Decor Tabs") then
+
+      Props:DrawSpawnTab()
+
+      if #Props.savedProps > 0 then
+        Props:DrawSavedPropsTab()
+      end
+
+      -- If presets > 0
+      Props:DrawPresetsTab()
+
+      ImGui.EndTabBar()
+    end
 
     ImGui.EndTabItem()
+  end
+end
+
+function Props:DrawSpawnTab()
+  if ImGui.BeginTabItem("Spawn") then
+    Props:DrawSpawnedProps()
+    Props:DrawCategories()
+    ImGui.EndTabItem()
+  end
+end
+
+function Props:DrawSavedPropsTab()
+  if ImGui.BeginTabItem("Saved Props") then
+    Props:DrawHeaders()
+    ImGui.EndTabItem()
+  end
+end
+
+function Props:DrawPresetsTab()
+  if ImGui.BeginTabItem("Presets") then
+    Props:DrawPresetConfig()
+    ImGui.EndTabItem()
+  end
+end
+
+function Props:DrawSpawnedProps()
+  if next(Props.spawnedProps) ~= nil then
+    AMM.UI:TextColored("Spawned Props")
+
+    for _, spawn in pairs(Props.spawnedProps) do
+      local nameLabel = spawn.name
+      ImGui.Text(nameLabel)
+
+      local favoritesLabels = {"Favorite", "Unfavorite"}
+      AMM:DrawFavoritesButton(favoritesLabels, spawn)
+
+      ImGui.SameLine()
+
+      if Props.savingProp == spawn.name then
+        AMM.UI:TextColored("Moving "..nameLabel.." to Saved Props")
+
+        Cron.After(2.0, function()
+          Props.savingProp = ''
+        end)
+      else
+
+        if ImGui.SmallButton("Save Prop##"..spawn.name) then
+          -- Cron.Halt()
+          if spawn.handle ~= '' then
+            Props:SavePropPosition(spawn)
+            Props.savingProp = spawn.name
+          end
+        end
+
+        ImGui.SameLine()
+        if ImGui.SmallButton("Despawn##"..spawn.name) then
+          if spawn.handle ~= '' then
+            Props:DespawnProp(spawn)
+          end
+        end
+
+        if spawn.handle ~= '' then
+
+          if AMM.playerInPhoto then
+            local buttonLabel = "Hide"
+            local entID = tostring(spawn.handle:GetEntityID().hash)
+            if Props.hiddenProps[entID] ~= nil then
+              buttonLabel = "Unhide"
+            end
+
+            ImGui.SameLine()
+            if ImGui.SmallButton(buttonLabel.."##"..spawn.name) then
+              Props:ToggleHideProp(spawn)
+            end
+          end
+
+          ImGui.SameLine()
+          if ImGui.SmallButton("Target".."##"..spawn.name) then
+            AMM.Tools:SetCurrentTarget(spawn)
+            AMM.Tools.lockTarget = true
+          end
+        end
+      end
+    end
+
+    AMM.UI:Separator()
+  end
+end
+
+function Props:DrawCategories()
+  ImGui.PushItemWidth(Props.searchBarWidth)
+  Props.searchQuery = ImGui.InputTextWithHint(" ", "Search", Props.searchQuery, 100)
+  Props.searchQuery = Props.searchQuery:gsub('"', '')
+  ImGui.PopItemWidth()
+
+  if Props.searchQuery ~= '' then
+    ImGui.SameLine()
+    if ImGui.Button("Clear") then
+      Props.searchQuery = ''
+    end
+  end
+
+  ImGui.Spacing()
+
+  AMM.UI:TextColored("Select Prop To Spawn:")
+
+  local validCatIDs = Util:GetAllCategoryIDs(Props.categories)
+  if Props.searchQuery ~= '' then
+    local entities = {}
+    local query = 'SELECT * FROM entities WHERE is_spawnable = 1 AND cat_id IN '..validCatIDs..' AND entity_name LIKE "%'..Props.searchQuery..'%" ORDER BY entity_name ASC'
+    for en in db:nrows(query) do
+      table.insert(entities, {en.entity_name, en.entity_id, en.can_be_comp, en.parameters, en.entity_path, en.template_path})
+    end
+
+    if #entities ~= 0 then
+      AMM:DrawEntitiesButtons(entities, "ALL", Props.style)
+    else
+      ImGui.Text("No Results")
+    end
+  else
+    local x, y = GetDisplayResolution()
+    if ImGui.BeginChild("Categories", ImGui.GetWindowContentRegionWidth(), y / 2) then
+      for _, category in ipairs(Props.categories) do
+        if ImGui.CollapsingHeader(category.cat_name) then
+          local entities = {}
+          if category.cat_name == 'Favorites' then
+            local query = "SELECT * FROM favorites"
+            for fav in db:nrows(query) do
+              query = f("SELECT * FROM entities WHERE entity_id = '%s' AND cat_id IN %s", fav.entity_id, validCatIDs)
+              for en in db:nrows(query) do
+                if fav.parameters ~= nil then en.parameters = fav.parameters end
+                table.insert(entities, {fav.entity_name, en.entity_id, en.can_be_comp, en.parameters, en.entity_path, en.template_path})
+              end
+            end
+            if #entities == 0 then
+              ImGui.Text("It's empty :(")
+            end
+          end
+
+          local query = f("SELECT * FROM entities WHERE is_spawnable = 1 AND cat_id == '%s' ORDER BY entity_name ASC", category.cat_id)
+          for en in db:nrows(query) do
+            table.insert(entities, {en.entity_name, en.entity_id, en.can_be_comp, en.parameters, en.entity_path, en.template_path})
+          end
+
+          AMM:DrawEntitiesButtons(entities, category.cat_name, Props.style)
+        end
+      end
+    end
+    ImGui.EndChild()
   end
 end
 
@@ -117,28 +316,151 @@ function Props:DrawProps(props)
   end
 end
 
+function Props:DrawPresetConfig()
+  if #Props.presets == 0 then
+    Props.presets = Props:LoadPresets()
+  end
+
+  if Props.activePreset == '' and #Props.presets ~= 0 then
+    Props.selectedPreset = Props.presets[1]
+    Props:ActivatePreset(Props.selectedPreset)
+  elseif Props.activePreset ~= '' then
+    Props.selectedPreset = Props.activePreset
+  end
+
+  if ImGui.BeginCombo("Presets", Props.selectedPreset.name, ImGuiComboFlags.HeightLarge) then
+    for i, preset in ipairs(Props:LoadPresets()) do
+      if ImGui.Selectable(preset.name.."##"..i, (preset.name == Props.selectedPreset.name)) then
+        Props.selectedPreset = preset
+
+        if Props.selectedPreset.name ~= Props.activePreset.name then
+          Props:ActivatePreset(Props.selectedPreset)
+        end
+      end
+    end
+    ImGui.EndCombo()
+  end
+
+  if ImGui.IsItemHovered() then
+    ImGui.SetTooltip("User presets are saved in AppearanceMenuMod/User/Decor folder")
+  end
+
+  ImGui.Spacing()
+
+  if Props.activePreset.customIncluded then
+    ImGui.Text("This preset includes Custom Props")
+
+    ImGui.SameLine()
+    ImGui.SmallButton(" ? ")
+
+    if ImGui.IsItemHovered() then
+      local modders = {}
+      for k, _ in pairs(Props.moddersList) do
+        table.insert(modders, k)
+      end
+
+      ImGui.BeginTooltip()
+      ImGui.PushTextWrapPos(500)
+      ImGui.TextWrapped("Custom Props made by: \n"..table.concat(modders, "\n"))
+      ImGui.PopTextWrapPos()
+      ImGui.EndTooltip()
+    end
+
+    AMM.UI:Spacing(8)
+  end
+
+  if ImGui.Button("New Preset", Props.style.buttonWidth, Props.style.buttonHeight) then
+    if #Props.savedProps > 0 then
+      Props:SavePreset(Props.activePreset)
+    end
+
+    Props:DespawnAllSavedProps()
+    Props:DeleteAll()
+    Props.activePreset = Props:NewPreset()
+    Props.selectedPreset = Props.activePreset
+    Props:SavePreset(Props.activePreset)
+  end
+
+  if Props.activePreset ~= '' then
+
+    if ImGui.Button("Rename", Props.style.buttonWidth, Props.style.buttonHeight) then
+      Props:RenamePresetPopup()
+    end
+
+    if ImGui.Button("Delete", Props.style.buttonWidth, Props.style.buttonHeight) then
+      Props:DeletePreset(Props.activePreset)
+    end
+  end
+
+  local sizeX = ImGui.GetWindowSize()
+  local x, y = ImGui.GetWindowPos()
+  ImGui.SetNextWindowPos(x + ((sizeX / 2) - 200), y - 40)
+  ImGui.SetNextWindowSize(400, ImGui.GetFontSize() * 8)
+
+  if ImGui.BeginPopupModal("Rename Preset") then
+    local style = {
+        buttonHeight = ImGui.GetFontSize() * 2,
+        halfButtonWidth = ((ImGui.GetWindowContentRegionWidth() / 2) - 12)
+    }
+
+    if Props.presetName == 'existing' then
+      ImGui.TextColored(1, 0.16, 0.13, 0.75, "Existing Name")
+
+      if ImGui.Button("Ok", -1, style.buttonHeight) then
+        Props.presetName = ''
+      end
+    else
+      if Props.presetName == '' then
+        Props.presetName = Props.activePreset.name
+      end
+
+      Props.presetName = ImGui.InputText("Name", Props.presetName, 30)
+
+      if ImGui.Button("Save", style.halfButtonWidth + 8, style.buttonHeight) then
+        if not(io.open(f("User/Decor/%s.json", Props.presetName), "r")) then
+          local fileName = Props.activePreset.file_name or Props.activePreset.name..".json"
+          os.remove("User/Decor/"..fileName)
+          Props.activePreset.name = Props.presetName
+          Props:SavePreset(Props.activePreset)
+          Props.presetName = ''
+          ImGui.CloseCurrentPopup()
+        else
+          Props.presetName = 'existing'
+        end
+      end
+
+      ImGui.SameLine()
+      if ImGui.Button("Cancel", style.halfButtonWidth + 8, style.buttonHeight) then
+        Props.presetName = ''
+        ImGui.CloseCurrentPopup()
+      end
+    end
+    ImGui.EndPopup()
+  end
+end
+
 function Props:DrawHeaders()
   if #Props.savedProps > 0 then
 
     local props = {}
 
     ImGui.PushItemWidth(Props.searchBarWidth)
-    Props.searchQuery = ImGui.InputTextWithHint(" ", "Search", Props.searchQuery, 100)
-    Props.searchQuery = Props.searchQuery:gsub('"', '')
+    Props.savedPropsSearchQuery = ImGui.InputTextWithHint(" ", "Search", Props.savedPropsSearchQuery, 100)
+    Props.savedPropsSearchQuery = Props.savedPropsSearchQuery:gsub('"', '')
     ImGui.PopItemWidth()
 
-    if Props.searchQuery ~= '' then
-      props = Props:GetProps(Props.searchQuery)
+    if Props.savedPropsSearchQuery ~= '' then
+      props = Props:GetProps(Props.savedPropsSearchQuery)
 
       ImGui.SameLine()
       if ImGui.Button("Clear") then
-        Props.searchQuery = ''
+        Props.savedPropsSearchQuery = ''
       end
     end
 
     ImGui.Spacing()
 
-    AMM.UI:TextColored("Saved Props")
+    AMM.UI:TextColored("Saved Props:")
 
     ImGui.Spacing()
 
@@ -155,9 +477,6 @@ function Props:DrawHeaders()
         end
       end
     end
-  else
-    AMM.UI:TextColored("Decorating")
-    ImGui.TextWrapped("Spawn Props using Spawn tab and decorate your house or anywhere you want to your heart content! Use Save Position to move Props to this tab.")
   end
 end
 
@@ -201,7 +520,27 @@ function Props:DrawTagActions(props, tag)
     end
   end
 
+  AMM.UI:Spacing(8)
+
+  if Props.savingPreset == '' then
+    if ImGui.Button("Share Preset With This Tag Only", -1, 40) then
+      Props:SharePresetWithTag(tag)
+      Props.savingPreset = tag
+    end
+  elseif Props.savingPreset == tag then
+    AMM.UI:TextCenter("Saved Preset to AppearanceMenuMod/User/Decor folder")
+
+    Cron.After(3.0, function()
+      Props.savingPreset = ''
+    end)
+  end
+
   AMM.UI:Separator()
+end
+
+function Props:RenamePresetPopup()
+	Props.presetName = ''
+	ImGui.OpenPopup("Rename Preset")
 end
 
 function Props:SensePropsTriggers()
@@ -223,7 +562,7 @@ function Props:SensePropsTriggers()
         if #props > 0 then
           for _, prop in ipairs(props) do
             if Props.activeProps[prop.uid] == nil then
-              Props:SpawnProp(prop)
+              Props:SpawnSavedProp(prop)
             end
           end
         end
@@ -241,10 +580,15 @@ function Props:GetPropsToSpawn(trigger)
   return props
 end
 
-function Props:SpawnProp(ent)
+function Props:SpawnSavedProp(ent)
+  local spawn = Props:SpawnPropInPosition(ent, ent.pos, ent.angles)
+  Props.activeProps[ent.uid] = spawn
+end
+
+function Props:SpawnPropInPosition(ent, pos, angles)
   local spawnTransform = AMM.player:GetWorldTransform()
-  spawnTransform:SetPosition(ent.pos)
-  spawnTransform:SetOrientationEuler(ent.angles)
+  spawnTransform:SetPosition(pos)
+  spawnTransform:SetOrientationEuler(angles)
 
   ent.entityID = WorldFunctionalTests.SpawnEntity(ent.template, spawnTransform, '')
 
@@ -260,7 +604,7 @@ function Props:SpawnProp(ent)
     end
   end)
 
-  Props.activeProps[ent.uid] = ent
+  return ent
 end
 
 function Props:GetTagBasedOnLocation()
@@ -300,6 +644,27 @@ function Props:UpdatePropTag(prop, newTag)
   db:execute(f('UPDATE saved_props SET tag = "%s" WHERE uid = %i', newTag, prop.uid))
 end
 
+function Props:ToggleHideProp(ent)
+  local entID = tostring(ent.handle:GetEntityID().hash)
+  if Props.hiddenProps[entID] ~= nil then
+    local prop = Props.hiddenProps[entID]
+    local spawn = Props:SpawnPropInPosition(prop.ent, prop.pos, prop.angles)
+    Props.spawnedProps[spawn.uniqueName()] = spawn
+  else
+    local pos = ent.handle:GetWorldPosition()
+    local angles = GetSingleton('Quaternion'):ToEulerAngles(ent.handle:GetWorldOrientation())
+  	if pos == nil then
+  		pos = ent.parameters[1]
+      angles = ent.parameters[2]
+  	end
+
+
+    Props.hiddenProps[entID] = {ent = ent, pos = pos, angles = angles}
+
+    WorldFunctionalTests.DespawnEntity(ent.handle)
+  end
+end
+
 function Props:SavePropPosition(ent)
   local pos = ent.handle:GetWorldPosition()
   local angles = GetSingleton('Quaternion'):ToEulerAngles(ent.handle:GetWorldOrientation())
@@ -321,11 +686,11 @@ function Props:SavePropPosition(ent)
 
   Cron.After(2.0, function()
     if not ent.uid then
-      AMM:DespawnProp(ent)
+      Props:DespawnProp(ent)
     end
 
-    Props.playerLastPos = ''
     Props:SensePropsTriggers()
+    Props:SavePreset(Props.activePreset)
     Props:Update()
     AMM:UpdateSettings()
   end)
@@ -348,9 +713,181 @@ function Props:RemoveProp(ent)
   Props:Update()
 end
 
+function Props:SpawnProp(spawn)
+	local offSetSpawn = 0
+	local distanceFromPlayer = 1
+	local angles = GetSingleton('Quaternion'):ToEulerAngles(AMM.player:GetWorldOrientation())
+	local distanceFromGround = tonumber(spawn.parameters) or 0
+
+	if spawn.parameters and string.find(spawn.parameters, "dist") then
+		distanceFromPlayer = spawn.parameters:match("%d+")
+	end
+
+	if spawn.parameters and string.find(spawn.parameters, "rot") then
+		rotation = tonumber(spawn.parameters:match("%d+"))
+	end
+
+	local heading = AMM.player:GetWorldForward()
+	local offsetDir = Vector3.new(heading.x * distanceFromPlayer, heading.y * distanceFromPlayer, heading.z)
+	local spawnTransform = AMM.player:GetWorldTransform()
+	local spawnPosition = GetSingleton('WorldPosition'):ToVector4(spawnTransform.Position)
+	local newPosition = Vector4.new((spawnPosition.x - offSetSpawn) + offsetDir.x, (spawnPosition.y - offSetSpawn) + offsetDir.y, spawnPosition.z + distanceFromGround, spawnPosition.w)
+	spawnTransform:SetPosition(spawnTransform, newPosition)
+	spawnTransform:SetOrientationEuler(spawnTransform, EulerAngles.new(0, 0, angles.yaw - 180))
+
+	spawn.entityID = WorldFunctionalTests.SpawnEntity(spawn.template, spawnTransform, '')
+
+	Cron.Every(0.1, {tick = 1}, function(timer)
+		local entity = Game.FindEntityByID(spawn.entityID)
+		if entity then
+			spawn.handle = entity
+			spawn.parameters = {newPosition, GetSingleton('Quaternion'):ToEulerAngles(AMM.player:GetWorldOrientation())}
+			if AMM:GetScanClass(spawn.handle) == 'entEntity' or AMM:GetScanClass(spawn.handle) == 'entGameEntity' then
+				spawn.type = 'entEntity'
+			end
+			Cron.Halt(timer)
+		elseif tick > 20 then
+			spawn.parameters = {newPosition, GetSingleton('Quaternion'):ToEulerAngles(AMM.player:GetWorldOrientation())}
+			Cron.Halt(timer)
+		end
+	end)
+
+	while Props.spawnedProps[spawn.uniqueName()] ~= nil do
+		local num = spawn.name:match("%((%g+)%)")
+		if num then num = tonumber(num) + 1 else num = 1 end
+		spawn.name = spawn.name:gsub(" %("..tostring(num - 1).."%)", "")
+		spawn.name = spawn.name.." ("..tostring(num)..")"
+	end
+
+	Props.spawnedProps[spawn.uniqueName()] = spawn
+end
+
 function Props:DespawnProp(ent)
-	WorldFunctionalTests.DespawnEntity(Props.activeProps[ent.uid].handle)
-	Props.activeProps[ent.uid] = nil
+  if ent.uid then
+    WorldFunctionalTests.DespawnEntity(Props.activeProps[ent.uid].handle)
+    Props.activeProps[ent.uid] = nil
+  else
+    WorldFunctionalTests.DespawnEntity(ent.handle)
+    Props.spawnedProps[ent.uniqueName()] = nil
+  end
+end
+
+function Props:DespawnAllSavedProps()
+  for _, ent in pairs(Props.activeProps) do
+    WorldFunctionalTests.DespawnEntity(ent.handle)
+  end
+
+  Props.activeProps = {}
+end
+
+function Props:DeleteAll()
+  db:execute("DELETE FROM saved_props")
+  db:execute("UPDATE sqlite_sequence SET seq = 0 WHERE name = 'saved_props'")
+end
+
+function Props:ActivatePreset(preset)
+  if Props.activePreset == '' then
+    Props.activePreset = preset
+  end
+
+  Props:SavePreset(Props.activePreset)
+  Props:DespawnAllSavedProps()
+  Props:DeleteAll()
+
+  local values = {}
+  for i, prop in ipairs(preset.props) do
+    table.insert(values, f('(%i, "%s", "%s", "%s", "%s", "%s", "%s")', prop.uid or i, prop.entity_id, prop.name, prop.template_path, prop.pos, prop.trigger, prop.tag))
+  end
+
+  db:execute(f('INSERT INTO saved_props (uid, entity_id, name, template_path, pos, trigger, tag) VALUES %s', table.concat(values, ", ")))
+
+  Props.activePreset = preset
+
+  Props:Update()
+  Props:SensePropsTriggers()
+end
+
+function Props:SharePresetWithTag(tag)
+  local props = {}
+  for prop in db:nrows(f('SELECT * FROM saved_props WHERE tag = "%s"', tag)) do
+    table.insert(props, prop)
+  end
+
+  local newPreset = Props:NewPreset(tag)
+  newPreset.props = props
+  Props:SavePreset(newPreset)
+end
+
+function Props:LoadPreset(fileName)
+  if fileName ~= '' then
+    local name, props = Props:LoadPresetData(fileName)
+    if name then
+      Props.activePreset = {file_name = fileName, name = name, props = props}
+      Props:ActivatePreset(Props.activePreset)
+    end
+  end
+end
+
+function Props:LoadPresetData(preset)
+  local file = io.open('User/Decor/'..preset, 'r')
+  if file then
+    local contents = file:read( "*a" )
+		local presetData = json.decode(contents)
+    file:close()
+    return presetData['name'], presetData['props']
+  end
+
+  return false
+end
+
+function Props:LoadPresets()
+  local files = dir("./User/Decor")
+  local presets = {}
+  if #Props.presets ~= #files then
+    for _, preset in ipairs(files) do
+      if string.find(preset.name, '.json') then
+        local name, props = Props:LoadPresetData(preset.name)
+        table.insert(presets, {file_name = preset.name, name = name, props = props})
+      end
+    end
+    return presets
+  else
+    return Props.presets
+  end
+end
+
+function Props:DeletePreset(preset)
+  os.remove("User/Decor/"..preset.file_name or preset.name..".json")
+  Props.activePreset = ''
+  Props.presets = Props:LoadPresets()
+
+  if #Props.presets ~= 0 then
+    Props.selectedPreset = Props.presets[1]
+    Props:ActivatePreset(Props.selectedPreset)
+  else
+    Props.selectedPreset = {name = "No Preset Available"}
+  end
+end
+
+function Props:SavePreset(preset)
+  local file = io.open(f("User/Decor/%s", preset.file_name or preset.name..".json"), "w")
+  if file then
+    local contents = json.encode(preset)
+		file:write(contents)
+		file:close()
+    return true
+  end
+end
+
+function Props:GetPropsForPreset()
+  local dbQuery = 'SELECT * FROM saved_props ORDER BY name ASC'
+  if query then dbQuery = 'SELECT * FROM saved_props WHERE name LIKE "%'..query..'%" OR tag LIKE "%'..query..'%" ORDER BY name ASC' end
+  local props = {}
+  for prop in db:nrows(dbQuery) do
+    table.insert(props, prop)
+  end
+
+  return props
 end
 
 function Props:GetProps(query)
@@ -358,6 +895,14 @@ function Props:GetProps(query)
   if query then dbQuery = 'SELECT * FROM saved_props WHERE name LIKE "%'..query..'%" OR tag LIKE "%'..query..'%" ORDER BY name ASC' end
   local props = {}
   for prop in db:nrows(dbQuery) do
+    for path in db:urows(f("SELECT entity_path FROM entities WHERE entity_id = '%s'", prop.entity_id)) do
+      local uid = path:match("(.+)_Props.(.+)")
+      if uid and uid ~= "AMM" then
+        Props.activePreset.customIncluded = true
+        Props.moddersList[" - "..AMM.modders[uid]] = ''
+      end
+    end
+
     table.insert(props, Props:NewProp(prop.uid, prop.entity_id, prop.name, prop.template_path, prop.pos, prop.tag))
   end
 
@@ -380,6 +925,21 @@ function Props:GetTags()
   end
 
   return tags
+end
+
+function Props:GetCategories()
+  local query = "SELECT * FROM categories WHERE cat_sub IS NOT NULL ORDER BY 3 ASC"
+
+  local categories = {}
+
+  -- Insert Favorites first
+  table.insert(categories, {cat_id = 1, cat_name = "Favorites"})
+
+  for category in db:nrows(query) do
+    table.insert(categories, {cat_id = category.cat_id, cat_name = category.cat_name})
+  end
+
+  return categories
 end
 
 function Props:GetPosString(pos, angles)

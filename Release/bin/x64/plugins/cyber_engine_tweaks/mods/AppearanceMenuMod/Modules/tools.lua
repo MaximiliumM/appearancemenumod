@@ -47,6 +47,7 @@ function Tools:new()
   Tools.forceWeapon = false
   Tools.currentNPC = ''
   Tools.lockTarget = false
+  Tools.precisonMode = false
   Tools.npcUpDown = 0
   Tools.npcLeftRight = 0
   Tools.npcRotation = 0
@@ -152,9 +153,9 @@ function Tools:DrawVActions()
       Tools.lockTarget = true
     end
   else
-    local buttonLabel = "Disable Invisibility"
+    local buttonLabel = "Disable Passive Mode"
     if Tools.playerVisibility then
-      buttonLabel = "Enable Invisibility"
+      buttonLabel = "Enable Passive Mode"
     end
 
     if ImGui.Button(buttonLabel, Tools.style.halfButtonWidth, Tools.style.buttonHeight) then
@@ -650,8 +651,11 @@ function Tools:DrawNPCActions()
       Tools.lockTarget = not Tools.lockTarget
     end
 
+    local adjustmentValue = 0.01
+    if Tools.precisonMode then adjustmentValue = 0.001 end
+
     ImGui.PushItemWidth(ImGui.GetWindowContentRegionWidth() - ImGui.CalcTextSize("Tilt/Rotation "))
-    Tools.npcUpDown, upDownUsed = ImGui.DragFloat("Up/Down", Tools.npcUpDown, 0.01)
+    Tools.npcUpDown, upDownUsed = ImGui.DragFloat("Up/Down", Tools.npcUpDown, adjustmentValue)
 
     if upDownUsed and Tools.currentNPC ~= '' then
       local pos = Tools.currentNPC.handle:GetWorldPosition()
@@ -667,7 +671,7 @@ function Tools:DrawNPCActions()
       end
     end
 
-    Tools.npcLeftRight, leftRightUsed = ImGui.DragFloat2("X/Y", Tools.npcLeftRight, 0.01)
+    Tools.npcLeftRight, leftRightUsed = ImGui.DragFloat2("X/Y", Tools.npcLeftRight, adjustmentValue)
 
     if leftRightUsed and Tools.currentNPC ~= '' then
       local pos = Tools.currentNPC.handle:GetWorldPosition()
@@ -683,7 +687,10 @@ function Tools:DrawNPCActions()
       end
     end
 
-    if Tools.currentNPC ~= '' and (AMM:GetScanClass(Tools.currentNPC.handle) ~= 'entEntity' and Tools.currentNPC.type ~= 'Player' and Tools.currentNPC.handle:IsNPC()) then
+    local rotationValue = 0.1
+    if Tools.precisonMode then rotationValue = 0.01 end
+
+    if Tools.currentNPC ~= '' and (Tools.currentNPC.type ~= 'entEntity' and Tools.currentNPC.type ~= 'Player' and Tools.currentNPC.handle:IsNPC()) then
       Tools.npcRotation[1], rotationUsed = ImGui.SliderFloat("Rotation", Tools.npcRotation[1], -180, 180)
     elseif Tools.currentNPC ~= '' then
       Tools.npcRotation, rotationUsed = ImGui.DragFloat3("Tilt/Rotation", Tools.npcRotation, 0.1)
@@ -701,6 +708,9 @@ function Tools:DrawNPCActions()
         Game.GetTeleportationFacility():Teleport(Tools.currentNPC.handle, pos, EulerAngles.new(Tools.npcRotation[1], Tools.npcRotation[2], Tools.npcRotation[3]))
       end
     end
+
+    ImGui.Spacing()
+    Tools.precisonMode = ImGui.Checkbox("Precision Mode", Tools.precisonMode)
 
     ImGui.PopItemWidth()
     AMM.UI:Spacing(3)
@@ -779,24 +789,38 @@ function Tools:DrawNPCActions()
           end)
         end
       end
+
+      ImGui.SameLine()
     end
 
     if Tools.currentNPC ~= '' and (Tools.currentNPC.type ~= 'entEntity' and Tools.currentNPC.handle:IsNPC()) then
 
-      if not AMM.playerInPhoto then
+      if not AMM.playerInPhoto or AMM.userSettings.freezeInPhoto then
         local buttonLabel = " Freeze Target "
         if Tools.frozenNPCs[tostring(Tools.currentNPC.handle:GetEntityID().hash)] ~= nil then
           buttonLabel = " Unfreeze Target "
         end
-        ImGui.SameLine()
-        if ImGui.Button(buttonLabel, Tools.style.halfButtonWidth, Tools.style.buttonHeight) then
+
+        local buttonWidth = Tools.style.halfButtonWidth
+        if AMM.playerInPhoto then buttonWidth = Tools.style.buttonWidth end
+
+        if ImGui.Button(buttonLabel, buttonWidth, Tools.style.buttonHeight) then
           if buttonLabel == " Freeze Target " then
             Tools:FreezeNPC(Tools.currentNPC.handle, true)
-            -- print(Tools.currentNPC.handle:GetEntityID().hash)
             Tools.frozenNPCs[tostring(Tools.currentNPC.handle:GetEntityID().hash)] = 'active'
           else
             Tools:FreezeNPC(Tools.currentNPC.handle, false)
             Tools.frozenNPCs[tostring(Tools.currentNPC.handle:GetEntityID().hash)] = nil
+          end
+        end
+
+        if AMM.playerInPhoto then
+          if ImGui.IsItemHovered() then
+            ImGui.BeginTooltip()
+            ImGui.PushTextWrapPos(500)
+            ImGui.TextWrapped("Unfreeze Target will skip frames for custom animation mods in Photo Mode if not using IGCS. For full Freeze/Unfreeze functionality unpause using IGCS.")
+            ImGui.PopTextWrapPos()
+            ImGui.EndTooltip()
           end
         end
       end
@@ -1037,7 +1061,11 @@ function Tools:DrawNPCActions()
 end
 
 function Tools:SetTargetPosition(pos, angles)
-  if Tools.currentNPC.type ~= 'Player' and Tools.currentNPC.handle:IsNPC() then
+  if Tools.currentNPC.type == 'entEntity' then
+    if not Tools.movingProp then
+      Tools:TeleportPropTo(Tools.currentNPC, pos, angles or EulerAngles.new(Tools.npcRotation[1], Tools.npcRotation[2], Tools.npcRotation[3]))
+    end
+  elseif Tools.currentNPC.type ~= 'Player' and Tools.currentNPC.handle:IsNPC() then
     Tools:TeleportNPCTo(Tools.currentNPC.handle, pos, angles or Tools.npcRotation[1])
   else
     Game.GetTeleportationFacility():Teleport(Tools.currentNPC.handle, pos, angles or EulerAngles.new(Tools.npcRotation[1], Tools.npcRotation[2], Tools.npcRotation[3]))
@@ -1177,11 +1205,20 @@ function Tools:DrawTimeActions()
     Tools:SetTime(Tools.timeValue)
   end
 
-  if not AMM.playerInPhoto then
+  if not AMM.playerInPhoto or AMM.userSettings.freezeInPhoto then
     Tools.slowMotionSpeed, slowMotionUsed = ImGui.SliderFloat("Slow Motion", Tools.slowMotionSpeed, 0.000001, Tools.slowMotionMaxValue)
     if slowMotionUsed then
       Tools:SetSlowMotionSpeed(Tools.slowMotionSpeed)
     end
+
+    if AMM.playerInPhoto then
+      if ImGui.IsItemHovered() then
+        ImGui.SetTooltip("Slow Motion in Photo Mode only works if you unpause using IGCS")
+      end
+    end
+  end
+
+  if not AMM.playerInPhoto then
 
     local buttonLabel = "Pause Time Progression"
     if Tools.pauseTime then
