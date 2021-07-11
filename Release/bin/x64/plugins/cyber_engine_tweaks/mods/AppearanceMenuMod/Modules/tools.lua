@@ -272,7 +272,7 @@ function Tools:ToggleAccessories()
 end
 
 function Tools:ToggleInvisibleBody(playerHandle)
-  for cname in db:urows("SELECT cname FROM components") do
+  for cname in db:urows("SELECT cname FROM components WHERE cname NOT LIKE '%hh_%'") do
     local comp = playerHandle:FindComponentByName(CName.new(cname))
 	  if comp then comp:Toggle(not(Tools.invisibleBody)) end
   end

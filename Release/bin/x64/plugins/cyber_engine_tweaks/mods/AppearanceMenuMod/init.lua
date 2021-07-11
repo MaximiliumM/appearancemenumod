@@ -41,7 +41,7 @@ function AMM:new()
 	 AMM.TeleportMod = ''
 
 	 -- Main Properties --
-	 AMM.currentVersion = "1.9.8"
+	 AMM.currentVersion = "1.9.8b"
 	 AMM.updateNotes = require('update_notes.lua')
 	 AMM.credits = require("credits.lua")
 	 AMM.updateLabel = "WHAT'S NEW"
@@ -452,7 +452,7 @@ function AMM:new()
 		 -- This is required for Cron to function
      Cron.Update(deltaTime)
 
-		 if AMM.playerAttached and not(AMM.playerInMenu) then
+		 if AMM.playerAttached and (not(AMM.playerInMenu) or AMM.playerInPhoto) then
 				if finishedUpdate and AMM.player ~= nil then
 					-- Check Custom Defaults --
 					local target = AMM:GetTarget()
@@ -1978,20 +1978,10 @@ function AMM:GetAppearanceOptions(t)
 	local options = {}
 
 	local scanID = self:GetScanID(t)
-
-	if t:IsNPC() and self.Swap.activeSwaps[scanID] == nil then
-		if t:GetRecord():CrowdAppearanceNames()[1] ~= nil then
-			for _, app in ipairs(t:GetRecord():CrowdAppearanceNames()) do
-				table.insert(options, tostring(app):match("%[ (%g+) -"))
-			end
-			return options
-		end
-	end
-
-	return self:GetAppearanceOptionsWithID(scanID)
+	return self:GetAppearanceOptionsWithID(t, scanID)
 end
 
-function AMM:GetAppearanceOptionsWithID(id)
+function AMM:GetAppearanceOptionsWithID(t, id)
 	local options = {}
 
 	if self.Swap.activeSwaps[id] ~= nil then
@@ -2002,9 +1992,18 @@ function AMM:GetAppearanceOptionsWithID(id)
 		options = self:LoadCustomAppearances(options, id)
 	end
 
-	for app in db:urows(f("SELECT app_name FROM appearances WHERE entity_id = '%s' ORDER BY app_name ASC", id)) do
-		table.insert(options, app)
+	if t:IsNPC() and self.Swap.activeSwaps[id] == nil then
+		if t:GetRecord():CrowdAppearanceNames()[1] ~= nil then
+			for _, app in ipairs(t:GetRecord():CrowdAppearanceNames()) do
+				table.insert(options, tostring(app):match("%[ (%g+) -"))
+			end
+		else
+			for app in db:urows(f("SELECT app_name FROM appearances WHERE entity_id = '%s' ORDER BY app_name ASC", id)) do
+				table.insert(options, app)
+			end
+		end
 	end
+
 
 	if self.customAppPosition == "Bottom" then
 		options = self:LoadCustomAppearances(options, id)
@@ -2149,7 +2148,7 @@ function AMM:GetTarget()
 				end
 			end
 
-			if t ~= nil and t.name ~= "gameuiWorldMapGameObject" then
+			if t ~= nil and t.name ~= "gameuiWorldMapGameObject" and t.name ~= "ScriptedWeakspotObject" then
 				AMM:SetCurrentTarget(t)
 				return t
 			end

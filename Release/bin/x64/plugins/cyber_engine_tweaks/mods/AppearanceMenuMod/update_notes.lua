@@ -1,7 +1,18 @@
 return {
 	{
+		'1.9.8b',
+		'2021 Jul 11',
+		[[Added 14 new Props including:]],
+		[[-- Bamboo, Space Shuttle Miniature, Arasaka Carrier, Coffee Machines and more!]],
+		[[Removed hairs from Invisible V feature]],
+		[[Fixed issue where Custom Appearances would not work in Photo Mode]],
+		[[Fixed issue where Custom Appearances would not appear for certain NPCs]],
+		[[Fixed multiple issues with editing Decor tags]],
+		[[Fixed multiple issues with saving Props and Presets]],
+	},
+	{
 		'1.9.8',
-		'2021 Jul 03',
+		'2021 Jul 05',
 		[[Added 215 new Props including:]],
 		[[-- Disco Ball, Shower, Grill, Broom, Billiard, Poker Table, Playing Cards and much much more!]],
 		[[Decor tab got renovated!]],

@@ -58,6 +58,7 @@ function Props:new()
   Props.tags = Props:GetTags()
   Props.categories = Props:GetCategories()
   Props.savingProp = ''
+  Props.editingTags = {}
   Props.activeProps = {}
   Props.activePreset = ''
   Props.selectedPreset = {name = "No Preset Available"}
@@ -82,6 +83,9 @@ function Props:Update()
     Props.tags = Props:GetTags()
     Props.playerLastPos = ''
     Props:SavePreset(Props.activePreset)
+  else
+    Props.savedProps = {}
+    Props.tags = {}
   end
 end
 
@@ -290,7 +294,7 @@ function Props:DrawProps(props)
         AMM.Tools.lockTarget = true
       end
 
-      local buttonLabel = "Show On Map"
+      local buttonLabel = " Show On Map "
       if Props.activeProps[prop.uid].mappinData ~= nil then
         buttonLabel = "Hide From Map"
       end
@@ -305,10 +309,18 @@ function Props:DrawProps(props)
         end
       end
 
-      local newTag, used = ImGui.InputText(" ##"..i, prop.tag, 100)
+      if Props.editingTags[i] == nil then
+        Props.editingTags[i] = prop.tag
+      end
 
-      if used and newTag ~= '' then
-        Props:UpdatePropTag(prop, newTag)
+      Props.editingTags[i] = ImGui.InputText(" ##"..i, Props.editingTags[i], 100)
+
+      ImGui.SameLine(394)
+      if ImGui.SmallButton(" Update Tag ##"..i) and Props.editingTags[i] ~= '' then
+        Props:UpdatePropTag(prop, Props.editingTags[i])
+
+        Props:Update()
+        Props.editingTags[i] = nil
       end
     end
 
@@ -378,7 +390,7 @@ function Props:DrawPresetConfig()
     Props:DeleteAll()
     Props.activePreset = Props:NewPreset()
     Props.selectedPreset = Props.activePreset
-    Props:SavePreset(Props.activePreset)
+    Props:Update()
   end
 
   if Props.activePreset ~= '' then
@@ -470,7 +482,7 @@ function Props:DrawHeaders()
       for _, tag in ipairs(Props.tags) do
         if ImGui.CollapsingHeader(tag) then
 
-          props = Props:GetProps(tag)
+          props = Props:GetProps(nil, tag)
 
           Props:DrawTagActions(props, tag)
           Props:DrawProps(props)
@@ -484,16 +496,19 @@ function Props:DrawTagActions(props, tag)
 
   AMM.UI:Spacing(8)
 
-  local newTag, used = ImGui.InputText("Tag##"..tag, tag, 100)
-
-  if used then
-    for _, prop in ipairs(props) do
-      Props:UpdatePropTag(prop, newTag)
-    end
+  if Props.editingTags[tag] == nil then
+    Props.editingTags[tag] = tag
   end
 
-  if ImGui.SmallButton(" Update Tag ##"..tag) and newTag ~= '' then
+  Props.editingTags[tag] = ImGui.InputText("Tag##"..tag, Props.editingTags[tag], 100)
+
+  if ImGui.SmallButton(" Update Tag ##"..tag) and Props.editingTags[tag] ~= '' then
+    for _, prop in ipairs(props) do
+      Props:UpdatePropTag(prop, Props.editingTags[tag])
+    end
+
     Props:Update()
+    Props.editingTags[tag] = nil
   end
 
   ImGui.SameLine()
@@ -689,9 +704,14 @@ function Props:SavePropPosition(ent)
       Props:DespawnProp(ent)
     end
 
-    Props:SensePropsTriggers()
-    Props:SavePreset(Props.activePreset)
+    local preset = Props.activePreset
+    if preset == '' then
+      preset = Props:NewPreset(tag)
+      Props.activePreset = preset
+    end
+
     Props:Update()
+    Props:SensePropsTriggers()
     AMM:UpdateSettings()
   end)
 end
@@ -746,7 +766,7 @@ function Props:SpawnProp(spawn)
 				spawn.type = 'entEntity'
 			end
 			Cron.Halt(timer)
-		elseif tick > 20 then
+		elseif timer.tick > 20 then
 			spawn.parameters = {newPosition, GetSingleton('Quaternion'):ToEulerAngles(AMM.player:GetWorldOrientation())}
 			Cron.Halt(timer)
 		end
@@ -843,7 +863,7 @@ end
 function Props:LoadPresets()
   local files = dir("./User/Decor")
   local presets = {}
-  if #Props.presets ~= #files then
+  if #Props.presets ~= #files + 1 then
     for _, preset in ipairs(files) do
       if string.find(preset.name, '.json') then
         local name, props = Props:LoadPresetData(preset.name)
@@ -857,7 +877,8 @@ function Props:LoadPresets()
 end
 
 function Props:DeletePreset(preset)
-  os.remove("User/Decor/"..preset.file_name or preset.name..".json")
+  local presetName = preset.file_name or preset.name..".json"
+  os.remove("User/Decor/"..presetName)
   Props.activePreset = ''
   Props.presets = Props:LoadPresets()
 
@@ -866,6 +887,9 @@ function Props:DeletePreset(preset)
     Props:ActivatePreset(Props.selectedPreset)
   else
     Props.selectedPreset = {name = "No Preset Available"}
+    Props:DespawnAllSavedProps()
+    Props:DeleteAll()
+    Props:Update()
   end
 end
 
@@ -890,16 +914,20 @@ function Props:GetPropsForPreset()
   return props
 end
 
-function Props:GetProps(query)
+function Props:GetProps(query, tag)
   local dbQuery = 'SELECT * FROM saved_props ORDER BY name ASC'
+  if tag then dbQuery = 'SELECT * FROM saved_props WHERE tag = "'..tag..'" ORDER BY name ASC' end
   if query then dbQuery = 'SELECT * FROM saved_props WHERE name LIKE "%'..query..'%" OR tag LIKE "%'..query..'%" ORDER BY name ASC' end
   local props = {}
   for prop in db:nrows(dbQuery) do
     for path in db:urows(f("SELECT entity_path FROM entities WHERE entity_id = '%s'", prop.entity_id)) do
       local uid = path:match("(.+)_Props.(.+)")
-      if uid and uid ~= "AMM" then
-        Props.activePreset.customIncluded = true
-        Props.moddersList[" - "..AMM.modders[uid]] = ''
+      if uid then
+        uid = uid:gsub("Custom_", "")
+        if Props.activePreset ~= '' and uid ~= "AMM" and next(AMM.modders) ~= nil then
+          Props.activePreset.customIncluded = true
+          Props.moddersList[" - "..AMM.modders[uid]] = ''
+        end
       end
     end
 
