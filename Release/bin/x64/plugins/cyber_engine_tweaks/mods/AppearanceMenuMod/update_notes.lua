@@ -1,5 +1,21 @@
 return {
 	{
+		'1.9.9',
+		'2021 Jul 17',
+		[[Added 179 new Props including:]],
+		[[-- Pillows, Posters, Magazines, Desk Lamps, Shoes, Doors, Sushi and more!]],
+		[[Added new Decor backup system]],
+		[[-- You can backup the current preset directly from the database using the new Backup button]],
+		[[-- The system will also automatically backup your current preset every 10 minutes. Currently, it stores up to 30 copies in the Backup folder.]],
+		[[Removed Yorinobu naked appearance from the Requirement archive]],
+		[[-- If you don't want Yori's naked appearance or want to fix Yori-no-hands problem during certain scenes, remove the YorinobuPP archive from your mod folder]],
+		[[Adjusted entity used by V when using Swap]],
+		[[-- Now you can swap V with someone else without losing the ability of spawning V]],
+		[[Added new Fists option to Equipment button]],
+		[[Adjusted Spawned Props to be listed by spawn order]],
+		[[Fixed Collab Custom Appearances not loading disabled components correctly]],
+	},
+	{
 		'1.9.8b',
 		'2021 Jul 11',
 		[[Added 14 new Props including:]],

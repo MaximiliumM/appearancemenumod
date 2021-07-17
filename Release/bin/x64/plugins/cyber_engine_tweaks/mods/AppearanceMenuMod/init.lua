@@ -41,7 +41,7 @@ function AMM:new()
 	 AMM.TeleportMod = ''
 
 	 -- Main Properties --
-	 AMM.currentVersion = "1.9.8b"
+	 AMM.currentVersion = "1.9.9"
 	 AMM.updateNotes = require('update_notes.lua')
 	 AMM.credits = require("credits.lua")
 	 AMM.updateLabel = "WHAT'S NEW"
@@ -112,6 +112,7 @@ function AMM:new()
 		 AMM:SetupVehicleData()
 		 AMM:SetupJohnny()
 		 AMM:SetupCustomProps()
+		 AMM:SetupSecondV()
 
 		 -- Update after importing user data
 		 AMM.Props:Update()
@@ -166,6 +167,7 @@ function AMM:new()
 		 -- Setup Cron to Export User data every 10 minutes --
 		 Cron.Every(600, function()
 			 AMM:ExportUserData()
+			 Props:BackupPreset()
 		 end)
 
 		 -- Setup Observers --
@@ -1398,6 +1400,7 @@ end
 
 function AMM:GetEquipmentOptions()
 	local equipments = {
+		{name = 'Fists', path = 'Character.wraiths_strongarms_hmelee3_fists_mb_elite_inline0'},
 		{name = 'Katana', path = 'Character.afterlife_rare_fmelee3_katana_wa_elite_inline0'},
 		{name = 'Mantis Blades', path = 'Character.afterlife_rare_fmelee3_mantis_ma_elite_inline0'},
 		{name = 'Machete', path = 'Character.aldecaldos_grunt2_melee2__ma_inline0'},
@@ -1453,6 +1456,9 @@ function AMM:GetCustomAppearanceDefaults()
 			if collab.disabledByDefault then
 				for _, default in ipairs(collab.disabledByDefault) do
 					for _, app in ipairs(default.allowedApps) do
+						if not customs[default.component] then
+							customs[default.component] = {}
+						end
 						customs[default.component][app] = true
 					end
 				end
@@ -1473,6 +1479,19 @@ function AMM:RevertTweakDBChanges(userActivated)
 	if not(userActivated) then
 		TweakDB:SetFlat(TweakDBID.new('Vehicle.vehicle_list.list'), self.originalVehicles)
 	end
+end
+
+function AMM:SetupSecondV()
+	local ents = {
+		["Character.TPP_Player_Cutscene_Male"] = {"AMM_Character.Player_Male", "player_ma_tpp"},
+		["Character.TPP_Player_Cutscene_Female"] = {"AMM_Character.Player_Female", "player_wa_tpp"},
+	}
+
+	for og, ent in pairs(ents) do
+		local tdbid, path = ent[1], ent[2]
+    TweakDB:CloneRecord(tdbid, og)
+    TweakDB:SetFlat(tdbid..".entityTemplatePath", "base\\amm_characters\\entity\\"..path..".ent")
+  end
 end
 
 function AMM:SetupCustomProps()
@@ -1671,10 +1690,10 @@ function AMM:SpawnNPC(spawn)
 		spawn.entityID = Game.GetPreventionSpawnSystem():RequestSpawn(self:GetNPCTweakDBID(spawn.path), -99, spawnTransform)
 		self.spawnsCounter = self.spawnsCounter + 1
 		while self.spawnedNPCs[spawn.uniqueName()] ~= nil do
-			local num = spawn.name:match("%((%g+)%)")
+			local num = spawn.name:match("|([^|]+)")
 			if num then num = tonumber(num) + 1 else num = 1 end
-			spawn.name = spawn.name:gsub(" %("..tostring(num - 1).."%)", "")
-			spawn.name = spawn.name.." ("..tostring(num)..")"
+			spawn.name = spawn.name:gsub(" | "..tostring(num - 1), "")
+			spawn.name = spawn.name.." | "..tostring(num)
 		end
 		self.spawnedNPCs[spawn.uniqueName()] = spawn
 		self.currentSpawn = spawn.uniqueName()
@@ -1978,10 +1997,10 @@ function AMM:GetAppearanceOptions(t)
 	local options = {}
 
 	local scanID = self:GetScanID(t)
-	return self:GetAppearanceOptionsWithID(t, scanID)
+	return self:GetAppearanceOptionsWithID(scanID, t)
 end
 
-function AMM:GetAppearanceOptionsWithID(t, id)
+function AMM:GetAppearanceOptionsWithID(id, t)
 	local options = {}
 
 	if self.Swap.activeSwaps[id] ~= nil then
@@ -1992,8 +2011,8 @@ function AMM:GetAppearanceOptionsWithID(t, id)
 		options = self:LoadCustomAppearances(options, id)
 	end
 
-	if t:IsNPC() and self.Swap.activeSwaps[id] == nil then
-		if t:GetRecord():CrowdAppearanceNames()[1] ~= nil then
+	if self.Swap.activeSwaps[id] == nil then
+		if t ~= nil and t:IsNPC() and t:GetRecord():CrowdAppearanceNames()[1] ~= nil then
 			for _, app in ipairs(t:GetRecord():CrowdAppearanceNames()) do
 				table.insert(options, tostring(app):match("%[ (%g+) -"))
 			end

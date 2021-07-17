@@ -51,6 +51,7 @@ function Props:new()
 
   -- Main Properties
   Props.presets = {}
+  Props.spawnedPropsList = {}
   Props.spawnedProps = {}
   Props.hiddenProps = {}
   Props.savedProps = Props:GetProps()
@@ -143,10 +144,11 @@ function Props:DrawPresetsTab()
 end
 
 function Props:DrawSpawnedProps()
-  if next(Props.spawnedProps) ~= nil then
+  if #Props.spawnedPropsList > 0 then
     AMM.UI:TextColored("Spawned Props")
 
-    for _, spawn in pairs(Props.spawnedProps) do
+    for i, spawn in ipairs(Props.spawnedPropsList) do
+      -- local spawn = Props.spawnedProps[propName]
       local nameLabel = spawn.name
       ImGui.Text(nameLabel)
 
@@ -401,6 +403,10 @@ function Props:DrawPresetConfig()
 
     if ImGui.Button("Delete", Props.style.buttonWidth, Props.style.buttonHeight) then
       Props:DeletePreset(Props.activePreset)
+    end
+
+    if ImGui.Button("Backup", Props.style.buttonWidth, Props.style.buttonHeight) then
+      Props:BackupPreset(Props.activePreset)
     end
   end
 
@@ -773,13 +779,14 @@ function Props:SpawnProp(spawn)
 	end)
 
 	while Props.spawnedProps[spawn.uniqueName()] ~= nil do
-		local num = spawn.name:match("%((%g+)%)")
-		if num then num = tonumber(num) + 1 else num = 1 end
-		spawn.name = spawn.name:gsub(" %("..tostring(num - 1).."%)", "")
-		spawn.name = spawn.name.." ("..tostring(num)..")"
+    local num = spawn.name:match("|([^|]+)")
+    if num then num = tonumber(num) + 1 else num = 1 end
+    spawn.name = spawn.name:gsub(" | "..tostring(num - 1), "")
+    spawn.name = spawn.name.." | "..tostring(num)
 	end
 
 	Props.spawnedProps[spawn.uniqueName()] = spawn
+  table.insert(Props.spawnedPropsList, spawn)
 end
 
 function Props:DespawnProp(ent)
@@ -789,6 +796,12 @@ function Props:DespawnProp(ent)
   else
     WorldFunctionalTests.DespawnEntity(ent.handle)
     Props.spawnedProps[ent.uniqueName()] = nil
+
+    for i, prop in ipairs(Props.spawnedPropsList) do
+      if ent.name == prop.name then
+        table.remove(Props.spawnedPropsList, i)
+      end
+    end
   end
 end
 
@@ -825,6 +838,25 @@ function Props:ActivatePreset(preset)
 
   Props:Update()
   Props:SensePropsTriggers()
+end
+
+function Props:BackupPreset(preset)
+  local files = dir("./User/Decor/Backup")
+  if #files > 30 then
+    os.remove("User/Decor/Backup/"..files[1].name)
+  end
+
+  local props = {}
+  for prop in db:nrows('SELECT * FROM saved_props') do
+    table.insert(props, prop)
+  end
+
+  if #props > 0 then
+    local presetName = preset.name.."-backup-"..os.date('%Y%m%d-%H%M%S')
+    local newPreset = Props:NewPreset(presetName)
+    newPreset.props = props
+    Props:SavePreset(newPreset, "User/Decor/Backup/%s")
+  end
 end
 
 function Props:SharePresetWithTag(tag)
@@ -893,8 +925,8 @@ function Props:DeletePreset(preset)
   end
 end
 
-function Props:SavePreset(preset)
-  local file = io.open(f("User/Decor/%s", preset.file_name or preset.name..".json"), "w")
+function Props:SavePreset(preset, path)
+  local file = io.open(f(path or "User/Decor/%s", preset.file_name or preset.name..".json"), "w")
   if file then
     local contents = json.encode(preset)
 		file:write(contents)

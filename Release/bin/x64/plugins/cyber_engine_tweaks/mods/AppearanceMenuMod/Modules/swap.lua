@@ -47,10 +47,6 @@ end
 function Swap:Draw(AMM, target)
   if (ImGui.BeginTabItem("Swap")) then
 
-    if io.open("specialSwap.lua", "r") then
- 		   Swap.specialSwap = require('specialSwap.lua')
-    end
-
     AMM.UI:DrawCrossHair()
 
     if next(Swap.activeSwaps) ~= nil then
@@ -99,10 +95,7 @@ function Swap:Draw(AMM, target)
       end
     end
 
-    if target ~= nil and target.type == "Player" and AMM.Debug == '' then
-      ImGui.Text("V can't be swapped. Sorry :(")
-
-    elseif target ~= nil and (target.type == 'NPCPuppet' or target.type == 'vehicle' or target.handle:IsReplacer()) then
+    if target ~= nil and (target.type == 'Player' or target.type == 'NPCPuppet' or target.type == 'vehicle' or target.handle:IsReplacer()) then
       AMM.UI:TextColored("Current Target:")
       ImGui.Text(target.name)
 
@@ -372,6 +365,10 @@ function Swap:GetEntityPathFromID(id)
     entityPath = path
   end
   if entityPath then return entityPath else print("[AMM] entity path not found!") end
+end
+
+if io.open("specialSwap.lua", "r") then
+   Swap.specialSwap = require('specialSwap.lua')
 end
 
 return Swap
