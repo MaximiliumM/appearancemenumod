@@ -852,8 +852,9 @@ function Props:BackupPreset(preset)
   end
 
   if #props > 0 then
-    local presetName = preset.name.."-backup-"..os.date('%Y%m%d-%H%M%S')
-    local newPreset = Props:NewPreset(presetName)
+    local presetName = preset.name or 'Preset'
+    local backupName = presetName.."-backup-"..os.date('%Y%m%d-%H%M%S')
+    local newPreset = Props:NewPreset(backupName)
     newPreset.props = props
     Props:SavePreset(newPreset, "User/Decor/Backup/%s")
   end

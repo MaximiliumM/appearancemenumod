@@ -1,5 +1,14 @@
 return {
 	{
+		'1.9.9b',
+		'2021 Jul 18',
+		[[Added 405 (!) new Props including:]],
+		[[-- Vases, Sofas, Tables, Beddings, Hanging Lamps, Doors, Chairs, Rugs, Candles and much more!]],
+		[[-- Thanks Lucielani for her awesome job adding all those props!]],
+		[[-- Thanks lady and hay for the help with naming and categorizing everything!]],
+		[[Fixed Backup system not actually doing any backups. Sorry.]],
+	},
+	{
 		'1.9.9',
 		'2021 Jul 17',
 		[[Added 179 new Props including:]],

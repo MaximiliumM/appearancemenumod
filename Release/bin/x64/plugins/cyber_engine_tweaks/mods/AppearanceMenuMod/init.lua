@@ -41,7 +41,7 @@ function AMM:new()
 	 AMM.TeleportMod = ''
 
 	 -- Main Properties --
-	 AMM.currentVersion = "1.9.9"
+	 AMM.currentVersion = "1.9.9b"
 	 AMM.updateNotes = require('update_notes.lua')
 	 AMM.credits = require("credits.lua")
 	 AMM.updateLabel = "WHAT'S NEW"
@@ -167,7 +167,7 @@ function AMM:new()
 		 -- Setup Cron to Export User data every 10 minutes --
 		 Cron.Every(600, function()
 			 AMM:ExportUserData()
-			 Props:BackupPreset()
+			 Props:BackupPreset(Props.activePreset)
 		 end)
 
 		 -- Setup Observers --
