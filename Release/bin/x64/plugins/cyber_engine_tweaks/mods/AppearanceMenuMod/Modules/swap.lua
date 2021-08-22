@@ -134,7 +134,7 @@ function Swap:Draw(AMM, target)
         end
       else
         if ImGui.BeginChild("Categories", ImGui.GetWindowContentRegionWidth(), ImGui.GetWindowHeight() / 1.5) then
-          for _, category in ipairs(AMM.categories) do
+          for _, category in ipairs(AMM.Spawn.categories) do
             local entities = {}
             if category.cat_name == 'Favorites' then
               local query = "SELECT * FROM favorites_swap"

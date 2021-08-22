@@ -3,15 +3,7 @@ local Util = {
   popup = {},
 }
 
-function Util:GetPlayerGender()
-  -- True = Female / False = Male
-  if string.find(tostring(Game.GetPlayer():GetResolvedGenderName()), "Female") then
-		return "_Female"
-	else
-		return "_Male"
-	end
-end
-
+-- Code Helper Methods
 function Util:ShallowCopy(copy, orig)
   local orig_type = type(orig)
   if orig_type == 'table' then
@@ -24,6 +16,24 @@ function Util:ShallowCopy(copy, orig)
   return copy
 end
 
+function Util:GetTableKeys(tab)
+  local keyset = {}
+  for k,v in pairs(tab) do
+    keyset[#keyset + 1] = k
+  end
+  return keyset
+end
+
+-- Game Related Helpers
+function Util:GetPlayerGender()
+  -- True = Female / False = Male
+  if string.find(tostring(Game.GetPlayer():GetResolvedGenderName()), "Female") then
+		return "_Female"
+	else
+		return "_Male"
+	end
+end
+
 function Util:PlayVoiceOver(handle, vo)
   Game["gameObject::PlayVoiceOver;GameObjectCNameCNameFloatEntityIDBool"](handle, CName.new(vo), CName.new(""), 1, handle:GetEntityID(), true)
 end
@@ -34,6 +44,10 @@ end
 
 function Util:CheckIfCommandIsActive(handle, cmd)
   return GetSingleton('AIbehaviorUniqueActiveCommandList'):IsActionCommandById(handle:GetAIControllerComponent().activeCommands, cmd.id)
+end
+
+function Util:CancelCommand(handle, cmd)
+  handle:GetAIControllerComponent():CancelCommand(cmd)
 end
 
 function Util:GetBehindPlayerPosition(distance)
@@ -95,12 +109,34 @@ function Util:EquipGivenWeapon(targetPuppet, weapon, override)
   target.handle:GetAIControllerComponent():SendCommand(cmd)
 end
 
+function Util:MoveTo(targetPuppet, pos, walkType, stealth)
+  local dest = NewObject('WorldPosition')
+
+  dest:SetVector4(dest, pos or AMM.player:GetWorldPosition())
+
+  local positionSpec = NewObject('AIPositionSpec')
+  positionSpec:SetWorldPosition(positionSpec, dest)
+
+  local cmd = NewObject('handle:AIMoveToCommand')
+  cmd.movementTarget = positionSpec
+  cmd.rotateEntityTowardsFacingTarget = false
+  cmd.ignoreNavigation = false
+  cmd.desiredDistanceFromTarget = 2
+  cmd.movementType = walkType or "Walk"
+  cmd.finishWhenDestinationReached = true
+  cmd.alwaysUseStealth = stealth or false
+
+  targetPuppet:GetAIControllerComponent():SendCommand(cmd)
+
+  return cmd, targetPuppet
+end
+
 function Util:HoldPosition(targetPuppet, duration)
 	local holdCmd = NewObject('handle:AIHoldPositionCommand')
 	holdCmd.duration = duration or 1.0
 	holdCmd.ignoreInCombat = false
 	holdCmd.removeAfterCombat = false
-	holdCmd.alwaysUseStealth = false
+	holdCmd.alwaysUseStealth = true
 
 	targetPuppet:GetAIControllerComponent():SendCommand(holdCmd)
 
@@ -257,6 +293,19 @@ function Util:GetAllCategoryIDs(categories)
   local catIDs = table.concat(t, ", ")
   catIDs = catIDs..", 31"
   return "("..catIDs..")"
+end
+
+function Util:CanBeHostile(t)
+	local canBeHostile = t:GetRecord():AbilitiesContains(GetSingleton("gamedataTweakDBInterface"):GetGameplayAbilityRecord(TweakDBID.new("Ability.CanCloseCombat")))
+	if not(canBeHostile) then
+		canBeHostile = t:GetRecord():AbilitiesContains(GetSingleton("gamedataTweakDBInterface"):GetGameplayAbilityRecord(TweakDBID.new("Ability.HasChargeJump")))
+	end
+
+	return canBeHostile
+end
+
+function Util:UnlockVehicle(handle)
+	handle:GetVehiclePS():UnlockAllVehDoors()
 end
 
 return Util

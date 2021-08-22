@@ -57,6 +57,7 @@ function Props:new()
   Props.savedProps = Props:GetProps()
   Props.triggers = Props:GetTriggers()
   Props.tags = Props:GetTags()
+  Props.homes = {}
   Props.categories = Props:GetCategories()
   Props.savingProp = ''
   Props.editingTags = {}
@@ -153,7 +154,7 @@ function Props:DrawSpawnedProps()
       ImGui.Text(nameLabel)
 
       local favoritesLabels = {"Favorite", "Unfavorite"}
-      AMM:DrawFavoritesButton(favoritesLabels, spawn)
+      AMM.Spawn:DrawFavoritesButton(favoritesLabels, spawn)
 
       ImGui.SameLine()
 
@@ -234,7 +235,7 @@ function Props:DrawCategories()
     end
 
     if #entities ~= 0 then
-      AMM:DrawEntitiesButtons(entities, "ALL", Props.style)
+      AMM.Spawn:DrawEntitiesButtons(entities, "ALL", Props.style)
     else
       ImGui.Text("No Results")
     end
@@ -263,7 +264,7 @@ function Props:DrawCategories()
             table.insert(entities, {en.entity_name, en.entity_id, en.can_be_comp, en.parameters, en.entity_path, en.template_path})
           end
 
-          AMM:DrawEntitiesButtons(entities, category.cat_name, Props.style)
+          AMM.Spawn:DrawEntitiesButtons(entities, category.cat_name, Props.style)
         end
       end
     end
@@ -304,7 +305,7 @@ function Props:DrawProps(props)
       ImGui.SameLine()
       if ImGui.SmallButton(buttonLabel.."##"..i) then
         if Props.activeProps[prop.uid].mappinData ~= nil then
-          Props:HideFromMap(Props.activeProps[prop.uid].mappinData)
+          Props:RemoveFromMap(Props.activeProps[prop.uid].mappinData)
           Props.activeProps[prop.uid].mappinData = nil
         else
           Props.activeProps[prop.uid].mappinData = Props:ShowOnMap(prop.pos)
@@ -541,6 +542,21 @@ function Props:DrawTagActions(props, tag)
     end
   end
 
+  local buttonLabel = " Add Home Marker To Map "
+
+  if Props.homes[tag] ~= nil then
+    buttonLabel = " Remove Home Marker From Map "
+  end
+
+  if ImGui.SmallButton(buttonLabel.."##"..tag) then
+    if buttonLabel == " Add Home Marker To Map " then
+      Props.homes[tag] = Props:AddHomeMarker(tag)  
+    else
+      Props:RemoveFromMap(Props.homes[tag])
+      Props.homes[tag] = nil
+    end
+  end
+
   AMM.UI:Spacing(8)
 
   if Props.savingPreset == '' then
@@ -611,7 +627,7 @@ function Props:SpawnPropInPosition(ent, pos, angles)
   spawnTransform:SetPosition(pos)
   spawnTransform:SetOrientationEuler(angles)
 
-  ent.entityID = WorldFunctionalTests.SpawnEntity(ent.template, spawnTransform, '')
+  ent.entityID = exEntitySpawner.Spawn(ent.template, spawnTransform)
 
   Cron.Every(0.1, {tick = 1}, function(timer)
     local entity = Game.FindEntityByID(ent.entityID)
@@ -646,6 +662,29 @@ function Props:GetTagBasedOnLocation()
   end
 end
 
+function Props:LoadHomes(userHomes)
+  for _, tag in ipairs(userHomes) do
+    Props.homes[tag] = Props:AddHomeMarker(tag)
+  end
+end
+
+function Props:AddHomeMarker(tag)
+  local pos = nil
+
+  for trigger in db:urows(f('SELECT DISTINCT trigger FROM saved_props WHERE tag = "%s"', tag)) do
+    local newTrigger = Props:NewTrigger(trigger)
+    pos = newTrigger.pos
+  end
+
+  if pos then
+    local mappinData = gamemappinsMappinData.new()
+    mappinData.mappinType = TweakDBID.new('Mappins.FastTravelStaticMappin')
+    mappinData.variant = gamedataMappinVariant.ApartmentVariant
+
+    return Game.GetMappinSystem():RegisterMappin(mappinData, pos)
+  end
+end
+
 function Props:ShowOnMap(pos)
   local variant = 'FastTravelVariant'
 
@@ -657,7 +696,7 @@ function Props:ShowOnMap(pos)
   return Game.GetMappinSystem():RegisterMappin(mappinData, pos)
 end
 
-function Props:HideFromMap(mappinData)
+function Props:RemoveFromMap(mappinData)
   Game.GetMappinSystem():UnregisterMappin(mappinData)
 end
 
@@ -682,7 +721,7 @@ function Props:ToggleHideProp(ent)
 
     Props.hiddenProps[entID] = {ent = ent, pos = pos, angles = angles}
 
-    WorldFunctionalTests.DespawnEntity(ent.handle)
+    exEntitySpawner.Despawn(ent.handle)
   end
 end
 
@@ -761,7 +800,12 @@ function Props:SpawnProp(spawn)
 	spawnTransform:SetPosition(spawnTransform, newPosition)
 	spawnTransform:SetOrientationEuler(spawnTransform, EulerAngles.new(0, 0, angles.yaw - 180))
 
-	spawn.entityID = WorldFunctionalTests.SpawnEntity(spawn.template, spawnTransform, '')
+  local record = ''
+  if string.find(spawn.template, 'yacht') then
+    record = 'Vehicle.sq028_yacht'
+  end
+	  
+  spawn.entityID = exEntitySpawner.Spawn(spawn.template, spawnTransform, '', record)
 
 	Cron.Every(0.1, {tick = 1}, function(timer)
 		local entity = Game.FindEntityByID(spawn.entityID)
@@ -791,10 +835,10 @@ end
 
 function Props:DespawnProp(ent)
   if ent.uid then
-    WorldFunctionalTests.DespawnEntity(Props.activeProps[ent.uid].handle)
+    exEntitySpawner.Despawn(Props.activeProps[ent.uid].handle)
     Props.activeProps[ent.uid] = nil
   else
-    WorldFunctionalTests.DespawnEntity(ent.handle)
+    exEntitySpawner.Despawn(ent.handle)
     Props.spawnedProps[ent.uniqueName()] = nil
 
     for i, prop in ipairs(Props.spawnedPropsList) do
@@ -807,7 +851,7 @@ end
 
 function Props:DespawnAllSavedProps()
   for _, ent in pairs(Props.activeProps) do
-    WorldFunctionalTests.DespawnEntity(ent.handle)
+    exEntitySpawner.Despawn(ent.handle)
   end
 
   Props.activeProps = {}

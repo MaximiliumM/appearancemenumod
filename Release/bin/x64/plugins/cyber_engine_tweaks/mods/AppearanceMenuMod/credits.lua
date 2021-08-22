@@ -26,6 +26,10 @@ return {
 		[[-- Benjamin Stone PP]],
 		[[Vesna]],
 		[[-- Hanako Body]],
+		[[Lucielani]],
+		[[-- Props]],
+		[[hay & ladyinthebluebox]],
+		[[-- Props Categories and Organization]],
 	},
 	{
 		'Community Shout Outs',

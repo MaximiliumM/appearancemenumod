@@ -41,19 +41,15 @@ function AMM:new()
 	 AMM.TeleportMod = ''
 
 	 -- Main Properties --
-	 AMM.currentVersion = "1.9.9b"
+	 AMM.currentVersion = "1.10"
 	 AMM.updateNotes = require('update_notes.lua')
 	 AMM.credits = require("credits.lua")
 	 AMM.updateLabel = "WHAT'S NEW"
 	 AMM.userSettings = AMM:PrepareSettings()
-	 AMM.categories = AMM:GetCategories()
 	 AMM.player = nil
 	 AMM.currentTarget = ''
-	 AMM.spawnedNPCs = {}
 	 AMM.entitiesForRespawn = ''
 	 AMM.allowedNPCs = AMM:GetSaveables()
-	 AMM.searchQuery = ''
-	 AMM.searchBarWidth = 500
 	 AMM.equipmentOptions = AMM:GetEquipmentOptions()
 	 AMM.followDistanceOptions = AMM:GetFollowDistanceOptions()
 	 AMM.originalVehicles = ''
@@ -73,20 +69,12 @@ function AMM:new()
 	 -- Custom Prop Properties --
 	 AMM.modders = {}
 
-	 -- Modal Popup Properties --
-	 AMM.currentFavoriteName = ''
-	 AMM.popupEntity = ''
-
 	 -- Configs --
 	 AMM.playerAttached = false
 	 AMM.playerInMenu = true
 	 AMM.playerInPhoto = false
 	 AMM.playerInVehicle = false
 	 AMM.settings = false
-	 AMM.currentSpawn = ''
-	 AMM.maxSpawns = 5
-	 AMM.spawnsCounter = 0
-	 AMM.spawnAsCompanion = true
 	 AMM.isCompanionInvulnerable = true
 	 AMM.shouldCheckSavedAppearance = true
 
@@ -102,17 +90,18 @@ function AMM:new()
 		 AMM.player = Game.GetPlayer()
 
 		 -- Load Modules --
+		 AMM.Spawn = require('Modules/spawn.lua')
 		 AMM.Scan = require('Modules/scan.lua')
 		 AMM.Swap = require('Modules/swap.lua')
 		 AMM.Tools = require('Modules/tools.lua')
 		 AMM.Props = require('Modules/props.lua')
 		 AMM.Director = require('Modules/director.lua')
 
-		 AMM:ImportUserData()
 		 AMM:SetupVehicleData()
 		 AMM:SetupJohnny()
 		 AMM:SetupCustomProps()
 		 AMM:SetupSecondV()
+		 AMM:ImportUserData()
 
 		 -- Update after importing user data
 		 AMM.Props:Update()
@@ -122,13 +111,15 @@ function AMM:new()
 
 		 -- Check if user is in-game using WorldPosition --
 		 -- Only way to set player attached if user reload all mods --
-		 if AMM.player then
-			 local playerPosition = AMM.player:GetWorldPosition()
+		 local player = Game.GetPlayer()
+		 if player then
+			 local playerPosition = player:GetWorldPosition()
+
 			 if math.floor(playerPosition.z) ~= 0 then
 				 AMM.playerAttached = true
 				 AMM.playerInMenu = false
 
-				 if next(AMM.spawnedNPCs) ~= nil then
+				 if next(AMM.Spawn.spawnedNPCs) ~= nil then
 				 	AMM:RespawnAll()
 				 end
 			 end
@@ -141,7 +132,7 @@ function AMM:new()
 
 			 AMM.Tools:CheckGodModeIsActive()
 
-			 if next(AMM.spawnedNPCs) ~= nil then
+			 if next(AMM.Spawn.spawnedNPCs) ~= nil then
 			 	AMM:RespawnAll()
 			 end
 
@@ -195,7 +186,7 @@ function AMM:new()
 					 if next(AMM.Scan.drivers) ~= nil then
 						 AMM.Scan:UnmountDrivers()
 					 end
-				 elseif AMM.playerInVehicle and next(AMM.spawnedNPCs) ~= nil then
+				 elseif AMM.playerInVehicle and next(AMM.Spawn.spawnedNPCs) ~= nil then
 					 local target = Game.GetTargetingSystem():GetLookAtObject(AMM.player, false, false)
 					 if target ~= nil and target:IsVehicle() then
 						 AMM.Scan.vehicle = {handle = target, hash = tostring(target:GetEntityID().hash)}
@@ -205,24 +196,24 @@ function AMM:new()
 			 end
 		 end)
 
-		 Observe("PlayerPuppet", "OnAction", function(self, action)
-		   local actionName = Game.NameToString(action:GetName(action))
-       local actionType = action:GetType(action).value
+		Observe("PlayerPuppet", "OnAction", function(self, action)
+			local actionName = Game.NameToString(action:GetName(action))
+			local actionType = action:GetType(action).value
 
-       if actionName == 'TogglePhotoMode' then
-	        if actionType == 'BUTTON_RELEASED' then
-					 AMM.playerInPhoto = true
-	         Game.SetTimeDilation(0)
+       		if actionName == 'TogglePhotoMode' then
+	        	if actionType == 'BUTTON_RELEASED' then
+					AMM.playerInPhoto = true
+	         		Game.SetTimeDilation(0)
 
-					 if AMM.Tools.invisibleBody then
+					if AMM.Tools.invisibleBody then
 						Cron.After(1.0, function()
 							local v = AMM.Tools:GetVTarget()
 							AMM.Tools:ToggleInvisibleBody(v.handle)
 						end)
-					 end
 					end
-			 elseif actionName == 'ExitPhotoMode' then
-				 if actionType == 'BUTTON_RELEASED' then
+				end
+			elseif actionName == 'ExitPhotoMode' then
+				if actionType == 'BUTTON_RELEASED' then
 					 AMM.playerInPhoto = false
 
 					 if AMM.Tools.lookAtLocked then
@@ -246,15 +237,18 @@ function AMM:new()
        end
 		 end)
 
-		 Observe("PlayerPuppet", "OnGameAttached", function(self)
-			 AMM.activeCustomApps = {}
+		Observe("PlayerPuppet", "OnGameAttached", function(self)
+			self:RegisterInputListener(self, 'TogglePhotoMode')
+			self:RegisterInputListener(self, 'ExitPhotoMode')
 
-			 -- Disable God mode if previously active
-			 AMM.Tools.godModeToggle = false
+			AMM.activeCustomApps = {}
 
-			 -- Disable Invisiblity if previously active
-			 AMM.Tools.playerVisibility = true
-		 end)
+			-- Disable God mode if previously active
+			AMM.Tools.godModeToggle = false
+
+			-- Disable Invisiblity if previously active
+			AMM.Tools.playerVisibility = true
+		end)
 	 end)
 
 	 registerForEvent("onShutdown", function()
@@ -294,27 +288,7 @@ function AMM:new()
 	 end)
 
 	 registerHotkey("amm_spawn_favorite", "Spawn Favorite", function()
-		 if AMM.currentSpawn == '' then
-			 local favorites = {}
-			 for ent in db:nrows("SELECT * FROM entities WHERE entity_id IN (SELECT entity_id FROM favorites)") do
-				 table.insert(favorites, AMM:NewSpawn(ent.entity_name, ent.entity_id, ent.entity_parameters, ent.can_be_comp, ent.entity_path, ent.template_path))
-			 end
-
-			 for _, spawn in ipairs(favorites) do
-				 local spawned = false
-				 for _, ent in pairs(AMM.spawnedNPCs) do
-					 if spawn.uniqueName() == ent.uniqueName() then
-						 spawned = true
-						 break
-					 end
-				 end
-
-				 if not spawned then
-					 AMM:SpawnNPC(spawn)
-					 break
-				 end
-			 end
-		 end
+		 AMM.Spawn:SpawnFavorite()
 	 end)
 
 	 registerHotkey("amm_spawn_target", "Spawn Target", function()
@@ -323,15 +297,15 @@ function AMM:new()
 			local spawnableID = AMM:IsSpawnable(target)
 
 			if spawnableID ~= nil then
-				target.handle:Dispose()
 
 				local spawn = nil
 				for ent in db:nrows(f("SELECT * FROM entities WHERE entity_id = '%s'", spawnableID)) do
-					spawn = AMM:NewSpawn(ent.entity_name, ent.entity_id, ent.entity_parameters, ent.can_be_comp, ent.entity_path, ent.template_path)
+					spawn = AMM.Spawn:NewSpawn(ent.entity_name, ent.entity_id, ent.entity_parameters, ent.can_be_comp, ent.entity_path, ent.template_path)
 				end
 
 				if spawn ~= nil then
-					AMM:SpawnNPC(spawn)
+					target.handle:Dispose()
+					AMM.Spawn:SpawnNPC(spawn)
 				end
 			end
 		end
@@ -341,12 +315,12 @@ function AMM:new()
 		local target = AMM:GetTarget()
 		if target ~= nil then
 			local spawnedNPC = nil
-			for _, spawn in pairs(AMM.spawnedNPCs) do
+			for _, spawn in pairs(AMM.Spawn.spawnedNPCs) do
 				if target.id == spawn.id then spawnedNPC = spawn break end
 			end
 
 			if spawnedNPC then
-				AMM:DespawnNPC(spawnedNPC.uniqueName(), spawnedNPC.entityID)
+				AMM.Spawn:DespawnNPC(spawnedNPC)
 			else
 				Util:Despawn(target.handle)
 			end
@@ -485,7 +459,7 @@ function AMM:new()
 
 					-- Travel Animation Done Check --
 					if AMM.TeleportMod ~= '' and AMM.TeleportMod.api.done then
-						if next(AMM.spawnedNPCs) ~= nil then
+						if next(AMM.Spawn.spawnedNPCs) ~= nil then
 							AMM:TeleportAll()
 						end
 						AMM.TeleportMod.api.done = false
@@ -498,12 +472,11 @@ function AMM:new()
 						if waitTimer > 8 then
 							waitTimer = 0.0
 							AMM.Tools.isTeleporting = false
-							if next(AMM.spawnedNPCs) ~= nil then
+							if next(AMM.Spawn.spawnedNPCs) ~= nil then
 					      AMM:TeleportAll()
 					    end
 						end
 					end
-
 
 					-- Tools Skip Frame Logic --
 					if AMM.skipFrame then
@@ -514,6 +487,11 @@ function AMM:new()
 							AMM.Tools:FreezeTime()
 							waitTimer = 0.0
 						end
+					end
+
+					-- Check if Locked Target is gone --
+					if Tools.lockTarget and not Tools.currentNPC.handle then
+						Tools.lockTarget = false
 					end
 
 					-- Button Spamming Block --
@@ -566,56 +544,6 @@ function AMM:new()
 								AMM.setCustomApp = ''
 							end
 						end
-					end
-
-
-					-- After Spawn Logic --
-					if AMM.currentSpawn ~= '' then
-						waitTimer = waitTimer + deltaTime
-						-- print('trying to set companion')
-						if waitTimer > 0.2 and waitTimer < 30.0 then
-							local handle
-							if AMM.spawnedNPCs[AMM.currentSpawn] ~= nil then
-								handle = Game.FindEntityByID(AMM.spawnedNPCs[AMM.currentSpawn].entityID)
-							end
-							if handle then
-								AMM.spawnedNPCs[AMM.currentSpawn].handle = handle
-								AMM.spawnedNPCs[AMM.currentSpawn].hash = tostring(handle:GetEntityID().hash)
-								if handle:IsNPC() then
-									if not(string.find(AMM.spawnedNPCs[AMM.currentSpawn].name, "Drone")) then
-										Util:TeleportNPCTo(handle)
-									end
-									if AMM.spawnedNPCs[AMM.currentSpawn].parameters ~= nil then
-										if AMM.spawnedNPCs[AMM.currentSpawn].parameters == "special__vr_tutorial_ma_dummy_light" then -- Extra Handling for Johnny
-											AMM:ChangeScanCustomAppearanceTo(AMM.spawnedNPCs[AMM.currentSpawn], AMM:GetCustomAppearanceParams(AMM.spawnedNPCs[AMM.currentSpawn], 'silverhand_default'))
-										else
-											AMM:ChangeScanAppearanceTo(AMM.spawnedNPCs[AMM.currentSpawn], AMM.spawnedNPCs[AMM.currentSpawn].parameters)
-										end
-									end
-									if AMM.spawnAsCompanion and AMM.spawnedNPCs[AMM.currentSpawn].canBeCompanion then
-										AMM:SetNPCAsCompanion(handle)
-									else
-										waitTimer = 0.0
-										AMM.currentSpawn = ''
-									end
-								elseif handle:IsVehicle() then
-									if AMM.spawnedNPCs[AMM.currentSpawn].parameters ~= nil then
-										AMM:ChangeScanAppearanceTo(AMM.spawnedNPCs[AMM.currentSpawn], AMM.spawnedNPCs[AMM.currentSpawn].parameters)
-									end
-									AMM:UnlockVehicle(handle)
-									waitTimer = 0.0
-									AMM.currentSpawn = ''
-								else
-									waitTimer = 0.0
-									AMM.currentSpawn = ''
-								end
-							end
-						elseif waitTimer > 30.0 then
-							waitTimer = 0.0
-							AMM.currentSpawn = ''
-						end
-					else
-						AMM.currentSpawn = ''
 					end
 				end
 			end
@@ -761,146 +689,7 @@ function AMM:Begin()
 				AMM.Scan:Draw(AMM, target, style)
 
 				-- Spawn Tab --
-				if (ImGui.BeginTabItem("Spawn")) then
-
-					if AMM.playerInMenu and not AMM.playerInPhoto then
-						AMM.UI:TextColored("Player In Menu")
-						ImGui.Text("Spawning only works in game")
-					else
-						if next(AMM.spawnedNPCs) ~= nil then
-							AMM.UI:TextColored("Active Spawns "..AMM.spawnsCounter.."/"..AMM.maxSpawns)
-
-							for _, spawn in pairs(AMM.spawnedNPCs) do
-								local nameLabel = spawn.name
-								ImGui.Text(nameLabel)
-
-								-- Spawned NPC Actions --
-								local favoritesLabels = {"Favorite", "Unfavorite"}
-								AMM:DrawFavoritesButton(favoritesLabels, spawn)
-
-								ImGui.SameLine()
-								if spawn.handle ~= '' and not(spawn.handle:IsVehicle()) then
-									if ImGui.SmallButton("Respawn##"..spawn.name) then
-										AMM:DespawnNPC(spawn.uniqueName(), spawn.entityID)
-										Cron.After(0.2, function()
-											AMM:SpawnNPC(spawn)
-										end)
-									end
-								end
-
-								ImGui.SameLine()
-								if ImGui.SmallButton("Despawn##"..spawn.name) then
-									if spawn.handle ~= '' and spawn.handle:IsVehicle() then
-										AMM:DespawnVehicle(spawn)
-									else
-										AMM:DespawnNPC(spawn.uniqueName(), spawn.entityID)
-									end
-								end
-
-
-								if spawn.handle ~= '' then
-									ImGui.SameLine()
-									if ImGui.SmallButton("Target".."##"..spawn.name) then
-										AMM.Tools:SetCurrentTarget(spawn)
-										AMM.Tools.lockTarget = true
-									end
-								end
-
-								if spawn.handle ~= '' and not(spawn.handle:IsVehicle()) and not(spawn.handle:IsDevice()) and not(spawn.handle:IsDead()) and AMM:CanBeHostile(spawn.handle) then
-
-									local hostileButtonLabel = "Hostile"
-									if not(spawn.handle.isPlayerCompanionCached) then
-										hostileButtonLabel = "Friendly"
-									end
-
-									ImGui.SameLine()
-									if ImGui.SmallButton(hostileButtonLabel.."##"..spawn.name) then
-										AMM:ToggleHostile(spawn.handle)
-									end
-
-									ImGui.SameLine()
-									if ImGui.SmallButton("Equipment".."##"..spawn.name) then
-										popupDelegate = AMM:OpenPopup(spawn.name.."'s Equipment")
-									end
-
-									AMM:BeginPopup(spawn.name.."'s Equipment", spawn.path, false, popupDelegate, style)
-								end
-							end
-
-							AMM.UI:Separator()
-						elseif AMM.playerInPhoto then
-							ImGui.NewLine()
-							ImGui.Text("No Active Spawns")
-							ImGui.NewLine()
-						end
-
-						if not AMM.playerInPhoto then
-
-							ImGui.PushItemWidth(AMM.searchBarWidth)
-							AMM.searchQuery = ImGui.InputTextWithHint(" ", "Search", AMM.searchQuery, 100)
-							AMM.searchQuery = AMM.searchQuery:gsub('"', '')
-							ImGui.PopItemWidth()
-
-							if AMM.searchQuery ~= '' then
-								ImGui.SameLine()
-								if ImGui.Button("Clear") then
-									AMM.searchQuery = ''
-								end
-							end
-
-							ImGui.Spacing()
-
-							AMM.UI:TextColored("Select To Spawn:")
-
-							local validCatIDs = Util:GetAllCategoryIDs(AMM.categories)
-							if AMM.searchQuery ~= '' then
-								local entities = {}
-								local query = 'SELECT * FROM entities WHERE is_spawnable = 1 AND cat_id IN '..validCatIDs..' AND entity_name LIKE "%'..AMM.searchQuery..'%" ORDER BY entity_name ASC'
-								for en in db:nrows(query) do
-									table.insert(entities, {en.entity_name, en.entity_id, en.can_be_comp, en.parameters, en.entity_path, en.template_path})
-								end
-
-								if #entities ~= 0 then
-									AMM:DrawEntitiesButtons(entities, 'ALL', style)
-								else
-									ImGui.Text("No Results")
-								end
-							else
-								local x, y = GetDisplayResolution()
-								if ImGui.BeginChild("Categories", ImGui.GetWindowContentRegionWidth(), y / 2) then
-									for _, category in ipairs(AMM.categories) do
-										if ImGui.CollapsingHeader(category.cat_name) then
-											local entities = {}
-											if category.cat_name == 'Favorites' then
-												local query = "SELECT * FROM favorites"
-												for fav in db:nrows(query) do
-													query = f("SELECT * FROM entities WHERE entity_id = '%s' AND cat_id IN %s", fav.entity_id, validCatIDs)
-													for en in db:nrows(query) do
-														if fav.parameters ~= nil then en.parameters = fav.parameters end
-														table.insert(entities, {fav.entity_name, en.entity_id, en.can_be_comp, en.parameters, en.entity_path, en.template_path})
-													end
-												end
-												if #entities == 0 then
-													ImGui.Text("It's empty :(")
-												end
-											end
-
-											local query = f("SELECT * FROM entities WHERE is_spawnable = 1 AND cat_id == '%s' ORDER BY entity_name ASC", category.cat_id)
-											for en in db:nrows(query) do
-												table.insert(entities, {en.entity_name, en.entity_id, en.can_be_comp, en.parameters, en.entity_path, en.template_path})
-											end
-
-											AMM:DrawEntitiesButtons(entities, category.cat_name, style)
-										end
-									end
-								end
-								ImGui.EndChild()
-							end
-						end
-					end
-
-					ImGui.EndTabItem()
-				end
+				AMM.Spawn:Draw(AMM, style)
 
 				-- Swap Tab --
 				AMM.Swap:Draw(AMM, target)
@@ -919,8 +708,13 @@ function AMM:Begin()
 
 					ImGui.Spacing()
 
-					AMM.spawnAsCompanion = ImGui.Checkbox("Spawn As Companion", AMM.spawnAsCompanion)
+					AMM.userSettings.spawnAsCompanion, clicked = ImGui.Checkbox("Spawn As Companion", AMM.userSettings.spawnAsCompanion)
 					AMM.isCompanionInvulnerable = ImGui.Checkbox("Invulnerable Companion", AMM.isCompanionInvulnerable)
+
+					if ImGui.IsItemHovered() then
+            			ImGui.SetTooltip("Even with this setting enabled, companions will fall down in combat. They won't die and you won't have to respawn them though.")
+          			end
+
 					AMM.userSettings.openWithOverlay, clicked = ImGui.Checkbox("Open With CET Overlay", AMM.userSettings.openWithOverlay)
 					AMM.userSettings.autoResizing, clicked = ImGui.Checkbox("Auto-Resizing Window", AMM.userSettings.autoResizing)
 					AMM.userSettings.scanningReticle, clicked = ImGui.Checkbox("Scanning Reticle", AMM.userSettings.scanningReticle)
@@ -935,14 +729,6 @@ function AMM:Begin()
 							ImGui.TextWrapped("This setting is meant to help freeze animations from mods that add custom animation to Photo Mode poses or when you unpause using IGCS.")
 							ImGui.PopTextWrapPos()
 							ImGui.EndTooltip()
-					  end
-
-						ImGui.PushItemWidth(139)
-						AMM.maxSpawns = ImGui.InputInt("Max Spawns", AMM.maxSpawns, 1)
-						ImGui.PopItemWidth()
-
-						if ImGui.IsItemHovered() then
-					    ImGui.SetTooltip("Keep in mind the game's spawning system will probably break if you increase too much")
 					  end
 					end
 
@@ -988,7 +774,7 @@ function AMM:Begin()
 
 					if expClicked then
 						AMM:UpdateSettings()
-						AMM.categories = AMM:GetCategories()
+						AMM.Spawn.categories = AMM.Spawn:GetCategories()
 
 						if AMM.userSettings.experimental then
 							popupDelegate = AMM:OpenPopup("Experimental")
@@ -1018,7 +804,7 @@ function AMM:Begin()
 					end
 
 					ImGui.SameLine()
-					if ImGui.Button("Clear All Favorites", style.halfButtonWidth, style.buttonHeight) then
+					if ImGui.Button("Clear Favorites", style.halfButtonWidth, style.buttonHeight) then
 						popupDelegate = AMM:OpenPopup("Favorites")
 					end
 
@@ -1076,32 +862,6 @@ function AMM:Begin()
 end
 
 -- AMM Objects
-function AMM:NewSpawn(name, id, parameters, companion, path, template)
-	local obj = {}
-	if type(id) == 'userdata' then id = tostring(id) end
-	obj.handle = ''
-	obj.name = name
-	obj.id = id
-	obj.hash = ''
-	obj.uniqueName = function() return obj.name.."##"..obj.id end
-	obj.parameters = parameters
-	obj.canBeCompanion = intToBool(companion)
-	obj.path = path
-	obj.template = template or ''
-	obj.type = 'Spawn'
-	obj.entityID = ''
-
-	if string.find(obj.path, "Props") then
-		obj.type = 'Props'
-	end
-
-	if obj.parameters == "Player" then
-		obj.path = path..Util:GetPlayerGender()
-		obj.parameters = nil
-	end
-	return obj
-end
-
 function AMM:NewTarget(handle, targetType, id, name, app, options)
 	local obj = {}
 	obj.handle = handle
@@ -1170,7 +930,7 @@ function AMM:ImportUserData()
 					self.Tools.favoriteLocations = userData['favoriteLocations']
 				end
 				if userData['spawnedNPCs'] ~= nil then
-					self.spawnedNPCs = self:PrepareImportSpawnedData(userData['spawnedNPCs'])
+					self.Spawn.spawnedNPCs = self:PrepareImportSpawnedData(userData['spawnedNPCs'])
 				end
 				if userData['savedSwaps'] ~= nil then
 					self.Swap:LoadSavedSwaps(userData['savedSwaps'])
@@ -1181,7 +941,9 @@ function AMM:ImportUserData()
 				if userData['activePreset'] ~= nil then
 					self.Props:LoadPreset(userData['activePreset'])
 				end
-
+				if userData['homeTags'] ~= nil then
+					self.Props:LoadHomes(userData['homeTags'])
+				end
 
 				self.customAppPosition = userData['customAppPosition'] or "Top"
 				self.selectedTheme = userData['selectedTheme'] or "Default"
@@ -1274,6 +1036,7 @@ function AMM:ExportUserData()
 		userData['customAppPosition'] = self.customAppPosition
 		userData['selectedHotkeys'] = self.selectedHotkeys
 		userData['activePreset'] = self.Props.activePreset.file_name or ''
+		userData['homeTags'] = Util:GetTableKeys(self.Props.homes)
 
 		local validJson, contents = pcall(function() return json.encode(userData) end)
 		if validJson and contents ~= nil then
@@ -1291,7 +1054,7 @@ function AMM:PrepareImportSpawnedData(savedIDs)
 
 	for _, id in ipairs(savedIDs) do
 		for ent in db:nrows(f("SELECT * FROM entities WHERE entity_id = '%s'", id)) do
-			spawn = AMM:NewSpawn(ent.entity_name, ent.entity_id, ent.entity_parameters, ent.can_be_comp, ent.entity_path, ent.template_path)
+			spawn = AMM.Spawn:NewSpawn(ent.entity_name, ent.entity_id, ent.entity_parameters, ent.can_be_comp, ent.entity_path, ent.template_path)
 			table.insert(savedEntities, spawn)
 		end
 	end
@@ -1302,24 +1065,11 @@ end
 function AMM:PrepareExportSpawnedData()
 	local spawnedEntities = {}
 
-	for _, ent in pairs(self.spawnedNPCs) do
+	for _, ent in pairs(AMM.Spawn.spawnedNPCs) do
 		table.insert(spawnedEntities, ent.id)
 	end
 
 	return spawnedEntities
-end
-
-function AMM:GetCategories()
-	local query = "SELECT * FROM categories WHERE cat_name != 'Props' AND cat_name != 'At Your Own Risk' AND cat_sub IS NULL ORDER BY 3 ASC"
-	if AMM.userSettings.experimental then
-		query = "SELECT * FROM categories WHERE cat_name != 'Props' AND cat_sub IS NULL ORDER BY 3 ASC"
-	end
-
-	local categories = {}
-	for category in db:nrows(query) do
-		table.insert(categories, {cat_id = category.cat_id, cat_name = category.cat_name})
-	end
-	return categories
 end
 
 function AMM:GetSaveables()
@@ -1393,6 +1143,8 @@ function AMM:GetPersonalityOptions()
 		{name = "Pissed", idle = 7, category = 3},
 		{name = "Terrified", idle = 9, category = 3},
 		{name = "Shocked", idle = 11, category = 3},
+		{name = "Exertion", idle = 1, category = 1},
+		{name = "Disappointed", idle = 4, category = 3},
 	}
 
 	return personalities
@@ -1619,100 +1371,9 @@ function AMM:SetupVehicleData()
 	TweakDB:SetFlat(TweakDBID.new('Vehicle.vehicle_list.list'), unlockableVehicles)
 end
 
-function AMM:UnlockVehicle(handle)
-	handle:GetVehiclePS():UnlockAllVehDoors()
-end
-
-function AMM:SpawnVehicle(spawn)
-	local vehicleGarageId = NewObject('vehicleGarageVehicleID')
-	vehicleGarageId.recordID = TweakDBID.new(spawn.path)
-	Game.GetVehicleSystem():ToggleSummonMode()
-	Game.GetVehicleSystem():TogglePlayerActiveVehicle(vehicleGarageId, 'Car', true)
-	Game.GetVehicleSystem():SpawnPlayerVehicle('Car')
-	Game.GetVehicleSystem():ToggleSummonMode()
-
-	Cron.Every(0.1, function(timer)
-		local vehicleSummonDef = Game.GetAllBlackboardDefs().VehicleSummonData
-		local vehicleSummonBB = Game.GetBlackboardSystem():Get(vehicleSummonDef)
-		local vehicleEntID = vehicleSummonBB:GetEntityID(vehicleSummonDef.SummonedVehicleEntityID)
-
-		spawn.handle = Game.FindEntityByID(vehicleEntID)
-
-		if spawn.handle then
-			if string.find(spawn.path, "yacht") then
-				Util:TeleportTo(spawn.handle, nil, nil, 7)
-			end
-
-			self.spawnedNPCs[spawn.uniqueName()] = spawn
-			self.currentSpawn = ''
-
-			Cron.Halt(timer)
-		end
-	end)
-end
-
-function AMM:DespawnVehicle(spawn)
-	local vehicleGarageId = NewObject('vehicleGarageVehicleID')
-	vehicleGarageId.recordID = TweakDBID.new(spawn.path)
-	Game.GetVehicleSystem():DespawnPlayerVehicle(vehicleGarageId)
-	self.spawnedNPCs[spawn.uniqueName()] = nil
-end
-
 function AMM:GetNPCTweakDBID(npc)
 	if type(npc) == 'userdata' then return npc end
 	return TweakDBID.new(npc)
-end
-
-function AMM:SpawnNPC(spawn)
-	if self.spawnsCounter ~= self.maxSpawns and not buttonPressed then
-		-- local offSetSpawn = self.spawnsCounter % 2 == 0 and self.spawnsCounter / 2 or -self.spawnsCounter / 2
-		local offSetSpawn = self.spawnsCounter % 2 == 0 and self.spawnsCounter / 4 or -self.spawnsCounter / 4
-
-		local distanceFromPlayer = 1
-		local distanceFromGround = tonumber(spawn.parameters) or 0
-
-		if spawn.parameters and string.find(spawn.parameters, "dist") then
-			distanceFromPlayer = spawn.parameters:match("%d+")
-		end
-
-		local player = AMM.player
-		local heading = player:GetWorldForward()
-		local offsetDir = Vector3.new(heading.x * distanceFromPlayer, heading.y * distanceFromPlayer, heading.z)
-		local spawnTransform = player:GetWorldTransform()
-		local spawnPosition = GetSingleton('WorldPosition'):ToVector4(spawnTransform.Position)
-		local newPosition = Vector4.new((spawnPosition.x - offSetSpawn) - offsetDir.x, (spawnPosition.y - offSetSpawn) - offsetDir.y, spawnPosition.z + distanceFromGround, spawnPosition.w)
-
-		-- if spawn.type == "Props" then
-		-- 	newPosition = Vector4.new((spawnPosition.x - offSetSpawn) + offsetDir.x, (spawnPosition.y - offSetSpawn) + offsetDir.y, spawnPosition.z + distanceFromGround, spawnPosition.w)
-		-- end
-
-		spawnTransform:SetPosition(spawnTransform, newPosition)
-		spawn.entityID = Game.GetPreventionSpawnSystem():RequestSpawn(self:GetNPCTweakDBID(spawn.path), -99, spawnTransform)
-		self.spawnsCounter = self.spawnsCounter + 1
-		while self.spawnedNPCs[spawn.uniqueName()] ~= nil do
-			local num = spawn.name:match("|([^|]+)")
-			if num then num = tonumber(num) + 1 else num = 1 end
-			spawn.name = spawn.name:gsub(" | "..tostring(num - 1), "")
-			spawn.name = spawn.name.." | "..tostring(num)
-		end
-		self.spawnedNPCs[spawn.uniqueName()] = spawn
-		self.currentSpawn = spawn.uniqueName()
-	else
-		AMM.player:SetWarningMessage("Spawn limit reached!")
-	end
-end
-
-function AMM:DespawnNPC(npcName, spawnID)
-	--AMM.player:SetWarningMessage(npcName:match("(.+)##(.+)").." will despawn once you look away")
-	self.spawnedNPCs[npcName] = nil
-	self.spawnsCounter = self.spawnsCounter - 1
-	local handle = Game.FindEntityByID(spawnID)
-	if handle then
-		if handle:IsNPC() then
-			Util:TeleportNPCTo(handle, Util:GetBehindPlayerPosition(2))
-		end
-	end
-	Game.GetPreventionSpawnSystem():RequestDespawn(spawnID)
 end
 
 function AMM:DespawnAll(message)
@@ -1720,12 +1381,12 @@ function AMM:DespawnAll(message)
 	for i = 0, 99 do
 		Game.GetPreventionSpawnSystem():RequestDespawnPreventionLevel(i * -1)
 	end
-	self.spawnsCounter = 0
-	self.spawnedNPCs = {}
+
+	AMM.Spawn:DespawnAll()
 end
 
 function AMM:TeleportAll()
-	for _, ent in pairs(AMM.spawnedNPCs) do
+	for _, ent in pairs(AMM.Spawn.spawnedNPCs) do
 		Util:TeleportNPCTo(ent.handle, Util:GetBehindPlayerPosition(2))
 	end
 end
@@ -1733,7 +1394,7 @@ end
 function AMM:RespawnAll()
 	if AMM.entitiesForRespawn == '' then
 		AMM.entitiesForRespawn = {}
-		for _, ent in pairs(AMM.spawnedNPCs) do
+		for _, ent in pairs(AMM.Spawn.spawnedNPCs) do
 			if not(string.find(ent.path, "Vehicle")) then
 				table.insert(AMM.entitiesForRespawn, ent)
 			end
@@ -1748,7 +1409,7 @@ function AMM:RespawnAll()
 		if entity == nil then
 			ent = AMM.entitiesForRespawn[1]
 			table.remove(AMM.entitiesForRespawn, 1)
-			AMM:SpawnNPC(ent)
+			AMM.Spawn:SpawnNPC(ent)
 		end
 
 		if #AMM.entitiesForRespawn == 0 then
@@ -1922,6 +1583,10 @@ function AMM:ClearAllFavorites()
 	db:execute("DELETE FROM favorites; UPDATE sqlite_sequence SET seq = 0")
 end
 
+function AMM:ClearAllSwapFavorites()
+	db:execute("DELETE FROM favorites_swap; UPDATE sqlite_sequence SET seq = 0")
+end
+
 function AMM:SaveAppearance(t)
 	local check = 0
 	for count in db:urows(f("SELECT COUNT(1) FROM blacklist_appearances WHERE app_name = '%s'", t.appearance)) do
@@ -2059,6 +1724,19 @@ function AMM:LoadCustomAppearances(options, id)
 	return options
 end
 
+function AMM:GetAppearance(t)
+	if t.hash == '' then
+		t.hash = tostring(t.handle:GetEntityID().hash)
+	end
+
+	-- Check if custom appearance is active
+	if self.activeCustomApps[t.hash] ~= nil then
+		return self.activeCustomApps[t.hash]
+	else
+		return self:GetScanAppearance(t.handle)
+	end
+end
+
 function AMM:GetScanAppearance(t)
 	return tostring(t:GetCurrentAppearanceName()):match("%[ (%g+) -")
 end
@@ -2133,22 +1811,48 @@ function AMM:ChangeScanAppearanceTo(t, newAppearance)
 	end
 end
 
+function AMM:ShouldCycleAppearance(appearance)
+	local keywordsToBlock = {
+		" No ", " With ", "Underwear", "Naked"
+	}
+
+	for _, keyword in ipairs(keywordsToBlock) do
+		if string.find(appearance, keyword) then
+			return false
+		end
+	end
+
+	return true
+end
+
 function AMM:ChangeAppearanceTo(entity, appearance)
 	-- local appearance, reverse = AMM:CheckForReverseCustomAppearance(appearance, entity)
+
+	-- Check if custom app is active
+	local activeApp = nil
+
+	if next(self.activeCustomApps) ~= nil and self.activeCustomApps[entity.hash] ~= nil then
+		activeApp = self.activeCustomApps[entity.hash]
+	end
+
 	local custom = AMM:GetCustomAppearanceParams(entity, appearance)
 
 	if entity.id ~= "0x69E1384D, 22" then
-		if (not string.find(appearance, " No ")) and (not string.find(appearance, " With ")) and (not string.find(appearance, "Underwear")) and (not string.find(appearance, "Naked")) then
+		if (activeApp and #custom == 0) or (#custom > 0 and AMM:ShouldCycleAppearance(appearance)) then
 			AMM:ChangeScanAppearanceTo(entity, "Cycle")
 		end
 	end
 
-	Cron.After(0.1, function()
+	Cron.After(0.15, function()
 		if #custom > 0 then
 			AMM:ChangeScanCustomAppearanceTo(entity, custom)
 		else
 			AMM:ChangeScanAppearanceTo(entity, appearance)
 		end
+
+		Cron.After(0.1, function()
+			entity.appearance = AMM:GetAppearance(entity)
+		end)
 	end)
 end
 
@@ -2177,102 +1881,13 @@ function AMM:GetTarget()
 	return nil
 end
 
-function AMM:ToggleHostile(spawnHandle)
-	Util:SetGodMode(spawnHandle, false)
-
-	local handle = spawnHandle
-
-	if handle.isPlayerCompanionCached then
-		local AIC = handle:GetAIControllerComponent()
-		local targetAttAgent = handle:GetAttitudeAgent()
-		local reactionComp = handle.reactionComponent
-
-		local aiRole = NewObject('handle:AIRole')
-		aiRole:OnRoleSet(handle)
-
-		handle.isPlayerCompanionCached = false
-		handle.isPlayerCompanionCachedTimeStamp = 0
-
-		Game['senseComponent::RequestMainPresetChange;GameObjectString'](handle, "Combat")
-		AIC:GetCurrentRole():OnRoleCleared(handle)
-		AIC:SetAIRole(aiRole)
-		handle.movePolicies:Toggle(true)
-		targetAttAgent:SetAttitudeGroup(CName.new("hostile"))
-		reactionComp:SetReactionPreset(GetSingleton("gamedataTweakDBInterface"):GetReactionPresetRecord(TweakDBID.new("ReactionPresets.Ganger_Aggressive")))
-		reactionComp:TriggerCombat(AMM.player)
-	else
-		self:SetNPCAsCompanion(handle)
-	end
-end
-
-function AMM:ToggleFavorite(isFavorite, entity)
-	if isFavorite == 0 then
-		local command = f("INSERT INTO favorites (entity_id, entity_name, parameters) VALUES ('%s', '%s', '%s')", entity.id, entity.name, entity.parameters)
-		command = command:gsub("'nil'", "NULL")
-		db:execute(command)
-	else
-		local removedIndex = 0
-		local query = f("SELECT position FROM favorites WHERE entity_name = '%s'", entity.name)
-		for i in db:urows(query) do removedIndex = i end
-
-		local command = f("DELETE FROM favorites WHERE entity_name = '%s' OR parameters = '%s'", entity.name, entity.parameters)
-		command = command:gsub("'nil'", "NULL")
-		db:execute(command)
-		AMM:RearrangeFavoritesIndex(removedIndex)
-	end
-end
-
-function AMM:RearrangeFavoritesIndex(removedIndex)
-	local lastIndex = 0
-	query = "SELECT seq FROM sqlite_sequence WHERE name = 'favorites'"
-	for i in db:urows(query) do lastIndex = i end
-
-	if lastIndex ~= removedIndex then
-		for i = removedIndex, lastIndex - 1 do
-			db:execute(f("UPDATE favorites SET position = %i WHERE position = %i", i, i + 1))
-		end
-	end
-
-	db:execute(f("UPDATE sqlite_sequence SET seq = %i WHERE name = 'favorites'", lastIndex - 1))
-end
-
--- Companion methods -- original code by Catmino
-function AMM:SetNPCAsCompanion(npcHandle)
-	-- print("setting companion")
-	if not(self.isCompanionInvulnerable) then
-		Util:SetGodMode(npcHandle, false)
-	end
-
-	waitTimer = 0.0
-	self.currentSpawn = ''
-
-	local targCompanion = npcHandle
-	local AIC = targCompanion:GetAIControllerComponent()
-	local targetAttAgent = targCompanion:GetAttitudeAgent()
-	local currTime = targCompanion.isPlayerCompanionCachedTimeStamp + 11
-
-	if targCompanion.isPlayerCompanionCached == false then
-		local roleComp = NewObject('handle:AIFollowerRole')
-		roleComp:SetFollowTarget(Game.GetPlayerSystem():GetLocalPlayerControlledGameObject())
-		roleComp:OnRoleSet(targCompanion)
-		roleComp.followerRef = Game.CreateEntityReference("#player", {})
-		targetAttAgent:SetAttitudeGroup(CName.new("player"))
-		roleComp.attitudeGroupName = CName.new("player")
-		Game['senseComponent::RequestMainPresetChange;GameObjectString'](targCompanion, "Follower")
-		targCompanion.isPlayerCompanionCached = true
-		targCompanion.isPlayerCompanionCachedTimeStamp = currTime
-
-		AIC:SetAIRole(roleComp)
-		targCompanion.movePolicies:Toggle(true)
-
-		AMM:UpdateFollowDistance()
-	end
-end
-
 function AMM:UpdateFollowDistance()
-	if self.spawnsCounter < 3 then
+	local spawnsCounter = 0
+	for _ in pairs(AMM.Spawn.spawnedNPCs) do spawnsCounter = spawnsCounter + 1 end
+
+	if spawnsCounter < 3 then
 		self:SetFollowDistance(AMM.followDistance[2])
-	elseif self.spawnsCounter == 3 then
+	elseif spawnsCounter == 3 then
 		self:SetFollowDistance(AMM.followDistance[3])
 	else
 		self:SetFollowDistance(AMM.followDistance[4])
@@ -2308,15 +1923,6 @@ function AMM:IsUnique(npcID)
 			return true
 		end
 	end
-end
-
-function AMM:CanBeHostile(t)
-	local canBeHostile = t:GetRecord():AbilitiesContains(GetSingleton("gamedataTweakDBInterface"):GetGameplayAbilityRecord(TweakDBID.new("Ability.CanCloseCombat")))
-	if not(canBeHostile) then
-		canBeHostile = t:GetRecord():AbilitiesContains(GetSingleton("gamedataTweakDBInterface"):GetGameplayAbilityRecord(TweakDBID.new("Ability.HasChargeJump")))
-	end
-
-	return canBeHostile
 end
 
 function AMM:IsSpawnable(t)
@@ -2406,9 +2012,10 @@ function AMM:OpenPopup(name)
 		name = "WARNING"
 	elseif name == "Favorites" then
 		ImGui.SetNextWindowSize(400, 140)
-		popupDelegate.message = "Are you sure you want to delete all your favorites?"
-		table.insert(popupDelegate.buttons, {label = "Yes", action = function() AMM:ClearAllFavorites() end})
-		table.insert(popupDelegate.buttons, {label = "No", action = ''})
+		popupDelegate.message = "If you are sure you want to delete all your favorites, select which one below:"
+		table.insert(popupDelegate.buttons, {label = "Spawn Favorites", action = function() AMM:ClearAllFavorites() end})
+		table.insert(popupDelegate.buttons, {label = "Swap Favorites", action = function() AMM:ClearAllSwapFavorites() end})
+		table.insert(popupDelegate.buttons, {label = "Cancel", action = ''})
 		name = "WARNING"
 	elseif name == "Appearances" then
 		ImGui.SetNextWindowSize(400, 140)
@@ -2441,136 +2048,6 @@ function AMM:BeginPopup(popupTitle, popupActionArg, popupModal, popupDelegate, s
 	end
 end
 
-function AMM:SetFavoriteNamePopup(entity)
-	local sizeX = ImGui.GetWindowSize()
-	local x, y = ImGui.GetWindowPos()
-	ImGui.SetNextWindowPos(x + ((sizeX / 2) - 200), y - 40)
-	ImGui.SetNextWindowSize(400, ImGui.GetFontSize() * 8)
-	AMM.currentFavoriteName = entity.name
-	AMM.popupEntity = entity
-	ImGui.OpenPopup("Favorite Name")
-end
-
-function AMM:DrawFavoritesButton(buttonLabels, entity)
-	if entity.parameters == nil then
-		entity['parameters'] = entity.appearance
-	end
-
-	local isFavorite = 0
-	for fav in db:urows(f('SELECT COUNT(1) FROM favorites WHERE entity_name = "%s"', entity.name)) do
-		isFavorite = fav
-	end
-	if isFavorite == 0 and entity.parameters ~= nil then
-		for fav in db:urows(f("SELECT COUNT(1) FROM favorites WHERE parameters = '%s'", entity.parameters)) do
-			isFavorite = fav
-		end
-	end
-
-	local favoriteButtonLabel = buttonLabels[1].."##"..entity.name
-	if isFavorite ~= 0 then
-		favoriteButtonLabel = buttonLabels[2].."##"..entity.name
-	end
-
-	if ImGui.SmallButton(favoriteButtonLabel) then
-		if not(AMM:IsUnique(entity.id)) and isFavorite == 0 then
-			AMM:SetFavoriteNamePopup(entity)
-		else
-			AMM:ToggleFavorite(isFavorite, entity)
-		end
-	end
-
-	if ImGui.BeginPopupModal("Favorite Name") then
-		local style = {
-						buttonHeight = ImGui.GetFontSize() * 2,
-						halfButtonWidth = ((ImGui.GetWindowContentRegionWidth() / 2) - 12)
-				}
-
-		if AMM.currentFavoriteName == 'existing' then
-			ImGui.TextColored(1, 0.16, 0.13, 0.75, "Existing Name")
-
-			if ImGui.Button("Ok", -1, style.buttonHeight) then
-				AMM.currentFavoriteName = ''
-			end
-		elseif AMM.popupEntity.name == entity.name then
-			AMM.currentFavoriteName = ImGui.InputText("Name", AMM.currentFavoriteName, 30)
-
-			if ImGui.Button("Save", style.halfButtonWidth + 8, style.buttonHeight) then
-				local isFavorite = 0
-				for fav in db:urows(f("SELECT COUNT(1) FROM favorites WHERE entity_name = '%s'", self.currentFavoriteName)) do
-					isFavorite = fav
-				end
-				if isFavorite == 0 then
-					if entity.type ~= 'Spawn' then -- Target type
-						entity.name = AMM.currentFavoriteName
-					else -- Spawn type
-						AMM.spawnedNPCs[entity.uniqueName()] = nil
-						entity.name = AMM.currentFavoriteName
-						entity.parameters = AMM:GetScanAppearance(entity.handle)
-						AMM.spawnedNPCs[entity.uniqueName()] = entity
-					end
-					AMM.currentFavoriteName = ''
-					AMM:ToggleFavorite(isFavorite, entity)
-					AMM.popupIsOpen = false
-					ImGui.CloseCurrentPopup()
-				else
-					AMM.currentFavoriteName = 'existing'
-				end
-			end
-
-			ImGui.SameLine()
-			if ImGui.Button("Cancel", style.halfButtonWidth + 8, style.buttonHeight) then
-				AMM.currentFavoriteName = ''
-				AMM.popupIsOpen = false
-				ImGui.CloseCurrentPopup()
-			end
-		end
-		ImGui.EndPopup()
-	end
-end
-
-function AMM:DrawArrowButton(direction, entity, index, localIndex)
-	local dirEnum, tempPos
-	if direction == "up" then
-		dirEnum = ImGuiDir.Up
-		tempPos = index - 1
-		localIndex = localIndex - 1
-	else
-		dirEnum = ImGuiDir.Down
-		tempPos = index + 1
-		localIndex = localIndex + 1
-	end
-
-	if ImGui.ArrowButton(direction..entity.id, dirEnum) then
-
-		local condition = " WHERE parameters != 'prop'"
-		if entity.type == "Props" then condition = " WHERE parameters = 'prop'" end
-		local query = "SELECT COUNT(1) FROM favorites"..condition
-		for x in db:urows(query) do favoritesLength = x end
-
-		local temp
-		local query = f("SELECT * FROM favorites WHERE position = %i", tempPos)
-		for fav in db:nrows(query) do temp = fav end
-		if type(entity.parameters) == 'table' then entity.parameters = 'prop' end
-
-		if direction == "up" and temp.parameters == 'prop' and entity.parameters ~= 'prop' then
-			while temp.parameters == 'prop' and entity.parameters ~= 'prop' do
-				tempPos = tempPos - 1
-				local query = f("SELECT * FROM favorites WHERE position = %i", tempPos)
-				for fav in db:nrows(query) do temp = fav end
-			end
-
-			tempPos = tempPos + 1
-			local query = f("SELECT * FROM favorites WHERE position = %i", tempPos)
-			for fav in db:nrows(query) do temp = fav end
-		end
-
-		if not(localIndex < 1 or localIndex > favoritesLength) then
-			db:execute(f("UPDATE favorites SET entity_id = '%s', entity_name = '%s', parameters = '%s' WHERE position = %i", entity.id, entity.name, entity.parameters, tempPos))
-			db:execute(f("UPDATE favorites SET entity_id = '%s', entity_name = '%s', parameters = '%s' WHERE position = %i", temp.entity_id, temp.entity_name, temp.parameters, index))
-		end
-	end
-end
-
 function AMM:DrawButton(title, width, height, action, target)
 	if (ImGui.Button(title, width, height)) then
 		if action == "Cycle" then
@@ -2584,69 +2061,13 @@ function AMM:DrawButton(title, width, height, action, target)
 		elseif action == "Unblack" then
 			AMM:RemoveFromBlacklist(target)
 		elseif action == "SpawnNPC" then
-			AMM:SpawnNPC(target)
+			AMM.Spawn:SpawnNPC(target)
 			buttonPressed = true
 		elseif action == "SpawnVehicle" then
-			AMM:SpawnVehicle(target)
+			AMM.Spawn:SpawnVehicle(target)
 			buttonPressed = true
 		elseif action == "SpawnProp" then
 			AMM.Props:SpawnProp(target)
-		end
-	end
-end
-
-function AMM:DrawEntitiesButtons(entities, categoryName, style)
-
-	for i, entity in ipairs(entities) do
-		name = entity[1]
-		id = entity[2]
-		path = entity[5]
-		companion = entity[3]
-		parameters = entity[4]
-		template = entity[6]
-
-		local newSpawn = AMM:NewSpawn(name, id, parameters, companion, path, template)
-		local uniqueName = newSpawn.uniqueName()
-		local buttonLabel = uniqueName..tostring(i)
-
-		local favOffset = 0
-		if categoryName == 'Favorites' then
-			favOffset = 40
-			local currentIndex = 0
-			for index in db:urows(f("SELECT position FROM favorites WHERE entity_name = '%s'", name)) do
-				currentIndex = index
-			end
-
-			AMM:DrawArrowButton("up", newSpawn, currentIndex, i)
-			ImGui.SameLine()
-		end
-
-		local isFavorite = 0
-		for fav in db:urows(f("SELECT COUNT(1) FROM favorites WHERE entity_id = '%s'", id)) do
-			isFavorite = fav
-		end
-
-		if self.spawnsCounter == self.maxSpawns or (AMM.spawnedNPCs[uniqueName] and isFavorite ~= 0) then
-			ImGui.PushStyleColor(ImGuiCol.Button, 0.56, 0.06, 0.03, 0.25)
-			ImGui.PushStyleColor(ImGuiCol.ButtonHovered, 0.56, 0.06, 0.03, 0.25)
-			ImGui.PushStyleColor(ImGuiCol.ButtonActive, 0.56, 0.06, 0.03, 0.25)
-			AMM:DrawButton(buttonLabel, -1 - favOffset, style.buttonHeight, "Disabled", nil)
-			ImGui.PopStyleColor(3)
-		elseif not(AMM.spawnedNPCs[uniqueName] ~= nil and AMM:IsUnique(newSpawn.id)) then
-			local action = "SpawnNPC"
-			if string.find(tostring(newSpawn.path), "Vehicle") then action = "SpawnVehicle" end
-			if string.find(tostring(newSpawn.path), "Props") then action = "SpawnProp" end
-			AMM:DrawButton(buttonLabel, -1 - favOffset, style.buttonHeight, action, newSpawn)
-		end
-
-		if categoryName == 'Favorites' then
-			local currentIndex = 0
-			for index in db:urows(f("SELECT position FROM favorites WHERE entity_name = '%s'", name)) do
-				currentIndex = index
-			end
-
-			ImGui.SameLine()
-			AMM:DrawArrowButton("down", newSpawn, currentIndex, i)
 		end
 	end
 end

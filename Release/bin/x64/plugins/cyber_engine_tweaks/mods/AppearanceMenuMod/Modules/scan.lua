@@ -22,6 +22,13 @@ function Scan:Draw(AMM, target, style)
 
     AMM.UI:DrawCrossHair()
 
+    if Tools.lockTarget then
+      target = Tools.currentNPC
+      if target.options == nil then
+        target.options = AMM:GetAppearanceOptions(target.handle)
+      end
+    end
+
     local tabConfig = {
       ['NPCPuppet'] = {
         currentTitle = "Current Appearance:",
@@ -145,7 +152,7 @@ function Scan:Draw(AMM, target, style)
         end
       elseif target.handle:IsVehicle() then
         if ImGui.SmallButton("  Unlock Vehicle  ") then
-          AMM:UnlockVehicle(target.handle)
+          Util:UnlockVehicle(target.handle)
         end
 
         ImGui.SameLine()
@@ -167,7 +174,7 @@ function Scan:Draw(AMM, target, style)
           Util:ToggleEngine(target.handle, Scan.vehEngine)
         end
 
-        local status, ent = next(AMM.spawnedNPCs)
+        local status, ent = next(AMM.Spawn.spawnedNPCs)
         if status and ent.handle:IsNPC() then
           ImGui.SameLine()
           if ImGui.SmallButton("  Assign Seats  ") then
@@ -192,7 +199,7 @@ function Scan:Draw(AMM, target, style)
         if spawnID ~= nil then
           local favoritesLabels = {"  Add to Spawnable Favorites  ", "  Remove from Spawnable Favorites  "}
           target.id = spawnID
-          AMM:DrawFavoritesButton(favoritesLabels, target)
+          AMM.Spawn:DrawFavoritesButton(favoritesLabels, target)
           ImGui.Spacing()
         end
       end
@@ -200,12 +207,12 @@ function Scan:Draw(AMM, target, style)
       if AMM.userSettings.experimental then
         if ImGui.SmallButton("  Despawn  ") then
           local spawnedNPC = nil
-    			for _, spawn in pairs(AMM.spawnedNPCs) do
+    			for _, spawn in pairs(AMM.Spawn.spawnedNPCs) do
     				if target.id == spawn.id then spawnedNPC = spawn break end
     			end
 
     			if spawnedNPC then
-    				AMM:DespawnNPC(spawnedNPC.uniqueName(), spawnedNPC.entityID)
+    				AMM.Spawn:DespawnNPC(spawnedNPC)
     			else
     				Util:Despawn(target.handle)
     			end
@@ -237,7 +244,7 @@ function Scan:Draw(AMM, target, style)
 
         if ImGui.BeginChild("Scrolling", x, y) then
           for i, appearance in ipairs(target.options) do
-            if (ImGui.Button(appearance)) then
+            if (ImGui.Button(appearance)) then              
               AMM:ChangeAppearanceTo(target, appearance)
             end
           end
@@ -260,7 +267,7 @@ end
 
 function Scan:DrawSeatsPopup()
   if ImGui.BeginPopup("Seats", ImGuiWindowFlags.AlwaysAutoResize) then
-    for i, ent in pairs(AMM.spawnedNPCs) do
+    for i, ent in pairs(AMM.Spawn.spawnedNPCs) do
       if ent.handle:IsNPC() then
         ImGui.Text(ent.name)
         ImGui.SameLine()
@@ -360,7 +367,7 @@ function Scan:AutoAssignSeats()
   local playerMountedVehicle = Scan.vehicle.hash
 
   local counter = 1
-  for _, ent in pairs(AMM.spawnedNPCs) do
+  for _, ent in pairs(AMM.Spawn.spawnedNPCs) do
     if ent.handle:IsNPC() then
       local seatsNumber = #Scan.vehicleSeats - 1
 
