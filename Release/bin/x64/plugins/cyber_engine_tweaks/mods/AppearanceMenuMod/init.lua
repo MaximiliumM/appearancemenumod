@@ -41,7 +41,7 @@ function AMM:new()
 	 AMM.TeleportMod = ''
 
 	 -- Main Properties --
-	 AMM.currentVersion = "1.10"
+	 AMM.currentVersion = "1.10b"
 	 AMM.updateNotes = require('update_notes.lua')
 	 AMM.credits = require("credits.lua")
 	 AMM.updateLabel = "WHAT'S NEW"
@@ -87,7 +87,9 @@ function AMM:new()
 		 importInProgress = false
 		 finishedUpdate = AMM:CheckDBVersion()
 
-		 AMM.player = Game.GetPlayer()
+		 if AMM.Debug ~= '' then
+			AMM.player = Game.GetPlayer()
+		 end
 
 		 -- Load Modules --
 		 AMM.Spawn = require('Modules/spawn.lua')
@@ -98,9 +100,9 @@ function AMM:new()
 		 AMM.Director = require('Modules/director.lua')
 
 		 AMM:SetupVehicleData()
-		 AMM:SetupJohnny()
 		 AMM:SetupCustomProps()
-		 AMM:SetupSecondV()
+		 AMM:SetupCustomCharacters()
+		 AMM:SetupJohnny()
 		 AMM:ImportUserData()
 
 		 -- Update after importing user data
@@ -116,6 +118,7 @@ function AMM:new()
 			 local playerPosition = player:GetWorldPosition()
 
 			 if math.floor(playerPosition.z) ~= 0 then
+				 AMM.player = player
 				 AMM.playerAttached = true
 				 AMM.playerInMenu = false
 
@@ -631,7 +634,7 @@ function AMM:Begin()
 
 			if not(finishedUpdate) then
 				AMM.UI:Spacing(4)
-				if ImGui.Button("Cool!", ImGui.GetWindowContentRegionWidth(), 40) then
+				if ImGui.Button("Cool!", ImGui.GetWindowContentRegionWidth(), 40) then	
 					AMM:FinishUpdate()
 				end
 				AMM.UI:Separator()
@@ -908,6 +911,7 @@ end
 
 function AMM:FinishUpdate()
 	finishedUpdate = true
+	AMM:UpdateOldFavorites()
 	db:execute(f("UPDATE metadata SET current_version = '%s'", self.currentVersion))
 end
 
@@ -1233,10 +1237,18 @@ function AMM:RevertTweakDBChanges(userActivated)
 	end
 end
 
-function AMM:SetupSecondV()
+function AMM:UpdateOldFavorites()
+	db:execute("UPDATE favorites SET entity_id = '0xCD70BCE4, 20' WHERE entity_id = '0xC111FBAC, 16';")
+	db:execute("UPDATE favorites_swap SET entity_id = '0xCD70BCE4, 20' WHERE entity_id = '0xC111FBAC, 16';")
+	db:execute("UPDATE favorites SET entity_id = '0x5E611B16, 24' WHERE entity_id = '0x903E76AF, 43';")
+end
+
+function AMM:SetupCustomCharacters()
 	local ents = {
 		["Character.TPP_Player_Cutscene_Male"] = {"AMM_Character.Player_Male", "player_ma_tpp"},
 		["Character.TPP_Player_Cutscene_Female"] = {"AMM_Character.Player_Female", "player_wa_tpp"},
+		["Character.Takemura"] = {"AMM_Character.Silverhand", "silverhand"},
+		["Character.Hanako"] = {"AMM_Character.Hanako", "hanako"},
 	}
 
 	for og, ent in pairs(ents) do
@@ -1351,14 +1363,19 @@ end
 function AMM:SetupJohnny()
 	TweakDB:SetFlat("Character.TPP_Player_Cutscene_Female.fullDisplayName", TweakDB:GetFlat("Character.TPP_Player.displayName"))
 	TweakDB:SetFlat("Character.TPP_Player_Cutscene_Male.fullDisplayName", TweakDB:GetFlat("Character.TPP_Player.displayName"))
-	TweakDB:SetFlatNoUpdate(TweakDBID.new("Character.q000_tutorial_course_01_patroller.voiceTag"), TweakDB:GetFlat(TweakDBID.new("Character.Silverhand.voiceTag")))
-	TweakDB:SetFlatNoUpdate(TweakDBID.new("Character.q000_tutorial_course_01_patroller.displayName"), TweakDB:GetFlat(TweakDBID.new("Character.Silverhand.displayName")))
-	TweakDB:SetFlatNoUpdate(TweakDBID.new("Character.q000_tutorial_course_01_patroller.alternativeDisplayName"), TweakDB:GetFlat(TweakDBID.new("Character.Silverhand.alternativeDisplayName")))
-	TweakDB:SetFlatNoUpdate(TweakDBID.new("Character.q000_tutorial_course_01_patroller.alternativeFullDisplayName"), TweakDB:GetFlat(TweakDBID.new("Character.Silverhand.alternativeFullDisplayName")))
-	TweakDB:SetFlatNoUpdate(TweakDBID.new("Character.q000_tutorial_course_01_patroller.fullDisplayName"), TweakDB:GetFlat(TweakDBID.new("Character.Silverhand.fullDisplayName")))
-	TweakDB:SetFlatNoUpdate(TweakDBID.new("Character.q000_tutorial_course_01_patroller.affiliation"), TweakDB:GetFlat(TweakDBID.new("Character.Silverhand.affiliation")))
-	TweakDB:SetFlatNoUpdate(TweakDBID.new("Character.q000_tutorial_course_01_patroller.statPools"), TweakDB:GetFlat(TweakDBID.new("Character.Silverhand.statPools")))
-	TweakDB:Update(TweakDBID.new("Character.q000_tutorial_course_01_patroller"))
+	TweakDB:SetFlatNoUpdate(TweakDBID.new("AMM_Character.Silverhand.voiceTag"), TweakDB:GetFlat(TweakDBID.new("Character.Silverhand.voiceTag")))
+	TweakDB:SetFlatNoUpdate(TweakDBID.new("AMM_Character.Silverhand.displayName"), TweakDB:GetFlat(TweakDBID.new("Character.Silverhand.displayName")))
+	TweakDB:SetFlatNoUpdate(TweakDBID.new("AMM_Character.Silverhand.alternativeDisplayName"), TweakDB:GetFlat(TweakDBID.new("Character.Silverhand.alternativeDisplayName")))
+	TweakDB:SetFlatNoUpdate(TweakDBID.new("AMM_Character.Silverhand.alternativeFullDisplayName"), TweakDB:GetFlat(TweakDBID.new("Character.Silverhand.alternativeFullDisplayName")))
+	TweakDB:SetFlatNoUpdate(TweakDBID.new("AMM_Character.Silverhand.fullDisplayName"), TweakDB:GetFlat(TweakDBID.new("Character.Silverhand.fullDisplayName")))
+	TweakDB:SetFlatNoUpdate(TweakDBID.new("AMM_Character.Silverhand.affiliation"), TweakDB:GetFlat(TweakDBID.new("Character.Silverhand.affiliation")))
+	TweakDB:SetFlatNoUpdate(TweakDBID.new("AMM_Character.Silverhand.statPools"), TweakDB:GetFlat(TweakDBID.new("Character.Silverhand.statPools")))
+	TweakDB:Update(TweakDBID.new("AMM_Character.Silverhand"))
+
+	TweakDB:SetFlatNoUpdate(TweakDBID.new('AMM_Character.Hanako.primaryEquipment'), TweakDB:GetFlat(TweakDBID.new('Character.Judy.primaryEquipment')))
+    TweakDB:SetFlatNoUpdate(TweakDBID.new('AMM_Character.Hanako.secondaryEquipment'), TweakDB:GetFlat(TweakDBID.new('Character.Judy.secondaryEquipment')))
+	TweakDB:SetFlatNoUpdate(TweakDBID.new('AMM_Character.Hanako.abilities'), TweakDB:GetFlat(TweakDBID.new('Character.Judy.abilities')))
+	TweakDB:Update(TweakDBID.new("AMM_Character.Hanako"))
 end
 
 function AMM:SetupVehicleData()

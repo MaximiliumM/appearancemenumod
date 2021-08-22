@@ -276,7 +276,7 @@ function Swap:DrawEntitiesButtons(entities, categoryName)
 
 		if ImGui.Button(name, style.buttonWidth - favOffset, style.buttonHeight) then
       Game.GetPlayer():SetWarningMessage("Reload your save game to update changes!")
-      if targetID ~= "0x903E76AF, 43" or Swap.specialSwap then
+      if targetID ~= "0x5E611B16, 24" or Swap.specialSwap then
         Swap:ChangeEntityTemplateTo(target.name, targetID, id)
       end
     end
@@ -289,7 +289,7 @@ function Swap:DrawEntitiesButtons(entities, categoryName)
 end
 
 function Swap:ChangeEntityTemplateTo(targetName, fromID, toID)
-  if toID == "0x903E76AF, 43" and not Swap.specialSwap then toID = '0xB1B50FFA, 14' end
+  if toID == "0x5E611B16, 24" and not Swap.specialSwap then toID = '0xB1B50FFA, 14' end
 
   local toPath = Swap:GetEntityPathFromID(toID)
   local fromPath = Swap:GetEntityPathFromID(fromID)

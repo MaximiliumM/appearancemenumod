@@ -1,5 +1,16 @@
 return {
 	{
+		'1.10b',
+		'2021 Aug 22',
+		[[Added new Johnny Silverhand companion with more appearances!]],
+		[[Added combat abilities to Hanako]],
+		[[Disabled spawning vehicles in front of the player for now]],
+		[[-- They will come to you the same way when you use the game's call vehicle.]],
+		[[-- Unfortunately, it's a bug in game version 1.3. I will fix later when possible.]],
+		[[Fixed issue where footsteps sound would disappear for some users]],
+		[[Fixed issue where locking target would make tabs disappear sometimes]],
+	},
+	{
 		'1.10',
 		'2021 Aug 22',
 		[[Added support for CET 1.6 and Game version 1.3]],
@@ -8,7 +19,7 @@ return {
 		[[-- The Director still uses the old spawning system for now. I will update it later!]],
 		[[Added 381 new Props including:]],
 		[[-- Nibbles' Bed, Pouf with color variations, Gold V Letter and much more!]],
-		[[-- We've added three new categories: Walls, Flooring and Build!]],
+		[[-- We've added four new categories: Walls, Ceilings, Flooring and Build!]],
 		[[-- There are many Props that have no collision. There is no workaround that for now!]],
 		[[-- Moved Seamurai Yacht from Vehicles to Props, so now you can save its position like any Prop.]],
 		[[Added Relative Mode to Movement Tools:]],

@@ -385,10 +385,10 @@ end
 function Spawn:SpawnVehicle(spawn)
 	local vehicleGarageId = NewObject('vehicleGarageVehicleID')
 	vehicleGarageId.recordID = TweakDBID.new(spawn.path)
-	Game.GetVehicleSystem():ToggleSummonMode()
+	-- Game.GetVehicleSystem():ToggleSummonMode()
 	Game.GetVehicleSystem():TogglePlayerActiveVehicle(vehicleGarageId, 'Car', true)
 	Game.GetVehicleSystem():SpawnPlayerVehicle('Car')
-	Game.GetVehicleSystem():ToggleSummonMode()
+	-- Game.GetVehicleSystem():ToggleSummonMode()
 
 	Cron.Every(0.1, function(timer)
 		local vehicleSummonDef = Game.GetAllBlackboardDefs().VehicleSummonData
@@ -398,16 +398,13 @@ function Spawn:SpawnVehicle(spawn)
 		spawn.handle = Game.FindEntityByID(vehicleEntID)
 
 		if spawn.handle then
-			if string.find(spawn.path, "yacht") then
-				Util:TeleportTo(spawn.handle, nil, nil, 7)
-			end
 
 			Spawn.spawnedNPCs[spawn.uniqueName()] = spawn
-      Util:UnlockVehicle(handle)
+      		Util:UnlockVehicle(spawn.handle)
 
-      if spawn.parameters ~= nil then
-        AMM:ChangeScanAppearanceTo(spawn, spawn.parameters)
-      end
+			if spawn.parameters ~= nil then
+				AMM:ChangeScanAppearanceTo(spawn, spawn.parameters)
+			end
 
 			Cron.Halt(timer)
 		end
@@ -418,7 +415,7 @@ function Spawn:DespawnVehicle(spawn)
 	local vehicleGarageId = NewObject('vehicleGarageVehicleID')
 	vehicleGarageId.recordID = TweakDBID.new(spawn.path)
 	Game.GetVehicleSystem():DespawnPlayerVehicle(vehicleGarageId)
-	self.spawnedNPCs[spawn.uniqueName()] = nil
+	Spawn.spawnedNPCs[spawn.uniqueName()] = nil
 end
 
 function Spawn:SpawnFavorite()

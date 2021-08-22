@@ -640,7 +640,7 @@ function Tools:DrawNPCActions()
 
   AMM.UI:DrawCrossHair()
 
-  if Tools.currentNPC and Tools.currentNPC ~= '' then
+  if Tools.currentNPC and Tools.currentNPC ~= '' and Tools.currentNPC.handle then
     if not Game.FindEntityByID(Tools.currentNPC.handle:GetEntityID()) then
       Tools.currentNPC = ''
     end
