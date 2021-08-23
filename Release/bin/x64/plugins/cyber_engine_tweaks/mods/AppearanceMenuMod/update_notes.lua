@@ -1,8 +1,18 @@
 return {
 	{
+		'1.10c',
+		'2021 Aug 23',
+		[[Reverted to old Spawner using Prevention System for NPCs:]],
+		[[-- Right now the new Spawner has issues with NPCs mounting vehicles]],
+		[[-- The spawn limit is back. As before, the system will stop spawning around 8 NPCs]],
+		[[Fixed issue where Favorites would not work correctly in Decor tab]],
+		[[Fixed issue where Toggle V Head would not work the first time]],
+	},
+	{
 		'1.10b',
 		'2021 Aug 22',
 		[[Added new Johnny Silverhand companion with more appearances!]],
+		[[-- The Tutorial Robot is back!]],
 		[[Added combat abilities to Hanako]],
 		[[Disabled spawning vehicles in front of the player for now]],
 		[[-- They will come to you the same way when you use the game's call vehicle.]],

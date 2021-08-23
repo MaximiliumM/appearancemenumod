@@ -304,18 +304,20 @@ function Spawn:DrawFavoritesButton(buttonLabels, entity)
 
 			if ImGui.Button("Save", style.halfButtonWidth + 8, style.buttonHeight) then
 				local isFavorite = 0
-				for fav in db:urows(f("SELECT COUNT(1) FROM favorites WHERE entity_name = '%s'", self.currentFavoriteName)) do
+				for fav in db:urows(f("SELECT COUNT(1) FROM favorites WHERE entity_name = '%s'", Spawn.currentFavoriteName)) do
 					isFavorite = fav
 				end
 				if isFavorite == 0 then
-					if entity.type ~= 'Spawn' then -- Target type
-						entity.name = AMM.currentFavoriteName
-					else -- Spawn type
+					entity.name = Spawn.currentFavoriteName
+
+					if entity.type == "Props" or entity.type == "entEntity" then
+						entity.parameters = 'Prop'
+					elseif entity.type == "Spawn" then
 						Spawn.spawnedNPCs[entity.uniqueName()] = nil
-						entity.name = Spawn.currentFavoriteName
 						entity.parameters = AMM:GetScanAppearance(entity.handle)
 						Spawn.spawnedNPCs[entity.uniqueName()] = entity
 					end
+
 					Spawn.currentFavoriteName = ''
 					Spawn:ToggleFavorite(isFavorite, entity)
 					AMM.popupIsOpen = false
@@ -350,18 +352,18 @@ function Spawn:DrawArrowButton(direction, entity, index, localIndex)
 
 	if ImGui.ArrowButton(direction..entity.id, dirEnum) then
 
-		local condition = " WHERE parameters != 'prop'"
-		if entity.type == "Props" then condition = " WHERE parameters = 'prop'" end
+		local condition = " WHERE parameters != 'Prop'"
+		if entity.type == "Props" then condition = " WHERE parameters = 'Prop'" end
 		local query = "SELECT COUNT(1) FROM favorites"..condition
 		for x in db:urows(query) do favoritesLength = x end
 
 		local temp
 		local query = f("SELECT * FROM favorites WHERE position = %i", tempPos)
 		for fav in db:nrows(query) do temp = fav end
-		if type(entity.parameters) == 'table' then entity.parameters = 'prop' end
+		if type(entity.parameters) == 'table' then entity.parameters = 'Prop' end
 
-		if direction == "up" and temp.parameters == 'prop' and entity.parameters ~= 'prop' then
-			while temp.parameters == 'prop' and entity.parameters ~= 'prop' do
+		if direction == "up" and temp.parameters == 'Prop' and entity.parameters ~= 'Prop' then
+			while temp.parameters == 'Prop' and entity.parameters ~= 'Prop' do
 				tempPos = tempPos - 1
 				local query = f("SELECT * FROM favorites WHERE position = %i", tempPos)
 				for fav in db:nrows(query) do temp = fav end
@@ -444,7 +446,8 @@ function Spawn:SpawnNPC(spawn)
 	local spawnTransform = AMM.player:GetWorldTransform()
 	local pos = AMM.player:GetWorldPosition()
 	local heading = AMM.player:GetWorldForward()
-	local newPos = Vector4.new(pos.x + heading.x, pos.y + heading.y, pos.z + heading.z, pos.w + heading.w)
+	-- local newPos = Vector4.new(pos.x + heading.x, pos.y + heading.y, pos.z + heading.z, pos.w + heading.w)
+	local newPos = Vector4.new(pos.x - heading.x, pos.y - heading.y, pos.z - heading.z, pos.w - heading.w)
 	spawnTransform:SetPosition(newPos)
 
 	local custom = {}
@@ -453,12 +456,14 @@ function Spawn:SpawnNPC(spawn)
 	end
 
 	local favoriteApp = false
-	if spawn.parameters ~= nil and #custom == 0 then
-		favoriteApp = true
-		spawn.entityID = exEntitySpawner.SpawnRecord(spawn.path, spawnTransform, spawn.parameters)
-	else
-		spawn.entityID = exEntitySpawner.SpawnRecord(spawn.path, spawnTransform)
-	end
+	-- if spawn.parameters ~= nil and #custom == 0 then
+	-- 	favoriteApp = true
+	-- 	spawn.entityID = exEntitySpawner.SpawnRecord(spawn.path, spawnTransform, spawn.parameters)
+	-- else
+	-- 	spawn.entityID = exEntitySpawner.SpawnRecord(spawn.path, spawnTransform)
+	-- end
+
+	spawn.entityID = Game.GetPreventionSpawnSystem():RequestSpawn(AMM:GetNPCTweakDBID(spawn.path), -99, spawnTransform)
 
 	while Spawn.spawnedNPCs[spawn.uniqueName()] ~= nil do
 		local num = spawn.name:match("|([^|]+)")
@@ -469,16 +474,27 @@ function Spawn:SpawnNPC(spawn)
 
   	Cron.Every(0.1, {tick = 1}, function(timer)
 		local entity = Game.FindEntityByID(spawn.entityID)
+
+		timer.tick = timer.tick + 1
+		
+		if timer.tick > 10 then
+			Cron.Halt(timer)
+		end
+
 		if entity then
 			spawn.handle = entity
 			Spawn.spawnedNPCs[spawn.uniqueName()] = spawn
 
 			spawn.appearance = AMM:GetAppearance(spawn)
 
+			if not(string.find(spawn.name, "Drone")) then
+				Util:TeleportNPCTo(spawn.handle)
+			end
+
 			if #custom > 0 then
 				AMM:ChangeAppearanceTo(spawn, spawn.parameters)
-			elseif not favoriteApp then
-				AMM:ChangeScanAppearanceTo(spawn, 'Cycle')
+			-- elseif not favoriteApp then
+				-- AMM:ChangeScanAppearanceTo(spawn, 'Cycle')
 			end
 
 			if AMM.userSettings.spawnAsCompanion and spawn.canBeCompanion then
@@ -492,7 +508,16 @@ end
 
 function Spawn:DespawnNPC(ent)
 	Spawn.spawnedNPCs[ent.uniqueName()] = nil
-	exEntitySpawner.Despawn(ent.handle)
+	-- exEntitySpawner.Despawn(ent.handle)
+
+	local spawnID = ent.entityID
+	local handle = Game.FindEntityByID(spawnID)
+	if handle then
+		if handle:IsNPC() then
+			Util:TeleportNPCTo(handle, Util:GetBehindPlayerPosition(2))
+		end
+	end
+	Game.GetPreventionSpawnSystem():RequestDespawn(spawnID)
 end
 
 function Spawn:DespawnAll()

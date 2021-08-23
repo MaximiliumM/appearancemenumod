@@ -41,7 +41,7 @@ function AMM:new()
 	 AMM.TeleportMod = ''
 
 	 -- Main Properties --
-	 AMM.currentVersion = "1.10b"
+	 AMM.currentVersion = "1.10c"
 	 AMM.updateNotes = require('update_notes.lua')
 	 AMM.credits = require("credits.lua")
 	 AMM.updateLabel = "WHAT'S NEW"
@@ -1241,6 +1241,14 @@ function AMM:UpdateOldFavorites()
 	db:execute("UPDATE favorites SET entity_id = '0xCD70BCE4, 20' WHERE entity_id = '0xC111FBAC, 16';")
 	db:execute("UPDATE favorites_swap SET entity_id = '0xCD70BCE4, 20' WHERE entity_id = '0xC111FBAC, 16';")
 	db:execute("UPDATE favorites SET entity_id = '0x5E611B16, 24' WHERE entity_id = '0x903E76AF, 43';")
+	db:execute("DELETE FROM favorites WHERE parameters LIKE '%table%'")
+
+	local count = 0
+	for x in db:urows('SELECT COUNT(1) FROM favorites') do
+		count = x
+	end
+
+	db:execute(f("UPDATE sqlite_sequence SET seq = %i WHERE name = 'favorites'", count))
 end
 
 function AMM:SetupCustomCharacters()

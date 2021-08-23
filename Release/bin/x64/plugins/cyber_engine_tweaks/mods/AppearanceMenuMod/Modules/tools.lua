@@ -365,6 +365,8 @@ function Tools:ToggleHead()
     Game.AddToInventory(headItem, 1)
   end
 
+  Game.EquipItemOnPlayer(headItem, "TppHead")
+
   if ts:GetItemInSlot(AMM.player, TweakDBID.new("AttachmentSlots.TppHead")) ~= nil then
     ts:RemoveItemFromSlot(AMM.player, TweakDBID.new('AttachmentSlots.TppHead'), true, true, true)
   else
