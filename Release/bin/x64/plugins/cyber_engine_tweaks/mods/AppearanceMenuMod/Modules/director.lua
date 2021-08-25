@@ -1419,7 +1419,7 @@ function Director:DrawActorsPopup()
         ImGui.Text("No Results")
       end
     else
-      for _, category in ipairs(AMM.categories) do
+      for _, category in ipairs(AMM.Spawn.categories) do
         local entities = {}
         if category.cat_name == 'Favorites' then
           local query = "SELECT * FROM favorites"

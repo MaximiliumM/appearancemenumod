@@ -41,7 +41,7 @@ function AMM:new()
 	 AMM.TeleportMod = ''
 
 	 -- Main Properties --
-	 AMM.currentVersion = "1.10c"
+	 AMM.currentVersion = "1.10d"
 	 AMM.updateNotes = require('update_notes.lua')
 	 AMM.credits = require("credits.lua")
 	 AMM.updateLabel = "WHAT'S NEW"
@@ -208,6 +208,8 @@ function AMM:new()
 					AMM.playerInPhoto = true
 	         		Game.SetTimeDilation(0)
 
+					Tools.lookAtV = false
+
 					if AMM.Tools.invisibleBody then
 						Cron.After(1.0, function()
 							local v = AMM.Tools:GetVTarget()
@@ -223,6 +225,7 @@ function AMM:new()
 						 AMM.Tools:ToggleLookAt()
 					 end
 
+					 Tools.lookAtV = true
 					 AMM.Tools.makeupToggle = true
 					 AMM.Tools.accessoryToggle = true
 
@@ -231,7 +234,7 @@ function AMM:new()
 						 AMM.Tools:SetSlowMotionSpeed(c)
 					 else
 						 if AMM.Tools.timeState == false then
-           		 AMM.Tools:SetSlowMotionSpeed(0)
+           		 			AMM.Tools:SetSlowMotionSpeed(0)
 						 else
 							 AMM.Tools:SetSlowMotionSpeed(1)
 						 end
@@ -711,7 +714,10 @@ function AMM:Begin()
 
 					ImGui.Spacing()
 
+					local settingChanged = false
 					AMM.userSettings.spawnAsCompanion, clicked = ImGui.Checkbox("Spawn As Companion", AMM.userSettings.spawnAsCompanion)
+					if clicked then settingChanged = true end
+
 					AMM.isCompanionInvulnerable = ImGui.Checkbox("Invulnerable Companion", AMM.isCompanionInvulnerable)
 
 					if ImGui.IsItemHovered() then
@@ -719,12 +725,19 @@ function AMM:Begin()
           			end
 
 					AMM.userSettings.openWithOverlay, clicked = ImGui.Checkbox("Open With CET Overlay", AMM.userSettings.openWithOverlay)
+					if clicked then settingChanged = true end
+
 					AMM.userSettings.autoResizing, clicked = ImGui.Checkbox("Auto-Resizing Window", AMM.userSettings.autoResizing)
+					if clicked then settingChanged = true end
+
 					AMM.userSettings.scanningReticle, clicked = ImGui.Checkbox("Scanning Reticle", AMM.userSettings.scanningReticle)
+					if clicked then settingChanged = true end
+
 					AMM.userSettings.experimental, expClicked = ImGui.Checkbox("Experimental/Fun stuff", AMM.userSettings.experimental)
 
 					if AMM.userSettings.experimental then
 						AMM.userSettings.freezeInPhoto, clicked = ImGui.Checkbox("Enable Freeze Target In Photo Mode", AMM.userSettings.freezeInPhoto)
+						if clicked then settingChanged = true end
 
 						if ImGui.IsItemHovered() then
 							ImGui.BeginTooltip()
@@ -773,7 +786,7 @@ function AMM:Begin()
 
 					ImGui.Spacing()
 
-					if clicked then AMM:UpdateSettings() end
+					if settingChanged then AMM:UpdateSettings() end
 
 					if expClicked then
 						AMM:UpdateSettings()
@@ -1130,25 +1143,25 @@ end
 
 function AMM:GetPersonalityOptions()
 	local personalities = {
-		{name = "Default", idle = 2, category = 2},
-		{name = "Joy", idle = 5, category = 3},
-		{name = "Aggressive", idle = 1, category = 3},
-		{name = "Fury", idle = 2, category = 3},
-		{name = "Curiosity", idle = 3, category = 1},
-		{name = "Disgust", idle = 7, category = 3},
-		{name = "Fear", idle = 10, category = 3},
-		{name = "Sad", idle = 3, category = 3},
-		{name = "Surprise", idle = 8, category = 3},
-		{name = "Are You Serious?", idle = 2, category = 1},
-		{name = "Drunk", idle = 4, category = 1},
-		{name = "Sleepy", idle = 5, category = 1},
-		{name = "Bored", idle = 6, category = 1},
-		{name = "Fake Smile", idle = 6, category = 3},
-		{name = "Pissed", idle = 7, category = 3},
-		{name = "Terrified", idle = 9, category = 3},
-		{name = "Shocked", idle = 11, category = 3},
-		{name = "Exertion", idle = 1, category = 1},
-		{name = "Disappointed", idle = 4, category = 3},
+		{name = "Neutral", idle = 2, category = 2},
+        {name = "Joy", idle = 5, category = 3},
+        {name = "Smile", idle = 6, category = 3},
+        {name = "Sad", idle = 3, category = 3},
+        {name = "Surprise", idle = 8, category = 3},
+        {name = "Aggressive", idle = 2, category = 3},
+        {name = "Anger", idle = 1, category = 3},
+        {name = "Interested", idle = 3, category = 1},
+        {name = "Disinterested", idle = 6, category = 1},        
+        {name = "Disappointed", idle = 4, category = 3},
+        {name = "Disgust", idle = 7, category = 3},
+        {name = "Exertion", idle = 1, category = 1},
+        {name = "Nervous", idle = 10, category = 3},
+        {name = "Fear", idle = 11, category = 3},
+        {name = "Terrified", idle = 9, category = 3},
+        {name = "Pain", idle = 2, category = 1},
+        {name = "Sleepy", idle = 5, category = 1},
+        {name = "Unconscious", idle = 4, category = 1},
+        {name = "Dead", idle = 1, category = 2},
 	}
 
 	return personalities

@@ -151,7 +151,16 @@ function Props:DrawSpawnedProps()
     for i, spawn in ipairs(Props.spawnedPropsList) do
       -- local spawn = Props.spawnedProps[propName]
       local nameLabel = spawn.name
-      ImGui.Text(nameLabel)
+      
+      if Tools.currentNPC ~= '' and Tools.currentNPC.handle then
+        if nameLabel == Tools.currentNPC.name then
+          AMM.UI:TextColored(nameLabel)
+        else
+          ImGui.Text(nameLabel)
+        end
+      else
+        ImGui.Text(nameLabel)
+      end
 
       local favoritesLabels = {"Favorite", "Unfavorite"}
       AMM.Spawn:DrawFavoritesButton(favoritesLabels, spawn)
@@ -627,7 +636,7 @@ function Props:SpawnPropInPosition(ent, pos, angles)
   spawnTransform:SetPosition(pos)
   spawnTransform:SetOrientationEuler(angles)
 
-  ent.entityID = exEntitySpawner.Spawn(ent.template, spawnTransform)
+  ent.entityID = exEntitySpawner.Spawn(ent.template, spawnTransform, '')
 
   Cron.Every(0.1, {tick = 1}, function(timer)
     local entity = Game.FindEntityByID(ent.entityID)

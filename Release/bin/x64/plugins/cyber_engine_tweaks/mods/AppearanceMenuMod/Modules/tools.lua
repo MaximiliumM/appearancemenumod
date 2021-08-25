@@ -36,9 +36,10 @@ function Tools:new()
   Tools.makeupToggle = true
   Tools.accessoryToggle = true
   Tools.lookAtLocked = false
-  Tools.animatedHead = false
   Tools.invisibleBody = false
   Tools.seamfixEnabled = false
+  Tools.animatedHead = AMM.userSettings.animatedHead
+  Tools:ToggleAnimatedHead(Tools.animatedHead)
 
   -- Target Properties --
   Tools.protectedNPCs = {}
@@ -213,7 +214,8 @@ function Tools:DrawVActions()
     Tools.animatedHead, clicked = ImGui.Checkbox("Animated Head in Photo Mode", Tools.animatedHead)
 
     if clicked then
-      Tools:ToggleAnimatedHead()
+      Tools:ToggleAnimatedHead(Tools.animatedHead)
+      AMM:UpdateSettings()
     end
 
     if ImGui.IsItemHovered() then
@@ -338,11 +340,14 @@ function Tools:ToggleGodMode()
   Game.ModStatPlayer("StunImmunity", toggle)
 end
 
-function Tools:ToggleAnimatedHead()
+function Tools:ToggleAnimatedHead(animated)
+
+  Tools.animatedHead = animated
+  AMM.userSettings.animatedHead = animated
 
   local isFemale = Util:GetPlayerGender()
   if isFemale == "_Female" then gender = 'wa' else gender = 'ma' end
-  if Tools.animatedHead then mode = "tpp" else mode = "photomode" end
+  if animated then mode = "tpp" else mode = "photomode" end
 
   local headItem = f("player_%s_%s_head", gender, mode)
 
@@ -980,30 +985,33 @@ function Tools:DrawNPCActions()
 
         ImGui.Spacing()
 
-        Tools.upperBodyMovement, clicked = ImGui.Checkbox("Upper Body Movement", Tools.upperBodyMovement)
+        if not AMM.playerInPhoto then
 
-        ImGui.SameLine()
-        Tools.lookAtV = ImGui.Checkbox("Look At ", Tools.lookAtV)
+          Tools.upperBodyMovement, clicked = ImGui.Checkbox("Upper Body Movement", Tools.upperBodyMovement)
 
-        ImGui.SameLine()
-        local lookAtTargetName = "V"
-        if Tools.lookAtTarget ~= nil then
-          lookAtTargetName = Tools.lookAtTarget.name
-        end
+          ImGui.SameLine()
+          Tools.lookAtV = ImGui.Checkbox("Look At ", Tools.lookAtV)
 
-        AMM.UI:TextColored(lookAtTargetName)
-
-        AMM.UI:Spacing(3)
-
-        if ImGui.Button("Change Look At Target", Tools.style.buttonWidth, Tools.style.buttonHeight) then
-          if Tools.currentNPC ~= '' then
-            Tools.lookAtTarget = Tools.currentNPC
+          ImGui.SameLine()
+          local lookAtTargetName = "V"
+          if Tools.lookAtTarget ~= nil then
+            lookAtTargetName = Tools.lookAtTarget.name
           end
-        end
 
-        if ImGui.Button("Reset Look At Target", Tools.style.buttonWidth, Tools.style.buttonHeight) then
-          if target ~= nil then
-            Tools.lookAtTarget = nil
+          AMM.UI:TextColored(lookAtTargetName)
+
+          AMM.UI:Spacing(3)
+
+          if ImGui.Button("Change Look At Target", Tools.style.buttonWidth, Tools.style.buttonHeight) then
+            if Tools.currentNPC ~= '' then
+              Tools.lookAtTarget = Tools.currentNPC
+            end
+          end
+
+          if ImGui.Button("Reset Look At Target", Tools.style.buttonWidth, Tools.style.buttonHeight) then
+            if target ~= nil then
+              Tools.lookAtTarget = nil
+            end
           end
         end
       end

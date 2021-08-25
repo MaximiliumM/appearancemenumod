@@ -58,6 +58,8 @@ return {
 		[[-- For testing and helping with the Props list]],
 		[[Vesna]],
 		[[-- For creating our beloved Hanako content]],
+		[[Vitium]],
+		[[-- For helping out with figuring out animations and expressions]],
 
 		[[Special thanks to all Community Champions for helping out in our Discord with bugs, requests and support. And finally we would like to thank the community for all of the support and love! You're why we do what we do!]],
 	},

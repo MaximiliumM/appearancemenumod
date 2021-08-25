@@ -1,5 +1,21 @@
 return {
 	{
+		'1.10d',
+		'2021 Aug 25',
+		[[Added compatibility with CET 1.15 and Game version 1.23]],
+		[[Added new highlight to Spawn and Prop names when they are the current Target in Tools tab]],
+		[[Added new Facial Expression called 'Dead']],
+		[[-- We also renamed all expressions to match a little better their in-file counterparts]],
+		[[-- Thanks Vitium and PinkyDude for the reorganization!]],
+		[[Added Animated Head to the settings that are saved in User Settings]],
+		[[Fixed issue where Facial Expressions with Animated Head would make V do weird movements in Photo mode]],
+		[[Fixed issue where Settings wouldn't be saved to User Settings]],
+		[[Fixed issue where trying to add new actors in Director tab would not work]],
+		[[Fixed issue where locking an object as target would break the Scan tab]],
+		[[Fixed issue where Johnny's current animation mods would not work on companion Johnny]],
+		[[Fixed issue where the user would not be able to use the Swap feature with Hanako]],
+	},
+	{
 		'1.10c',
 		'2021 Aug 23',
 		[[Reverted to old Spawner using Prevention System for NPCs:]],

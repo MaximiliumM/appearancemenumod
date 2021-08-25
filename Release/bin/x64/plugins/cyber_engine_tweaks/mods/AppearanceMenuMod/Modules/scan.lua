@@ -24,7 +24,7 @@ function Scan:Draw(AMM, target, style)
 
     if Tools.lockTarget then
       target = Tools.currentNPC
-      if target.options == nil then
+      if target.handle and (target.handle:IsNPC() or target.handle:IsVehicle()) and target.options == nil then
         target.options = AMM:GetAppearanceOptions(target.handle)
       end
     end

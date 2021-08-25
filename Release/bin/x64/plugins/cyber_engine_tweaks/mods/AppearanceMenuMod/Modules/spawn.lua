@@ -66,7 +66,16 @@ function Spawn:DrawActiveSpawns(style)
 
     for _, spawn in pairs(Spawn.spawnedNPCs) do
       local nameLabel = spawn.name
-      ImGui.Text(nameLabel)
+
+	  if Tools.currentNPC ~= '' and Tools.currentNPC.handle then
+        if nameLabel == Tools.currentNPC.name then
+          AMM.UI:TextColored(nameLabel)
+        else
+          ImGui.Text(nameLabel)
+        end
+      else
+        ImGui.Text(nameLabel)
+      end
 
       -- Spawned NPC Actions --
       local favoritesLabels = {"Favorite", "Unfavorite"}
