@@ -465,14 +465,17 @@ function Spawn:SpawnNPC(spawn)
 	end
 
 	local favoriteApp = false
-	-- if spawn.parameters ~= nil and #custom == 0 then
-	-- 	favoriteApp = true
-	-- 	spawn.entityID = exEntitySpawner.SpawnRecord(spawn.path, spawnTransform, spawn.parameters)
-	-- else
-	-- 	spawn.entityID = exEntitySpawner.SpawnRecord(spawn.path, spawnTransform)
-	-- end
 
-	spawn.entityID = Game.GetPreventionSpawnSystem():RequestSpawn(AMM:GetNPCTweakDBID(spawn.path), -99, spawnTransform)
+	if not AMM.userSettings.spawnAsCompanion then
+		if spawn.parameters ~= nil and #custom == 0 then
+			favoriteApp = true
+			spawn.entityID = exEntitySpawner.SpawnRecord(spawn.path, spawnTransform, spawn.parameters)
+		else
+			spawn.entityID = exEntitySpawner.SpawnRecord(spawn.path, spawnTransform)
+		end
+	else
+		spawn.entityID = Game.GetPreventionSpawnSystem():RequestSpawn(AMM:GetNPCTweakDBID(spawn.path), -99, spawnTransform)
+	end
 
 	while Spawn.spawnedNPCs[spawn.uniqueName()] ~= nil do
 		local num = spawn.name:match("|([^|]+)")
@@ -502,8 +505,8 @@ function Spawn:SpawnNPC(spawn)
 
 			if #custom > 0 then
 				AMM:ChangeAppearanceTo(spawn, spawn.parameters)
-			-- elseif not favoriteApp then
-				-- AMM:ChangeScanAppearanceTo(spawn, 'Cycle')
+			elseif not favoriteApp then
+				AMM:ChangeScanAppearanceTo(spawn, 'Cycle')
 			end
 
 			if AMM.userSettings.spawnAsCompanion and spawn.canBeCompanion then
@@ -517,7 +520,7 @@ end
 
 function Spawn:DespawnNPC(ent)
 	Spawn.spawnedNPCs[ent.uniqueName()] = nil
-	-- exEntitySpawner.Despawn(ent.handle)
+	exEntitySpawner.Despawn(ent.handle)
 
 	local spawnID = ent.entityID
 	local handle = Game.FindEntityByID(spawnID)

@@ -23,9 +23,8 @@ function Scan:Draw(AMM, target, style)
     AMM.UI:DrawCrossHair()
 
     if Tools.lockTarget then
-      target = Tools.currentNPC
-      if target.handle and (target.handle:IsNPC() or target.handle:IsVehicle()) and target.options == nil then
-        target.options = AMM:GetAppearanceOptions(target.handle)
+      if Tools.currentNPC.type ~= 'entEntity' then
+        target = Tools.currentNPC
       end
     end
 
@@ -76,6 +75,10 @@ function Scan:Draw(AMM, target, style)
           currentTitle = "Current Appearance:",
           buttons = {}
         }
+      else
+        if target.handle then
+          target.options = AMM:GetAppearanceOptions(target.handle)
+        end
       end
 
       AMM.UI:Spacing(3)
@@ -92,11 +95,14 @@ function Scan:Draw(AMM, target, style)
 
         ImGui.Spacing()
 
-        -- Check if Save button should be drawn
-        local drawSaveButton = AMM:ShouldDrawSaveButton(target)
+        local buttons = tabConfig[target.type].buttons
 
-        if tabConfig[target.type] ~= nil then
-          for _, button in ipairs(tabConfig[target.type].buttons) do
+        if tabConfig[target.type] ~= nil and #buttons > 0 then
+          
+          -- Check if Save button should be drawn
+          local drawSaveButton = AMM:ShouldDrawSaveButton(target)
+
+          for _, button in ipairs(buttons) do
             repeat
             if button.action ~= "Blacklist" and button.action ~= "Cycle" then
               ImGui.SameLine()

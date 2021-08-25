@@ -1,5 +1,18 @@
 return {
 	{
+		'1.10e',
+		'2021 Aug 25',
+		[[Added a new Tools button that allows you to change from Stand to Crouch stance]],
+		[[-- This button only works when you spawn as non-companion]],
+		[[Added Dakota Smith to Swap list]],
+		[[Disabled the Animated Head toggle on Game version 1.3]],
+		[[-- I'm sad about this one, but there is no workaround for now]],
+		[[-- This also fixes the no-head in Photo mode issue]],
+		[[Fixed issue where Target Actions would not appear if Experimental features were off]],
+		[[Fixed issue where targeting some Props would break Scan tab]],
+		[[Fixed issue where you would not be able to despawn some Props after moving them]],
+	},
+	{
 		'1.10d',
 		'2021 Aug 25',
 		[[Added compatibility with CET 1.15 and Game version 1.23]],
@@ -39,7 +52,7 @@ return {
 	{
 		'1.10',
 		'2021 Aug 22',
-		[[Added support for CET 1.6 and Game version 1.3]],
+		[[Added support for CET 1.16 and Game version 1.3]],
 		[[Introduced a new Spawner system that brings new functionality:]],
 		[[-- No more spawning limits. Keep in mind that some characters are still limited to avoid visual glitches!]],
 		[[-- The Director still uses the old spawning system for now. I will update it later!]],

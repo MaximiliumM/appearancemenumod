@@ -39,7 +39,10 @@ function Tools:new()
   Tools.invisibleBody = false
   Tools.seamfixEnabled = false
   Tools.animatedHead = AMM.userSettings.animatedHead
-  Tools:ToggleAnimatedHead(Tools.animatedHead)
+
+  if GetVersion() == "v1.15.0" then
+    Tools:ToggleAnimatedHead(Tools.animatedHead)
+  end
 
   -- Target Properties --
   Tools.protectedNPCs = {}
@@ -108,7 +111,7 @@ function Tools:Draw(AMM, target)
 
           if category.name ~= "Target Actions" then
             category.actions()
-          elseif category.name == "Target Actions" and AMM.userSettings.experimental then
+          elseif category.name == "Target Actions" then
             category.actions()
           end
 
@@ -211,15 +214,18 @@ function Tools:DrawVActions()
     end
 
     ImGui.Spacing()
-    Tools.animatedHead, clicked = ImGui.Checkbox("Animated Head in Photo Mode", Tools.animatedHead)
+    
+    if GetVersion() == "v1.15.0" then
+      Tools.animatedHead, clicked = ImGui.Checkbox("Animated Head in Photo Mode", Tools.animatedHead)
 
-    if clicked then
-      Tools:ToggleAnimatedHead(Tools.animatedHead)
-      AMM:UpdateSettings()
-    end
+      if clicked then
+        Tools:ToggleAnimatedHead(Tools.animatedHead)
+        AMM:UpdateSettings()
+      end
 
-    if ImGui.IsItemHovered() then
-      ImGui.SetTooltip("Photo mode expressions won't work while Animated Head is enabled.")
+      if ImGui.IsItemHovered() then
+        ImGui.SetTooltip("Photo mode expressions won't work while Animated Head is enabled.")
+      end
     end
 
     -- ImGui.Spacing()
@@ -923,36 +929,36 @@ function Tools:DrawNPCActions()
           end
         end
 
-        -- if not AMM.playerInPhoto then
-        --   local buttonLabel = " Change To Crouch Stance "
-        --   if Tools.isCrouching then
-        --     buttonLabel = " Change To Stand Stance "
-        --   end
+        if GetVersion() == "v1.15.0" and not AMM.playerInPhoto and not Tools.currentNPC.handle.isPlayerCompanionCached then
+          local buttonLabel = " Change To Crouch Stance "
+          if Tools.isCrouching then
+            buttonLabel = " Change To Stand Stance "
+          end
 
-        --   if ImGui.Button(buttonLabel, Tools.style.buttonWidth, Tools.style.buttonHeight) then
-        --     Tools.isCrouching = not Tools.isCrouching
+          if ImGui.Button(buttonLabel, Tools.style.buttonWidth, Tools.style.buttonHeight) then
+            Tools.isCrouching = not Tools.isCrouching
 
-        --     local handle = Tools.currentNPC.handle
+            local handle = Tools.currentNPC.handle
 
-        --     if Tools.isCrouching then
-        --       local pos = handle:GetWorldPosition()
-        --       pos = Vector4.new(pos.x + 2, pos.y, pos.z, pos.w)
-        --       Util:MoveTo(handle, pos, nil, true)
-        --     else
-        --       Tools.currentNPC.parameters = AMM:GetAppearance(Tools.currentNPC)
+            if Tools.isCrouching then
+              local pos = handle:GetWorldPosition()
+              pos = Vector4.new(pos.x, pos.y, pos.z, pos.w)
+              Util:MoveTo(handle, pos, nil, true)
+            else
+              Tools.currentNPC.parameters = AMM:GetAppearance(Tools.currentNPC)
 
-        --       local currentNPC = Tools.currentNPC
-        --       if currentNPC.type ~= 'Spawn' then
-        --         for _, spawn in pairs(Spawn.spawnedNPCs) do
-        --           if currentNPC.id == spawn.id then currentNPC = spawn break end
-        --         end
-        --       end
+              local currentNPC = Tools.currentNPC
+              if currentNPC.type ~= 'Spawn' then
+                for _, spawn in pairs(Spawn.spawnedNPCs) do
+                  if currentNPC.id == spawn.id then currentNPC = spawn break end
+                end
+              end
 
-        --       AMM.Spawn:DespawnNPC(currentNPC)
-        --       AMM.Spawn:SpawnNPC(currentNPC)
-        --     end
-        --   end
-        -- end
+              AMM.Spawn:DespawnNPC(currentNPC)
+              AMM.Spawn:SpawnNPC(currentNPC)
+            end
+          end
+        end
       end
 
       AMM.UI:Spacing(8)
@@ -1254,7 +1260,7 @@ function Tools:TeleportPropTo(prop, pos, angles)
   spawnTransform:SetPosition(pos)
   spawnTransform:SetOrientationEuler(angles)
 
-  prop.entityID = WorldFunctionalTests.SpawnEntity(prop.template, spawnTransform, '')
+  prop.entityID = exEntitySpawner.Spawn(prop.template, spawnTransform, '')
 
   Tools.movingProp = true
 
