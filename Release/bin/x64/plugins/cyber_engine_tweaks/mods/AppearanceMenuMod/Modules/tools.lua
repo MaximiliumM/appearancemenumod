@@ -64,6 +64,7 @@ function Tools:new()
   Tools.lookAtTarget = nil
   Tools.expressions = AMM:GetPersonalityOptions()
   Tools.photoModePuppet = nil
+  Tools.currentTargetComponents = nil
 
   return Tools
 end
@@ -666,6 +667,8 @@ function Tools:DrawNPCActions()
       elseif Tools.currentNPC == '' or (not(Tools.holdingNPC) and (target ~= nil and Tools.currentNPC.handle:GetEntityID().hash ~= target.handle:GetEntityID().hash)) then
         Tools:SetCurrentTarget(target)
       end
+
+      Tools.currentTargetComponents = nil
     end
 
     if Tools.currentNPC ~= '' then
@@ -1075,7 +1078,30 @@ function Tools:DrawNPCActions()
       end
     elseif Tools.currentNPC ~= '' then
 
-      AMM.UI:Spacing(3)
+      if Tools.currentTargetComponents == nil then
+        Tools.currentTargetComponents = AMM.Props:CheckForValidComponents(Tools.currentNPC.handle)
+      end
+
+      local components = Tools.currentTargetComponents
+
+      AMM.UI:Spacing(8)
+
+      AMM.UI:TextCenter("Scale", true)
+      
+      if components then
+        ImGui.PushItemWidth(ImGui.GetWindowContentRegionWidth())
+        Tools.currentNPC.scale, scaleChangeUsed = ImGui.DragFloat("##scale", Tools.currentNPC.scale, 0.1)
+        ImGui.PopItemWidth()
+
+        if scaleChangeUsed then
+          Tools:SetScale(components, Tools.currentNPC.scale)
+        end
+      else
+        AMM.UI:Spacing(3)
+        AMM.UI:TextCenter("Scaling Not Available")
+      end
+
+      AMM.UI:Spacing(8)
 
       local lookAtTargetName = "V"
       if Tools.lookAtTarget ~= nil then
@@ -1216,7 +1242,7 @@ function Tools:SetCurrentTarget(target)
   local pos, angles
   Tools.currentNPC = target
 
-  -- Tools.relativeMode = false
+  Tools.currentTargetComponents = nil
 
   if Tools.currentNPC.type == 'entEntity' then
     pos = Tools.currentNPC.parameters[1]
@@ -1329,6 +1355,15 @@ end
 function Tools:SetNPCAttitude(entity, attitude)
 	local entAttAgent = entity.handle:GetAttitudeAgent()
 	entAttAgent:SetAttitudeGroup(CName.new(attitude))
+end
+
+function Tools:SetScale(components, value)
+  local n = value / 100
+  for _, comp in ipairs(components) do
+    comp.visualScale = Vector3.new(n, n, n)
+    comp:Toggle(false)
+    comp:Toggle(true)
+  end
 end
 
 -- Time actions

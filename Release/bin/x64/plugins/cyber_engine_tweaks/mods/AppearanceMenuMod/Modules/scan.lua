@@ -24,7 +24,7 @@ function Scan:Draw(AMM, target, style)
 
     if Tools.lockTarget then
       if Tools.currentNPC.type ~= 'entEntity' and Tools.currentNPC.type ~= 'gameObject' 
-      and Tools.currentNPC.type ~= 'Prop' then
+      and Tools.currentNPC.type ~= 'Props' and Tools.currentNPC.type ~= 'Prop' then
         target = Tools.currentNPC
 
         if target.handle and target.handle ~= '' then

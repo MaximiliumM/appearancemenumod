@@ -1,6 +1,6 @@
 Props = {}
 
-function Props:NewProp(uid, id, name, template, posString, tag)
+function Props:NewProp(uid, id, name, template, posString, scale, tag)
   local obj = {}
 	obj.handle = ''
   obj.uid = uid
@@ -14,6 +14,7 @@ function Props:NewProp(uid, id, name, template, posString, tag)
   local pos = loadstring("return "..posString, '')()
   obj.pos = Vector4.new(pos.x, pos.y, pos.z, pos.w)
   obj.angles = EulerAngles.new(pos.roll, pos.pitch, pos.yaw)
+  obj.scale = scale or 100
 	obj.type = "Prop"
 
   return obj
@@ -211,6 +212,14 @@ function Props:DrawSpawnedProps()
             AMM.Tools:SetCurrentTarget(spawn)
             AMM.Tools.lockTarget = true
           end
+
+          ImGui.SameLine()
+          if ImGui.SmallButton("Duplicate".."##"..spawn.name) then
+            local pos = spawn.handle:GetWorldPosition()
+            local angles = GetSingleton('Quaternion'):ToEulerAngles(spawn.handle:GetWorldOrientation())
+            local newSpawn = AMM.Spawn:NewSpawn(spawn.name, spawn.id, spawn.parameters, spawn.companion, spawn.path, spawn.template)
+            Props:SpawnProp(newSpawn, pos, angles)
+          end
         end
       end
     end
@@ -264,7 +273,9 @@ function Props:DrawCategories()
             end
           end
           if #entities == 0 then
-            ImGui.Text("It's empty :(")
+            if ImGui.CollapsingHeader(category.cat_name) then
+              ImGui.Text("It's empty :(")
+            end
           end
         end
 
@@ -450,7 +461,7 @@ function Props:DrawPresetConfig()
   local sizeX = ImGui.GetWindowSize()
   local x, y = ImGui.GetWindowPos()
   ImGui.SetNextWindowPos(x + ((sizeX / 2) - 200), y - 40)
-  ImGui.SetNextWindowSize(400, ImGui.GetFontSize() * 8)
+  ImGui.SetNextWindowSize(400, ImGui.GetFontSize() * 10)
 
   if ImGui.BeginPopupModal("Rename Preset") then
     
@@ -467,7 +478,9 @@ function Props:DrawPresetConfig()
 
       Props.presetName = ImGui.InputText("Name", Props.presetName, 30)
 
-      if ImGui.Button("Save", style.halfButtonWidth + 8, style.buttonHeight) then
+      AMM.UI:Spacing(8)
+
+      if ImGui.Button("Save", style.buttonWidth, style.buttonHeight) then
         if not(io.open(f("User/Decor/%s.json", Props.presetName), "r")) then
           local fileName = Props.activePreset.file_name or Props.activePreset.name..".json"
           os.remove("User/Decor/"..fileName)
@@ -480,8 +493,7 @@ function Props:DrawPresetConfig()
         end
       end
 
-      ImGui.SameLine()
-      if ImGui.Button("Cancel", style.halfButtonWidth + 8, style.buttonHeight) then
+      if ImGui.Button("Cancel", style.buttonWidth, style.buttonHeight) then
         Props.presetName = ''
         ImGui.CloseCurrentPopup()
       end
@@ -648,7 +660,7 @@ end
 function Props:GetPropsToSpawn(trigger)
   local props = {}
   for prop in db:nrows(f("SELECT * FROM saved_props WHERE trigger = '%s'", trigger.str)) do
-    table.insert(props, Props:NewProp(prop.uid, prop.entity_id, prop.name, prop.template_path, prop.pos, prop.tag))
+    table.insert(props, Props:NewProp(prop.uid, prop.entity_id, prop.name, prop.template_path, prop.pos, prop.scale, prop.tag))
   end
 
   return props
@@ -671,6 +683,10 @@ function Props:SpawnPropInPosition(ent, pos, angles)
     if entity then
       ent.handle = entity
       ent.parameters = {ent.pos, ent.angles}
+
+      local components = Props:CheckForValidComponents(ent.handle)
+      if components then AMM.Tools:SetScale(components, ent.scale) end
+
       if AMM:GetScanClass(ent.handle) == 'entEntity' then
 				ent.type = 'entEntity'
 			end
@@ -776,9 +792,9 @@ function Props:SavePropPosition(ent)
   pos = Props:GetPosString(pos, angles)
 
   if ent.uid then
-    db:execute(f('UPDATE saved_props SET pos = "%s" WHERE uid = %i', pos, ent.uid))
+    db:execute(f('UPDATE saved_props SET pos = "%s", scale = %f WHERE uid = %i', pos, ent.scale, ent.uid))
   else
-	  db:execute(f('INSERT INTO saved_props (entity_id, name, template_path, pos, trigger, tag) VALUES ("%s", "%s", "%s", "%s", "%s", "%s")', ent.id, ent.name, ent.template, pos, trigger, tag))
+	  db:execute(f('INSERT INTO saved_props (entity_id, name, template_path, pos, trigger, scale, tag) VALUES ("%s", "%s", "%s", "%s", "%s", %f, "%s")', ent.id, ent.name, ent.template, pos, trigger, ent.scale, tag))
   end
 
   Cron.After(2.0, function()
@@ -809,23 +825,48 @@ function Props:CheckForTriggersNearby(pos)
   return closestTriggerPos
 end
 
+function Props:CheckForValidComponents(handle)
+  if handle then
+    local validComponent = "amm_prop_slot%i"
+    local components = {}
+
+    for i = 1, 4 do
+      local c = handle:FindComponentByName(CName.new(f(validComponent, i)))
+      if c then table.insert(components, c) end
+    end
+
+    local mayComponents = {
+      "body_01","trunk_a","cockpit","trunk_b","canopy_right_screen_frame_b","canopy_right_screen_middle_b","canopy_right_screen_right_b","canopy_right_screen_left_b","canopy_right_screen_frame_a","canopy_right_screen_middle_a","canopy_right_screen_right_a","canopy_right_screen_left_a","canopy_left_screen_middle_b","canopy_left_screen_frame_b","canopy_left_screen_right_b","canopy_left_screen_left_b","canopy_left_mainscreen_b","canopy_left_mainscreen_a","canopy_left_screen_left_a","canopy_left_screen_right_a","canopy_left_screen_middle_a","canopy_left_screen_frame_a","canopy_right_screen_a","av_militech_basilisk__ext01_body_shadow","av_militech_basilisk__ext01_trunk_b_shadow","av_militech_basilisk__ext01_trunk_a_shadow","av_militech_basilisk__ext01_hinges_shadow","basilisk_vfx_cutout"
+    }
+
+    for _, comp in ipairs(mayComponents) do
+      local c = handle:FindComponentByName(CName.new(comp))
+      if c then table.insert(components, c) end
+    end
+
+    if #components > 0 then return components end
+  end
+
+  return false
+end
+
 function Props:RemoveProp(ent)
   if Props.activeProps[ent.uid] and Props.activeProps[ent.uid].handle ~= '' then Props:DespawnProp(ent) end
   db:execute(f("DELETE FROM saved_props WHERE uid = '%i'", ent.uid))
   Props:Update()
 end
 
-function Props:SpawnProp(spawn)
+function Props:SpawnProp(spawn, pos, angles)
 	local offSetSpawn = 0
 	local distanceFromPlayer = 1
 	local angles = GetSingleton('Quaternion'):ToEulerAngles(AMM.player:GetWorldOrientation())
 	local distanceFromGround = tonumber(spawn.parameters) or 0
 
-	if spawn.parameters and string.find(spawn.parameters, "dist") then
+	if type(spawn.parameters) ~= 'table' and spawn.parameters and string.find(spawn.parameters, "dist") then
 		distanceFromPlayer = spawn.parameters:match("%d+")
 	end
 
-	if spawn.parameters and string.find(spawn.parameters, "rot") then
+	if type(spawn.parameters) ~= 'table' and spawn.parameters and string.find(spawn.parameters, "rot") then
 		rotation = tonumber(spawn.parameters:match("%d+"))
 	end
 
@@ -834,8 +875,8 @@ function Props:SpawnProp(spawn)
 	local spawnTransform = AMM.player:GetWorldTransform()
 	local spawnPosition = GetSingleton('WorldPosition'):ToVector4(spawnTransform.Position)
 	local newPosition = Vector4.new((spawnPosition.x - offSetSpawn) + offsetDir.x, (spawnPosition.y - offSetSpawn) + offsetDir.y, spawnPosition.z + distanceFromGround, spawnPosition.w)
-	spawnTransform:SetPosition(spawnTransform, newPosition)
-	spawnTransform:SetOrientationEuler(spawnTransform, EulerAngles.new(0, 0, angles.yaw - 180))
+	spawnTransform:SetPosition(spawnTransform, pos or newPosition)
+	spawnTransform:SetOrientationEuler(spawnTransform, angles or EulerAngles.new(0, 0, angles.yaw - 180))
 
   local record = ''
   if string.find(spawn.template, 'yacht') then
@@ -848,6 +889,12 @@ function Props:SpawnProp(spawn)
 		local entity = Game.FindEntityByID(spawn.entityID)
 		if entity then
 			spawn.handle = entity
+      
+      local components = AMM.Props:CheckForValidComponents(entity)
+      if components then
+        spawn.scale = components[1].visualScale.x * 100
+      end
+
 			spawn.parameters = {newPosition, GetSingleton('Quaternion'):ToEulerAngles(AMM.player:GetWorldOrientation())}
 			if AMM:GetScanClass(spawn.handle) == 'entEntity' or AMM:GetScanClass(spawn.handle) == 'entGameEntity' then
 				spawn.type = 'entEntity'
@@ -910,10 +957,10 @@ function Props:ActivatePreset(preset)
 
   local values = {}
   for i, prop in ipairs(preset.props) do
-    table.insert(values, f('(%i, "%s", "%s", "%s", "%s", "%s", "%s")', prop.uid or i, prop.entity_id, prop.name, prop.template_path, prop.pos, prop.trigger, prop.tag))
+    table.insert(values, f('(%i, "%s", "%s", "%s", "%s", "%s", %f, "%s")', prop.uid or i, prop.entity_id, prop.name, prop.template_path, prop.pos, prop.trigger, prop.scale or 100, prop.tag))
   end
 
-  db:execute(f('INSERT INTO saved_props (uid, entity_id, name, template_path, pos, trigger, tag) VALUES %s', table.concat(values, ", ")))
+  db:execute(f('INSERT INTO saved_props (uid, entity_id, name, template_path, pos, trigger, scale, tag) VALUES %s', table.concat(values, ", ")))
 
   Props.activePreset = preset
 
@@ -1048,7 +1095,7 @@ function Props:GetProps(query, tag)
       end
     end
 
-    table.insert(props, Props:NewProp(prop.uid, prop.entity_id, prop.name, prop.template_path, prop.pos, prop.tag))
+    table.insert(props, Props:NewProp(prop.uid, prop.entity_id, prop.name, prop.template_path, prop.pos, prop.scale, prop.tag))
   end
 
   return props

@@ -10,7 +10,7 @@ function Spawn:NewSpawn(name, id, parameters, companion, path, template)
   	obj.appearance = ''
 	obj.uniqueName = function() return obj.name.."##"..obj.id end
 	obj.parameters = parameters
-	obj.canBeCompanion = intToBool(companion)
+	obj.canBeCompanion = intToBool(companion or 0)
 	obj.path = path
 	obj.template = template or ''
 	obj.type = 'Spawn'
@@ -186,7 +186,9 @@ function Spawn:DrawCategories(style)
               end
             end
             if #entities == 0 then
-              ImGui.Text("It's empty :(")
+					if ImGui.CollapsingHeader(category.cat_name) then
+            		ImGui.Text("It's empty :(")
+					end
             end
          end
 

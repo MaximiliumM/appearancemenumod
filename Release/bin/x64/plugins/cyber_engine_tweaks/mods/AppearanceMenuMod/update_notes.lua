@@ -1,5 +1,23 @@
 return {
 	{
+		'1.11.1',
+		'2021 Sep 17',
+		[[Added Boob Jiggles to Songbird]],
+		[[Added new Target Action: Scale]],
+		[[-- Now you can change the size of Props! Create your Gojira Chicken yourself!]],
+		[[-- Keep in mind not all Props work with the Scale tool! We will update working Props by request]],
+		[[Added new Duplicate button to Props]],
+		[[Added new Props including:]],
+		[[-- Backpacks, DJ Set, Table Marble, Porsche Miniature and Ocean Water!]],
+		[[Added new Custom Appearances to Meredith Stout]],
+		[[Fixed issues with Dino, Rogue and Mateo appearances]],
+		[[-- Thanks Maylin for Dino's cyberware fix]],
+		[[Fixed Favorites categories not appearing when empty]],
+		[[Fixed issue where Big Chicken would not spawn]],
+		[[Fixed Cancel button in Rename Preset popup not appearing correctly]],
+		[[Fixed issue where Scan tab would break after targeting certain Props]],
+	},
+	{
 		'1.11',
 		'2021 Sep 13',
 		[[A new Custom Character approaches: Songbird!]],

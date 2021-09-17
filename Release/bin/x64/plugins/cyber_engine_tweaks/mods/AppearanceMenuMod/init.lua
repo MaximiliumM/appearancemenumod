@@ -41,7 +41,7 @@ function AMM:new()
 	 AMM.TeleportMod = ''
 
 	 -- Main Properties --
-	 AMM.currentVersion = "1.11"
+	 AMM.currentVersion = "1.11.1"
 	 AMM.updateNotes = require('update_notes.lua')
 	 AMM.credits = require("credits.lua")
 	 AMM.updateLabel = "WHAT'S NEW"
@@ -926,6 +926,11 @@ function AMM:NewTarget(handle, targetType, id, name, app, options)
 	obj.type = targetType
 	obj.options = options or nil
 
+	local components = self.Props:CheckForValidComponents(handle)
+	if components then
+		obj.scale = components[1].visualScale.x * 100
+	end
+
 	-- Check if target is Birdie
 	if obj.id == "0x69E1384D, 22" then
 		obj.name = "Songbird"
@@ -1387,15 +1392,17 @@ function AMM:SetupCustomEntities()
 					db:execute(f('INSERT INTO entities %s VALUES %s', tables, values))
 
 					-- Setup Appearances
-					for _, app in ipairs(appearances) do
-						db:execute(f('INSERT INTO appearances (entity_id, app_name, collab_tag) VALUES ("%s", "%s", "%s")', entity_id, app, uid))
+					if appearances ~= nil then
+						for _, app in ipairs(appearances) do
+							db:execute(f('INSERT INTO appearances (entity_id, app_name, collab_tag) VALUES ("%s", "%s", "%s")', entity_id, app, uid))
+						end
 					end
 
 					-- Setup TweakDB Records
 					if entity.record ~= nil then
 						TweakDB:CloneRecord(entity_path, entity.record)
 					else
-						TweakDB:CloneRecord(entity_path, "Character.Judy")
+						TweakDB:CloneRecord(entity_path, "Character.CitizenRichFemaleCasual")
 					end
 
     				TweakDB:SetFlat(entity_path..".entityTemplatePath", entity.path)
