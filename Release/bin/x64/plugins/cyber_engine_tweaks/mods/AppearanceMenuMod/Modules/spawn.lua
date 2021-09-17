@@ -67,7 +67,7 @@ function Spawn:DrawActiveSpawns(style)
     for _, spawn in pairs(Spawn.spawnedNPCs) do
       local nameLabel = spawn.name
 
-	  if Tools.currentNPC ~= '' and Tools.currentNPC.handle then
+	  if Tools.lockTarget and Tools.currentNPC ~= '' and Tools.currentNPC.handle then
         if nameLabel == Tools.currentNPC.name then
           AMM.UI:TextColored(nameLabel)
         else
@@ -112,15 +112,17 @@ function Spawn:DrawActiveSpawns(style)
 
       if spawn.handle ~= '' and not(spawn.handle:IsVehicle()) and not(spawn.handle:IsDevice()) and not(spawn.handle:IsDead()) and Util:CanBeHostile(spawn.handle) then
 
-        local hostileButtonLabel = "Hostile"
-        if not(spawn.handle.isPlayerCompanionCached) then
-          hostileButtonLabel = "Friendly"
-        end
+		if AMM.userSettings.spawnAsCompanion then
+			local hostileButtonLabel = "Hostile"
+			if not(spawn.handle.isPlayerCompanionCached) then
+			hostileButtonLabel = "Friendly"
+			end
 
-        ImGui.SameLine()
-        if ImGui.SmallButton(hostileButtonLabel.."##"..spawn.name) then
-          Spawn:ToggleHostile(spawn.handle)
-        end
+			ImGui.SameLine()
+			if ImGui.SmallButton(hostileButtonLabel.."##"..spawn.name) then
+			Spawn:ToggleHostile(spawn.handle)
+			end
+		end
 
         ImGui.SameLine()
         if ImGui.SmallButton("Equipment".."##"..spawn.name) then
@@ -173,10 +175,9 @@ function Spawn:DrawCategories(style)
     local x, y = GetDisplayResolution()
     if ImGui.BeginChild("Categories", ImGui.GetWindowContentRegionWidth(), y / 2) then
       for _, category in ipairs(Spawn.categories) do
-        if ImGui.CollapsingHeader(category.cat_name) then
-          local entities = {}
-          if category.cat_name == 'Favorites' then
-            local query = "SELECT * FROM favorites"
+			local entities = {}
+         if category.cat_name == 'Favorites' then
+         	local query = "SELECT * FROM favorites"
             for fav in db:nrows(query) do
               query = f("SELECT * FROM entities WHERE entity_id = '%s' AND cat_id IN %s", fav.entity_id, validCatIDs)
               for en in db:nrows(query) do
@@ -187,15 +188,18 @@ function Spawn:DrawCategories(style)
             if #entities == 0 then
               ImGui.Text("It's empty :(")
             end
-          end
+         end
 
-          local query = f("SELECT * FROM entities WHERE is_spawnable = 1 AND cat_id == '%s' ORDER BY entity_name ASC", category.cat_id)
-          for en in db:nrows(query) do
-            table.insert(entities, {en.entity_name, en.entity_id, en.can_be_comp, en.parameters, en.entity_path, en.template_path})
-          end
+         local query = f("SELECT * FROM entities WHERE is_spawnable = 1 AND cat_id == '%s' ORDER BY entity_name ASC", category.cat_id)
+         for en in db:nrows(query) do
+         	table.insert(entities, {en.entity_name, en.entity_id, en.can_be_comp, en.parameters, en.entity_path, en.template_path})
+         end
 
-          Spawn:DrawEntitiesButtons(entities, category.cat_name, style)
-        end
+			if #entities ~= 0 then
+        		if ImGui.CollapsingHeader(category.cat_name) then
+					Spawn:DrawEntitiesButtons(entities, category.cat_name, style)
+				end
+      	end
       end
     end
     ImGui.EndChild()
@@ -396,10 +400,10 @@ end
 function Spawn:SpawnVehicle(spawn)
 	local vehicleGarageId = NewObject('vehicleGarageVehicleID')
 	vehicleGarageId.recordID = TweakDBID.new(spawn.path)
-	-- Game.GetVehicleSystem():ToggleSummonMode()
+	Game.GetVehicleSystem():ToggleSummonMode()
 	Game.GetVehicleSystem():TogglePlayerActiveVehicle(vehicleGarageId, 'Car', true)
 	Game.GetVehicleSystem():SpawnPlayerVehicle('Car')
-	-- Game.GetVehicleSystem():ToggleSummonMode()
+	Game.GetVehicleSystem():ToggleSummonMode()
 
 	Cron.Every(0.1, function(timer)
 		local vehicleSummonDef = Game.GetAllBlackboardDefs().VehicleSummonData
@@ -410,8 +414,15 @@ function Spawn:SpawnVehicle(spawn)
 
 		if spawn.handle then
 
+			local floatFix = 1
+			if spawn.parameters ~= nil then floatFix = 0 end
+
+			local pos = spawn.handle:GetWorldPosition()
+			local teleportPosition = Vector4.new(pos.x, pos.y, pos.z - floatFix, pos.w)
+			Game.GetTeleportationFacility():Teleport(spawn.handle, teleportPosition, EulerAngles.new(0, 0, 0))
+
 			Spawn.spawnedNPCs[spawn.uniqueName()] = spawn
-      		Util:UnlockVehicle(spawn.handle)
+      	Util:UnlockVehicle(spawn.handle)
 
 			if spawn.parameters ~= nil then
 				AMM:ChangeScanAppearanceTo(spawn, spawn.parameters)
@@ -466,7 +477,7 @@ function Spawn:SpawnNPC(spawn)
 
 	local favoriteApp = false
 
-	if not AMM.userSettings.spawnAsCompanion then
+	if not AMM.userSettings.spawnAsCompanion and spawn.id ~= '0x55C01D9F, 36' then
 		if spawn.parameters ~= nil and #custom == 0 then
 			favoriteApp = true
 			spawn.entityID = exEntitySpawner.SpawnRecord(spawn.path, spawnTransform, spawn.parameters)
@@ -489,7 +500,7 @@ function Spawn:SpawnNPC(spawn)
 
 		timer.tick = timer.tick + 1
 		
-		if timer.tick > 10 then
+		if timer.tick > 30 then
 			Cron.Halt(timer)
 		end
 
@@ -534,10 +545,12 @@ end
 
 function Spawn:DespawnAll()
   for _, ent in pairs(Spawn.spawnedNPCs) do
-    exEntitySpawner.Despawn(ent.handle)
+	if ent.handle and ent.handle ~= '' then
+    	exEntitySpawner.Despawn(ent.handle)
+	end
   end
 
-  AMM.Spawn.spawnedNPCs = {}
+  Spawn.spawnedNPCs = {}
 end
 
 function Spawn:SetNPCAsCompanion(npcHandle)

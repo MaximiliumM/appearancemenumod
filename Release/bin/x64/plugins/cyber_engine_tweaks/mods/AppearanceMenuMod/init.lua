@@ -41,7 +41,7 @@ function AMM:new()
 	 AMM.TeleportMod = ''
 
 	 -- Main Properties --
-	 AMM.currentVersion = "1.10e"
+	 AMM.currentVersion = "1.11"
 	 AMM.updateNotes = require('update_notes.lua')
 	 AMM.credits = require("credits.lua")
 	 AMM.updateLabel = "WHAT'S NEW"
@@ -53,7 +53,6 @@ function AMM:new()
 	 AMM.equipmentOptions = AMM:GetEquipmentOptions()
 	 AMM.followDistanceOptions = AMM:GetFollowDistanceOptions()
 	 AMM.originalVehicles = ''
-	 AMM.skipFrame = false
 
 	 -- Hotkeys Properties --
 	 AMM.selectedHotkeys = {}
@@ -101,8 +100,8 @@ function AMM:new()
 
 		 AMM:SetupVehicleData()
 		 AMM:SetupCustomProps()
-		 AMM:SetupCustomCharacters()
-		 AMM:SetupJohnny()
+		 AMM:SetupAMMCharacters()
+		 AMM:SetupCustomEntities()
 		 AMM:ImportUserData()
 
 		 -- Update after importing user data
@@ -138,6 +137,10 @@ function AMM:new()
 			 if next(AMM.Spawn.spawnedNPCs) ~= nil then
 			 	AMM:RespawnAll()
 			 end
+			 
+			if GetVersion() == "v1.15.0" then
+				AMM.Tools:ToggleAnimatedHead(Tools.animatedHead)
+			end
 
 			 AMM.Props.activeProps = {}
 			 AMM.Props.playerLastPos = ''
@@ -189,7 +192,7 @@ function AMM:new()
 					 if next(AMM.Scan.drivers) ~= nil then
 						 AMM.Scan:UnmountDrivers()
 					 end
-				 elseif AMM.playerInVehicle and next(AMM.Spawn.spawnedNPCs) ~= nil then
+				 elseif AMM.playerInVehicle and next(AMM.Spawn.spawnedNPCs) ~= nil and AMM.userSettings.spawnAsCompanion then
 					 local target = Game.GetTargetingSystem():GetLookAtObject(AMM.player, false, false)
 					 if target ~= nil and target:IsVehicle() then
 						 AMM.Scan.vehicle = {handle = target, hash = tostring(target:GetEntityID().hash)}
@@ -244,8 +247,11 @@ function AMM:new()
 		 end)
 
 		Observe("PlayerPuppet", "OnGameAttached", function(self)
-			self:RegisterInputListener(self, 'TogglePhotoMode')
-			self:RegisterInputListener(self, 'ExitPhotoMode')
+			
+			if GetVersion() == "v1.16.0" then
+				self:RegisterInputListener(self, 'TogglePhotoMode')
+				self:RegisterInputListener(self, 'ExitPhotoMode')
+			end
 
 			AMM.activeCustomApps = {}
 
@@ -353,10 +359,45 @@ function AMM:new()
 		 end
 	 end)
 
+	 registerHotkey("amm_last_expression", "Last Expression Used", function()
+		local target = AMM:GetTarget()
+		if Tools.lockTarget and Tools.currentNPC ~= '' and Tools.currentNPC.handle
+		and Tools.currentNPC.type ~= 'entEntity' and Tools.currentNPC.type ~= 'gameObject' then
+			target = Tools.currentNPC
+		end
+
+		if Tools.lookAtTarget then
+            local ent = Game.FindEntityByID(Tools.lookAtTarget.handle:GetEntityID())
+            if not ent then Tools.lookAtTarget = nil end
+        end
+
+		local face = Tools.selectedFace
+		if Tools.selectedFace.name == 'Select Expression' then
+			face = {name = "Joy", idle = 5, category = 3}
+		end
+
+		Tools:ActivateFacialExpression(target, face, Tools.upperBodyMovement, Tools.lookAtV, Tools.lookAtTarget)
+	 end)
+
 	 registerHotkey("amm_npc_talk", "NPC Talk", function()
 		local target = AMM:GetTarget()
  		if target ~= nil and target.handle:IsNPC() then
 			Util:NPCTalk(target.handle)
+		end
+	 end)
+
+	 registerHotkey("amm_npc_hold", "NPC Hold Position", function()
+		local target = AMM:GetTarget()
+ 		if target ~= nil and target.handle:IsNPC() then
+			Util:HoldPosition(target.handle)
+		end
+	 end)
+
+	 registerHotkey("amm_npc_all_hold", "All Hold Position", function()
+		if next(AMM.Spawn.spawnedNPCs) ~= nil then
+			for _, ent in pairs(AMM.Spawn.spawnedNPCs) do
+				Util:HoldPosition(ent.handle, 10)
+			end
 		end
 	 end)
 
@@ -484,21 +525,15 @@ function AMM:new()
 						end
 					end
 
-					-- Tools Skip Frame Logic --
-					if AMM.skipFrame then
-						waitTimer = waitTimer + deltaTime
-
-						if waitTimer > 0.01 then
-							AMM.skipFrame = false
-							AMM.Tools:FreezeTime()
-							waitTimer = 0.0
-						end
-					end
-
 					-- Check if Locked Target is gone --
-					if Tools.lockTarget and not Tools.currentNPC.handle then
-						Tools.lockTarget = false
-					end
+					if Tools.lockTarget then
+						if Tools.currentNPC.handle and Tools.currentNPC.handle ~= '' then
+							local ent = Game.FindEntityByID(Tools.currentNPC.handle:GetEntityID())
+							if not ent then Tools:ClearTarget() end
+						else
+							Tools:ClearTarget()
+						end
+					 end
 
 					-- Button Spamming Block --
 					if buttonPressed then
@@ -686,10 +721,10 @@ function AMM:Begin()
 			if ImGui.BeginTabBar("TABS") then
 
 				local style = {
-	        buttonWidth = -1,
-	        buttonHeight = ImGui.GetFontSize() * 2,
-	        halfButtonWidth = ((ImGui.GetWindowContentRegionWidth() / 2) - 5)
-		    }
+					buttonWidth = -1,
+					buttonHeight = ImGui.GetFontSize() * 2,
+					halfButtonWidth = ((ImGui.GetWindowContentRegionWidth() / 2) - 5)
+		   	}
 
 				-- Scan Tab --
 				AMM.Scan:Draw(AMM, target, style)
@@ -716,7 +751,10 @@ function AMM:Begin()
 
 					local settingChanged = false
 					AMM.userSettings.spawnAsCompanion, clicked = ImGui.Checkbox("Spawn As Companion", AMM.userSettings.spawnAsCompanion)
-					if clicked then settingChanged = true end
+					if clicked then 
+						AMM:RespawnAll()
+						settingChanged = true 
+					end
 
 					AMM.isCompanionInvulnerable = ImGui.Checkbox("Invulnerable Companion", AMM.isCompanionInvulnerable)
 
@@ -888,6 +926,11 @@ function AMM:NewTarget(handle, targetType, id, name, app, options)
 	obj.type = targetType
 	obj.options = options or nil
 
+	-- Check if target is Birdie
+	if obj.id == "0x69E1384D, 22" then
+		obj.name = "Songbird"
+	end
+
 	-- Check if target is V
 	if obj.name == "V" or Util:CheckVByID(obj.id) then
 		obj.type = "Player"
@@ -968,8 +1011,10 @@ function AMM:ImportUserData()
 
 				if userData['settings'] ~= nil then
 					for _, obj in ipairs(userData['settings']) do
-						db:execute(f("UPDATE settings SET setting_name = '%s', setting_value = %i WHERE setting_name = '%s'", obj.setting_name, boolToInt( obj.setting_value),  obj.setting_name))
+						db:execute(f("UPDATE settings SET setting_name = '%s', setting_value = %i WHERE setting_name = '%s'", obj.setting_name, boolToInt(obj.setting_value),  obj.setting_name))
 					end
+
+					AMM.userSettings = AMM:PrepareSettings()
 				end
 				if userData['favorites'] ~= nil then
 					for _, obj in ipairs(userData['favorites']) do
@@ -1202,23 +1247,7 @@ function AMM:GetFollowDistanceOptions()
 end
 
 function AMM:GetCustomAppearanceDefaults()
-	local customs = {
-		['hx_001_ma_c__kerry_eurodyne_old_pimples_01'] = {
-			['kerry_eurodyne_nude'] = true,
-			['kerry_eurodyne__q203__shower'] = true,
-			['Custom Young Kerry Naked'] = true,
-			['Custom Young Kerry 2013 Naked'] = true,
-		},
-
-		['hx_001_ma_a__yorinobu_arasaka_pimples_01'] = {
-			['Custom Yorinobu Naked'] = true,
-			['Custom Yorinobu Kimono Naked'] = true,
-		},
-
-		['hx_793_mb_c__ma_758_pimples_01'] = {
-			['Custom Benjamin Stone Naked'] = true,
-		},
-	}
+	local customs = {}
 
 	if #AMM.collabs > 0 then
 		for _, collab in ipairs(AMM.collabs) do
@@ -1264,19 +1293,124 @@ function AMM:UpdateOldFavorites()
 	db:execute(f("UPDATE sqlite_sequence SET seq = %i WHERE name = 'favorites'", count))
 end
 
-function AMM:SetupCustomCharacters()
+function AMM:SetupAMMCharacters()
 	local ents = {
 		["Character.TPP_Player_Cutscene_Male"] = {"AMM_Character.Player_Male", "player_ma_tpp"},
 		["Character.TPP_Player_Cutscene_Female"] = {"AMM_Character.Player_Female", "player_wa_tpp"},
 		["Character.Takemura"] = {"AMM_Character.Silverhand", "silverhand"},
 		["Character.Hanako"] = {"AMM_Character.Hanako", "hanako"},
+		["Character.generic_netrunner_netrunner_chao_wa_rare_ow_city_scene"] = {"AMM_Character.Songbird", "songbird"},
+		["Vehicle.av_rayfield_excalibur"] = {"AMM_Vehicle.Docworks_Excalibus", "doc_excalibus"},
 	}
 
 	for og, ent in pairs(ents) do
 		local tdbid, path = ent[1], ent[2]
-    TweakDB:CloneRecord(tdbid, og)
-    TweakDB:SetFlat(tdbid..".entityTemplatePath", "base\\amm_characters\\entity\\"..path..".ent")
-  end
+    	TweakDB:CloneRecord(tdbid, og)
+
+		if string.find(tdbid, "Vehicle") then
+			TweakDB:SetFlat(tdbid..".entityTemplatePath", "base\\amm_vehicles\\entity\\"..path..".ent")
+		else
+    		TweakDB:SetFlat(tdbid..".entityTemplatePath", "base\\amm_characters\\entity\\"..path..".ent")
+		end
+  	end
+
+	-- Setup TweakDB Records
+	TweakDB:SetFlat("Character.TPP_Player_Cutscene_Female.fullDisplayName", TweakDB:GetFlat("Character.TPP_Player.displayName"))
+	TweakDB:SetFlat("Character.TPP_Player_Cutscene_Male.fullDisplayName", TweakDB:GetFlat("Character.TPP_Player.displayName"))
+
+	TweakDB:SetFlats("AMM_Character.Silverhand",{
+		voiceTag = TweakDB:GetFlat("Character.Silverhand.voiceTag"),
+		displayName = TweakDB:GetFlat("Character.Silverhand.displayName"),
+		alternativeDisplayName = TweakDB:GetFlat("Character.Silverhand.alternativeDisplayName"),
+		alternativeFullDisplayName = TweakDB:GetFlat("Character.Silverhand.alternativeFullDisplayName"),
+		fullDisplayName = TweakDB:GetFlat("Character.Silverhand.fullDisplayName"),
+		affiliation =  TweakDB:GetFlat("Character.Silverhand.affiliation"),
+		statPools =  TweakDB:GetFlat("Character.Silverhand.statPools"),
+	})
+
+	TweakDB:SetFlats("AMM_Character.Hanako",{
+		primaryEquipment = TweakDB:GetFlat('Character.Judy.primaryEquipment'),
+		secondaryEquipment = TweakDB:GetFlat('Character.Judy.secondaryEquipment'),
+		abilities = TweakDB:GetFlat('Character.Judy.abilities')
+	})
+
+	TweakDB:SetFlats("AMM_Character.Songbird",{
+		fullDisplayName = TweakDB:GetFlat("Character.q110_vdb_elder_1.fullDisplayName"),
+		displayName = TweakDB:GetFlat("Character.jpn_tygerclaw_gangster3_netrunner_nue_wa_rare.displayName"),
+		reactionPreset = TweakDB:GetFlat("Character.Judy.reactionPreset"),
+		baseAttitudeGroup = "judy",
+		abilities = TweakDB:GetFlat("Character.jpn_tygerclaw_gangster3_netrunner_nue_wa_rare.abilities"),
+		statModifierGroups = TweakDB:GetFlat("Character.jpn_tygerclaw_gangster3_netrunner_nue_wa_rare.statModifierGroups"),
+	})
+end
+
+function AMM:SetupCustomEntities()
+
+	local files = dir("./Collabs/Custom Entities")
+	if #files > 0 then
+	  	for _, mod in ipairs(files) do
+	    	if string.find(mod.name, '.lua') then
+				local data = require("Collabs/Custom Entities/"..mod.name)
+				local modder = data.modder
+				local uid = data.unique_identifier
+				local entity = data.entity_info
+				local appearances = data.appearances
+				local attributes = data.attributes
+
+				AMM.modders[uid] = modder
+
+				local ent = entity.path:match("[^\\]*.ent$"):gsub(".ent", "")
+				local entity_path = "Custom_"..uid.."_"..entity.type.."."..ent
+
+				local check = 0
+				for count in db:urows(f("SELECT COUNT(1) FROM entities WHERE entity_path = '%s'", entity_path)) do
+					check = count
+				end
+
+				if check == 0 then
+					local check = 0
+					for count in db:urows(f("SELECT COUNT(1) FROM entities WHERE entity_name = '%s'", entity.name)) do
+						check = count
+					end
+
+					if check ~= 0 then
+						entity.name = uid.." "..entity.name
+					end
+
+					local entity_id = AMM:GetScanID(entity_path)
+					local category = 55
+					if entity.type == "Vehicle" then category = 56 end
+
+					local tables = '(entity_id, entity_name, cat_id, parameters, can_be_comp, entity_path, is_spawnable, is_swappable, template_path)'
+					local values = f('("%s", "%s", %i, %s, "%s", "%s", "%s", "%s", "%s")', entity_id, entity.name, category, nil, 0, entity_path, 1, 0, entity.path)
+					values = values:gsub('nil', "NULL")
+					db:execute(f('INSERT INTO entities %s VALUES %s', tables, values))
+
+					-- Setup Appearances
+					for _, app in ipairs(appearances) do
+						db:execute(f('INSERT INTO appearances (entity_id, app_name, collab_tag) VALUES ("%s", "%s", "%s")', entity_id, app, uid))
+					end
+
+					-- Setup TweakDB Records
+					if entity.record ~= nil then
+						TweakDB:CloneRecord(entity_path, entity.record)
+					else
+						TweakDB:CloneRecord(entity_path, "Character.Judy")
+					end
+
+    				TweakDB:SetFlat(entity_path..".entityTemplatePath", entity.path)
+
+					 if attributes ~= nil then
+						local newAttributes = {}
+						for attr, value in pairs(attributes) do
+							newAttributes[attr] = TweakDB:GetFlat(value)
+						end
+						TweakDB:SetFlats(entity_path, newAttributes)
+					 end
+				end
+			end
+		end
+	end
 end
 
 function AMM:SetupCustomProps()
@@ -1284,8 +1418,8 @@ function AMM:SetupCustomProps()
 
 	local files = dir("./Collabs/Custom Props")
 	if #files > 0 then
-	  for _, mod in ipairs(files) do
-	    if string.find(mod.name, '.lua') then
+	  	for _, mod in ipairs(files) do
+	    	if string.find(mod.name, '.lua') then
 				local data = require("Collabs/Custom Props/"..mod.name)
 				local modder = data.modder
 				local uid = data.unique_identifier
@@ -1316,8 +1450,8 @@ function AMM:SetupCustomProps()
 						local entity_id = AMM:GetScanID(entity_path)
 						local category = 48
 						for cat_id in db:urows(f("SELECT cat_id FROM categories WHERE cat_name = '%s'", prop.category)) do
-			      	category = cat_id
-			      end
+			      		category = cat_id
+			      	end
 
 						local tables = '(entity_id, entity_name, cat_id, parameters, can_be_comp, entity_path, is_spawnable, is_swappable, template_path)'
 						local values = f('("%s", "%s", %i, %s, "%s", "%s", "%s", "%s", "%s")', entity_id, prop.name, category, prop.distanceFromGround, 0, entity_path, 1, 0, prop.path)
@@ -1331,6 +1465,8 @@ function AMM:SetupCustomProps()
 end
 
 function AMM:SetupCollabAppearances()
+	db:execute("DELETE FROM appearances WHERE collab_tag IS NOT NULL")
+
 	-- Check for old files in Collabs root
 	local files = dir("./Collabs")
 	if #files > 0 then
@@ -1342,61 +1478,55 @@ function AMM:SetupCollabAppearances()
 	end
 
 	local files = dir("./Collabs/Custom Appearances")
-  local collabs = {}
+	local collabs = {}
 	if #files > 0 then
-	  for _, mod in ipairs(files) do
-	    if string.find(mod.name, '.lua') then
+	  	for _, mod in ipairs(files) do
+	    	if string.find(mod.name, '.lua') then
 				local collab = require("Collabs/Custom Appearances/"..mod.name)
 				local metadata = collab.metadata
+		
+				if metadata == nil then
+					local entity_id = collab.entity_id
+					local uid = collab.unique_identifier
+					local appearances = collab.appearances
 
-				for _, newApp in ipairs(metadata) do
-					newApp.disabledByDefault = collab.disabledByDefault
-					table.insert(collabs, newApp)
+					-- Setup Appearances
+					for _, app in ipairs(appearances) do
+						db:execute(f('INSERT INTO appearances (entity_id, app_name, collab_tag) VALUES ("%s", "%s", "%s")', entity_id, app, uid))
+					end
+				else
 
-					local customApps = collab.customApps[newApp.tag]
+					for _, newApp in ipairs(metadata) do
+						newApp.disabledByDefault = collab.disabledByDefault
+						table.insert(collabs, newApp)
 
-					if customApps then
+						local customApps = collab.customApps[newApp.tag]
 
-						local check = 0
-						for count in db:urows(f("SELECT COUNT(1) FROM custom_appearances WHERE collab_tag = '%s'", newApp.tag)) do
-							check = count
-						end
+						if customApps then
 
-						if check ~= 0 then
-							db:execute(f("DELETE FROM custom_appearances WHERE collab_tag = '%s'", newApp.tag))
-						end
+							local check = 0
+							for count in db:urows(f("SELECT COUNT(1) FROM custom_appearances WHERE collab_tag = '%s'", newApp.tag)) do
+								check = count
+							end
 
-						for _, customApp in ipairs(customApps) do
-							local tables = '("entity_id", "app_name", "app_base", "app_param", "app_toggle", "mesh_app", "mesh_type", "mesh_mask", "collab_tag")'
-							local values = f('("%s", "%s", "%s", "%s", "%s", "%s", "%s", "%s", "%s")', newApp.entity_id, customApp.app_name, newApp.appearance, customApp.app_param, customApp.app_toggle, customApp.mesh_app, customApp.mesh_type, customApp.mesh_mask, newApp.tag)
-							values = values:gsub('"nil"', "NULL")
-							db:execute(f('INSERT INTO custom_appearances %s VALUES %s', tables, values))
+							if check ~= 0 then
+								db:execute(f("DELETE FROM custom_appearances WHERE collab_tag = '%s'", newApp.tag))
+							end
+
+							for _, customApp in ipairs(customApps) do
+								local tables = '("entity_id", "app_name", "app_base", "app_param", "app_toggle", "mesh_app", "mesh_type", "mesh_mask", "collab_tag")'
+								local values = f('("%s", "%s", "%s", "%s", "%s", "%s", "%s", "%s", "%s")', newApp.entity_id, customApp.app_name, newApp.appearance, customApp.app_param, customApp.app_toggle, customApp.mesh_app, customApp.mesh_type, customApp.mesh_mask, newApp.tag)
+								values = values:gsub('"nil"', "NULL")
+								db:execute(f('INSERT INTO custom_appearances %s VALUES %s', tables, values))
+							end
 						end
 					end
 				end
-	    end
-	  end
+	    	end
+	  	end
 	end
 
 	return collabs
-end
-
-function AMM:SetupJohnny()
-	TweakDB:SetFlat("Character.TPP_Player_Cutscene_Female.fullDisplayName", TweakDB:GetFlat("Character.TPP_Player.displayName"))
-	TweakDB:SetFlat("Character.TPP_Player_Cutscene_Male.fullDisplayName", TweakDB:GetFlat("Character.TPP_Player.displayName"))
-	TweakDB:SetFlatNoUpdate(TweakDBID.new("AMM_Character.Silverhand.voiceTag"), TweakDB:GetFlat(TweakDBID.new("Character.Silverhand.voiceTag")))
-	TweakDB:SetFlatNoUpdate(TweakDBID.new("AMM_Character.Silverhand.displayName"), TweakDB:GetFlat(TweakDBID.new("Character.Silverhand.displayName")))
-	TweakDB:SetFlatNoUpdate(TweakDBID.new("AMM_Character.Silverhand.alternativeDisplayName"), TweakDB:GetFlat(TweakDBID.new("Character.Silverhand.alternativeDisplayName")))
-	TweakDB:SetFlatNoUpdate(TweakDBID.new("AMM_Character.Silverhand.alternativeFullDisplayName"), TweakDB:GetFlat(TweakDBID.new("Character.Silverhand.alternativeFullDisplayName")))
-	TweakDB:SetFlatNoUpdate(TweakDBID.new("AMM_Character.Silverhand.fullDisplayName"), TweakDB:GetFlat(TweakDBID.new("Character.Silverhand.fullDisplayName")))
-	TweakDB:SetFlatNoUpdate(TweakDBID.new("AMM_Character.Silverhand.affiliation"), TweakDB:GetFlat(TweakDBID.new("Character.Silverhand.affiliation")))
-	TweakDB:SetFlatNoUpdate(TweakDBID.new("AMM_Character.Silverhand.statPools"), TweakDB:GetFlat(TweakDBID.new("Character.Silverhand.statPools")))
-	TweakDB:Update(TweakDBID.new("AMM_Character.Silverhand"))
-
-	TweakDB:SetFlatNoUpdate(TweakDBID.new('AMM_Character.Hanako.primaryEquipment'), TweakDB:GetFlat(TweakDBID.new('Character.Judy.primaryEquipment')))
-    TweakDB:SetFlatNoUpdate(TweakDBID.new('AMM_Character.Hanako.secondaryEquipment'), TweakDB:GetFlat(TweakDBID.new('Character.Judy.secondaryEquipment')))
-	TweakDB:SetFlatNoUpdate(TweakDBID.new('AMM_Character.Hanako.abilities'), TweakDB:GetFlat(TweakDBID.new('Character.Judy.abilities')))
-	TweakDB:Update(TweakDBID.new("AMM_Character.Hanako"))
 end
 
 function AMM:SetupVehicleData()
@@ -1434,6 +1564,11 @@ function AMM:RespawnAll()
 		AMM.entitiesForRespawn = {}
 		for _, ent in pairs(AMM.Spawn.spawnedNPCs) do
 			if not(string.find(ent.path, "Vehicle")) then
+				if ent.handle and ent.handle ~= '' then
+					if ent.handle:IsNPC() then
+						Util:TeleportNPCTo(ent.handle, Util:GetBehindPlayerPosition(2))
+					end
+				end
 				table.insert(AMM.entitiesForRespawn, ent)
 			end
 		end
@@ -1443,14 +1578,17 @@ function AMM:RespawnAll()
 	end
 
 	Cron.Every(0.5, function(timer)
-		local entity = Game.FindEntityByID(AMM.entitiesForRespawn[1].entityID)
-		if entity == nil then
-			ent = AMM.entitiesForRespawn[1]
-			table.remove(AMM.entitiesForRespawn, 1)
-			AMM.Spawn:SpawnNPC(ent)
+
+		if AMM.entitiesForRespawn[1] then
+			local entity = Game.FindEntityByID(AMM.entitiesForRespawn[1].entityID)
+			if entity == nil then
+				ent = AMM.entitiesForRespawn[1]
+				table.remove(AMM.entitiesForRespawn, 1)
+				AMM.Spawn:SpawnNPC(ent)
+			end
 		end
 
-		if #AMM.entitiesForRespawn == 0 then
+		if #AMM.entitiesForRespawn == 0 or AMM.entitiesForRespawn == '' then
 			AMM.entitiesForRespawn = ''
 			Cron.Halt(timer)
 		end
@@ -1466,7 +1604,7 @@ function AMM:PrepareSettings()
 end
 
 function AMM:UpdateSettings()
-	for name, value in pairs(self.userSettings) do
+	for name, value in pairs(AMM.userSettings) do
 		db:execute(f("UPDATE settings SET setting_value = %i WHERE setting_name = '%s'", boolToInt(value), name))
 	end
 
@@ -1875,10 +2013,8 @@ function AMM:ChangeAppearanceTo(entity, appearance)
 
 	local custom = AMM:GetCustomAppearanceParams(entity, appearance)
 
-	if entity.id ~= "0x69E1384D, 22" then
-		if (activeApp and #custom == 0) or (#custom > 0 and AMM:ShouldCycleAppearance(appearance)) then
-			AMM:ChangeScanAppearanceTo(entity, "Cycle")
-		end
+	if (activeApp and #custom == 0) or (#custom > 0 and AMM:ShouldCycleAppearance(appearance)) then
+		AMM:ChangeScanAppearanceTo(entity, "Cycle")
 	end
 
 	Cron.After(0.15, function()
@@ -1888,7 +2024,7 @@ function AMM:ChangeAppearanceTo(entity, appearance)
 			AMM:ChangeScanAppearanceTo(entity, appearance)
 		end
 
-		Cron.After(0.1, function()
+		Cron.After(0.2, function()
 			entity.appearance = AMM:GetAppearance(entity)
 		end)
 	end)
@@ -2059,6 +2195,12 @@ function AMM:OpenPopup(name)
 		ImGui.SetNextWindowSize(400, 140)
 		popupDelegate.message = "Are you sure you want to delete all your saved appearances?"
 		table.insert(popupDelegate.buttons, {label = "Yes", action = function() AMM:ClearAllSavedAppearances() end})
+		table.insert(popupDelegate.buttons, {label = "No", action = ''})
+		name = "WARNING"
+	elseif name == "Preset" then
+		ImGui.SetNextWindowSize(400, 140)
+		popupDelegate.message = "Are you sure you want to delete your current active preset?"
+		table.insert(popupDelegate.buttons, {label = "Yes", action = function() AMM.Props:DeletePreset(AMM.Props.activePreset) end})
 		table.insert(popupDelegate.buttons, {label = "No", action = ''})
 		name = "WARNING"
 	end

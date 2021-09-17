@@ -40,10 +40,6 @@ function Tools:new()
   Tools.seamfixEnabled = false
   Tools.animatedHead = AMM.userSettings.animatedHead
 
-  if GetVersion() == "v1.15.0" then
-    Tools:ToggleAnimatedHead(Tools.animatedHead)
-  end
-
   -- Target Properties --
   Tools.protectedNPCs = {}
   Tools.holdingNPC = false
@@ -701,7 +697,7 @@ function Tools:DrawNPCActions()
           Tools:TeleportPropTo(Tools.currentNPC, pos, EulerAngles.new(Tools.npcRotation[1], Tools.npcRotation[2], Tools.npcRotation[3]))
         end
       elseif Tools.currentNPC.type ~= 'Player' and Tools.currentNPC.handle:IsNPC() then
-        Tools:TeleportNPCTo(Tools.currentNPC.handle, pos, Tools.npcRotation[1])
+        Tools:TeleportNPCTo(Tools.currentNPC.handle, pos, Tools.npcRotation[3])
       else
         Game.GetTeleportationFacility():Teleport(Tools.currentNPC.handle, pos, EulerAngles.new(Tools.npcRotation[1], Tools.npcRotation[2], Tools.npcRotation[3]))
       end
@@ -770,7 +766,7 @@ function Tools:DrawNPCActions()
           Tools:TeleportPropTo(Tools.currentNPC, pos, EulerAngles.new(Tools.npcRotation[1], Tools.npcRotation[2], Tools.npcRotation[3]))
         end
       elseif Tools.currentNPC.type ~= 'Player' and Tools.currentNPC.handle:IsNPC() then
-        Tools:TeleportNPCTo(Tools.currentNPC.handle, pos, Tools.npcRotation[1])
+        Tools:TeleportNPCTo(Tools.currentNPC.handle, pos, Tools.npcRotation[3])
       else
         Game.GetTeleportationFacility():Teleport(Tools.currentNPC.handle, pos, EulerAngles.new(Tools.npcRotation[1], Tools.npcRotation[2], Tools.npcRotation[3]))
       end
@@ -782,7 +778,7 @@ function Tools:DrawNPCActions()
     if Tools.precisonMode then rotationValue = 0.01 end
 
     if Tools.currentNPC ~= '' and (Tools.currentNPC.type ~= 'entEntity' and Tools.currentNPC.type ~= 'Player' and Tools.currentNPC.handle:IsNPC()) then
-      Tools.npcRotation[1], rotationUsed = ImGui.SliderFloat("Rotation", Tools.npcRotation[1], -180, 180)
+      Tools.npcRotation[3], rotationUsed = ImGui.SliderFloat("Rotation", Tools.npcRotation[3], -180, 180)
     elseif Tools.currentNPC ~= '' then
       Tools.npcRotation, rotationUsed = ImGui.DragFloat3("Tilt/Rotation", Tools.npcRotation, 0.1)
     end
@@ -794,7 +790,7 @@ function Tools:DrawNPCActions()
           Tools:TeleportPropTo(Tools.currentNPC, pos, EulerAngles.new(Tools.npcRotation[1], Tools.npcRotation[2], Tools.npcRotation[3]))
         end
       elseif Tools.currentNPC.type ~= 'Player' and Tools.currentNPC.handle:IsNPC() then
-        Tools:TeleportNPCTo(Tools.currentNPC.handle, pos, Tools.npcRotation[1])
+        Tools:TeleportNPCTo(Tools.currentNPC.handle, pos, Tools.npcRotation[3])
       else
         Game.GetTeleportationFacility():Teleport(Tools.currentNPC.handle, pos, EulerAngles.new(Tools.npcRotation[1], Tools.npcRotation[2], Tools.npcRotation[3]))
       end
@@ -879,7 +875,7 @@ function Tools:DrawNPCActions()
             local newPos = Vector4.new(pos.x + (heading.x * 2), pos.y + (heading.y * 2), currentPos.z, pos.w)
 
             if Tools.currentNPC.type ~= 'Player' and Tools.currentNPC.handle:IsNPC() then
-              Tools:TeleportNPCTo(npcHandle, newPos, Tools.npcRotation[1])
+              Tools:TeleportNPCTo(npcHandle, newPos, Tools.npcRotation[3])
             else
               Game.GetTeleportationFacility():Teleport(npcHandle, newPos, EulerAngles.new(Tools.npcRotation[1], Tools.npcRotation[2], Tools.npcRotation[3]))
             end
@@ -929,7 +925,7 @@ function Tools:DrawNPCActions()
           end
         end
 
-        if GetVersion() == "v1.15.0" and not AMM.playerInPhoto and not Tools.currentNPC.handle.isPlayerCompanionCached then
+        if not AMM.playerInPhoto and not Tools.currentNPC.handle.isPlayerCompanionCached then
           local buttonLabel = " Change To Crouch Stance "
           if Tools.isCrouching then
             buttonLabel = " Change To Stand Stance "
@@ -1201,7 +1197,7 @@ function Tools:SetTargetPosition(pos, angles)
       Tools:TeleportPropTo(Tools.currentNPC, pos, angles or EulerAngles.new(Tools.npcRotation[1], Tools.npcRotation[2], Tools.npcRotation[3]))
     end
   elseif Tools.currentNPC.type ~= 'Player' and Tools.currentNPC.handle:IsNPC() then
-    Tools:TeleportNPCTo(Tools.currentNPC.handle, pos, angles or Tools.npcRotation[1])
+    Tools:TeleportNPCTo(Tools.currentNPC.handle, pos, angles or Tools.npcRotation[3])
   else
     Game.GetTeleportationFacility():Teleport(Tools.currentNPC.handle, pos, angles or EulerAngles.new(Tools.npcRotation[1], Tools.npcRotation[2], Tools.npcRotation[3]))
   end
@@ -1211,11 +1207,16 @@ function Tools:SetTargetPosition(pos, angles)
   end)
 end
 
+function Tools:ClearTarget()
+  Tools.lockTarget = false
+  Tools.currentNPC = ''
+end
+
 function Tools:SetCurrentTarget(target)
   local pos, angles
   Tools.currentNPC = target
 
-  Tools.relativeMode = false
+  -- Tools.relativeMode = false
 
   if Tools.currentNPC.type == 'entEntity' then
     pos = Tools.currentNPC.parameters[1]
@@ -1227,8 +1228,14 @@ function Tools:SetCurrentTarget(target)
 
   Tools.npcRotation = {angles.roll, angles.pitch, angles.yaw}
   Tools.npcUpDown = pos.z
-  Tools.npcLeft = pos.x
-  Tools.npcRight = pos.y
+
+  if Tools.relativeMode then
+    Tools.npcLeft = 0
+    Tools.npcRight = 0  
+  else
+    Tools.npcLeft = pos.x
+    Tools.npcRight = pos.y
+  end
 end
 
 function Tools:ActivateFacialExpression(target, face, upperBody, lookAtV, lookAtTarget)
@@ -1415,7 +1422,10 @@ end
 
 function Tools:SkipFrame()
   Tools:FreezeTime()
-  AMM.skipFrame = true
+
+  Cron.After(0.1, function() 
+    Tools:FreezeTime()
+  end)
 end
 
 function Tools:FreezeTime()

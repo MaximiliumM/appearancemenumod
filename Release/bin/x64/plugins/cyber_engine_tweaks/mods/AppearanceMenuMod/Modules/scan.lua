@@ -23,8 +23,13 @@ function Scan:Draw(AMM, target, style)
     AMM.UI:DrawCrossHair()
 
     if Tools.lockTarget then
-      if Tools.currentNPC.type ~= 'entEntity' then
+      if Tools.currentNPC.type ~= 'entEntity' and Tools.currentNPC.type ~= 'gameObject' 
+      and Tools.currentNPC.type ~= 'Prop' then
         target = Tools.currentNPC
+
+        if target.handle and target.handle ~= '' then
+          target.options = AMM:GetAppearanceOptions(target.handle)
+        end
       end
     end
 
@@ -75,10 +80,6 @@ function Scan:Draw(AMM, target, style)
           currentTitle = "Current Appearance:",
           buttons = {}
         }
-      else
-        if target.handle then
-          target.options = AMM:GetAppearanceOptions(target.handle)
-        end
       end
 
       AMM.UI:Spacing(3)

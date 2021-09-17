@@ -133,7 +133,7 @@ end
 
 function Util:HoldPosition(targetPuppet, duration)
 	local holdCmd = NewObject('handle:AIHoldPositionCommand')
-	holdCmd.duration = duration or 1.0
+	holdCmd.duration = duration or 5.0
 	holdCmd.ignoreInCombat = false
 	holdCmd.removeAfterCombat = false
 	holdCmd.alwaysUseStealth = true

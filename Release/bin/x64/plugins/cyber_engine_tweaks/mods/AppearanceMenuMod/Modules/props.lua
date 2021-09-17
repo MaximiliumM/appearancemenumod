@@ -71,6 +71,7 @@ function Props:new()
   Props.savedPropsSearchQuery = ''
   Props.searchBarWidth = 500
   Props.moddersList = {}
+  Props.showTargetOnly = false
 
   return Props
 end
@@ -152,7 +153,7 @@ function Props:DrawSpawnedProps()
       -- local spawn = Props.spawnedProps[propName]
       local nameLabel = spawn.name
       
-      if Tools.currentNPC ~= '' and Tools.currentNPC.handle then
+      if Tools.lockTarget and Tools.currentNPC ~= '' and Tools.currentNPC.handle then
         if nameLabel == Tools.currentNPC.name then
           AMM.UI:TextColored(nameLabel)
         else
@@ -252,28 +253,30 @@ function Props:DrawCategories()
     local x, y = GetDisplayResolution()
     if ImGui.BeginChild("Categories", ImGui.GetWindowContentRegionWidth(), y / 2) then
       for _, category in ipairs(Props.categories) do
-        if ImGui.CollapsingHeader(category.cat_name) then
-          local entities = {}
-          if category.cat_name == 'Favorites' then
-            local query = "SELECT * FROM favorites"
-            for fav in db:nrows(query) do
-              query = f("SELECT * FROM entities WHERE entity_id = '%s' AND cat_id IN %s", fav.entity_id, validCatIDs)
-              for en in db:nrows(query) do
-                if fav.parameters ~= nil then en.parameters = fav.parameters end
-                table.insert(entities, {fav.entity_name, en.entity_id, en.can_be_comp, en.parameters, en.entity_path, en.template_path})
-              end
-            end
-            if #entities == 0 then
-              ImGui.Text("It's empty :(")
+        local entities = {}
+        if category.cat_name == 'Favorites' then
+          local query = "SELECT * FROM favorites"
+          for fav in db:nrows(query) do
+            query = f("SELECT * FROM entities WHERE entity_id = '%s' AND cat_id IN %s", fav.entity_id, validCatIDs)
+            for en in db:nrows(query) do
+              if fav.parameters ~= nil then en.parameters = fav.parameters end
+              table.insert(entities, {fav.entity_name, en.entity_id, en.can_be_comp, en.parameters, en.entity_path, en.template_path})
             end
           end
-
-          local query = f("SELECT * FROM entities WHERE is_spawnable = 1 AND cat_id == '%s' ORDER BY entity_name ASC", category.cat_id)
-          for en in db:nrows(query) do
-            table.insert(entities, {en.entity_name, en.entity_id, en.can_be_comp, en.parameters, en.entity_path, en.template_path})
+          if #entities == 0 then
+            ImGui.Text("It's empty :(")
           end
+        end
 
-          AMM.Spawn:DrawEntitiesButtons(entities, category.cat_name, Props.style)
+        local query = f("SELECT * FROM entities WHERE is_spawnable = 1 AND cat_id == '%s' ORDER BY entity_name ASC", category.cat_id)
+        for en in db:nrows(query) do
+          table.insert(entities, {en.entity_name, en.entity_id, en.can_be_comp, en.parameters, en.entity_path, en.template_path})
+        end
+
+        if #entities ~= 0 then
+          if ImGui.CollapsingHeader(category.cat_name) then
+            AMM.Spawn:DrawEntitiesButtons(entities, category.cat_name, Props.style)
+          end
         end
       end
     end
@@ -283,61 +286,77 @@ end
 
 function Props:DrawProps(props)
   for i, prop in ipairs(props) do
-    ImGui.Text(prop.name)
-
-    if Props.activeProps[prop.uid] ~= nil and Props.activeProps[prop.uid].handle ~= '' then
-      ImGui.SameLine()
-      AMM.UI:TextColored("In World")
+    if Props.showTargetOnly then
+      if Tools.currentNPC.handle and Tools.currentNPC.handle ~= '' and Props.activeProps[prop.uid] ~= nil and Props.activeProps[prop.uid].handle ~= '' 
+      and Props.activeProps[prop.uid].handle:GetEntityID().hash == Tools.currentNPC.handle:GetEntityID().hash then
+        Props:DrawSavedProp(prop, i)
+      end
+    else
+      Props:DrawSavedProp(prop, i)
     end
-
-    if ImGui.SmallButton("Remove##"..i) then
-      Props:RemoveProp(prop)
-    end
-
-    if Props.activeProps[prop.uid] ~= nil and Props.activeProps[prop.uid].handle ~= '' then
-      ImGui.SameLine()
-      if ImGui.SmallButton("Update Position##"..i) then
-        Props:SavePropPosition(Props.activeProps[prop.uid])
-      end
-
-      ImGui.SameLine()
-      if ImGui.SmallButton("Target".."##"..i) then
-        AMM.Tools:SetCurrentTarget(Props.activeProps[prop.uid])
-        AMM.Tools.lockTarget = true
-      end
-
-      local buttonLabel = " Show On Map "
-      if Props.activeProps[prop.uid].mappinData ~= nil then
-        buttonLabel = "Hide From Map"
-      end
-
-      ImGui.SameLine()
-      if ImGui.SmallButton(buttonLabel.."##"..i) then
-        if Props.activeProps[prop.uid].mappinData ~= nil then
-          Props:RemoveFromMap(Props.activeProps[prop.uid].mappinData)
-          Props.activeProps[prop.uid].mappinData = nil
-        else
-          Props.activeProps[prop.uid].mappinData = Props:ShowOnMap(prop.pos)
-        end
-      end
-
-      if Props.editingTags[i] == nil then
-        Props.editingTags[i] = prop.tag
-      end
-
-      Props.editingTags[i] = ImGui.InputText(" ##"..i, Props.editingTags[i], 100)
-
-      ImGui.SameLine(394)
-      if ImGui.SmallButton(" Update Tag ##"..i) and Props.editingTags[i] ~= '' then
-        Props:UpdatePropTag(prop, Props.editingTags[i])
-
-        Props:Update()
-        Props.editingTags[i] = nil
-      end
-    end
-
-    AMM.UI:Spacing(4)
   end
+end
+
+function Props:DrawSavedProp(prop, i)
+  if Tools.currentNPC.handle and Tools.currentNPC.handle ~= '' and Props.activeProps[prop.uid] ~= nil and Props.activeProps[prop.uid].handle ~= '' 
+  and Props.activeProps[prop.uid].handle:GetEntityID().hash == Tools.currentNPC.handle:GetEntityID().hash then
+    AMM.UI:TextColored(prop.name)
+  else
+    ImGui.Text(prop.name)
+  end
+
+  if Props.activeProps[prop.uid] ~= nil and Props.activeProps[prop.uid].handle ~= '' then
+    ImGui.SameLine()
+    AMM.UI:TextColored("  In World")
+  end
+
+  if ImGui.SmallButton("Remove##"..i) then
+    Props:RemoveProp(prop)
+  end
+
+  if Props.activeProps[prop.uid] ~= nil and Props.activeProps[prop.uid].handle ~= '' then
+    ImGui.SameLine()
+    if ImGui.SmallButton("Update Position##"..i) then
+      Props:SavePropPosition(Props.activeProps[prop.uid])
+    end
+
+    ImGui.SameLine()
+    if ImGui.SmallButton("Target".."##"..i) then
+      AMM.Tools:SetCurrentTarget(Props.activeProps[prop.uid])
+      AMM.Tools.lockTarget = true
+    end
+
+    local buttonLabel = " Show On Map "
+    if Props.activeProps[prop.uid].mappinData ~= nil then
+      buttonLabel = "Hide From Map"
+    end
+
+    ImGui.SameLine()
+    if ImGui.SmallButton(buttonLabel.."##"..i) then
+      if Props.activeProps[prop.uid].mappinData ~= nil then
+        Props:RemoveFromMap(Props.activeProps[prop.uid].mappinData)
+        Props.activeProps[prop.uid].mappinData = nil
+      else
+        Props.activeProps[prop.uid].mappinData = Props:ShowOnMap(prop.pos)
+      end
+    end
+
+    if Props.editingTags[i] == nil then
+      Props.editingTags[i] = prop.tag
+    end
+
+    Props.editingTags[i] = ImGui.InputText(" ##"..i, Props.editingTags[i], 100)
+
+    ImGui.SameLine(394)
+    if ImGui.SmallButton(" Update Tag ##"..i) and Props.editingTags[i] ~= '' then
+      Props:UpdatePropTag(prop, Props.editingTags[i])
+
+      Props:Update()
+      Props.editingTags[i] = nil
+    end
+  end
+
+  AMM.UI:Spacing(4)
 end
 
 function Props:DrawPresetConfig()
@@ -412,7 +431,7 @@ function Props:DrawPresetConfig()
     end
 
     if ImGui.Button("Delete", Props.style.buttonWidth, Props.style.buttonHeight) then
-      Props:DeletePreset(Props.activePreset)
+      popupDelegate = AMM:OpenPopup("Preset")
     end
 
     if ImGui.Button("Backup", Props.style.buttonWidth, Props.style.buttonHeight) then
@@ -420,17 +439,21 @@ function Props:DrawPresetConfig()
     end
   end
 
+  local style = {
+    buttonHeight = ImGui.GetFontSize() * 2,
+    halfButtonWidth = ((ImGui.GetWindowContentRegionWidth() / 2) - 12),
+    buttonWidth = -1,
+  }
+
+  AMM:BeginPopup("WARNING", nil, true, popupDelegate, style)
+
   local sizeX = ImGui.GetWindowSize()
   local x, y = ImGui.GetWindowPos()
   ImGui.SetNextWindowPos(x + ((sizeX / 2) - 200), y - 40)
   ImGui.SetNextWindowSize(400, ImGui.GetFontSize() * 8)
 
   if ImGui.BeginPopupModal("Rename Preset") then
-    local style = {
-        buttonHeight = ImGui.GetFontSize() * 2,
-        halfButtonWidth = ((ImGui.GetWindowContentRegionWidth() / 2) - 12)
-    }
-
+    
     if Props.presetName == 'existing' then
       ImGui.TextColored(1, 0.16, 0.13, 0.75, "Existing Name")
 
@@ -487,6 +510,11 @@ function Props:DrawHeaders()
     end
 
     ImGui.Spacing()
+
+    if Tools.lockTarget then
+      Props.showTargetOnly = ImGui.Checkbox("Show Locked Target Only", Props.showTargetOnly)
+      ImGui.Spacing()
+    end
 
     AMM.UI:TextColored("Saved Props:")
 
@@ -928,6 +956,9 @@ function Props:LoadPreset(fileName)
   if fileName ~= '' then
     local name, props = Props:LoadPresetData(fileName)
     if name then
+      if string.find(name, 'backup') then
+        name = name:match("[^-backup-]+")
+      end
       Props.activePreset = {file_name = fileName, name = name, props = props}
       Props:ActivatePreset(Props.activePreset)
     end
