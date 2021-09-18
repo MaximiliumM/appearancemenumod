@@ -41,7 +41,7 @@ function AMM:new()
 	 AMM.TeleportMod = ''
 
 	 -- Main Properties --
-	 AMM.currentVersion = "1.11.1"
+	 AMM.currentVersion = "1.11.1b"
 	 AMM.updateNotes = require('update_notes.lua')
 	 AMM.credits = require("credits.lua")
 	 AMM.updateLabel = "WHAT'S NEW"
@@ -928,6 +928,7 @@ function AMM:NewTarget(handle, targetType, id, name, app, options)
 
 	local components = self.Props:CheckForValidComponents(handle)
 	if components then
+		obj.defaultScale = components[1].visualScale.x * 100
 		obj.scale = components[1].visualScale.x * 100
 	end
 
@@ -973,6 +974,12 @@ end
 function AMM:FinishUpdate()
 	finishedUpdate = true
 	AMM:UpdateOldFavorites()
+
+	if self.currentVersion == "1.11.1b" then
+		AMM:ResetAllPropsScale()
+		AMM.Props:Update()
+	end
+
 	db:execute(f("UPDATE metadata SET current_version = '%s'", self.currentVersion))
 end
 
@@ -1282,6 +1289,10 @@ function AMM:RevertTweakDBChanges(userActivated)
 	if not(userActivated) then
 		TweakDB:SetFlat(TweakDBID.new('Vehicle.vehicle_list.list'), self.originalVehicles)
 	end
+end
+
+function AMM:ResetAllPropsScale()
+	db:execute("UPDATE saved_props SET scale = NULL")
 end
 
 function AMM:UpdateOldFavorites()

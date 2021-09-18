@@ -14,7 +14,7 @@ function Props:NewProp(uid, id, name, template, posString, scale, tag)
   local pos = loadstring("return "..posString, '')()
   obj.pos = Vector4.new(pos.x, pos.y, pos.z, pos.w)
   obj.angles = EulerAngles.new(pos.roll, pos.pitch, pos.yaw)
-  obj.scale = scale or 100
+  obj.scale = scale or nil
 	obj.type = "Prop"
 
   return obj
@@ -327,7 +327,7 @@ function Props:DrawSavedProp(prop, i)
 
   if Props.activeProps[prop.uid] ~= nil and Props.activeProps[prop.uid].handle ~= '' then
     ImGui.SameLine()
-    if ImGui.SmallButton("Update Position##"..i) then
+    if ImGui.SmallButton("Update Prop##"..i) then
       Props:SavePropPosition(Props.activeProps[prop.uid])
     end
 
@@ -685,7 +685,15 @@ function Props:SpawnPropInPosition(ent, pos, angles)
       ent.parameters = {ent.pos, ent.angles}
 
       local components = Props:CheckForValidComponents(ent.handle)
-      if components then AMM.Tools:SetScale(components, ent.scale) end
+      if components then
+        ent.defaultScale = components[1].visualScale.x * 100
+
+        if ent.scale ~= -1 then
+          AMM.Tools:SetScale(components, ent.scale)
+        else
+          ent.scale = components[1].visualScale.x * 100
+        end
+      end
 
       if AMM:GetScanClass(ent.handle) == 'entEntity' then
 				ent.type = 'entEntity'
@@ -791,10 +799,16 @@ function Props:SavePropPosition(ent)
   local trigger = Props:GetPosString(Props:CheckForTriggersNearby(pos))
   pos = Props:GetPosString(pos, angles)
 
+  local components = AMM.Props:CheckForValidComponents(ent.handle)
+  if components then
+    ent.defaultScale = components[1].visualScale.x * 100
+    ent.scale = components[1].visualScale.x * 100
+  end
+
   if ent.uid then
-    db:execute(f('UPDATE saved_props SET pos = "%s", scale = %f WHERE uid = %i', pos, ent.scale, ent.uid))
+    db:execute(f('UPDATE saved_props SET pos = "%s", scale = %f WHERE uid = %i', pos, ent.scale or -1, ent.uid))
   else
-	  db:execute(f('INSERT INTO saved_props (entity_id, name, template_path, pos, trigger, scale, tag) VALUES ("%s", "%s", "%s", "%s", "%s", %f, "%s")', ent.id, ent.name, ent.template, pos, trigger, ent.scale, tag))
+	  db:execute(f('INSERT INTO saved_props (entity_id, name, template_path, pos, trigger, scale, tag) VALUES ("%s", "%s", "%s", "%s", "%s", %f, "%s")', ent.id, ent.name, ent.template, pos, trigger, ent.scale or -1, tag))
   end
 
   Cron.After(2.0, function()
@@ -827,19 +841,9 @@ end
 
 function Props:CheckForValidComponents(handle)
   if handle then
-    local validComponent = "amm_prop_slot%i"
     local components = {}
 
-    for i = 1, 4 do
-      local c = handle:FindComponentByName(CName.new(f(validComponent, i)))
-      if c then table.insert(components, c) end
-    end
-
-    local mayComponents = {
-      "body_01","trunk_a","cockpit","trunk_b","canopy_right_screen_frame_b","canopy_right_screen_middle_b","canopy_right_screen_right_b","canopy_right_screen_left_b","canopy_right_screen_frame_a","canopy_right_screen_middle_a","canopy_right_screen_right_a","canopy_right_screen_left_a","canopy_left_screen_middle_b","canopy_left_screen_frame_b","canopy_left_screen_right_b","canopy_left_screen_left_b","canopy_left_mainscreen_b","canopy_left_mainscreen_a","canopy_left_screen_left_a","canopy_left_screen_right_a","canopy_left_screen_middle_a","canopy_left_screen_frame_a","canopy_right_screen_a","av_militech_basilisk__ext01_body_shadow","av_militech_basilisk__ext01_trunk_b_shadow","av_militech_basilisk__ext01_trunk_a_shadow","av_militech_basilisk__ext01_hinges_shadow","basilisk_vfx_cutout"
-    }
-
-    for _, comp in ipairs(mayComponents) do
+    for comp in db:urows("SELECT cname FROM components WHERE type = 'Props'") do
       local c = handle:FindComponentByName(CName.new(comp))
       if c then table.insert(components, c) end
     end
@@ -892,6 +896,7 @@ function Props:SpawnProp(spawn, pos, angles)
       
       local components = AMM.Props:CheckForValidComponents(entity)
       if components then
+        spawn.defaultScale = components[1].visualScale.x * 100
         spawn.scale = components[1].visualScale.x * 100
       end
 
@@ -957,7 +962,7 @@ function Props:ActivatePreset(preset)
 
   local values = {}
   for i, prop in ipairs(preset.props) do
-    table.insert(values, f('(%i, "%s", "%s", "%s", "%s", "%s", %f, "%s")', prop.uid or i, prop.entity_id, prop.name, prop.template_path, prop.pos, prop.trigger, prop.scale or 100, prop.tag))
+    table.insert(values, f('(%i, "%s", "%s", "%s", "%s", "%s", %f, "%s")', prop.uid or i, prop.entity_id, prop.name, prop.template_path, prop.pos, prop.trigger, prop.scale or -1, prop.tag))
   end
 
   db:execute(f('INSERT INTO saved_props (uid, entity_id, name, template_path, pos, trigger, scale, tag) VALUES %s', table.concat(values, ", ")))

@@ -1,5 +1,18 @@
 return {
 	{
+		'1.11.1b',
+		'2021 Sep 18',
+		[[Added new Prop: Washing Machine]],
+		[[Added Holo Fish to the list of Props that are compatible with the Scale tool]],
+		[[Added Reset Scale button]],
+		[[-- Now you can change the Prop size back to its original size]],
+		[[Renamed Update Position button in Saved Props tab to Update Prop]],
+		[[-- This button will save the current position and scale of the Prop]],
+		[[Fixed issue where Saved Props that were smaller variants would get their default size back]],
+		[[-- Unfortunately, in order to fix this, I had to reset scale for all Saved Props]],
+		[[Fixed issue where Props that don't have scaling available would not move to Saved Props]],
+	},
+	{
 		'1.11.1',
 		'2021 Sep 17',
 		[[Added Boob Jiggles to Songbird]],

@@ -1096,6 +1096,11 @@ function Tools:DrawNPCActions()
         if scaleChangeUsed then
           Tools:SetScale(components, Tools.currentNPC.scale)
         end
+
+        if ImGui.Button("Reset Scale", Tools.style.buttonWidth, Tools.style.buttonHeight) then
+          Tools:SetScale(components, Tools.currentNPC.defaultScale)
+          Tools.currentNPC.scale = Tools.currentNPC.defaultScale
+        end
       else
         AMM.UI:Spacing(3)
         AMM.UI:TextCenter("Scaling Not Available")
