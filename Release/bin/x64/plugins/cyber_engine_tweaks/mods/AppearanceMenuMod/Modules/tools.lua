@@ -50,6 +50,7 @@ function Tools:new()
   Tools.lockTarget = false
   Tools.precisonMode = false
   Tools.relativeMode = false
+  Tools.proportionalMode = true
   Tools.isCrouching = false
   Tools.npcUpDown = 0
   Tools.npcLeft = 0
@@ -71,6 +72,10 @@ end
 
 function Tools:Draw(AMM, target)
   if ImGui.BeginTabItem("Tools") then
+
+    if AMM.Light.isEditing then
+      AMM.Light:Draw(AMM)
+    end
 
     Tools.style = {
       buttonHeight = ImGui.GetFontSize() * 2,
@@ -1078,6 +1083,27 @@ function Tools:DrawNPCActions()
       end
     elseif Tools.currentNPC ~= '' then
 
+      if Tools.currentNPC.handle:FindComponentByName("amm_light") then
+        AMM.UI:Spacing(8)
+
+        AMM.UI:TextCenter("Light Control", true)
+
+        if ImGui.Button("Toggle Light", Tools.style.halfButtonWidth, Tools.style.buttonHeight) then
+          AMM.Light:ToggleLight(Tools.currentNPC)
+        end
+
+        ImGui.SameLine()
+        local buttonLabel ="Open Light Settings"
+        if AMM.Light.isEditing then
+          buttonLabel = "Update Light Target"
+        end
+
+        if ImGui.Button(buttonLabel, Tools.style.halfButtonWidth, Tools.style.buttonHeight) then
+          AMM.Light:Setup(Tools.currentNPC)
+          AMM.Light.isEditing = true
+        end
+      end
+
       if Tools.currentTargetComponents == nil then
         Tools.currentTargetComponents = AMM.Props:CheckForValidComponents(Tools.currentNPC.handle)
       end
@@ -1089,17 +1115,41 @@ function Tools:DrawNPCActions()
       AMM.UI:TextCenter("Scale", true)
       
       if components then
-        ImGui.PushItemWidth(ImGui.GetWindowContentRegionWidth())
-        Tools.currentNPC.scale, scaleChangeUsed = ImGui.DragFloat("##scale", Tools.currentNPC.scale, 0.1)
-        ImGui.PopItemWidth()
-
-        if scaleChangeUsed then
-          Tools:SetScale(components, Tools.currentNPC.scale)
+        
+        local scaleChanged = false
+        local scaleWidth = ImGui.GetWindowContentRegionWidth()
+        if Tools.proportionalMode then
+          ImGui.PushItemWidth(scaleWidth)
+          Tools.currentNPC.scale.x, scaleChanged = ImGui.DragFloat("##scale", Tools.currentNPC.scale.x, 0.1)
+          Tools.currentNPC.scale.y = Tools.currentNPC.scale.x
+          Tools.currentNPC.scale.z = Tools.currentNPC.scale.x
+        else
+          ImGui.PushItemWidth((scaleWidth / 3) - 4)
+          Tools.currentNPC.scale.x, used = ImGui.DragFloat("##scaleX", Tools.currentNPC.scale.x, 0.1)
+          if used then scaleChanged = true end
+          ImGui.SameLine()
+          Tools.currentNPC.scale.y, used = ImGui.DragFloat("##scaleY", Tools.currentNPC.scale.y, 0.1)
+          if used then scaleChanged = true end
+          ImGui.SameLine()
+          Tools.currentNPC.scale.z, used = ImGui.DragFloat("##scaleZ", Tools.currentNPC.scale.z, 0.1)
+          if used then scaleChanged = true end
         end
 
+        ImGui.PopItemWidth()
+
+        if scaleChanged then
+          Tools:SetScale(components, Tools.currentNPC.scale, Tools.proportionalMode)
+        end
+
+        Tools.proportionalMode = ImGui.Checkbox("Proportional Mode", Tools.proportionalMode)
+
         if ImGui.Button("Reset Scale", Tools.style.buttonWidth, Tools.style.buttonHeight) then
-          Tools:SetScale(components, Tools.currentNPC.defaultScale)
-          Tools.currentNPC.scale = Tools.currentNPC.defaultScale
+          Tools:SetScale(components, Tools.currentNPC.defaultScale, true)
+          Tools.currentNPC.scale = {
+            x = Tools.currentNPC.defaultScale.x,
+            y = Tools.currentNPC.defaultScale.y,
+            z = Tools.currentNPC.defaultScale.z,
+          }
         end
       else
         AMM.UI:Spacing(3)
@@ -1293,6 +1343,11 @@ end
 
 function Tools:TeleportPropTo(prop, pos, angles)
   prop.handle:Dispose()
+  
+  local lastScale = nil
+  if prop.scale and prop.scale ~= "nil" then
+    lastScale = prop.scale
+  end
 
   local spawnTransform = AMM.player:GetWorldTransform()
   spawnTransform:SetPosition(pos)
@@ -1307,6 +1362,12 @@ function Tools:TeleportPropTo(prop, pos, angles)
     if entity then
       prop.handle = entity
       prop.parameters = {pos, angles}
+
+      if lastScale then
+        local components = AMM.Props:CheckForValidComponents(entity)
+        Tools:SetScale(components, lastScale)
+      end
+
       Tools.movingProp = false
       Tools:SetCurrentTarget(prop)
       Cron.Halt(timer)
@@ -1362,10 +1423,12 @@ function Tools:SetNPCAttitude(entity, attitude)
 	entAttAgent:SetAttitudeGroup(CName.new(attitude))
 end
 
-function Tools:SetScale(components, value)
-  local n = value / 100
+function Tools:SetScale(components, values, proportional)
+  local n = values
+  local newScale = Vector3.new(n.x / 100, n.y / 100, n.z / 100)
+  if proportional then newScale = Vector3.new(n.x / 100, n.x / 100, n.x / 100) end
   for _, comp in ipairs(components) do
-    comp.visualScale = Vector3.new(n, n, n)
+    comp.visualScale = newScale
     comp:Toggle(false)
     comp:Toggle(true)
   end

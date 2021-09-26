@@ -14,7 +14,7 @@ function Props:NewProp(uid, id, name, template, posString, scale, tag)
   local pos = loadstring("return "..posString, '')()
   obj.pos = Vector4.new(pos.x, pos.y, pos.z, pos.w)
   obj.angles = EulerAngles.new(pos.roll, pos.pitch, pos.yaw)
-  obj.scale = scale or nil
+  obj.scale = loadstring("return "..scale, '')()
 	obj.type = "Prop"
 
   return obj
@@ -36,6 +36,7 @@ function Props:NewPreset(name)
 
   obj.name = name or 'My Preset'
   obj.props = {}
+  obj.lights = {}
   obj.customIncluded = false
 
   while io.open(f("User/Decor/%s.json", obj.name), "r") do
@@ -684,14 +685,26 @@ function Props:SpawnPropInPosition(ent, pos, angles)
       ent.handle = entity
       ent.parameters = {ent.pos, ent.angles}
 
+      for light in db:nrows(f('SELECT * FROM saved_lights WHERE uid = %i', ent.uid)) do
+        AMM.Light:SetLightData(ent, light)
+      end
+
       local components = Props:CheckForValidComponents(ent.handle)
       if components then
-        ent.defaultScale = components[1].visualScale.x * 100
+        ent.defaultScale = {
+          x = components[1].visualScale.x * 100,
+          y = components[1].visualScale.x * 100,
+          z = components[1].visualScale.x * 100,
+         }
 
-        if ent.scale ~= -1 then
+        if ent.scale and ent.scale ~= "nil" then
           AMM.Tools:SetScale(components, ent.scale)
         else
-          ent.scale = components[1].visualScale.x * 100
+          ent.scale = {
+            x = components[1].visualScale.x * 100,
+            y = components[1].visualScale.y * 100,
+            z = components[1].visualScale.z * 100,
+           }
         end
       end
 
@@ -799,16 +812,27 @@ function Props:SavePropPosition(ent)
   local trigger = Props:GetPosString(Props:CheckForTriggersNearby(pos))
   pos = Props:GetPosString(pos, angles)
 
-  local components = AMM.Props:CheckForValidComponents(ent.handle)
-  if components then
-    ent.defaultScale = components[1].visualScale.x * 100
-    ent.scale = components[1].visualScale.x * 100
+  local scale = nil
+  if ent.scale and ent.scale ~= "nil" then
+    scale = Props:GetScaleString(ent.scale)
   end
 
+  local light = AMM.Light:GetLightData(ent)
+
   if ent.uid then
-    db:execute(f('UPDATE saved_props SET pos = "%s", scale = %f WHERE uid = %i', pos, ent.scale or -1, ent.uid))
+    db:execute(f('UPDATE saved_props SET pos = "%s", scale = "%s" WHERE uid = %i', pos, scale, ent.uid))
+
+    if light then
+      db:execute(f('UPDATE saved_lights SET color = "%s", intensity = %f, radius = %f, angles = "%s" WHERE uid = %i', light.color, light.intensity, light.radius, light.angles, ent.uid))
+    end
   else
-	  db:execute(f('INSERT INTO saved_props (entity_id, name, template_path, pos, trigger, scale, tag) VALUES ("%s", "%s", "%s", "%s", "%s", %f, "%s")', ent.id, ent.name, ent.template, pos, trigger, ent.scale or -1, tag))
+	  db:execute(f('INSERT INTO saved_props (entity_id, name, template_path, pos, trigger, scale, tag) VALUES ("%s", "%s", "%s", "%s", "%s", "%s", "%s")', ent.id, ent.name, ent.template, pos, trigger, scale, tag))
+
+    if light then
+      for uid in db:urows(f('SELECT uid FROM saved_props ORDER BY uid DESC LIMIT 1')) do
+        db:execute(f('INSERT INTO saved_lights (uid, entity_id, color, intensity, radius, angles) VALUES (%i, "%s", "%s", %f, %f, "%s")', uid, ent.id, light.color, light.intensity, light.radius, light.angles))
+      end
+    end
   end
 
   Cron.After(2.0, function()
@@ -863,7 +887,7 @@ end
 function Props:SpawnProp(spawn, pos, angles)
 	local offSetSpawn = 0
 	local distanceFromPlayer = 1
-	local angles = GetSingleton('Quaternion'):ToEulerAngles(AMM.player:GetWorldOrientation())
+	local playerAngles = GetSingleton('Quaternion'):ToEulerAngles(AMM.player:GetWorldOrientation())
 	local distanceFromGround = tonumber(spawn.parameters) or 0
 
 	if type(spawn.parameters) ~= 'table' and spawn.parameters and string.find(spawn.parameters, "dist") then
@@ -880,7 +904,7 @@ function Props:SpawnProp(spawn, pos, angles)
 	local spawnPosition = GetSingleton('WorldPosition'):ToVector4(spawnTransform.Position)
 	local newPosition = Vector4.new((spawnPosition.x - offSetSpawn) + offsetDir.x, (spawnPosition.y - offSetSpawn) + offsetDir.y, spawnPosition.z + distanceFromGround, spawnPosition.w)
 	spawnTransform:SetPosition(spawnTransform, pos or newPosition)
-	spawnTransform:SetOrientationEuler(spawnTransform, angles or EulerAngles.new(0, 0, angles.yaw - 180))
+	spawnTransform:SetOrientationEuler(spawnTransform, angles or EulerAngles.new(0, 0, playerAngles.yaw - 180))
 
   local record = ''
   if string.find(spawn.template, 'yacht') then
@@ -896,8 +920,16 @@ function Props:SpawnProp(spawn, pos, angles)
       
       local components = AMM.Props:CheckForValidComponents(entity)
       if components then
-        spawn.defaultScale = components[1].visualScale.x * 100
-        spawn.scale = components[1].visualScale.x * 100
+        spawn.defaultScale = {
+          x = components[1].visualScale.x * 100,
+          y = components[1].visualScale.x * 100,
+          z = components[1].visualScale.x * 100,
+         }
+        spawn.scale = {
+          x = components[1].visualScale.x * 100,
+          y = components[1].visualScale.y * 100,
+          z = components[1].visualScale.z * 100,
+        }
       end
 
 			spawn.parameters = {newPosition, GetSingleton('Quaternion'):ToEulerAngles(AMM.player:GetWorldOrientation())}
@@ -962,10 +994,20 @@ function Props:ActivatePreset(preset)
 
   local values = {}
   for i, prop in ipairs(preset.props) do
-    table.insert(values, f('(%i, "%s", "%s", "%s", "%s", "%s", %f, "%s")', prop.uid or i, prop.entity_id, prop.name, prop.template_path, prop.pos, prop.trigger, prop.scale or -1, prop.tag))
+    local scale = prop.scale
+    if scale == -1 then scale = nil end
+    if type(scale) == "number" then scale = Props:GetScaleString(scale) end
+    prop.uid = prop.uid or i
+    table.insert(values, f('(%i, "%s", "%s", "%s", "%s", "%s", "%s", "%s")', prop.uid, prop.entity_id, prop.name, prop.template_path, prop.pos, prop.trigger, scale, prop.tag))
+  end
+
+  local lights = {}
+  for i, light in ipairs(preset.lights) do
+    table.insert(lights, f('(%i, "%s", "%s", %f, %f, "%s")', prop.uid, light.entity_id, light.color, light.intensity, light.radius, light.angles))
   end
 
   db:execute(f('INSERT INTO saved_props (uid, entity_id, name, template_path, pos, trigger, scale, tag) VALUES %s', table.concat(values, ", ")))
+  db:execute(f('INSERT INTO saved_lights (uid, entity_id, color, intensity, radius, angles) VALUES %s', table.concat(lights, ", ")))
 
   Props.activePreset = preset
 
@@ -984,34 +1026,46 @@ function Props:BackupPreset(preset)
     table.insert(props, prop)
   end
 
+  local lights = {}
+  for light in db:nrows('SELECT * FROM saved_lights') do
+    table.insert(lights, light)
+  end
+
   if #props > 0 then
     local presetName = preset.name or 'Preset'
     local backupName = presetName.."-backup-"..os.date('%Y%m%d-%H%M%S')
     local newPreset = Props:NewPreset(backupName)
     newPreset.props = props
+    newPreset.lights = lights
     Props:SavePreset(newPreset, "User/Decor/Backup/%s")
   end
 end
 
 function Props:SharePresetWithTag(tag)
   local props = {}
+  local lights = {}
   for prop in db:nrows(f('SELECT * FROM saved_props WHERE tag = "%s"', tag)) do
     table.insert(props, prop)
+
+    for light in db:nrows(f('SELECT * FROM saved_lights WHERE uid = %i', prop.uid)) do
+      table.insert(lights, light)
+    end
   end
 
   local newPreset = Props:NewPreset(tag)
   newPreset.props = props
+  newPreset.lights = lights
   Props:SavePreset(newPreset)
 end
 
 function Props:LoadPreset(fileName)
   if fileName ~= '' then
-    local name, props = Props:LoadPresetData(fileName)
+    local name, props, lights = Props:LoadPresetData(fileName)
     if name then
       if string.find(name, 'backup') then
         name = name:match("[^-backup-]+")
       end
-      Props.activePreset = {file_name = fileName, name = name, props = props}
+      Props.activePreset = {file_name = fileName, name = name, props = props, lights = lights}
       Props:ActivatePreset(Props.activePreset)
     end
   end
@@ -1023,7 +1077,7 @@ function Props:LoadPresetData(preset)
     local contents = file:read( "*a" )
 		local presetData = json.decode(contents)
     file:close()
-    return presetData['name'], presetData['props']
+    return presetData['name'], presetData['props'], presetData['lights'] or {}
   end
 
   return false
@@ -1035,8 +1089,8 @@ function Props:LoadPresets()
   if #Props.presets ~= #files + 1 then
     for _, preset in ipairs(files) do
       if string.find(preset.name, '.json') then
-        local name, props = Props:LoadPresetData(preset.name)
-        table.insert(presets, {file_name = preset.name, name = name, props = props})
+        local name, props, lights = Props:LoadPresetData(preset.name)
+        table.insert(presets, {file_name = preset.name, name = name, props = props, lights = lights})
       end
     end
     return presets
@@ -1146,6 +1200,10 @@ function Props:GetPosString(pos, angles)
   end
 
   return posString
+end
+
+function Props:GetScaleString(scale)
+  return f("{x = %f, y = %f, z = %f}", scale.x, scale.y, scale.z)
 end
 
 return Props:new()

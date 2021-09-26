@@ -474,7 +474,7 @@ function Spawn:SpawnNPC(spawn)
 
 	local custom = {}
 	if spawn.parameters ~= nil then
-	custom = AMM:GetCustomAppearanceParams(spawn, spawn.parameters)
+		custom = AMM:GetCustomAppearanceParams(spawn, spawn.parameters)
 	end
 
 	local favoriteApp = false
@@ -512,15 +512,17 @@ function Spawn:SpawnNPC(spawn)
 
 			spawn.appearance = AMM:GetAppearance(spawn)
 
-			if not(string.find(spawn.name, "Drone")) then
-				Util:TeleportNPCTo(spawn.handle)
-			end
-
-			if #custom > 0 then
+			if #custom > 0 or spawn.parameters ~= nil then
 				AMM:ChangeAppearanceTo(spawn, spawn.parameters)
 			elseif not favoriteApp then
 				AMM:ChangeScanAppearanceTo(spawn, 'Cycle')
 			end
+
+			Cron.After(0.2, function() 
+				if not(string.find(spawn.name, "Drone")) then
+					Util:TeleportNPCTo(spawn.handle)
+				end
+			end)
 
 			if AMM.userSettings.spawnAsCompanion and spawn.canBeCompanion then
 				Spawn:SetNPCAsCompanion(spawn.handle)

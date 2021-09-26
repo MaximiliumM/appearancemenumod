@@ -1,5 +1,22 @@
 return {
 	{
+		'1.11.2',
+		'2021 Sep 23',
+		[[Added new Light Control feature:]],
+		[[-- Now you can spawn three types of customizable Lights: Point, Spot and Area]],
+		[[-- Open the new Light Settings window in the Tools tab]],
+		[[-- You can change Color, Intensity, Radius and Inner/Outer Angles]],
+		[[-- Use the Toggle Marker button to enable a little arrow to help position the Light]],
+		[[-- Save Lights to your Decor presets!]],
+		[[Added new Proportional toggle to Scale tool:]],
+		[[-- Now you can scale Props in three axis - x, y, z]],
+		[[Added two new Props:]],
+		[[-- Phoenix Wings and Oda's helmet]],
+		[[Added Scale tool compatibility to some Props]],
+		[[Fixed issue where Duplicated props would spawn in different orientation]],
+		[[Fixed issue where the default appearance would not be set correctly to spawned characters]],
+	},
+	{
 		'1.11.1b',
 		'2021 Sep 18',
 		[[Added new Prop: Washing Machine]],

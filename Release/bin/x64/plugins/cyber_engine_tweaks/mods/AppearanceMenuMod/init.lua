@@ -41,7 +41,7 @@ function AMM:new()
 	 AMM.TeleportMod = ''
 
 	 -- Main Properties --
-	 AMM.currentVersion = "1.11.1b"
+	 AMM.currentVersion = "1.11.2"
 	 AMM.updateNotes = require('update_notes.lua')
 	 AMM.credits = require("credits.lua")
 	 AMM.updateLabel = "WHAT'S NEW"
@@ -97,6 +97,7 @@ function AMM:new()
 		 AMM.Tools = require('Modules/tools.lua')
 		 AMM.Props = require('Modules/props.lua')
 		 AMM.Director = require('Modules/director.lua')
+		 AMM.Light = require('Modules/light.lua')
 
 		 AMM:SetupVehicleData()
 		 AMM:SetupCustomProps()
@@ -928,8 +929,16 @@ function AMM:NewTarget(handle, targetType, id, name, app, options)
 
 	local components = self.Props:CheckForValidComponents(handle)
 	if components then
-		obj.defaultScale = components[1].visualScale.x * 100
-		obj.scale = components[1].visualScale.x * 100
+		obj.defaultScale = {
+			x = components[1].visualScale.x * 100,
+			y = components[1].visualScale.x * 100,
+			z = components[1].visualScale.x * 100,
+		 }
+		obj.scale = {
+			x = components[1].visualScale.x * 100,
+			y = components[1].visualScale.y * 100,
+			z = components[1].visualScale.z * 100,
+		 }
 	end
 
 	-- Check if target is Birdie
