@@ -41,7 +41,7 @@ function AMM:new()
 	 AMM.TeleportMod = ''
 
 	 -- Main Properties --
-	 AMM.currentVersion = "1.11.2"
+	 AMM.currentVersion = "1.11.3"
 	 AMM.updateNotes = require('update_notes.lua')
 	 AMM.credits = require("credits.lua")
 	 AMM.updateLabel = "WHAT'S NEW"
@@ -168,7 +168,38 @@ function AMM:new()
 			 Props:BackupPreset(Props.activePreset)
 		 end)
 
-		 -- Setup Observers --
+		 -- Setup Observers and Overrides --
+		 local vehicleMap = {}
+		 Observe('VehicleObject', 'OnRequestComponents', function(self, ri)
+			EntityRequestComponentsInterface.RequestComponent(ri, "AIComponent", "AIVehicleAgent", false)
+		 end)
+		 
+		 Observe('VehicleObject', 'OnTakeControl', function(self, ri)
+			local vehicleAI = EntityResolveComponentsInterface.GetComponent(ri, "AIComponent")
+			vehicleMap[tostring(self:GetEntityID().hash)] = vehicleAI
+		 end)
+
+		local fastTravelScenario
+      Observe("MenuScenario_HubMenu", "GetMenusState", function(self)
+			if self:IsA("MenuScenario_HubMenu") then
+				fastTravelScenario = self
+			else
+				fastTravelScenario = nil
+			end
+      end)
+
+		Observe("gameuiWorldMapMenuGameController", "TryFastTravel", function(self)
+			if self.selectedMappin and AMM.Scan.companionDriver then
+				if fastTravelScenario and fastTravelScenario:IsA("MenuScenario_HubMenu") then
+					if tostring(self.selectedMappin:GetMappinVariant()) == "gamedataMappinVariant : FastTravelVariant (51)" then
+						AMM.Scan:SetVehicleDestination(self, vehicleMap)
+						fastTravelScenario:GotoIdleState()
+						fastTravelScenario:GotoIdleState()
+					end
+				end
+			end
+		end)
+
 		 Observe('PhotoModePlayerEntityComponent', 'ListAllItems', function(self)
 			 AMM.Tools.photoModePuppet = self.fakePuppet
 		 end)
@@ -176,9 +207,35 @@ function AMM:new()
 		 Observe("VehicleComponent", "OnVehicleStartedMountingEvent", function(self, event)
 			 if AMM.Scan.drivers[AMM:GetScanID(event.character)] ~= nil then
 				 local driver = AMM.Scan.drivers[AMM:GetScanID(event.character)]
-				 AMM.Scan:SetDriverVehicleToFollow(driver)
+				 if AMM.Scan.vehicle.hash ~= driver.vehicle.hash then
+				 	AMM.Scan:SetDriverVehicleToFollow(driver)
+				 else
+					AMM.Scan.companionDriver = driver
+
+					if AMM.TeleportMod ~= '' then
+						AMM.TeleportMod.api.modBlocked = true
+					end
+					
+					Cron.After(5, function()
+						if not AMM.Scan.isDriving then
+							AMM.player:SetWarningMessage("Select a Fast Travel point on your map to get going")
+						end
+					end)
+				 end
 		 	 elseif event.character:IsPlayer() then
 				 AMM.playerInVehicle = not AMM.playerInVehicle
+
+				 if AMM.Tools.TPPCameraBeforeVehicle and not AMM.playerInVehicle then
+					Cron.After(1, function()
+					  AMM.Tools:ToggleTPPCamera()
+					  AMM.Tools.TPPCameraBeforeVehicle = false
+					end)
+				end
+
+				 if AMM.Tools.TPPCamera then
+					 AMM.Tools:ToggleTPPCamera()
+					 AMM.Tools.TPPCameraBeforeVehicle = true
+				 end
 
 				 if not AMM.playerInVehicle then
 					 if AMM.Scan.leftBehind ~= '' then
@@ -192,16 +249,40 @@ function AMM:new()
 
 					 if next(AMM.Scan.drivers) ~= nil then
 						 AMM.Scan:UnmountDrivers()
+
+						 if AMM.TeleportMod ~= '' then
+							AMM.TeleportMod.api.modBlocked = false
+						end
 					 end
+
+					 AMM.Scan.carCam = false
+					 AMM.Scan.vehicle = ''
 				 elseif AMM.playerInVehicle and next(AMM.Spawn.spawnedNPCs) ~= nil and AMM.userSettings.spawnAsCompanion then
 					 local target = Game.GetTargetingSystem():GetLookAtObject(AMM.player, false, false)
 					 if target ~= nil and target:IsVehicle() then
-						 AMM.Scan.vehicle = {handle = target, hash = tostring(target:GetEntityID().hash)}
+						 AMM.Scan.vehicle = AMM:NewTarget(target, 'vehicle', AMM:GetScanID(target), AMM:GetVehicleName(target),AMM:GetScanAppearance(target), AMM:GetAppearanceOptions(target))
 						 AMM.Scan:AutoAssignSeats()
 					 end
 				 end
 			 end
 		 end)
+
+		Observe("EquipCycleInitEvents", "OnEnter", function(self, script)
+			if AMM.Tools.TPPCamera then
+				AMM.Tools:ToggleTPPCamera()
+				AMM.Tools.TPPCameraBeforeVehicle = true
+			end
+		end)
+		
+		Observe("UnequippedEvents", "OnExit", function(self, script)
+			if AMM.Tools.TPPCameraBeforeVehicle and not AMM.playerInVehicle then
+				AMM.Tools.TPPCameraBeforeVehicle = false
+
+				Cron.After(0.1, function()
+					AMM.Tools:ToggleTPPCamera()
+				end)
+			end
+		end)
 
 		Observe("PlayerPuppet", "OnAction", function(self, action)
 			local actionName = Game.NameToString(action:GetName(action))
@@ -262,6 +343,13 @@ function AMM:new()
 			-- Disable Invisiblity if previously active
 			AMM.Tools.playerVisibility = true
 		end)
+
+		Observe('PlayerPuppet', 'OnDetach', function(self)
+			if not self:IsReplacer() then
+				vehicleMap = {}
+				collectgarbage()
+			end
+	  	end)
 	 end)
 
 	 registerForEvent("onShutdown", function()
@@ -343,6 +431,30 @@ function AMM:new()
 	 registerHotkey("amm_respawn_all", "Respawn All", function()
 		buttonPressed = true
 	 	AMM:RespawnAll()
+	 end)
+
+	 registerHotkey("amm_toggle_vehicle_camera", "Toggle Vehicle Camera", function()
+		local qm = AMM.player:GetQuickSlotsManager()
+		mountedVehicle = qm:GetVehicleObject()
+		if AMM.Scan.companionDriver ~= '' and mountedVehicle then
+			AMM.Scan:ToggleVehicleCamera()
+		end
+	 end)
+
+	 registerHotkey("amm_toggle_station", "Toggle Radio", function()
+		local qm = AMM.player:GetQuickSlotsManager()
+		mountedVehicle = qm:GetVehicleObject()
+		if mountedVehicle then
+			mountedVehicle:ToggleRadioReceiver(not mountedVehicle:IsRadioReceiverActive())
+		end
+	 end)
+
+	 registerHotkey("amm_next_station", "Next Radio Station", function()
+		local qm = AMM.player:GetQuickSlotsManager()
+		mountedVehicle = qm:GetVehicleObject()
+		if mountedVehicle and mountedVehicle:IsRadioReceiverActive() then
+			mountedVehicle:NextRadioReceiverStation()
+		end
 	 end)
 
 	 registerHotkey("amm_repair_vehicle", "Repair Vehicle", function()
@@ -438,6 +550,10 @@ function AMM:new()
 
 	 registerHotkey('amm_toggle_head', 'Toggle V Head', function()
 		 AMM.Tools:ToggleHead()
+	 end)
+
+	 registerHotkey("amm_toggle_tpp", "Toggle TPP Camera", function()
+		AMM.Tools:ToggleTPPCamera()
 	 end)
 
 	 registerHotkey('amm_toggle_hud', 'Toggle HUD', function()
@@ -1027,6 +1143,7 @@ function AMM:ImportUserData()
 				end
 
 				self.customAppPosition = userData['customAppPosition'] or "Top"
+				self.selectedTPPCamera = userData['selectedTPPCamera'] or 1
 				self.selectedTheme = userData['selectedTheme'] or "Default"
 				self.selectedHotkeys = userData['selectedHotkeys'] or {}
 
@@ -1120,6 +1237,7 @@ function AMM:ExportUserData()
 		userData['selectedHotkeys'] = self.selectedHotkeys
 		userData['activePreset'] = self.Props.activePreset.file_name or ''
 		userData['homeTags'] = Util:GetTableKeys(self.Props.homes)
+		userData['selectedTPPCamera'] = self.Tools.selectedTPPCamera
 
 		local validJson, contents = pcall(function() return json.encode(userData) end)
 		if validJson and contents ~= nil then

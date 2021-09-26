@@ -238,11 +238,12 @@ function Util:ToggleWindows(handle)
   end
 end
 
-function Util:ToggleEngine(handle, state)
+function Util:ToggleEngine(handle)
   local vehVC = handle:GetVehicleComponent()
   local vehVCPS = vehVC:GetVehicleControllerPS()
+  local state = vehVCPS:GetState()
 
-  if state then
+  if state == vehicleEState.Default then
       vehVCPS:SetState(2)
   else
       vehVCPS:SetState(1)

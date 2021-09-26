@@ -996,7 +996,7 @@ function Props:ActivatePreset(preset)
   for i, prop in ipairs(preset.props) do
     local scale = prop.scale
     if scale == -1 then scale = nil end
-    if type(scale) == "number" then scale = Props:GetScaleString(scale) end
+    if type(scale) == "table" then scale = Props:GetScaleString(scale) end
     prop.uid = prop.uid or i
     table.insert(values, f('(%i, "%s", "%s", "%s", "%s", "%s", "%s", "%s")', prop.uid, prop.entity_id, prop.name, prop.template_path, prop.pos, prop.trigger, scale, prop.tag))
   end
@@ -1203,7 +1203,9 @@ function Props:GetPosString(pos, angles)
 end
 
 function Props:GetScaleString(scale)
-  return f("{x = %f, y = %f, z = %f}", scale.x, scale.y, scale.z)
+  if type(scale) == "table" then
+    return f("{x = %f, y = %f, z = %f}", scale.x, scale.y, scale.z)
+  end
 end
 
 return Props:new()

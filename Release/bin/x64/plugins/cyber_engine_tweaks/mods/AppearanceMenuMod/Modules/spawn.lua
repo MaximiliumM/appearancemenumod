@@ -274,7 +274,13 @@ function Spawn:SetFavoriteNamePopup(entity)
 	ImGui.OpenPopup("Favorite Name")
 end
 
-function Spawn:DrawFavoritesButton(buttonLabels, entity)
+function Spawn:DrawFavoritesButton(buttonLabels, entity, fullButton)
+	local style = {
+		buttonWidth = -1,
+		buttonHeight = ImGui.GetFontSize() * 2,
+		halfButtonWidth = ((ImGui.GetWindowContentRegionWidth() / 2) - 12)
+	}
+
 	if entity.parameters == nil then
 		entity['parameters'] = entity.appearance
 	end
@@ -294,7 +300,14 @@ function Spawn:DrawFavoritesButton(buttonLabels, entity)
 		favoriteButtonLabel = buttonLabels[2].."##"..entity.name
 	end
 
-	if ImGui.SmallButton(favoriteButtonLabel) then
+	local button
+	if fullButton then
+		button = ImGui.Button(favoriteButtonLabel, style.buttonWidth, style.buttonHeight)
+	else
+		button = ImGui.SmallButton(favoriteButtonLabel)
+	end
+
+	if button then
 		if not(AMM:IsUnique(entity.id)) and isFavorite == 0 then
 			Spawn:SetFavoriteNamePopup(entity)
 		else
@@ -303,11 +316,6 @@ function Spawn:DrawFavoritesButton(buttonLabels, entity)
 	end
 
 	if ImGui.BeginPopupModal("Favorite Name") then
-		local style = {
-					buttonHeight = ImGui.GetFontSize() * 2,
-					halfButtonWidth = ((ImGui.GetWindowContentRegionWidth() / 2) - 12)
-				}
-
 		if Spawn.currentFavoriteName == 'existing' then
 			ImGui.TextColored(1, 0.16, 0.13, 0.75, "Existing Name")
 
@@ -416,18 +424,35 @@ function Spawn:SpawnVehicle(spawn)
 
 		if spawn.handle then
 
-			local floatFix = 1
-			if spawn.parameters ~= nil then floatFix = 0 end
-
-			local pos = spawn.handle:GetWorldPosition()
-			local teleportPosition = Vector4.new(pos.x, pos.y, pos.z - floatFix, pos.w)
-			Game.GetTeleportationFacility():Teleport(spawn.handle, teleportPosition, EulerAngles.new(0, 0, 0))
+			Cron.After(0.2, function() 
+				local floatFix = 1
+				if type(spawn.parameters) == "number" then floatFix = 0 end
+				
+				local pos = spawn.handle:GetWorldPosition()
+				local angles = GetSingleton('Quaternion'):ToEulerAngles(spawn.handle:GetWorldOrientation())
+				local teleportPosition = Vector4.new(pos.x, pos.y, pos.z - floatFix, pos.w)
+				Game.GetTeleportationFacility():Teleport(spawn.handle, teleportPosition, angles)
+			end)
 
 			Spawn.spawnedNPCs[spawn.uniqueName()] = spawn
       	Util:UnlockVehicle(spawn.handle)
 
 			if spawn.parameters ~= nil then
 				AMM:ChangeScanAppearanceTo(spawn, spawn.parameters)
+			end
+
+			local components = AMM.Props:CheckForValidComponents(spawn.handle)
+			if components then
+				spawn.defaultScale = {
+					x = components[1].visualScale.x * 100,
+					y = components[1].visualScale.x * 100,
+					z = components[1].visualScale.x * 100,
+				}
+				spawn.scale = {
+					x = components[1].visualScale.x * 100,
+					y = components[1].visualScale.y * 100,
+					z = components[1].visualScale.z * 100,
+				}
 			end
 
 			Cron.Halt(timer)

@@ -8,11 +8,13 @@ local Scan = {
   vehicleSeats = '',
   selectedSeats = {},
   vehicle = '',
-  vehEngine = false,
   drivers = {},
   distanceMin = 0,
   assignedVehicles = {},
   leftBehind = '',
+  companionDriver = nil,
+  isDriving = false,
+  carCam = false,
 }
 
 function Scan:Draw(AMM, target, style)
@@ -154,37 +156,58 @@ function Scan:Draw(AMM, target, style)
       ImGui.Spacing()
 
       if target.name == "Door" then
-        if ImGui.SmallButton("  Unlock Door  ") then
+        if ImGui.Button("  Unlock Door  ", style.halfButtonWidth, style.buttonHeight - 5) then
           Util:UnlockDoor(target.handle)
         end
       elseif target.handle:IsVehicle() then
-        if ImGui.SmallButton("  Unlock Vehicle  ") then
+        if ImGui.Button("  Unlock Vehicle  ", style.halfButtonWidth, style.buttonHeight - 5) then
           Util:UnlockVehicle(target.handle)
         end
 
         ImGui.SameLine()
-        if ImGui.SmallButton("  Repair Vehicle  ") then
+        if ImGui.Button("  Repair Vehicle  ", style.halfButtonWidth, style.buttonHeight - 5) then
           Util:RepairVehicle(target.handle)
         end
 
-        if ImGui.SmallButton("  Open/Close Doors  ") then
+        if ImGui.Button("  Open/Close Doors  ", style.halfButtonWidth, style.buttonHeight - 5) then
           Util:ToggleDoors(target.handle)
         end
 
         ImGui.SameLine()
-        if ImGui.SmallButton("  Open/Close Windows  ") then
+        if ImGui.Button("  Open/Close Windows  ", style.halfButtonWidth, style.buttonHeight - 5) then
           Util:ToggleWindows(target.handle)
         end
 
-        if ImGui.SmallButton("  Toggle Engine  ") then
-          Scan.vehEngine = not Scan.vehEngine
-          Util:ToggleEngine(target.handle, Scan.vehEngine)
+        local qm = AMM.player:GetQuickSlotsManager()
+		 	  mountedVehicle = qm:GetVehicleObject()
+        local status, ent = next(AMM.Spawn.spawnedNPCs)
+        local width = style.buttonWidth
+        if status and ent.handle:IsNPC() then width = style.halfButtonWidth end
+        if ImGui.Button("  Toggle Engine  ", width, style.buttonHeight - 5) then
+          Util:ToggleEngine(target.handle)
         end
 
-        local status, ent = next(AMM.Spawn.spawnedNPCs)
-        if status and ent.handle:IsNPC() then
+        if Scan.companionDriver ~= '' and mountedVehicle then
           ImGui.SameLine()
-          if ImGui.SmallButton("  Assign Seats  ") then
+          if ImGui.Button("  Toggle Camera  ", style.halfButtonWidth, style.buttonHeight - 5) then
+            Scan:ToggleVehicleCamera()
+          end
+
+          if ImGui.Button("  Toggle Radio  ", style.halfButtonWidth, style.buttonHeight - 5) then
+            mountedVehicle:ToggleRadioReceiver(not mountedVehicle:IsRadioReceiverActive())
+          end
+
+          ImGui.SameLine()
+          if mountedVehicle:IsRadioReceiverActive() then
+            if ImGui.Button("  Next Radio Station  ", style.halfButtonWidth, style.buttonHeight - 5) then
+              mountedVehicle:NextRadioReceiverStation()
+            end
+          end
+        end
+
+        if status and ent.handle:IsNPC() and not mountedVehicle then
+          ImGui.SameLine()
+          if ImGui.Button("  Assign Seats  ", style.halfButtonWidth, style.buttonHeight - 5) then
             if Scan.vehicle == '' or Scan.vehicle.hash ~= target.handle:GetEntityID().hash then
               Scan:GetVehicleSeats(target.handle)
               Scan.vehicle = {handle = target.handle, hash = tostring(target.handle:GetEntityID().hash)}
@@ -195,8 +218,6 @@ function Scan:Draw(AMM, target, style)
         else
           Scan.vehicleSeats = ''
         end
-
-        ImGui.SameLine()
       end
 
       Scan:DrawSeatsPopup()
@@ -206,13 +227,13 @@ function Scan:Draw(AMM, target, style)
         if spawnID ~= nil then
           local favoritesLabels = {"  Add to Spawnable Favorites  ", "  Remove from Spawnable Favorites  "}
           target.id = spawnID
-          AMM.Spawn:DrawFavoritesButton(favoritesLabels, target)
+          AMM.Spawn:DrawFavoritesButton(favoritesLabels, target, true)
           ImGui.Spacing()
         end
       end
 
-      if AMM.userSettings.experimental then
-        if ImGui.SmallButton("  Despawn  ") then
+      if AMM.userSettings.experimental and not mountedVehicle then
+        if ImGui.Button("  Despawn  ", style.buttonWidth, style.buttonHeight - 5) then
           local spawnedNPC = nil
     			for _, spawn in pairs(AMM.Spawn.spawnedNPCs) do
     				if target.id == spawn.id then spawnedNPC = spawn break end
@@ -266,6 +287,18 @@ function Scan:Draw(AMM, target, style)
       ImGui.PopTextWrapPos()
 
       ImGui.NewLine()
+
+      AMM.UI:Separator()
+
+      local qm = AMM.player:GetQuickSlotsManager()
+		 	handle = qm:GetVehicleObject()
+      if handle then
+        local target = AMM:NewTarget(handle, 'vehicle', AMM:GetScanID(handle), AMM:GetVehicleName(handle),AMM:GetScanAppearance(handle), AMM:GetAppearanceOptions(handle))
+        if ImGui.Button("Target Mounted Vehicle", style.buttonWidth, style.buttonHeight) then
+          Tools:SetCurrentTarget(target)
+          Tools.lockTarget = true
+        end
+      end
     end
 
     ImGui.EndTabItem()
@@ -321,6 +354,10 @@ function Scan:DrawSeatsPopup()
       ImGui.CloseCurrentPopup()
     end
 
+    if ImGui.Button("Reset", -1, 30) then
+      Scan.selectedSeats = {}
+    end
+
     ImGui.EndPopup()
   end
 end
@@ -371,7 +408,6 @@ end
 
 function Scan:AutoAssignSeats()
   Scan:GetVehicleSeats(Scan.vehicle.handle)
-  local playerMountedVehicle = Scan.vehicle.hash
 
   local counter = 1
   for _, ent in pairs(AMM.Spawn.spawnedNPCs) do
@@ -415,6 +451,7 @@ function Scan:UnmountDrivers()
   end
 
   Scan.drivers = {}
+  Scan.companionDriver = nil
   Scan.distanceMin = 0
 end
 
@@ -441,6 +478,73 @@ function Scan:SetDriverVehicleToFollow(driver)
 
   local vehComp = driver.vehicle.handle:GetVehicleComponent()
   vehComp:DestroyMappin()
+end
+
+function Scan:SetDriverVehicleToGoTo(driver, destination, needDriver)
+  local cmd = NewObject("handle:AIVehicleToNodeCommand")
+  cmd.needDriver = needDriver or true
+  cmd.nodeRef = destination
+  cmd.stopAtPathEnd = true
+  cmd.useTraffic = true
+  cmd.speedInTraffic = 100
+  cmd.forceGreenLights = true
+  cmd = cmd:Copy()
+  
+  local event = NewObject("handle:AINPCCommandEvent")
+  event.command = cmd
+  driver.vehicle.handle:QueueEvent(event)
+
+  return cmd
+end
+
+function Scan:SetVehicleDestination(worldMap, vehicleMap)
+  local mappin = worldMap.selectedMappin:GetMappin()
+  local mappinPos = mappin:GetWorldPosition()
+  local mappinNodeRef = mappin:GetPointData():GetMarkerRef()
+
+  local cmd = AMM.Scan:SetDriverVehicleToGoTo(AMM.Scan.companionDriver, mappinNodeRef)
+  Scan.isDriving = true
+
+  Cron.Every(1, function(timer)
+    if AMM.Scan.vehicle ~= '' then
+      local playerPos = AMM.player:GetWorldPosition()
+      local dist = Util:VectorDistance(playerPos, mappinPos)
+
+      if dist < 45 and vehicleMap[tostring(AMM.Scan.companionDriver.vehicle.handle:GetEntityID().hash)] ~= nil then
+        vehicleMap[tostring(AMM.Scan.companionDriver.vehicle.handle:GetEntityID().hash)]:StopExecutingCommand(cmd, true)
+        Scan.isDriving = false
+        Cron.Halt(timer)
+      end
+    else
+      Scan.isDriving = false
+      Cron.Halt(timer)
+    end
+  end)
+end
+
+function Scan:ToggleVehicleCamera()
+  if AMM.Tools.TPPCamera then
+    AMM.Tools:ToggleTPPCamera()
+  end
+
+  Scan.carCam = not Scan.carCam
+
+  if Scan.carCam then
+    AMM.Tools:ToggleHead()
+    Cron.Every(0.1, function(timer)
+      if Scan.carCam then
+        Game.GetPlayer():GetFPPCameraComponent():SetLocalPosition(Vector4.new(0, -8, 0.5, 0))
+        Game.GetPlayer():GetFPPCameraComponent().pitchMax = 80
+        Game.GetPlayer():GetFPPCameraComponent().pitchMin = -80
+        Game.GetPlayer():GetFPPCameraComponent().yawMaxRight = -360
+        Game.GetPlayer():GetFPPCameraComponent().yawMaxLeft = 360
+      else
+        AMM.Tools:ToggleHead()
+        Game.GetPlayer():GetFPPCameraComponent():SetLocalPosition(Vector4.new(0.0, 0, 0, 1.0))
+        Cron.Halt(timer)
+      end
+    end)
+  end
 end
 
 return Scan

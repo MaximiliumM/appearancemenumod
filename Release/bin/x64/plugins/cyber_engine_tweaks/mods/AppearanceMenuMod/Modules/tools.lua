@@ -39,6 +39,15 @@ function Tools:new()
   Tools.invisibleBody = false
   Tools.seamfixEnabled = false
   Tools.animatedHead = AMM.userSettings.animatedHead
+  Tools.TPPCamera = false
+  Tools.TPPCameraBeforeVehicle = false
+  Tools.selectedTPPCamera = 1
+  Tools.TPPCameraOptions = {
+    {name = "Left", vec = Vector4.new(-0.5, -2, 0, 1.0)},
+    {name = "Right", vec = Vector4.new(0.5, -2, 0, 1.0)},
+    {name = "Center Close", vec = Vector4.new(0, -2, 0, 1.0)},
+    {name = "Center Far", vec = Vector4.new(0, -4, 0, 1.0)},
+  }
 
   -- Target Properties --
   Tools.protectedNPCs = {}
@@ -215,6 +224,26 @@ function Tools:DrawVActions()
       Tools:ToggleHead()
     end
 
+    if AMM.userSettings.experimental then
+      if ImGui.Button("Toggle TPP Camera", Tools.style.buttonWidth, Tools.style.buttonHeight) then
+        Tools:ToggleTPPCamera()
+      end
+
+      if ImGui.IsItemHovered() then
+        ImGui.SetTooltip("TPP Camera is not suited for regular gameplay, but it's fun for a walk ;)")
+      end
+
+      local selectedCamera = Tools.TPPCameraOptions[Tools.selectedTPPCamera]
+      if ImGui.BeginCombo("TPP Camera Position", selectedCamera.name) then
+        for i, cam in ipairs(Tools.TPPCameraOptions) do
+          if ImGui.Selectable(cam.name.."##"..i, (cam == selectedCamera.name)) then
+            Tools.selectedTPPCamera = i
+          end
+        end
+        ImGui.EndCombo()
+      end
+    end
+
     ImGui.Spacing()
     
     if GetVersion() == "v1.15.0" then
@@ -362,6 +391,31 @@ function Tools:ToggleAnimatedHead(animated)
   TweakDB:SetFlat(f("Items.Player%sPhotomodeHead.entityName", gender:gsub("^%l", string.upper)), headItem)
 end
 
+function Tools:ToggleTPPCamera()
+  AMM.Tools.TPPCamera = not AMM.Tools.TPPCamera
+
+  if Tools.TPPCamera then
+    Cron.After(0.1, function()
+      Game.GetPlayer():GetFPPCameraComponent():SetLocalPosition(Tools.TPPCameraOptions[Tools.selectedTPPCamera].vec)
+    end)
+
+    Cron.Every(0.1, function(timer)
+      if Tools.TPPCamera then
+        Game.GetPlayer():GetFPPCameraComponent():SetLocalPosition(Tools.TPPCameraOptions[Tools.selectedTPPCamera].vec)
+        Game.GetPlayer():GetFPPCameraComponent().pitchMax = 80
+        Game.GetPlayer():GetFPPCameraComponent().pitchMin = -80
+        Game.GetPlayer():GetFPPCameraComponent().yawMaxRight = -360
+        Game.GetPlayer():GetFPPCameraComponent().yawMaxLeft = 360
+      else
+        Game.GetPlayer():GetFPPCameraComponent():SetLocalPosition(Vector4.new(0.0, 0, 0, 1.0))
+        Cron.Halt(timer)
+      end
+    end)
+  end
+
+  Tools:ToggleHead()
+end
+
 function Tools:ToggleHead()
 
   local isFemale = Util:GetPlayerGender()
@@ -382,6 +436,7 @@ function Tools:ToggleHead()
 
   if ts:GetItemInSlot(AMM.player, TweakDBID.new("AttachmentSlots.TppHead")) ~= nil then
     ts:RemoveItemFromSlot(AMM.player, TweakDBID.new('AttachmentSlots.TppHead'), true, true, true)
+    Game.EquipItemOnPlayer("Items.PlayerFppHead", "TppHead")
   else
     Game.EquipItemOnPlayer(headItem, "TppHead")
   end
