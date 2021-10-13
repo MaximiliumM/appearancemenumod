@@ -19,18 +19,18 @@ local Scan = {
 
 function Scan:Draw(AMM, target, style)
   if ImGui.BeginTabItem("Scan") then
+    
     -- Util Popup Helper --
     Util:SetupPopup()
 
     AMM.UI:DrawCrossHair()
 
     if Tools.lockTarget then
-      if Tools.currentNPC.type ~= 'entEntity' and Tools.currentNPC.type ~= 'gameObject' 
-      and Tools.currentNPC.type ~= 'Props' and Tools.currentNPC.type ~= 'Prop' then
+      if Tools.currentNPC.type ~= 'entEntity' and Tools.currentNPC.type ~= 'gameObject' then
         target = Tools.currentNPC
 
         if target.handle and target.handle ~= '' then
-          target.options = AMM:GetAppearanceOptions(target.handle)
+          target.options = AMM:GetAppearanceOptions(target.handle, target.id)
         end
       end
     end
@@ -94,7 +94,7 @@ function Scan:Draw(AMM, target, style)
         AMM.UI:Separator()
 
         AMM.UI:TextColored(tabConfig[target.type].currentTitle)
-        ImGui.Text(target.appearance)
+        ImGui.Text(target.appearance or "default")
 
         ImGui.Spacing()
 
@@ -156,7 +156,7 @@ function Scan:Draw(AMM, target, style)
       ImGui.Spacing()
 
       if target.name == "Door" then
-        if ImGui.Button("  Unlock Door  ", style.halfButtonWidth, style.buttonHeight - 5) then
+        if ImGui.Button("  Unlock Door  ", style.buttonWidth, style.buttonHeight - 5) then
           Util:UnlockDoor(target.handle)
         end
       elseif target.handle:IsVehicle() then

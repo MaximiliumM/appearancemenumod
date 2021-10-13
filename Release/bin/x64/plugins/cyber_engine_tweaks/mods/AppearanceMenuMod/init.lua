@@ -41,7 +41,7 @@ function AMM:new()
 	 AMM.TeleportMod = ''
 
 	 -- Main Properties --
-	 AMM.currentVersion = "1.11.3"
+	 AMM.currentVersion = "1.11.4"
 	 AMM.updateNotes = require('update_notes.lua')
 	 AMM.credits = require("credits.lua")
 	 AMM.updateLabel = "WHAT'S NEW"
@@ -65,8 +65,9 @@ function AMM:new()
 	 AMM.customAppOptions = {"Top", "Bottom", "Off"}
 	 AMM.customAppPosition = "Top"
 
-	 -- Custom Prop Properties --
+	 -- Custom Entities Properties --
 	 AMM.modders = {}
+	 AMM.customNames = {}
 
 	 -- Configs --
 	 AMM.playerAttached = false
@@ -122,7 +123,7 @@ function AMM:new()
 				 AMM.playerAttached = true
 				 AMM.playerInMenu = false
 
-				 if next(AMM.Spawn.spawnedNPCs) ~= nil then
+				 if next(AMM.Spawn.spawnedNPCs) ~= nil and AMM.userSettings.respawnOnLaunch then
 				 	AMM:RespawnAll()
 				 end
 			 end
@@ -133,9 +134,11 @@ function AMM:new()
 			 AMM.player = Game.GetPlayer()
 			 AMM.playerAttached = true
 
+			 AMM:CheckMissingArchives()
+
 			 AMM.Tools:CheckGodModeIsActive()
 
-			 if next(AMM.Spawn.spawnedNPCs) ~= nil then
+			 if next(AMM.Spawn.spawnedNPCs) ~= nil and AMM.userSettings.respawnOnLaunch then
 			 	AMM:RespawnAll()
 			 end
 			 
@@ -156,7 +159,7 @@ function AMM:new()
 
 		 GameSession.OnPause(function()
 			 AMM.playerInMenu = true
-     end)
+     	 end)
 
 		 GameSession.OnResume(function()
 			 AMM.playerInMenu = false
@@ -590,7 +593,7 @@ function AMM:new()
 		 end
 
 		 -- This is required for Cron to function
-     Cron.Update(deltaTime)
+     	Cron.Update(deltaTime)
 
 		 if AMM.playerAttached and (not(AMM.playerInMenu) or AMM.playerInPhoto) then
 				if finishedUpdate and AMM.player ~= nil then
@@ -864,20 +867,27 @@ function AMM:Begin()
 				-- Settings Tab --
 				if (ImGui.BeginTabItem("Settings")) then
 
+					-- Util Popup Helper --
+    				Util:SetupPopup()
+
 					ImGui.Spacing()
 
 					local settingChanged = false
 					AMM.userSettings.spawnAsCompanion, clicked = ImGui.Checkbox("Spawn As Companion", AMM.userSettings.spawnAsCompanion)
-					if clicked then 
-						AMM:RespawnAll()
-						settingChanged = true 
-					end
+					if clicked then settingChanged = true end
 
 					AMM.isCompanionInvulnerable = ImGui.Checkbox("Invulnerable Companion", AMM.isCompanionInvulnerable)
 
 					if ImGui.IsItemHovered() then
-            			ImGui.SetTooltip("Even with this setting enabled, companions will fall down in combat. They won't die and you won't have to respawn them though.")
-          			end
+            		ImGui.SetTooltip("Even with this setting enabled, companions will fall down in combat. They won't die and you won't have to respawn them though.")
+          		end
+
+					AMM.userSettings.respawnOnLaunch, clicked = ImGui.Checkbox("Respawn On Launch", AMM.userSettings.respawnOnLaunch)
+					if clicked then settingChanged = true end
+
+					if ImGui.IsItemHovered() then
+            		ImGui.SetTooltip("This setting will enable/disable respawn previously saved NPCs on game load. AMM automatically saves your spawned NPCs when you exit the game.")
+          		end
 
 					AMM.userSettings.openWithOverlay, clicked = ImGui.Checkbox("Open With CET Overlay", AMM.userSettings.openWithOverlay)
 					if clicked then settingChanged = true end
@@ -1013,6 +1023,17 @@ function AMM:Begin()
 
 					ImGui.Text("Current Version: "..AMM.currentVersion)
 
+					ImGui.SameLine()
+					if ImGui.InvisibleButton("Machine Gun", 20, 30) then
+						local popupInfo = {text = "You found it! Heavy Machine Gun was added to Equipments."}
+						Util:OpenPopup(popupInfo)
+						AMM.equipmentOptions = AMM:GetEquipmentOptions(true)
+					 end
+			 
+					 if ImGui.IsItemHovered() then
+						ImGui.SetTooltip("Clicking here does nothing!")
+					 end
+
 					AMM.settings = true
 					ImGui.EndTabItem()
 				end
@@ -1057,9 +1078,9 @@ function AMM:NewTarget(handle, targetType, id, name, app, options)
 		 }
 	end
 
-	-- Check if target is Birdie
-	if obj.id == "0x69E1384D, 22" then
-		obj.name = "Songbird"
+	-- Check if target is Custom Entity
+	if AMM.customNames[id] then
+		obj.name = AMM.customNames[id]
 	end
 
 	-- Check if target is V
@@ -1083,6 +1104,19 @@ end
 -- End Objects --
 
 -- AMM Methods --
+function AMM:CheckMissingArchives()
+	local spawnTransform = AMM.player:GetWorldTransform()
+	local entityID = exEntitySpawner.Spawn([[base\amm_props\entity\bbpod_a.ent]], spawnTransform, '')
+
+  	Cron.Every(0.1, function(timer)
+   	local entity = Game.FindEntityByID(entityID)
+   	if entity then
+			exEntitySpawner.Despawn(entity)
+			Cron.Halt(timer)
+		end
+	end)
+end
+
 function AMM:CheckDBVersion()
 	local DBVersion = ''
 	for v in db:urows("SELECT current_version FROM metadata") do
@@ -1228,8 +1262,11 @@ function AMM:ExportUserData()
 			table.insert(userData['blacklist_appearances'], {entity_id = r.entity_id, app_name = r.app_name})
 		end
 
+		if self.userSettings.respawnOnLaunch then
+			userData['spawnedNPCs'] = self:PrepareExportSpawnedData()
+		end
+		
 		userData['selectedTheme'] = self.selectedTheme
-		userData['spawnedNPCs'] = self:PrepareExportSpawnedData()
 		userData['savedSwaps'] = self.Swap:GetSavedSwaps()
 		userData['favoriteLocations'] = self.Tools:GetFavoriteLocations()
 		userData['followDistance'] = self.followDistance
@@ -1351,7 +1388,7 @@ function AMM:GetPersonalityOptions()
 	return personalities
 end
 
-function AMM:GetEquipmentOptions()
+function AMM:GetEquipmentOptions(HMG)
 	local equipments = {
 		{name = 'Fists', path = 'Character.wraiths_strongarms_hmelee3_fists_mb_elite_inline0'},
 		{name = 'Katana', path = 'Character.afterlife_rare_fmelee3_katana_wa_elite_inline0'},
@@ -1370,6 +1407,10 @@ function AMM:GetEquipmentOptions()
 		{name = 'Handgun', path = 'Character.afterlife_rare_franged2_overture_wa_rare_inline0'},
 	}
 
+	if HMG then
+		table.insert(equipments, {name = 'Machine Gun', path = 'Character.militech_enforcer3_gunner3_HMG_mb_elite_inline2'})
+	end
+	
 	return equipments
 end
 
@@ -1443,6 +1484,7 @@ function AMM:SetupAMMCharacters()
 		["Character.Takemura"] = {"AMM_Character.Silverhand", "silverhand"},
 		["Character.Hanako"] = {"AMM_Character.Hanako", "hanako"},
 		["Character.generic_netrunner_netrunner_chao_wa_rare_ow_city_scene"] = {"AMM_Character.Songbird", "songbird"},
+		["Character.q116_v_female"] = {"AMM_Character.E3_V_Female", "e3_v_female"},
 		["Vehicle.av_rayfield_excalibur"] = {"AMM_Vehicle.Docworks_Excalibus", "doc_excalibus"},
 	}
 
@@ -1485,6 +1527,8 @@ function AMM:SetupAMMCharacters()
 		abilities = TweakDB:GetFlat("Character.jpn_tygerclaw_gangster3_netrunner_nue_wa_rare.abilities"),
 		statModifierGroups = TweakDB:GetFlat("Character.jpn_tygerclaw_gangster3_netrunner_nue_wa_rare.statModifierGroups"),
 	})
+
+	AMM.customNames['0x69E1384D, 22'] = 'Songbird'
 end
 
 function AMM:SetupCustomEntities()
@@ -1528,6 +1572,10 @@ function AMM:SetupCustomEntities()
 					local values = f('("%s", "%s", %i, %s, "%s", "%s", "%s", "%s", "%s")', entity_id, entity.name, category, nil, 0, entity_path, 1, 0, entity.path)
 					values = values:gsub('nil', "NULL")
 					db:execute(f('INSERT INTO entities %s VALUES %s', tables, values))
+
+					if entity.customName then
+						AMM.customNames[entity_id] = entity.name
+					end
 
 					-- Setup Appearances
 					if appearances ~= nil then
@@ -1709,7 +1757,7 @@ function AMM:RespawnAll()
 		AMM.entitiesForRespawn = {}
 		for _, ent in pairs(AMM.Spawn.spawnedNPCs) do
 			if not(string.find(ent.path, "Vehicle")) then
-				if ent.handle and ent.handle ~= '' then
+				if ent.handle and ent.handle ~= '' then					
 					if ent.handle:IsNPC() then
 						Util:TeleportNPCTo(ent.handle, Util:GetBehindPlayerPosition(2))
 					end
@@ -1723,11 +1771,12 @@ function AMM:RespawnAll()
 	end
 
 	Cron.Every(0.5, function(timer)
-
-		if AMM.entitiesForRespawn[1] then
-			local entity = Game.FindEntityByID(AMM.entitiesForRespawn[1].entityID)
+		local ent = AMM.entitiesForRespawn[1]
+		local entity = nil
+	
+		if ent then
+			if ent.entityID ~= '' then entity = Game.FindEntityByID(ent.entityID) end
 			if entity == nil then
-				ent = AMM.entitiesForRespawn[1]
 				table.remove(AMM.entitiesForRespawn, 1)
 				AMM.Spawn:SpawnNPC(ent)
 			end
@@ -1952,13 +2001,18 @@ function AMM:GetObjectName(t)
 end
 
 function AMM:GetScanID(t)
+	local tdbid
+	local hasRecord
 	if type(t) == 'userdata' then
-		tdbid = t:GetRecordID()
+		hasRecord, tdbid = pcall(function() return t:GetRecordID() end)
+		if not hasRecord then
+			print("[AMM Debug] No Record ID Available For This Target")
+		end
 	else
 		tdbid = tostring(TweakDBID.new(t))
 	end
-	hash = tostring(tdbid):match("= (%g+),")
-	length = tostring(tdbid):match("= (%g+) }")
+	local hash = tostring(tdbid):match("= (%g+),")
+	local length = tostring(tdbid):match("= (%g+) }")
 	return hash..", "..length
 end
 
@@ -1979,10 +2033,10 @@ function AMM:SetCurrentTarget(t)
 	end
 end
 
-function AMM:GetAppearanceOptions(t)
+function AMM:GetAppearanceOptions(t, id)
 	local options = {}
 
-	local scanID = self:GetScanID(t)
+	local scanID = id or self:GetScanID(t)
 	return self:GetAppearanceOptionsWithID(scanID, t)
 end
 
@@ -2046,7 +2100,7 @@ function AMM:LoadCustomAppearances(options, id)
 end
 
 function AMM:GetAppearance(t)
-	if t.hash == '' then
+	if t and t ~= '' and t.hash == '' then
 		t.hash = tostring(t.handle:GetEntityID().hash)
 	end
 
@@ -2089,7 +2143,7 @@ function AMM:GetCustomAppearanceParams(target, appearance, reverse)
 	if #AMM.collabs > 0 then
 		for _, collab in ipairs(AMM.collabs) do
 			local check = 0
-			for count in db:urows(f("SELECT COUNT(1) FROM custom_appearances WHERE app_name = '%s' AND collab_tag = '%s'", appearance, collab.tag)) do
+			for count in db:urows(f("SELECT COUNT(1) FROM custom_appearances WHERE entity_id = '%s' AND app_name = '%s' AND collab_tag = '%s'", target.id, appearance, collab.tag)) do
 				check = count
 			end
 
@@ -2128,6 +2182,15 @@ function AMM:ChangeScanAppearanceTo(t, newAppearance)
 
 		if self.activeCustomApps[t.hash] ~= nil and self.activeCustomApps[t.hash] ~= 'reverse' then
 			self.activeCustomApps[t.hash] = nil
+		end
+
+		if t.type == "Prop" then
+			pos = t.handle:GetWorldPosition()
+    		angles = GetSingleton('Quaternion'):ToEulerAngles(t.handle:GetWorldOrientation())
+
+			local shiftPos = Vector4.new(pos.x + 0.01, pos.y, pos.z, pos.w)
+			Game.GetTeleportationFacility():Teleport(t.handle, shiftPos, angles)
+			Game.GetTeleportationFacility():Teleport(t.handle, pos, angles)
 		end
 	end
 end
@@ -2186,7 +2249,7 @@ function AMM:GetTarget()
 				t = AMM:NewTarget(target, 'vehicle', AMM:GetScanID(target), AMM:GetVehicleName(target),AMM:GetScanAppearance(target), AMM:GetAppearanceOptions(target))
 			else
 				if AMM.userSettings.experimental then
-					t = AMM:NewTarget(target, AMM:GetScanClass(target), 'None', AMM:GetObjectName(target),AMM:GetScanAppearance(target), nil)
+					t = AMM:NewTarget(target, AMM:GetScanClass(target), "None", AMM:GetObjectName(target),AMM:GetScanAppearance(target), nil)
 				end
 			end
 

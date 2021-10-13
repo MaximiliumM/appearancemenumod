@@ -1,12 +1,13 @@
 Props = {}
 
-function Props:NewProp(uid, id, name, template, posString, scale, tag)
+function Props:NewProp(uid, id, name, template, posString, scale, app, tag)
   local obj = {}
 	obj.handle = ''
   obj.uid = uid
 	obj.id = id
 	obj.name = name
 	obj.template = template
+  obj.appearance = app
   obj.tag = tag
   obj.entityID = ''
   obj.mappinData = nil
@@ -661,7 +662,7 @@ end
 function Props:GetPropsToSpawn(trigger)
   local props = {}
   for prop in db:nrows(f("SELECT * FROM saved_props WHERE trigger = '%s'", trigger.str)) do
-    table.insert(props, Props:NewProp(prop.uid, prop.entity_id, prop.name, prop.template_path, prop.pos, prop.scale, prop.tag))
+    table.insert(props, Props:NewProp(prop.uid, prop.entity_id, prop.name, prop.template_path, prop.pos, prop.scale, prop.app, prop.tag))
   end
 
   return props
@@ -684,6 +685,20 @@ function Props:SpawnPropInPosition(ent, pos, angles)
     if entity then
       ent.handle = entity
       ent.parameters = {ent.pos, ent.angles}
+
+      if AMM:GetScanClass(ent.handle) == 'entEntity' then
+				ent.type = 'entEntity'
+      end
+
+      local currentApp = AMM:GetAppearance(ent)
+      if currentApp ~= ent.appearance and ent.appearance ~= "nil" then
+        entity:PrefetchAppearanceChange(ent.appearance)
+		    entity:ScheduleAppearanceChange(ent.appearance)
+
+        local shiftPos = Vector4.new(pos.x + 0.01, pos.y, pos.z, pos.w)
+        Game.GetTeleportationFacility():Teleport(entity, shiftPos, angles)
+        Game.GetTeleportationFacility():Teleport(entity, pos, angles)
+      end
 
       for light in db:nrows(f('SELECT * FROM saved_lights WHERE uid = %i', ent.uid)) do
         AMM.Light:SetLightData(ent, light)
@@ -708,9 +723,6 @@ function Props:SpawnPropInPosition(ent, pos, angles)
         end
       end
 
-      if AMM:GetScanClass(ent.handle) == 'entEntity' then
-				ent.type = 'entEntity'
-			end
       Cron.Halt(timer)
     end
   end)
@@ -807,6 +819,8 @@ function Props:SavePropPosition(ent)
     angles = ent.parameters[2]
 	end
 
+  local app = AMM:GetAppearance(ent)
+
   local tag = Props:GetTagBasedOnLocation()
 
   local trigger = Props:GetPosString(Props:CheckForTriggersNearby(pos))
@@ -820,13 +834,13 @@ function Props:SavePropPosition(ent)
   local light = AMM.Light:GetLightData(ent)
 
   if ent.uid then
-    db:execute(f('UPDATE saved_props SET pos = "%s", scale = "%s" WHERE uid = %i', pos, scale, ent.uid))
+    db:execute(f('UPDATE saved_props SET pos = "%s", scale = "%s", app = "%s" WHERE uid = %i', pos, scale, app, ent.uid))
 
     if light then
       db:execute(f('UPDATE saved_lights SET color = "%s", intensity = %f, radius = %f, angles = "%s" WHERE uid = %i', light.color, light.intensity, light.radius, light.angles, ent.uid))
     end
   else
-	  db:execute(f('INSERT INTO saved_props (entity_id, name, template_path, pos, trigger, scale, tag) VALUES ("%s", "%s", "%s", "%s", "%s", "%s", "%s")', ent.id, ent.name, ent.template, pos, trigger, scale, tag))
+	  db:execute(f('INSERT INTO saved_props (entity_id, name, template_path, pos, trigger, scale, app, tag) VALUES ("%s", "%s", "%s", "%s", "%s", "%s", "%s", "%s")', ent.id, ent.name, ent.template, pos, trigger, scale, app, tag))
 
     if light then
       for uid in db:urows(f('SELECT uid FROM saved_props ORDER BY uid DESC LIMIT 1')) do
@@ -917,6 +931,7 @@ function Props:SpawnProp(spawn, pos, angles)
 		local entity = Game.FindEntityByID(spawn.entityID)
 		if entity then
 			spawn.handle = entity
+      spawn.appearance = AMM:GetAppearance(spawn)
       
       local components = AMM.Props:CheckForValidComponents(entity)
       if components then
@@ -998,7 +1013,7 @@ function Props:ActivatePreset(preset)
     if scale == -1 then scale = nil end
     if type(scale) == "table" then scale = Props:GetScaleString(scale) end
     prop.uid = prop.uid or i
-    table.insert(values, f('(%i, "%s", "%s", "%s", "%s", "%s", "%s", "%s")', prop.uid, prop.entity_id, prop.name, prop.template_path, prop.pos, prop.trigger, scale, prop.tag))
+    table.insert(values, f('(%i, "%s", "%s", "%s", "%s", "%s", "%s", "%s", "%s")', prop.uid, prop.entity_id, prop.name, prop.template_path, prop.pos, prop.trigger, scale, prop.app, prop.tag))
   end
 
   local lights = {}
@@ -1006,7 +1021,7 @@ function Props:ActivatePreset(preset)
     table.insert(lights, f('(%i, "%s", "%s", %f, %f, "%s")', prop.uid, light.entity_id, light.color, light.intensity, light.radius, light.angles))
   end
 
-  db:execute(f('INSERT INTO saved_props (uid, entity_id, name, template_path, pos, trigger, scale, tag) VALUES %s', table.concat(values, ", ")))
+  db:execute(f('INSERT INTO saved_props (uid, entity_id, name, template_path, pos, trigger, scale, app, tag) VALUES %s', table.concat(values, ", ")))
   db:execute(f('INSERT INTO saved_lights (uid, entity_id, color, intensity, radius, angles) VALUES %s', table.concat(lights, ", ")))
 
   Props.activePreset = preset
@@ -1154,7 +1169,7 @@ function Props:GetProps(query, tag)
       end
     end
 
-    table.insert(props, Props:NewProp(prop.uid, prop.entity_id, prop.name, prop.template_path, prop.pos, prop.scale, prop.tag))
+    table.insert(props, Props:NewProp(prop.uid, prop.entity_id, prop.name, prop.template_path, prop.pos, prop.scale, prop.app, prop.tag))
   end
 
   return props

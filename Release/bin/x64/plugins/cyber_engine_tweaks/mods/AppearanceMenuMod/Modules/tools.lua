@@ -82,6 +82,9 @@ end
 function Tools:Draw(AMM, target)
   if ImGui.BeginTabItem("Tools") then
 
+    -- Util Popup Helper --
+    Util:SetupPopup()
+
     if AMM.Light.isEditing then
       AMM.Light:Draw(AMM)
     end
@@ -132,6 +135,8 @@ function Tools:Draw(AMM, target)
       end
 
       if ImGui.InvisibleButton("Speed", 10, 30) then
+        local popupInfo = {text = "You found it! Fast Motion is now available."}
+				Util:OpenPopup(popupInfo)
         Tools.slowMotionMaxValue = 5
       end
 
@@ -973,7 +978,7 @@ function Tools:DrawNPCActions()
             Tools:FreezeNPC(Tools.currentNPC.handle, true)
             Tools.frozenNPCs[tostring(Tools.currentNPC.handle:GetEntityID().hash)] = 'active'
           else
-            Tools:FreezeNPC(Tools.currentNPC.handle, false)
+            Tools:FreezeNPC(Tools.currentNPC.handle, false)              
             Tools.frozenNPCs[tostring(Tools.currentNPC.handle:GetEntityID().hash)] = nil
           end
         end
@@ -989,32 +994,35 @@ function Tools:DrawNPCActions()
         end
 
         if not AMM.playerInPhoto and not Tools.currentNPC.handle.isPlayerCompanionCached then
-          local buttonLabel = " Change To Crouch Stance "
-          if Tools.isCrouching then
-            buttonLabel = " Change To Stand Stance "
-          end
 
-          if ImGui.Button(buttonLabel, Tools.style.buttonWidth, Tools.style.buttonHeight) then
-            Tools.isCrouching = not Tools.isCrouching
-
-            local handle = Tools.currentNPC.handle
-
+          if Tools:ShouldCrouchButtonAppear(Tools.currentNPC) then
+            local buttonLabel = " Change To Crouch Stance "
             if Tools.isCrouching then
-              local pos = handle:GetWorldPosition()
-              pos = Vector4.new(pos.x, pos.y, pos.z, pos.w)
-              Util:MoveTo(handle, pos, nil, true)
-            else
-              Tools.currentNPC.parameters = AMM:GetAppearance(Tools.currentNPC)
+              buttonLabel = " Change To Stand Stance "
+            end
 
-              local currentNPC = Tools.currentNPC
-              if currentNPC.type ~= 'Spawn' then
-                for _, spawn in pairs(Spawn.spawnedNPCs) do
-                  if currentNPC.id == spawn.id then currentNPC = spawn break end
+            if ImGui.Button(buttonLabel, Tools.style.buttonWidth, Tools.style.buttonHeight) then
+              Tools.isCrouching = not Tools.isCrouching
+
+              local handle = Tools.currentNPC.handle
+
+              if Tools.isCrouching then
+                local pos = handle:GetWorldPosition()
+                pos = Vector4.new(pos.x, pos.y, pos.z, pos.w)
+                Util:MoveTo(handle, pos, nil, true)
+              else
+                Tools.currentNPC.parameters = AMM:GetAppearance(Tools.currentNPC)
+
+                local currentNPC = Tools.currentNPC
+                if currentNPC.type ~= 'Spawn' then
+                  for _, spawn in pairs(Spawn.spawnedNPCs) do
+                    if currentNPC.id == spawn.id then currentNPC = spawn break end
+                  end
                 end
-              end
 
-              AMM.Spawn:DespawnNPC(currentNPC)
-              AMM.Spawn:SpawnNPC(currentNPC)
+                AMM.Spawn:DespawnNPC(currentNPC)
+                AMM.Spawn:SpawnNPC(currentNPC)
+              end
             end
           end
         end
@@ -1176,8 +1184,11 @@ function Tools:DrawNPCActions()
         if Tools.proportionalMode then
           ImGui.PushItemWidth(scaleWidth)
           Tools.currentNPC.scale.x, scaleChanged = ImGui.DragFloat("##scale", Tools.currentNPC.scale.x, 0.1)
-          Tools.currentNPC.scale.y = Tools.currentNPC.scale.x
-          Tools.currentNPC.scale.z = Tools.currentNPC.scale.x
+
+          if scaleChanged then 
+            Tools.currentNPC.scale.y = Tools.currentNPC.scale.x
+            Tools.currentNPC.scale.z = Tools.currentNPC.scale.x
+          end
         else
           ImGui.PushItemWidth((scaleWidth / 3) - 4)
           Tools.currentNPC.scale.x, used = ImGui.DragFloat("##scaleX", Tools.currentNPC.scale.x, 0.1)
@@ -1196,7 +1207,11 @@ function Tools:DrawNPCActions()
           Tools:SetScale(components, Tools.currentNPC.scale, Tools.proportionalMode)
         end
 
-        Tools.proportionalMode = ImGui.Checkbox("Proportional Mode", Tools.proportionalMode)
+        Tools.proportionalMode, proportionalModeChanged = ImGui.Checkbox("Proportional Mode", Tools.proportionalMode)
+
+        if proportionalModeChanged then
+          Tools:SetScale(components, Tools.currentNPC.scale, Tools.proportionalMode)
+        end
 
         if ImGui.Button("Reset Scale", Tools.style.buttonWidth, Tools.style.buttonHeight) then
           Tools:SetScale(components, Tools.currentNPC.defaultScale, true)
@@ -1638,6 +1653,16 @@ function Tools:GetRelicFlats()
   }
 
   return flats
+end
+
+function Tools:ShouldCrouchButtonAppear(spawn)
+  if spawn.type == 'Spawn' then return true end
+
+  for _, ent in pairs(Spawn.spawnedNPCs) do
+    if ent.hash == spawn.hash then return true end
+  end
+
+  return false
 end
 
 return Tools:new()

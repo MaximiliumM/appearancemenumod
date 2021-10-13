@@ -53,13 +53,13 @@ function Light:Draw(AMM)
       Light:UpdateColor()
     end
 
-    Light.settings.intensity, intensityChanged = ImGui.DragFloat("Intensity", Light.settings.intensity, 1)
+    Light.settings.intensity, intensityChanged = ImGui.DragFloat("Intensity", Light.settings.intensity, 1.0, 0.0, 10000.0)
     if intensityChanged then
       Light.settings.component:SetIntensity(Light.settings.intensity)
     end
 
     if Light.settings.lightType == ELightType.LT_Area or Light.settings.lightType == ELightType.LT_Area then
-      Light.settings.radius, radiusChanged = ImGui.DragFloat("Radius", Light.settings.radius, 0.1)
+      Light.settings.radius, radiusChanged = ImGui.DragFloat("Radius", Light.settings.radius, 0.1, 0.0, 10000.0)
       if radiusChanged then
         Light.settings.component:SetRadius(Light.settings.radius)
       end
@@ -67,8 +67,8 @@ function Light:Draw(AMM)
 
     if Light.settings.lightType == ELightType.LT_Spot then
       local anglesChanged = false
-      Light.settings.innerAngle, innerUsed = ImGui.DragFloat("Inner Angle", Light.settings.innerAngle, 1)
-      Light.settings.outerAngle, anglesChanged = ImGui.DragFloat("Outer Angle", Light.settings.outerAngle, 1)
+      Light.settings.innerAngle, innerUsed = ImGui.DragFloat("Inner Angle", Light.settings.innerAngle, 1.0, 0.0, 10000.0)
+      Light.settings.outerAngle, anglesChanged = ImGui.DragFloat("Outer Angle", Light.settings.outerAngle, 1.0, 0.0, 10000.0)
 
       if innerUsed or anglesChanged then
         Light.settings.component:SetAngles(Light.settings.innerAngle, Light.settings.outerAngle)

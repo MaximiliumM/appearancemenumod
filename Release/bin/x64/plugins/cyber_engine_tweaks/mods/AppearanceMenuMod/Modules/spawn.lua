@@ -15,9 +15,10 @@ function Spawn:NewSpawn(name, id, parameters, companion, path, template)
 	obj.template = template or ''
 	obj.type = 'Spawn'
 	obj.entityID = ''
+	obj.companion = false
 
 	if string.find(obj.path, "Props") then
-		obj.type = 'Props'
+		obj.type = 'Prop'
 	end
 
 	if obj.parameters == "Player" then
@@ -85,9 +86,10 @@ function Spawn:DrawActiveSpawns(style)
       if spawn.handle ~= '' and not(spawn.handle:IsVehicle()) then
         if ImGui.SmallButton("Respawn##"..spawn.name) then
           Spawn:DespawnNPC(spawn)
-          Cron.After(0.2, function()
-            Spawn:SpawnNPC(spawn)
-          end)
+			 
+			 Cron.After(0.5, function()
+				Spawn:SpawnNPC(spawn)
+			 end)
         end
       end
 
@@ -112,7 +114,7 @@ function Spawn:DrawActiveSpawns(style)
 
       if spawn.handle ~= '' and not(spawn.handle:IsVehicle()) and not(spawn.handle:IsDevice()) and not(spawn.handle:IsDead()) and Util:CanBeHostile(spawn.handle) then
 
-		if AMM.userSettings.spawnAsCompanion then
+		if spawn.companion then
 			local hostileButtonLabel = "Hostile"
 			if not(spawn.handle.isPlayerCompanionCached) then
 			hostileButtonLabel = "Friendly"
@@ -268,7 +270,7 @@ function Spawn:SetFavoriteNamePopup(entity)
 	local sizeX = ImGui.GetWindowSize()
 	local x, y = ImGui.GetWindowPos()
 	ImGui.SetNextWindowPos(x + ((sizeX / 2) - 200), y - 40)
-	ImGui.SetNextWindowSize(400, ImGui.GetFontSize() * 8)
+	ImGui.SetNextWindowSize(350, ImGui.GetFontSize() * 9)
 	Spawn.currentFavoriteName = entity.name
 	Spawn.popupEntity = entity
 	ImGui.OpenPopup("Favorite Name")
@@ -350,7 +352,6 @@ function Spawn:DrawFavoritesButton(buttonLabels, entity, fullButton)
 				end
 			end
 
-			ImGui.SameLine()
 			if ImGui.Button("Cancel", style.halfButtonWidth + 8, style.buttonHeight) then
 				Spawn.currentFavoriteName = ''
 				AMM.popupIsOpen = false
@@ -513,6 +514,7 @@ function Spawn:SpawnNPC(spawn)
 		end
 	else
 		spawn.entityID = Game.GetPreventionSpawnSystem():RequestSpawn(AMM:GetNPCTweakDBID(spawn.path), -99, spawnTransform)
+		spawn.companion = true
 	end
 
 	while Spawn.spawnedNPCs[spawn.uniqueName()] ~= nil do
@@ -533,13 +535,13 @@ function Spawn:SpawnNPC(spawn)
 
 		if entity then
 			spawn.handle = entity
+			spawn.appearance = AMM:GetAppearance(spawn)
 			Spawn.spawnedNPCs[spawn.uniqueName()] = spawn
 
-			spawn.appearance = AMM:GetAppearance(spawn)
 
-			if #custom > 0 or spawn.parameters ~= nil then
+			if (#custom > 0 or spawn.parameters ~= nil) and spawn.id ~= '0x55C01D9F, 36' then
 				AMM:ChangeAppearanceTo(spawn, spawn.parameters)
-			elseif not favoriteApp then
+			elseif not favoriteApp and spawn.id ~= '0x55C01D9F, 36' then
 				AMM:ChangeScanAppearanceTo(spawn, 'Cycle')
 			end
 

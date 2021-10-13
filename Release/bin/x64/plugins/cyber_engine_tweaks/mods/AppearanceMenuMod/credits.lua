@@ -5,7 +5,7 @@ return {
 		[[Code & Research]],
 		[[-- MaximiliumM]],
 		[[OG Idea, Data & Marketing]],
-		[[-- Daz]],
+		[[-- Daz (Retired)]],
 	},
 	{
 		'Community Contributors',
@@ -15,6 +15,7 @@ return {
 		[[-- Yorinobu PP]],
 		[[-- Cheri Skin color fix]],
 		[[-- Hanako No Makeup]],
+		[[-- Dino Texture fixes]],
 		[[Hineytroll]],
 		[[-- Lizzy Incognito appearance]],
 		[[-- Meredith Sex appearance]],
@@ -31,6 +32,9 @@ return {
 		[[-- Props Categories and Organization]],
 		[[hay]],
 		[[-- Songbird's backstory co-writer]],
+		[[Vitium]],
+		[[-- Beta Testing]],
+		[[-- E3 V Male & Female]],
 	},
 	{
 		'Community Shout Outs',
