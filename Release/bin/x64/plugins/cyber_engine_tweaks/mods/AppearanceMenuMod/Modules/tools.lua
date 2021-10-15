@@ -37,7 +37,8 @@ function Tools:new()
   Tools.accessoryToggle = true
   Tools.lookAtLocked = false
   Tools.invisibleBody = false
-  Tools.seamfixEnabled = false
+  Tools.seamfixToggle = false
+  Tools.savePhotoModeToggles = false
   Tools.animatedHead = AMM.userSettings.animatedHead
   Tools.TPPCamera = false
   Tools.TPPCameraBeforeVehicle = false
@@ -180,6 +181,12 @@ function Tools:DrawVActions()
     if ImGui.Button(buttonLabel, Tools.style.buttonWidth, Tools.style.buttonHeight) then
       Tools:ToggleLookAt()
     end
+
+    Tools.savePhotoModeToggles = ImGui.Checkbox("Save Toggles State", Tools.savePhotoModeToggles)
+
+    if ImGui.IsItemHovered() then
+      ImGui.SetTooltip("This will save Makeup, Piercing and Seamfix toggles state until you close the game.")
+    end
   else
     local buttonLabel = "Disable Passive Mode"
     if Tools.playerVisibility then
@@ -276,10 +283,10 @@ end
 function Tools:ToggleSeamfix()
   local target = Tools:GetVTarget()
 
-  Tools.seamfixEnabled = not Tools.seamfixEnabled
+  Tools.seamfixToggle = not Tools.seamfixToggle
   for cname in db:urows("SELECT cname FROM components WHERE cname LIKE '%seamfix%'") do
     local comp = target.handle:FindComponentByName(CName.new(cname))
-	  if comp then comp:Toggle(not(Tools.seamfixEnabled)) end
+	  if comp then comp:Toggle(not(Tools.seamfixToggle)) end
   end
 end
 
@@ -350,7 +357,10 @@ function Tools:CheckGodModeIsActive()
   if AMM.player ~= nil then
     local playerID = AMM.player:GetEntityID()
     local currentHP = Game.GetStatsSystem():GetStatValue(playerID, "Health")
-    if currentHP < 0 then Tools.godModeToggle = true end
+    if currentHP < 0 then Tools.godModeToggle = true 
+    elseif AMM.userSettings.godModeOnLaunch then
+      Tools:ToggleGodMode()
+    end
   end
 end
 

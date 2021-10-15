@@ -41,7 +41,7 @@ function AMM:new()
 	 AMM.TeleportMod = ''
 
 	 -- Main Properties --
-	 AMM.currentVersion = "1.11.4"
+	 AMM.currentVersion = "1.11.4b"
 	 AMM.updateNotes = require('update_notes.lua')
 	 AMM.credits = require("credits.lua")
 	 AMM.updateLabel = "WHAT'S NEW"
@@ -298,6 +298,23 @@ function AMM:new()
 
 					Tools.lookAtV = false
 
+					if AMM.Tools.savePhotoModeToggles then
+						Cron.After(1.0, function()
+							if not AMM.Tools.makeupToggle then 
+								AMM.Tools.makeupToggle = true
+								AMM.Tools:ToggleMakeup()
+							end						
+							if not AMM.Tools.accessoryToggle then
+								AMM.Tools.accessoryToggle = true
+								AMM.Tools:ToggleAccessories() 
+							end
+							if not AMM.Tools.seamfixToggle then 
+								AMM.Tools.seamfixToggle = true
+								AMM.Tools:ToggleSeamfix() 
+							end
+						end)
+					 end
+
 					if AMM.Tools.invisibleBody then
 						Cron.After(1.0, function()
 							local v = AMM.Tools:GetVTarget()
@@ -314,8 +331,12 @@ function AMM:new()
 					 end
 
 					 Tools.lookAtV = true
-					 AMM.Tools.makeupToggle = true
-					 AMM.Tools.accessoryToggle = true
+
+					 if not AMM.Tools.savePhotoModeToggles then
+						AMM.Tools.makeupToggle = true
+						AMM.Tools.accessoryToggle = true
+						AMM.Tools.seamfixToggle = true
+					 end
 
 					 local c = AMM.Tools.slowMotionSpeed
 					 if c ~= 1 then
@@ -888,6 +909,9 @@ function AMM:Begin()
 					if ImGui.IsItemHovered() then
             		ImGui.SetTooltip("This setting will enable/disable respawn previously saved NPCs on game load. AMM automatically saves your spawned NPCs when you exit the game.")
           		end
+
+					 AMM.userSettings.godModeOnLaunch, clicked = ImGui.Checkbox("God Mode On Launch", AMM.userSettings.godModeOnLaunch)
+					if clicked then settingChanged = true end
 
 					AMM.userSettings.openWithOverlay, clicked = ImGui.Checkbox("Open With CET Overlay", AMM.userSettings.openWithOverlay)
 					if clicked then settingChanged = true end
@@ -1485,6 +1509,7 @@ function AMM:SetupAMMCharacters()
 		["Character.Hanako"] = {"AMM_Character.Hanako", "hanako"},
 		["Character.generic_netrunner_netrunner_chao_wa_rare_ow_city_scene"] = {"AMM_Character.Songbird", "songbird"},
 		["Character.q116_v_female"] = {"AMM_Character.E3_V_Female", "e3_v_female"},
+		["Character.q116_v_male"] = {"AMM_Character.E3_V_Male", "e3_v_male"},
 		["Vehicle.av_rayfield_excalibur"] = {"AMM_Vehicle.Docworks_Excalibus", "doc_excalibus"},
 	}
 
@@ -1517,6 +1542,18 @@ function AMM:SetupAMMCharacters()
 		primaryEquipment = TweakDB:GetFlat('Character.Judy.primaryEquipment'),
 		secondaryEquipment = TweakDB:GetFlat('Character.Judy.secondaryEquipment'),
 		abilities = TweakDB:GetFlat('Character.Judy.abilities')
+	})
+
+	TweakDB:SetFlats("AMM_Character.E3_V_Female",{
+		primaryEquipment = TweakDB:GetFlat('Character.afterlife_rare_fmelee3_mantis_wa_elite.primaryEquipment'),
+		secondaryEquipment = TweakDB:GetFlat('Character.arr_ncpd_inspector_ranged1_lexington_ma.primaryEquipment'),
+		abilities = TweakDB:GetFlat('Character.afterlife_rare_fmelee3_mantis_wa_elite.abilities')
+	})
+
+	TweakDB:SetFlats("AMM_Character.E3_V_Male",{
+		primaryEquipment = TweakDB:GetFlat('Character.afterlife_rare_fmelee3_mantis_ma_elite.primaryEquipment'),
+		secondaryEquipment = TweakDB:GetFlat('Character.arr_ncpd_inspector_ranged1_lexington_ma.primaryEquipment'),
+		abilities = TweakDB:GetFlat('Character.Takemura.abilities')
 	})
 
 	TweakDB:SetFlats("AMM_Character.Songbird",{

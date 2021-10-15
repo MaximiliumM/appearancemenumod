@@ -895,6 +895,7 @@ end
 function Props:RemoveProp(ent)
   if Props.activeProps[ent.uid] and Props.activeProps[ent.uid].handle ~= '' then Props:DespawnProp(ent) end
   db:execute(f("DELETE FROM saved_props WHERE uid = '%i'", ent.uid))
+  db:execute(f("DELETE FROM saved_lights WHERE uid = '%i'", ent.uid))
   Props:Update()
 end
 

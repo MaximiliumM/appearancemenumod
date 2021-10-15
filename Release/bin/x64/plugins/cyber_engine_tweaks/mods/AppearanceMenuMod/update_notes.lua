@@ -1,5 +1,16 @@
 return {
 	{
+		'1.11.4b',
+		'2021 Oct 15',
+		[[Added new Save Toggles State checkbox during Photomode]],
+		[[-- This will save Makeup, Piercing and Seamfix toggles state until you close the game]],
+		[[Added new God Mode On Launch setting]],
+		[[Added new Custom Character: E3 V Male]],
+		[[Added Combat Abilities to E3 V]],
+		[[Fixed major issue where Saved Lights data wasn't being removed from the Preset file when the user removed a customizable light]],
+		[[-- If you have problems with loading your preset after removing a light, contact me on Discord]],
+	},
+	{
 		'1.11.4',
 		'2021 Oct 11',
 		[[AMM will crash the game if you don't have the Props archive installed now]],
