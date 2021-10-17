@@ -146,7 +146,7 @@ function Swap:Draw(AMM, target)
               end
             end
 
-            local query = f("SELECT * FROM entities WHERE is_swappable = 1 AND cat_id == '%s' ORDER BY entity_name ASC", category.cat_id)
+            local query = f("SELECT * FROM entities WHERE is_swappable = 1 AND cat_id == '%s' AND cat_id != 22 ORDER BY entity_name ASC", category.cat_id)
             for en in db:nrows(query) do
               table.insert(entities, {en.entity_name, en.entity_id, en.entity_path})
             end
@@ -276,7 +276,7 @@ function Swap:DrawEntitiesButtons(entities, categoryName)
 
 		if ImGui.Button(name, style.buttonWidth - favOffset, style.buttonHeight) then
       Game.GetPlayer():SetWarningMessage("Reload your save game to update changes!")
-      if targetID ~= "0x5E611B16, 24" or Swap.specialSwap then
+      if targetID ~= "0x5E611B16, 24" or categoryName ~= "Cameos" or Swap.specialSwap then
         Swap:ChangeEntityTemplateTo(target.name, targetID, id)
       end
     end

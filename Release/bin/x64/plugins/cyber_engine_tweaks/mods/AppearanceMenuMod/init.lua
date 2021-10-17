@@ -41,7 +41,7 @@ function AMM:new()
 	 AMM.TeleportMod = ''
 
 	 -- Main Properties --
-	 AMM.currentVersion = "1.11.4b"
+	 AMM.currentVersion = "1.11.5"
 	 AMM.updateNotes = require('update_notes.lua')
 	 AMM.credits = require("credits.lua")
 	 AMM.updateLabel = "WHAT'S NEW"
@@ -100,13 +100,14 @@ function AMM:new()
 		 AMM.Director = require('Modules/director.lua')
 		 AMM.Light = require('Modules/light.lua')
 
-		 AMM:SetupVehicleData()
 		 AMM:SetupCustomProps()
 		 AMM:SetupAMMCharacters()
 		 AMM:SetupCustomEntities()
+		 AMM:SetupVehicleData()
 		 AMM:ImportUserData()
 
 		 -- Update after importing user data
+		 AMM.Spawn.categories = AMM.Spawn:GetCategories()
 		 AMM.Props:Update()
 
 		 -- Adjust Prevention System Total Entities Limit --
@@ -1161,6 +1162,10 @@ function AMM:FinishUpdate()
 	if self.currentVersion == "1.11.1b" then
 		AMM:ResetAllPropsScale()
 		AMM.Props:Update()
+	elseif self.currentVersion == "1.11.4b" then
+		if AMM.Tools.godModeToggle then
+			AMM.Tools:ToggleGodMode()
+		end
 	end
 
 	db:execute(f("UPDATE metadata SET current_version = '%s'", self.currentVersion))
@@ -1340,7 +1345,7 @@ function AMM:GetSaveables()
 		'0x7B2CB67C, 17', '0x3024F03E, 15', '0x3B6EF8F9, 13', '0x413F60A6, 15', '0x62B8D0FA, 15',
 		'0x3143911D, 15', '0xF0F54969, 24', '0x0044E64C, 20', '0xF43B2B48, 18', '0xC111FBAC, 16',
 		'0x8DD8F2E0, 35', '0x4106744C, 35', '0xB98FDBB8, 14', '0x6B0544AD, 26', '0x215A57FC, 17',
-		'0x903E76AF, 43', '0x55C01D9F, 36'
+		'0x903E76AF, 43', '0x451222BE, 24'
 	}
 
 	return defaults
@@ -1488,6 +1493,7 @@ function AMM:ResetAllPropsScale()
 end
 
 function AMM:UpdateOldFavorites()
+	db:execute("UPDATE favorites SET entity_id = '0x451222BE, 24', parameters = NULL WHERE entity_id = '0x55C01D9F, 36';")
 	db:execute("UPDATE favorites SET entity_id = '0xCD70BCE4, 20' WHERE entity_id = '0xC111FBAC, 16';")
 	db:execute("UPDATE favorites_swap SET entity_id = '0xCD70BCE4, 20' WHERE entity_id = '0xC111FBAC, 16';")
 	db:execute("UPDATE favorites SET entity_id = '0x5E611B16, 24' WHERE entity_id = '0x903E76AF, 43';")
@@ -1503,19 +1509,21 @@ end
 
 function AMM:SetupAMMCharacters()
 	local ents = {
-		["Character.TPP_Player_Cutscene_Male"] = {"AMM_Character.Player_Male", "player_ma_tpp"},
-		["Character.TPP_Player_Cutscene_Female"] = {"AMM_Character.Player_Female", "player_wa_tpp"},
-		["Character.Takemura"] = {"AMM_Character.Silverhand", "silverhand"},
-		["Character.Hanako"] = {"AMM_Character.Hanako", "hanako"},
-		["Character.generic_netrunner_netrunner_chao_wa_rare_ow_city_scene"] = {"AMM_Character.Songbird", "songbird"},
-		["Character.q116_v_female"] = {"AMM_Character.E3_V_Female", "e3_v_female"},
-		["Character.q116_v_male"] = {"AMM_Character.E3_V_Male", "e3_v_male"},
-		["Vehicle.av_rayfield_excalibur"] = {"AMM_Vehicle.Docworks_Excalibus", "doc_excalibus"},
+		{og = "Character.TPP_Player_Cutscene_Male", tdbid = "AMM_Character.Player_Male", path = "player_ma_tpp"},
+		{og = "Character.TPP_Player_Cutscene_Female", tdbid = "AMM_Character.Player_Female", path = "player_wa_tpp"},
+		{og = "Character.TPP_Player_Cutscene_Male", tdbid = "AMM_Character.TPP_Player_Male", path = "player_ma_tpp_walking"},
+		{og = "Character.TPP_Player_Cutscene_Female", tdbid = "AMM_Character.TPP_Player_Female", path = "player_wa_tpp_walking"},
+		{og = "Character.Takemura", tdbid = "AMM_Character.Silverhand", path = "silverhand"},
+		{og = "Character.Hanako", tdbid = "AMM_Character.Hanako", path = "hanako"},
+		{og = "Character.generic_netrunner_netrunner_chao_wa_rare_ow_city_scene", tdbid = "AMM_Character.Songbird", path = "songbird"},
+		{og = "Character.q116_v_female", tdbid = "AMM_Character.E3_V_Female", path = "e3_v_female"},
+		{og = "Character.q116_v_male", tdbid = "AMM_Character.E3_V_Male", path = "e3_v_male"},
+		{og = "Vehicle.av_rayfield_excalibur", tdbid = "AMM_Vehicle.Docworks_Excalibus", path = "doc_excalibus"},
 	}
 
-	for og, ent in pairs(ents) do
-		local tdbid, path = ent[1], ent[2]
-    	TweakDB:CloneRecord(tdbid, og)
+	for _, ent in ipairs(ents) do
+		local tdbid, path = ent.tdbid, ent.path
+    	TweakDB:CloneRecord(tdbid, ent.og)
 
 		if string.find(tdbid, "Vehicle") then
 			TweakDB:SetFlat(tdbid..".entityTemplatePath", "base\\amm_vehicles\\entity\\"..path..".ent")
@@ -1525,8 +1533,8 @@ function AMM:SetupAMMCharacters()
   	end
 
 	-- Setup TweakDB Records
-	TweakDB:SetFlat("Character.TPP_Player_Cutscene_Female.fullDisplayName", TweakDB:GetFlat("Character.TPP_Player.displayName"))
-	TweakDB:SetFlat("Character.TPP_Player_Cutscene_Male.fullDisplayName", TweakDB:GetFlat("Character.TPP_Player.displayName"))
+	TweakDB:SetFlat("AMM_Character.TPP_Player_Female.fullDisplayName", TweakDB:GetFlat("Character.TPP_Player.displayName"))
+	TweakDB:SetFlat("AMM_Character.TPP_Player_Male.fullDisplayName", TweakDB:GetFlat("Character.TPP_Player.displayName"))
 
 	TweakDB:SetFlats("AMM_Character.Silverhand",{
 		voiceTag = TweakDB:GetFlat("Character.Silverhand.voiceTag"),

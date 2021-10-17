@@ -15,7 +15,6 @@ function Spawn:NewSpawn(name, id, parameters, companion, path, template)
 	obj.template = template or ''
 	obj.type = 'Spawn'
 	obj.entityID = ''
-	obj.companion = false
 
 	if string.find(obj.path, "Props") then
 		obj.type = 'Prop'
@@ -114,7 +113,7 @@ function Spawn:DrawActiveSpawns(style)
 
       if spawn.handle ~= '' and not(spawn.handle:IsVehicle()) and not(spawn.handle:IsDevice()) and not(spawn.handle:IsDead()) and Util:CanBeHostile(spawn.handle) then
 
-		if spawn.companion then
+		if spawn.handle.isPlayerCompanionCached then
 			local hostileButtonLabel = "Hostile"
 			if not(spawn.handle.isPlayerCompanionCached) then
 			hostileButtonLabel = "Friendly"
@@ -283,7 +282,7 @@ function Spawn:DrawFavoritesButton(buttonLabels, entity, fullButton)
 		halfButtonWidth = ((ImGui.GetWindowContentRegionWidth() / 2) - 12)
 	}
 
-	if entity.parameters == nil then
+	if entity.parameters == nil and entity.id ~= '0x451222BE, 24' then
 		entity['parameters'] = entity.appearance
 	end
 
@@ -337,7 +336,7 @@ function Spawn:DrawFavoritesButton(buttonLabels, entity, fullButton)
 
 					if entity.type == "Props" or entity.type == "entEntity" then
 						entity.parameters = 'Prop'
-					elseif entity.type == "Spawn" then
+					elseif entity.type == "Spawn" and entity.id ~= "0x451222BE, 24" then
 						Spawn.spawnedNPCs[entity.uniqueName()] = nil
 						entity.parameters = AMM:GetScanAppearance(entity.handle)
 						Spawn.spawnedNPCs[entity.uniqueName()] = entity
@@ -494,28 +493,17 @@ function Spawn:SpawnNPC(spawn)
 	local spawnTransform = AMM.player:GetWorldTransform()
 	local pos = AMM.player:GetWorldPosition()
 	local heading = AMM.player:GetWorldForward()
-	-- local newPos = Vector4.new(pos.x + heading.x, pos.y + heading.y, pos.z + heading.z, pos.w + heading.w)
+	local angles = GetSingleton('Quaternion'):ToEulerAngles(AMM.player:GetWorldOrientation())
 	local newPos = Vector4.new(pos.x - heading.x, pos.y - heading.y, pos.z - heading.z, pos.w - heading.w)
 	spawnTransform:SetPosition(newPos)
+	spawnTransform:SetOrientationEuler(EulerAngles.new(0, 0, angles.yaw - 180))
 
 	local custom = {}
 	if spawn.parameters ~= nil then
 		custom = AMM:GetCustomAppearanceParams(spawn, spawn.parameters)
 	end
 
-	local favoriteApp = false
-
-	if not AMM.userSettings.spawnAsCompanion and spawn.id ~= '0x55C01D9F, 36' then
-		if spawn.parameters ~= nil and #custom == 0 then
-			favoriteApp = true
-			spawn.entityID = exEntitySpawner.SpawnRecord(spawn.path, spawnTransform, spawn.parameters)
-		else
-			spawn.entityID = exEntitySpawner.SpawnRecord(spawn.path, spawnTransform)
-		end
-	else
-		spawn.entityID = Game.GetPreventionSpawnSystem():RequestSpawn(AMM:GetNPCTweakDBID(spawn.path), -99, spawnTransform)
-		spawn.companion = true
-	end
+	spawn.entityID = Game.GetPreventionSpawnSystem():RequestSpawn(AMM:GetNPCTweakDBID(spawn.path), -99, spawnTransform)
 
 	while Spawn.spawnedNPCs[spawn.uniqueName()] ~= nil do
 		local num = spawn.name:match("|([^|]+)")
@@ -535,13 +523,13 @@ function Spawn:SpawnNPC(spawn)
 
 		if entity then
 			spawn.handle = entity
+			spawn.hash = tostring(entity:GetEntityID().hash)
 			spawn.appearance = AMM:GetAppearance(spawn)
 			Spawn.spawnedNPCs[spawn.uniqueName()] = spawn
 
-
-			if (#custom > 0 or spawn.parameters ~= nil) and spawn.id ~= '0x55C01D9F, 36' then
+			if (#custom > 0 or spawn.parameters ~= nil) and spawn.id ~= '0x451222BE, 24' then
 				AMM:ChangeAppearanceTo(spawn, spawn.parameters)
-			elseif not favoriteApp and spawn.id ~= '0x55C01D9F, 36' then
+			elseif spawn.id ~= '0x451222BE, 24' then
 				AMM:ChangeScanAppearanceTo(spawn, 'Cycle')
 			end
 
@@ -562,7 +550,6 @@ end
 
 function Spawn:DespawnNPC(ent)
 	Spawn.spawnedNPCs[ent.uniqueName()] = nil
-	exEntitySpawner.Despawn(ent.handle)
 
 	local spawnID = ent.entityID
 	local handle = Game.FindEntityByID(spawnID)

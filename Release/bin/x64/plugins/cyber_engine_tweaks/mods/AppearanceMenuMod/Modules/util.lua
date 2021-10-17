@@ -276,7 +276,8 @@ end
 function Util:CheckVByID(id)
   local possibleIDs = {
     "0x2A16D43E, 34", "0x9EDC71E0, 33",
-    "0x15982ADF, 28",
+    "0x15982ADF, 28", "0x451222BE, 24",
+    "0x9FFA2212, 29", "0x382F94F4, 31",
   }
 
   for _, possibleID in ipairs(possibleIDs) do

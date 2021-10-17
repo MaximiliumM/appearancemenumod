@@ -1,5 +1,19 @@
 return {
 	{
+		'1.11.5',
+		'2021 Oct 17',
+		[[Added 110 new Props including:]],
+		[[-- Hotdog, more Sofa, Desk Organizers, Ashtray, Tarot Cards, more Walls and more]],
+		[[Added Walking and Crouch animations to Spawn V]],
+		[[-- V uses the Generic Locomotion file. Keep that in mind when using NPC Pose mods]],
+		[[-- Moved original V entity to At Your Own Risk in case anyone needs them]],
+		[[Reset God Mode On Launch setting to Off by default]],
+		[[Fixed issue with Collab Vehicles not being able to be summoned]],
+		[[Fixed issue where some miniature Props would get resized back to their original scale]],
+		[[Fixed issue where V would not spawn from Favorites]],
+		[[Fixed issue where Evelyn's legs were not visible in Game version 1.23]],
+	},
+	{
 		'1.11.4b',
 		'2021 Oct 15',
 		[[Added new Save Toggles State checkbox during Photomode]],
@@ -7,6 +21,7 @@ return {
 		[[Added new God Mode On Launch setting]],
 		[[Added new Custom Character: E3 V Male]],
 		[[Added Combat Abilities to E3 V]],
+		[[Fixed issue where the user would not be able to use the Swap feature with E3 V]],
 		[[Fixed major issue where Saved Lights data wasn't being removed from the Preset file when the user removed a customizable light]],
 		[[-- If you have problems with loading your preset after removing a light, contact me on Discord]],
 	},

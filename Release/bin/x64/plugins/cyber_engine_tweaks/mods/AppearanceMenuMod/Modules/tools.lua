@@ -1020,18 +1020,22 @@ function Tools:DrawNPCActions()
                 local pos = handle:GetWorldPosition()
                 pos = Vector4.new(pos.x, pos.y, pos.z, pos.w)
                 Util:MoveTo(handle, pos, nil, true)
-              else
+              else                
                 Tools.currentNPC.parameters = AMM:GetAppearance(Tools.currentNPC)
 
                 local currentNPC = Tools.currentNPC
                 if currentNPC.type ~= 'Spawn' then
-                  for _, spawn in pairs(Spawn.spawnedNPCs) do
-                    if currentNPC.id == spawn.id then currentNPC = spawn break end
+                  for _, spawn in pairs(AMM.Spawn.spawnedNPCs) do
+                    if currentNPC.id == spawn.id or Util:CheckVByID(currentNPC.id) then currentNPC = spawn break end
                   end
                 end
 
+                Tools.currentNPC = ''
                 AMM.Spawn:DespawnNPC(currentNPC)
-                AMM.Spawn:SpawnNPC(currentNPC)
+                
+                Cron.After(0.5, function()
+                  AMM.Spawn:SpawnNPC(currentNPC)
+                end)
               end
             end
           end
@@ -1668,7 +1672,7 @@ end
 function Tools:ShouldCrouchButtonAppear(spawn)
   if spawn.type == 'Spawn' then return true end
 
-  for _, ent in pairs(Spawn.spawnedNPCs) do
+  for _, ent in pairs(AMM.Spawn.spawnedNPCs) do
     if ent.hash == spawn.hash then return true end
   end
 

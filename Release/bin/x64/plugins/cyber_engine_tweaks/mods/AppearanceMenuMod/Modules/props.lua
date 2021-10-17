@@ -877,6 +877,17 @@ function Props:CheckForTriggersNearby(pos)
   return closestTriggerPos
 end
 
+function Props:CheckDefaultScale(components)
+  local defaultScale = components[1].visualScale
+  for _, comp in ipairs(components) do
+    if comp.visualScale.x ~= 1 then
+      defaultScale = comp.visualScale
+    end
+  end
+
+  return defaultScale
+end
+
 function Props:CheckForValidComponents(handle)
   if handle then
     local components = {}
@@ -934,17 +945,18 @@ function Props:SpawnProp(spawn, pos, angles)
 			spawn.handle = entity
       spawn.appearance = AMM:GetAppearance(spawn)
       
-      local components = AMM.Props:CheckForValidComponents(entity)
+      local components = Props:CheckForValidComponents(entity)
       if components then
+        local visualScale = Props:CheckDefaultScale(components)
         spawn.defaultScale = {
-          x = components[1].visualScale.x * 100,
-          y = components[1].visualScale.x * 100,
-          z = components[1].visualScale.x * 100,
+          x = visualScale.x * 100,
+          y = visualScale.x * 100,
+          z = visualScale.x * 100,
          }
         spawn.scale = {
-          x = components[1].visualScale.x * 100,
-          y = components[1].visualScale.y * 100,
-          z = components[1].visualScale.z * 100,
+          x = visualScale.x * 100,
+          y = visualScale.y * 100,
+          z = visualScale.z * 100,
         }
       end
 
