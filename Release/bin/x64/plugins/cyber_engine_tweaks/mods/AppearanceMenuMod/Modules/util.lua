@@ -178,12 +178,12 @@ end
 function Util:SetGodMode(entity, immortal)
   local entityID = entity:GetEntityID()
 	local gs = Game.GetGodModeSystem()
+  gs:ClearGodMode(entityID, CName.new("Default"))
 
 	if immortal then
-		gs:AddGodMode(entityID, Enum.new("gameGodModeType", "Invulnerable"), CName.new("Default"))
+		gs:AddGodMode(entityID, gameGodModeType.Immortal, CName.new("Default"))
 	else
-    gs:ClearGodMode(entityID, CName.new("Default"))
-    gs:AddGodMode(entityID, Enum.new("gameGodModeType", "Mortal"), CName.new("Default"))
+    gs:AddGodMode(entityID, gameGodModeType.Mortal, CName.new("Default"))
 	end
 end
 
@@ -278,6 +278,7 @@ function Util:CheckVByID(id)
     "0x2A16D43E, 34", "0x9EDC71E0, 33",
     "0x15982ADF, 28", "0x451222BE, 24",
     "0x9FFA2212, 29", "0x382F94F4, 31",
+    "0x55C01D9F, 36",
   }
 
   for _, possibleID in ipairs(possibleIDs) do
@@ -308,6 +309,45 @@ end
 
 function Util:UnlockVehicle(handle)
 	handle:GetVehiclePS():UnlockAllVehDoors()
+end
+
+function Util:CreateInteractionChoice(action, title)
+  local choiceData =  InteractionChoiceData.new()
+  choiceData.localizedName = title
+  choiceData.inputAction = action
+
+  local choiceType = ChoiceTypeWrapper.new()
+  choiceType:SetType(gameinteractionsChoiceType.Blueline)
+  choiceData.type = choiceType
+
+  return choiceData
+end
+
+function Util:PrepareVisualizersInfo(hub)
+  local visualizersInfo = VisualizersInfo.new()
+  visualizersInfo.activeVisId = hub.id
+  visualizersInfo.visIds = { hub.id }
+
+  return visualizersInfo
+end
+
+function Util:SetInteractionHub(title, action, active)
+  local choiceHubData =  InteractionChoiceHubData.new()
+  choiceHubData.id = -1001
+  choiceHubData.active = active
+  choiceHubData.flags = EVisualizerDefinitionFlags.Undefined
+  choiceHubData.title = title
+
+  local choices = {}
+  table.insert(choices, Util:CreateInteractionChoice(action, title))
+  choiceHubData.choices = choices
+
+  local visualizersInfo = Util:PrepareVisualizersInfo(choiceHubData)
+
+  local blackboardDefs = Game.GetAllBlackboardDefs()
+  local interactionBB = Game.GetBlackboardSystem():Get(blackboardDefs.UIInteractions)
+  interactionBB:SetVariant(blackboardDefs.UIInteractions.InteractionChoiceHub, ToVariant(choiceHubData), true)
+  interactionBB:SetVariant(blackboardDefs.UIInteractions.VisualizersInfo, ToVariant(visualizersInfo), true)
 end
 
 return Util

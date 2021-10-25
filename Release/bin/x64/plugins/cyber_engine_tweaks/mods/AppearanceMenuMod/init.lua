@@ -41,7 +41,7 @@ function AMM:new()
 	 AMM.TeleportMod = ''
 
 	 -- Main Properties --
-	 AMM.currentVersion = "1.11.5"
+	 AMM.currentVersion = "1.11.6"
 	 AMM.updateNotes = require('update_notes.lua')
 	 AMM.credits = require("credits.lua")
 	 AMM.updateLabel = "WHAT'S NEW"
@@ -53,6 +53,7 @@ function AMM:new()
 	 AMM.equipmentOptions = AMM:GetEquipmentOptions()
 	 AMM.followDistanceOptions = AMM:GetFollowDistanceOptions()
 	 AMM.originalVehicles = ''
+	 AMM.displayInteractionPrompt = false
 
 	 -- Hotkeys Properties --
 	 AMM.selectedHotkeys = {}
@@ -75,7 +76,6 @@ function AMM:new()
 	 AMM.playerInPhoto = false
 	 AMM.playerInVehicle = false
 	 AMM.settings = false
-	 AMM.isCompanionInvulnerable = true
 	 AMM.shouldCheckSavedAppearance = true
 
 	 registerForEvent("onInit", function()
@@ -139,8 +139,12 @@ function AMM:new()
 
 			 AMM.Tools:CheckGodModeIsActive()
 
-			 if next(AMM.Spawn.spawnedNPCs) ~= nil and AMM.userSettings.respawnOnLaunch then
-			 	AMM:RespawnAll()
+			 if next(AMM.Spawn.spawnedNPCs) ~= nil then
+				if AMM.userSettings.respawnOnLaunch then
+			 		AMM:RespawnAll()
+				else
+					AMM.Spawn.spawnedNPCs = {}
+				end
 			 end
 			 
 			if GetVersion() == "v1.15.0" then
@@ -292,65 +296,19 @@ function AMM:new()
 			local actionName = Game.NameToString(action:GetName(action))
 			local actionType = action:GetType(action).value
 
-       		if actionName == 'TogglePhotoMode' then
+			if actionName == 'TogglePhotoMode' then
 	        	if actionType == 'BUTTON_RELEASED' then
-					AMM.playerInPhoto = true
-	         		Game.SetTimeDilation(0)
-
-					Tools.lookAtV = false
-
-					if AMM.Tools.savePhotoModeToggles then
-						Cron.After(1.0, function()
-							if not AMM.Tools.makeupToggle then 
-								AMM.Tools.makeupToggle = true
-								AMM.Tools:ToggleMakeup()
-							end						
-							if not AMM.Tools.accessoryToggle then
-								AMM.Tools.accessoryToggle = true
-								AMM.Tools:ToggleAccessories() 
-							end
-							if not AMM.Tools.seamfixToggle then 
-								AMM.Tools.seamfixToggle = true
-								AMM.Tools:ToggleSeamfix() 
-							end
-						end)
-					 end
-
-					if AMM.Tools.invisibleBody then
-						Cron.After(1.0, function()
-							local v = AMM.Tools:GetVTarget()
-							AMM.Tools:ToggleInvisibleBody(v.handle)
-						end)
-					end
+					AMM.Tools:EnterPhotoMode()
 				end
 			elseif actionName == 'ExitPhotoMode' then
 				if actionType == 'BUTTON_RELEASED' then
-					 AMM.playerInPhoto = false
-
-					 if AMM.Tools.lookAtLocked then
-						 AMM.Tools:ToggleLookAt()
-					 end
-
-					 Tools.lookAtV = true
-
-					 if not AMM.Tools.savePhotoModeToggles then
-						AMM.Tools.makeupToggle = true
-						AMM.Tools.accessoryToggle = true
-						AMM.Tools.seamfixToggle = true
-					 end
-
-					 local c = AMM.Tools.slowMotionSpeed
-					 if c ~= 1 then
-						 AMM.Tools:SetSlowMotionSpeed(c)
-					 else
-						 if AMM.Tools.timeState == false then
-           		 			AMM.Tools:SetSlowMotionSpeed(0)
-						 else
-							 AMM.Tools:SetSlowMotionSpeed(1)
-						 end
-					 end
-         end
-       end
+					AMM.Tools:ExitPhotoMode()
+         	end
+			elseif actionName == 'Choice1' then
+				if actionType == 'BUTTON_RELEASED' then
+					AMM:BusPromptAction()
+				end
+       	end
 		 end)
 
 		Observe("PlayerPuppet", "OnGameAttached", function(self)
@@ -358,6 +316,7 @@ function AMM:new()
 			if GetVersion() == "v1.16.0" then
 				self:RegisterInputListener(self, 'TogglePhotoMode')
 				self:RegisterInputListener(self, 'ExitPhotoMode')
+				self:RegisterInputListener(self, 'Choice1')
 			end
 
 			AMM.activeCustomApps = {}
@@ -898,11 +857,11 @@ function AMM:Begin()
 					AMM.userSettings.spawnAsCompanion, clicked = ImGui.Checkbox("Spawn As Companion", AMM.userSettings.spawnAsCompanion)
 					if clicked then settingChanged = true end
 
-					AMM.isCompanionInvulnerable = ImGui.Checkbox("Invulnerable Companion", AMM.isCompanionInvulnerable)
-
-					if ImGui.IsItemHovered() then
-            		ImGui.SetTooltip("Even with this setting enabled, companions will fall down in combat. They won't die and you won't have to respawn them though.")
-          		end
+					AMM.userSettings.isCompanionInvulnerable, clicked = ImGui.Checkbox("Invulnerable Companion", AMM.userSettings.isCompanionInvulnerable)
+					if clicked then 
+						settingChanged = true 
+						AMM:RespawnAll()
+					end
 
 					AMM.userSettings.respawnOnLaunch, clicked = ImGui.Checkbox("Respawn On Launch", AMM.userSettings.respawnOnLaunch)
 					if clicked then settingChanged = true end
@@ -1016,6 +975,10 @@ function AMM:Begin()
 
 					if ImGui.Button("Clear All Saved Appearances", style.buttonWidth, style.buttonHeight) then
 						popupDelegate = AMM:OpenPopup("Appearances")
+					end
+
+					if ImGui.Button("Clear All Blacklisted Appearances", style.buttonWidth, style.buttonHeight) then
+						popupDelegate = AMM:OpenPopup("Blacklist")
 					end
 
 					AMM:BeginPopup("WARNING", nil, true, popupDelegate, style)
@@ -1493,7 +1456,7 @@ function AMM:ResetAllPropsScale()
 end
 
 function AMM:UpdateOldFavorites()
-	db:execute("UPDATE favorites SET entity_id = '0x451222BE, 24', parameters = NULL WHERE entity_id = '0x55C01D9F, 36';")
+	db:execute("UPDATE favorites SET parameters = NULL WHERE parameters = 'None' OR parameters = 'TPP_Body';")
 	db:execute("UPDATE favorites SET entity_id = '0xCD70BCE4, 20' WHERE entity_id = '0xC111FBAC, 16';")
 	db:execute("UPDATE favorites_swap SET entity_id = '0xCD70BCE4, 20' WHERE entity_id = '0xC111FBAC, 16';")
 	db:execute("UPDATE favorites SET entity_id = '0x5E611B16, 24' WHERE entity_id = '0x903E76AF, 43';")
@@ -1574,6 +1537,7 @@ function AMM:SetupAMMCharacters()
 	})
 
 	AMM.customNames['0x69E1384D, 22'] = 'Songbird'
+	AMM.customNames['0xE09AAEB8, 26'] = 'Mahir MT28 Coach'		
 end
 
 function AMM:SetupCustomEntities()
@@ -1770,7 +1734,7 @@ end
 function AMM:SetupVehicleData()
 	local unlockableVehicles = TweakDB:GetFlat(TweakDBID.new('Vehicle.vehicle_list.list'))
 	AMM.originalVehicles = unlockableVehicles
-	for vehicle in db:urows("SELECT entity_path FROM entities WHERE cat_id = 24 OR cat_id = 25 AND entity_path LIKE '%Vehicle%'") do
+	for vehicle in db:urows("SELECT entity_path FROM entities WHERE cat_id = 24 OR cat_id = 25 OR cat_id = 56 AND entity_path LIKE '%Vehicle%'") do
 		table.insert(unlockableVehicles, TweakDBID.new(vehicle))
 	end
 
@@ -1992,6 +1956,10 @@ end
 
 function AMM:ClearAllSavedAppearances()
 	db:execute("DELETE FROM saved_appearances")
+end
+
+function AMM:ClearAllBlacklistedAppearances()
+	db:execute("DELETE FROM blacklist_appearances")
 end
 
 function AMM:ClearAllFavorites()
@@ -2300,11 +2268,18 @@ function AMM:GetTarget()
 
 			if t ~= nil and t.name ~= "gameuiWorldMapGameObject" and t.name ~= "ScriptedWeakspotObject" then
 				AMM:SetCurrentTarget(t)
+				AMM:CreateBusInteractionPrompt(t)				
 				return t
 			end
 		end
 	end
 
+	-- Disables Prompt if active
+	if AMM.displayInteractionPrompt and GetVersion() ~= "v1.15.0" then
+		Util:SetInteractionHub("Enter Bus", "Choice1", false)
+		AMM.displayInteractionPrompt = false
+	end
+	
 	return nil
 end
 
@@ -2343,6 +2318,34 @@ function AMM:ChangeNPCEquipment(npcPath, equipmentPath)
 end
 
 -- Helper methods
+function AMM:CreateBusInteractionPrompt(t)
+	if GetVersion() ~= "v1.15.0" then
+		if t.id == '0xE09AAEB8, 26' then
+			local pos = t.handle:GetWorldPosition()
+			local playerPos = AMM.player:GetWorldPosition()
+			local dist = Util:VectorDistance(pos, playerPos)
+
+			if dist < 6 then
+				AMM.displayInteractionPrompt = true
+				Util:SetInteractionHub("Enter Bus", "Choice1", true)
+			else
+				Util:SetInteractionHub("Enter Bus", "Choice1", false)
+				AMM.displayInteractionPrompt = false
+			end
+		end
+	end
+end
+
+function AMM:BusPromptAction()
+	local target = Game.GetTargetingSystem():GetLookAtObject(AMM.player, false, false)
+	if target ~= nil and target:IsVehicle() and AMM.displayInteractionPrompt then
+		local seat = "seat_front_left"
+		if AMM.Scan.selectedSeats["Player"] then seat = AMM.Scan.selectedSeats["Player"].seat.cname end
+		AMM.Scan:MountPlayer(seat, target)
+		AMM.displayInteractionPrompt = false
+	end
+end
+
 function AMM:IsUnique(npcID)
 	for _, v in ipairs(self.allowedNPCs) do
 		if npcID == v then
@@ -2448,6 +2451,12 @@ function AMM:OpenPopup(name)
 		ImGui.SetNextWindowSize(400, 140)
 		popupDelegate.message = "Are you sure you want to delete all your saved appearances?"
 		table.insert(popupDelegate.buttons, {label = "Yes", action = function() AMM:ClearAllSavedAppearances() end})
+		table.insert(popupDelegate.buttons, {label = "No", action = ''})
+		name = "WARNING"
+	elseif name == "Blacklist" then
+		ImGui.SetNextWindowSize(400, 140)
+		popupDelegate.message = "Are you sure you want to delete all your blacklisted appearances?"
+		table.insert(popupDelegate.buttons, {label = "Yes", action = function() AMM:ClearAllBlacklistedAppearances() end})
 		table.insert(popupDelegate.buttons, {label = "No", action = ''})
 		name = "WARNING"
 	elseif name == "Preset" then

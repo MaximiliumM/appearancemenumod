@@ -93,13 +93,20 @@ function Spawn:DrawActiveSpawns(style)
       end
 
       ImGui.SameLine()
-      if ImGui.SmallButton("Despawn##"..spawn.name) then
-        if spawn.handle ~= '' and spawn.handle:IsVehicle() then
-          Spawn:DespawnVehicle(spawn)
-        elseif spawn.handle ~= '' then
-          Spawn:DespawnNPC(spawn)
-        end
-      end
+		local qm = AMM.player:GetQuickSlotsManager()
+		mountedVehicle = qm:GetVehicleObject()
+
+		if spawn.handle ~= '' then
+			if not(mountedVehicle and mountedVehicle:GetEntityID().hash == spawn.handle:GetEntityID().hash) then
+				if ImGui.SmallButton("Despawn##"..spawn.name) then
+					if spawn.handle:IsVehicle() then
+						Spawn:DespawnVehicle(spawn)
+					else
+						Spawn:DespawnNPC(spawn)
+					end
+				end
+			end
+		end
 
 
       if spawn.handle ~= '' then
@@ -227,7 +234,7 @@ function Spawn:DrawEntitiesButtons(entities, categoryName, style)
 		if categoryName == 'Favorites' then
 			favOffset = 40
 			local currentIndex = 0
-			for index in db:urows(f("SELECT position FROM favorites WHERE entity_name = '%s'", name)) do
+			for index in db:urows(f('SELECT position FROM favorites WHERE entity_name = "%s"', name)) do
 				currentIndex = index
 			end
 
@@ -255,7 +262,7 @@ function Spawn:DrawEntitiesButtons(entities, categoryName, style)
 
 		if categoryName == 'Favorites' then
 			local currentIndex = 0
-			for index in db:urows(f("SELECT position FROM favorites WHERE entity_name = '%s'", name)) do
+			for index in db:urows(f('SELECT position FROM favorites WHERE entity_name = "%s"', name)) do
 				currentIndex = index
 			end
 
@@ -282,7 +289,7 @@ function Spawn:DrawFavoritesButton(buttonLabels, entity, fullButton)
 		halfButtonWidth = ((ImGui.GetWindowContentRegionWidth() / 2) - 12)
 	}
 
-	if entity.parameters == nil and entity.id ~= '0x451222BE, 24' then
+	if entity.parameters == nil and not Util:CheckVByID(entity.id) then
 		entity['parameters'] = entity.appearance
 	end
 
@@ -328,15 +335,15 @@ function Spawn:DrawFavoritesButton(buttonLabels, entity, fullButton)
 
 			if ImGui.Button("Save", style.halfButtonWidth + 8, style.buttonHeight) then
 				local isFavorite = 0
-				for fav in db:urows(f("SELECT COUNT(1) FROM favorites WHERE entity_name = '%s'", Spawn.currentFavoriteName)) do
+				for fav in db:urows(f('SELECT COUNT(1) FROM favorites WHERE entity_name = "%s"', Spawn.currentFavoriteName)) do
 					isFavorite = fav
 				end
 				if isFavorite == 0 then
 					entity.name = Spawn.currentFavoriteName
 
-					if entity.type == "Props" or entity.type == "entEntity" then
+					if entity.type == "Prop" or entity.type == "entEntity" then
 						entity.parameters = 'Prop'
-					elseif entity.type == "Spawn" and entity.id ~= "0x451222BE, 24" then
+					elseif entity.type == "Spawn" and not Util:CheckVByID(entity.id) then
 						Spawn.spawnedNPCs[entity.uniqueName()] = nil
 						entity.parameters = AMM:GetScanAppearance(entity.handle)
 						Spawn.spawnedNPCs[entity.uniqueName()] = entity
@@ -376,7 +383,7 @@ function Spawn:DrawArrowButton(direction, entity, index, localIndex)
 	if ImGui.ArrowButton(direction..entity.id, dirEnum) then
 
 		local condition = " WHERE parameters != 'Prop'"
-		if entity.type == "Props" then condition = " WHERE parameters = 'Prop'" end
+		if entity.type == "Prop" then condition = " WHERE parameters = 'Prop'" end
 		local query = "SELECT COUNT(1) FROM favorites"..condition
 		for x in db:urows(query) do favoritesLength = x end
 
@@ -527,9 +534,9 @@ function Spawn:SpawnNPC(spawn)
 			spawn.appearance = AMM:GetAppearance(spawn)
 			Spawn.spawnedNPCs[spawn.uniqueName()] = spawn
 
-			if (#custom > 0 or spawn.parameters ~= nil) and spawn.id ~= '0x451222BE, 24' then
+			if (#custom > 0 or spawn.parameters ~= nil) and not Util:CheckVByID(spawn.id) then
 				AMM:ChangeAppearanceTo(spawn, spawn.parameters)
-			elseif spawn.id ~= '0x451222BE, 24' then
+			elseif not Util:CheckVByID(spawn.id) then
 				AMM:ChangeScanAppearanceTo(spawn, 'Cycle')
 			end
 
@@ -541,6 +548,8 @@ function Spawn:SpawnNPC(spawn)
 
 			if AMM.userSettings.spawnAsCompanion and spawn.canBeCompanion then
 				Spawn:SetNPCAsCompanion(spawn.handle)
+			else
+				AMM.Tools:SetNPCAttitude(spawn, "friendly")
 			end
 
 			Cron.Halt(timer)
@@ -572,9 +581,10 @@ function Spawn:DespawnAll()
 end
 
 function Spawn:SetNPCAsCompanion(npcHandle)
-	if not(self.isCompanionInvulnerable) then
-		Util:SetGodMode(npcHandle, false)
-	end
+	Util:SetGodMode(npcHandle, AMM.userSettings.isCompanionInvulnerable)
+	
+	local npcManager = npcHandle.NPCManager
+	npcManager:ScaleToPlayer()
 
 	local targCompanion = npcHandle
 	local AIC = targCompanion:GetAIControllerComponent()
@@ -630,16 +640,16 @@ end
 
 function Spawn:ToggleFavorite(isFavorite, entity)
 	if isFavorite == 0 then
-		local command = f("INSERT INTO favorites (entity_id, entity_name, parameters) VALUES ('%s', '%s', '%s')", entity.id, entity.name, entity.parameters)
-		command = command:gsub("'nil'", "NULL")
+		local command = f('INSERT INTO favorites (entity_id, entity_name, parameters) VALUES ("%s", "%s", "%s")', entity.id, entity.name, entity.parameters)
+		command = command:gsub('"nil"', "NULL")
 		db:execute(command)
 	else
 		local removedIndex = 0
-		local query = f("SELECT position FROM favorites WHERE entity_name = '%s'", entity.name)
+		local query = f('SELECT position FROM favorites WHERE entity_name = "%s"', entity.name)
 		for i in db:urows(query) do removedIndex = i end
 
-		local command = f("DELETE FROM favorites WHERE entity_name = '%s' OR parameters = '%s'", entity.name, entity.parameters)
-		command = command:gsub("'nil'", "NULL")
+		local command = f('DELETE FROM favorites WHERE entity_name = "%s"', entity.name)
+		command = command:gsub('"nil"', "NULL")
 		db:execute(command)
 		Spawn:RearrangeFavoritesIndex(removedIndex)
 	end

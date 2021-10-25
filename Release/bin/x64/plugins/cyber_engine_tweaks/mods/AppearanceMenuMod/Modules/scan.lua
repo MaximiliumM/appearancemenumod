@@ -5,6 +5,10 @@ local Scan = {
     { name = "Back Left", cname = "seat_back_left" },
     { name = "Front Left", cname = "seat_front_left" },
   },
+  TPPCameraOptions = {
+    { name = "Close", vec = Vector4.new(0, -8, 0.5, 0)},
+    { name = "Far", vec = Vector4.new(0, -12, 0.5, 0)},
+  },
   vehicleSeats = '',
   selectedSeats = {},
   vehicle = '',
@@ -15,6 +19,7 @@ local Scan = {
   companionDriver = nil,
   isDriving = false,
   carCam = false,
+  currentCam = 1,
 }
 
 function Scan:Draw(AMM, target, style)
@@ -180,9 +185,9 @@ function Scan:Draw(AMM, target, style)
 
         local qm = AMM.player:GetQuickSlotsManager()
 		 	  mountedVehicle = qm:GetVehicleObject()
-        local status, ent = next(AMM.Spawn.spawnedNPCs)
+        local shouldAssignSeats = Scan:ShouldDisplayAssignSeatsButton()
         local width = style.buttonWidth
-        if status and ent.handle:IsNPC() then width = style.halfButtonWidth end
+        if (GetVersion() == "v1.15.0" or shouldAssignSeats) then width = style.halfButtonWidth end
         if ImGui.Button("  Toggle Engine  ", width, style.buttonHeight - 5) then
           Util:ToggleEngine(target.handle)
         end
@@ -205,7 +210,7 @@ function Scan:Draw(AMM, target, style)
           end
         end
 
-        if status and ent.handle:IsNPC() and not mountedVehicle then
+        if (GetVersion() == "v1.15.0" or shouldAssignSeats) and not mountedVehicle then
           ImGui.SameLine()
           if ImGui.Button("  Assign Seats  ", style.halfButtonWidth, style.buttonHeight - 5) then
             if Scan.vehicle == '' or Scan.vehicle.hash ~= target.handle:GetEntityID().hash then
@@ -228,7 +233,18 @@ function Scan:Draw(AMM, target, style)
           local favoritesLabels = {"  Add to Spawnable Favorites  ", "  Remove from Spawnable Favorites  "}
           target.id = spawnID
           AMM.Spawn:DrawFavoritesButton(favoritesLabels, target, true)
-          ImGui.Spacing()
+        end
+
+        if AMM.userSettings.experimental then
+          if ImGui.Button("  Fake Die  ", style.halfButtonWidth, style.buttonHeight - 5) then
+            target.handle:SendAIDeathSignal()
+          end
+  
+          ImGui.SameLine()
+  
+          if ImGui.Button("  Follower  ", style.halfButtonWidth, style.buttonHeight - 5) then
+            AMM.Spawn:SetNPCAsCompanion(target.handle)
+          end
         end
       end
 
@@ -307,8 +323,16 @@ end
 
 function Scan:DrawSeatsPopup()
   if ImGui.BeginPopup("Seats", ImGuiWindowFlags.AlwaysAutoResize) then
-    for i, ent in pairs(AMM.Spawn.spawnedNPCs) do
-      if ent.handle:IsNPC() then
+    local entities = {}
+    for _, ent in pairs(AMM.Spawn.spawnedNPCs) do
+      table.insert(entities, ent)
+    end
+
+    -- Insert Player entity
+    table.insert(entities, {name = "Player", handle = AMM.player})
+
+    for i, ent in ipairs(entities) do
+      if ent.handle:IsNPC() or ent.handle:IsPlayer() then
         ImGui.Text(ent.name)
         ImGui.SameLine()
         ImGui.Dummy(20, 20)
@@ -322,7 +346,7 @@ function Scan:DrawSeatsPopup()
 
         ImGui.SameLine()
         if ImGui.BeginCombo("##"..tostring(i), comboLabel) then
-          for i, seat in ipairs(Scan.vehicleSeats) do
+          for _, seat in ipairs(Scan.vehicleSeats) do
             if ImGui.Selectable(seat.name, (seat.name == comboLabel)) then
               Scan.selectedSeats[ent.name] = {name = ent.name, entity = ent.handle, seat = seat, vehicle = Scan.vehicle}
             end
@@ -341,14 +365,19 @@ function Scan:DrawSeatsPopup()
 
       local nonCompanions = {}
 
-      for _, seat in pairs(Scan.selectedSeats) do
-        if seat.entity and not seat.entity.isPlayerCompanionCached then
-          nonCompanions[seat.name] = seat
+      for _, assign in pairs(Scan.selectedSeats) do
+        if assign.entity and (not assign.entity:IsPlayer() and not assign.entity.isPlayerCompanionCached) then          
+          nonCompanions[assign.name] = assign
         end
       end
 
       if next(nonCompanions) ~= nil then
         Scan:AssignSeats(nonCompanions, true)
+      end
+
+      if GetVersion() == "v1.15.0" then
+        AMM.displayInteractionPrompt = true
+        AMM:BusPromptAction()
       end
 
       ImGui.CloseCurrentPopup()
@@ -367,24 +396,51 @@ function Scan:AssignSeats(entities, instant, unmount)
   if unmount then command = 'AIUnmountCommand' end
 
   for _, assign in pairs(entities) do
-    local cmd = NewObject(command)
-    local mountData = NewObject('handle:gameMountEventData')
-    mountData.mountParentEntityId = assign.vehicle.handle:GetEntityID()
-    mountData.isInstant = instant
-    mountData.setEntityVisibleWhenMountFinish = true
-    mountData.removePitchRollRotationOnDismount = false
-    mountData.ignoreHLS = false
-    mountData.mountEventOptions = NewObject('handle:gameMountEventOptions')
-    mountData.mountEventOptions.silentUnmount = false
-    mountData.mountEventOptions.entityID = assign.vehicle.handle:GetEntityID()
-    mountData.mountEventOptions.alive = true
-    mountData.mountEventOptions.occupiedByNeutral = true
-    mountData.slotName = CName.new(assign.seat.cname)
-    cmd.mountData = mountData
-    cmd = cmd:Copy()
+    if not assign.entity:IsPlayer() then
+      local cmd = NewObject(command)
+      local mountData = NewObject('handle:gameMountEventData')
+      mountData.mountParentEntityId = assign.vehicle.handle:GetEntityID()
+      mountData.isInstant = instant
+      mountData.setEntityVisibleWhenMountFinish = true
+      mountData.removePitchRollRotationOnDismount = false
+      mountData.ignoreHLS = false
+      mountData.mountEventOptions = NewObject('handle:gameMountEventOptions')
+      mountData.mountEventOptions.silentUnmount = false
+      mountData.mountEventOptions.entityID = assign.vehicle.handle:GetEntityID()
+      mountData.mountEventOptions.alive = true
+      mountData.mountEventOptions.occupiedByNeutral = true
+      mountData.slotName = assign.seat.cname
+      cmd.mountData = mountData
+      cmd = cmd:Copy()
 
-    assign.entity:GetAIControllerComponent():SendCommand(cmd)
+      assign.entity:GetAIControllerComponent():SendCommand(cmd)
+    end
   end
+end
+
+function Scan:MountPlayer(seat, vehicleHandle)
+  local player = Game.GetPlayer()
+  local entID = vehicleHandle:GetEntityID()
+
+  local data = NewObject('handle:gameMountEventData')
+  data.isInstant = false
+  data.slotName = seat
+  data.mountParentEntityId = entID
+  data.entryAnimName = "forcedTransition"
+
+  local slotID = NewObject('gamemountingMountingSlotId')
+  slotID.id = seat
+
+  local mountingInfo = NewObject('gamemountingMountingInfo')
+  mountingInfo.childId = player:GetEntityID()
+  mountingInfo.parentId = entID
+  mountingInfo.slotId = slotID
+
+  local mountEvent = NewObject('handle:gamemountingMountingRequest')
+  mountEvent.lowLevelMountingInfo = mountingInfo
+  mountEvent.mountData = data
+
+  Game.GetMountingFacility():Mount(mountEvent)
 end
 
 function Scan:GetVehicleSeats(vehicle)
@@ -523,17 +579,19 @@ function Scan:SetVehicleDestination(worldMap, vehicleMap)
 end
 
 function Scan:ToggleVehicleCamera()
-  if AMM.Tools.TPPCamera then
-    AMM.Tools:ToggleTPPCamera()
-  end
+  if Scan.carCam and Scan.currentCam < #Scan.TPPCameraOptions then
+    Scan.currentCam = Scan.currentCam + 1
+  elseif not Scan.carCam then
+    if AMM.Tools.TPPCamera then
+      AMM.Tools:ToggleTPPCamera()
+    end
 
-  Scan.carCam = not Scan.carCam
+    Scan.carCam = true
 
-  if Scan.carCam then
     AMM.Tools:ToggleHead()
     Cron.Every(0.1, function(timer)
       if Scan.carCam then
-        Game.GetPlayer():GetFPPCameraComponent():SetLocalPosition(Vector4.new(0, -8, 0.5, 0))
+        Game.GetPlayer():GetFPPCameraComponent():SetLocalPosition(Scan.TPPCameraOptions[Scan.currentCam].vec)
         Game.GetPlayer():GetFPPCameraComponent().pitchMax = 80
         Game.GetPlayer():GetFPPCameraComponent().pitchMin = -80
         Game.GetPlayer():GetFPPCameraComponent().yawMaxRight = -360
@@ -544,7 +602,18 @@ function Scan:ToggleVehicleCamera()
         Cron.Halt(timer)
       end
     end)
+  else
+    Scan.currentCam = 1
+    Scan.carCam = false
   end
+end
+
+function Scan:ShouldDisplayAssignSeatsButton()
+  for _, ent in pairs(AMM.Spawn.spawnedNPCs) do
+    if ent.handle:IsNPC() then return true end
+  end
+
+  return false
 end
 
 return Scan

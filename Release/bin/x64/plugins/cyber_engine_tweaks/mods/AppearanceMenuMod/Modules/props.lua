@@ -911,17 +911,32 @@ function Props:RemoveProp(ent)
 end
 
 function Props:SpawnProp(spawn, pos, angles)
+  local record = ''
 	local offSetSpawn = 0
 	local distanceFromPlayer = 1
+  local rotation = 180
 	local playerAngles = GetSingleton('Quaternion'):ToEulerAngles(AMM.player:GetWorldOrientation())
 	local distanceFromGround = tonumber(spawn.parameters) or 0
 
-	if type(spawn.parameters) ~= 'table' and spawn.parameters and string.find(spawn.parameters, "dist") then
-		distanceFromPlayer = spawn.parameters:match("%d+")
-	end
+  if spawn.parameters and string.find(spawn.parameters, '{') then spawn.parameters = loadstring('return '..spawn.parameters, '')() end
 
-	if type(spawn.parameters) ~= 'table' and spawn.parameters and string.find(spawn.parameters, "rot") then
-		rotation = tonumber(spawn.parameters:match("%d+"))
+	if spawn.parameters and type(spawn.parameters) == 'table' then
+    if spawn.parameters.dist then
+		  distanceFromPlayer = tonumber(spawn.parameters.dist)
+    end
+
+    if spawn.parameters.rot then
+      rotation = tonumber(spawn.parameters.rot)
+    end
+
+    if spawn.parameters.up then
+      distanceFromGround = tonumber(spawn.parameters.up)
+    end
+
+    if spawn.parameters.veh then
+      local entName = spawn.path:match("Props.(.*)")
+      record = 'Vehicle.'..entName
+    end
 	end
 
 	local heading = AMM.player:GetWorldForward()
@@ -930,12 +945,7 @@ function Props:SpawnProp(spawn, pos, angles)
 	local spawnPosition = GetSingleton('WorldPosition'):ToVector4(spawnTransform.Position)
 	local newPosition = Vector4.new((spawnPosition.x - offSetSpawn) + offsetDir.x, (spawnPosition.y - offSetSpawn) + offsetDir.y, spawnPosition.z + distanceFromGround, spawnPosition.w)
 	spawnTransform:SetPosition(spawnTransform, pos or newPosition)
-	spawnTransform:SetOrientationEuler(spawnTransform, angles or EulerAngles.new(0, 0, playerAngles.yaw - 180))
-
-  local record = ''
-  if string.find(spawn.template, 'yacht') then
-    record = 'Vehicle.sq028_yacht'
-  end
+	spawnTransform:SetOrientationEuler(spawnTransform, angles or EulerAngles.new(0, 0, playerAngles.yaw - rotation))
 	  
   spawn.entityID = exEntitySpawner.Spawn(spawn.template, spawnTransform, '', record)
 

@@ -44,10 +44,12 @@ function Tools:new()
   Tools.TPPCameraBeforeVehicle = false
   Tools.selectedTPPCamera = 1
   Tools.TPPCameraOptions = {
-    {name = "Left", vec = Vector4.new(-0.5, -2, 0, 1.0)},
-    {name = "Right", vec = Vector4.new(0.5, -2, 0, 1.0)},
-    {name = "Center Close", vec = Vector4.new(0, -2, 0, 1.0)},
-    {name = "Center Far", vec = Vector4.new(0, -4, 0, 1.0)},
+    {name = "Left", vec = Vector4.new(-0.5, -2, 0, 1.0), rot = Quaternion.new(0.0, 0.0, 0.0, 1.0)},
+    {name = "Right", vec = Vector4.new(0.5, -2, 0, 1.0), rot = Quaternion.new(0.0, 0.0, 0.0, 1.0)},
+    {name = "Center Close", vec = Vector4.new(0, -2, 0, 1.0), rot = Quaternion.new(0.0, 0.0, 0.0, 1.0)},
+    {name = "Center Far", vec = Vector4.new(0, -4, 0, 1.0), rot = Quaternion.new(0.0, 0.0, 0.0, 1.0)},
+    {name = "Front Close", vec = Vector4.new(0, 2, 0, 0), rot = Quaternion.new(50.0, 0.0, 4000.0, 0.0)},
+    {name = "Front Far", vec = Vector4.new(0, 4, 0, 0), rot = Quaternion.new(50.0, 0.0, 4000.0, 0.0)},
   }
 
   -- Target Properties --
@@ -258,6 +260,7 @@ function Tools:DrawVActions()
 
     ImGui.Spacing()
     
+
     if GetVersion() == "v1.15.0" then
       Tools.animatedHead, clicked = ImGui.Checkbox("Animated Head in Photo Mode", Tools.animatedHead)
 
@@ -397,9 +400,16 @@ function Tools:ToggleAnimatedHead(animated)
   Tools.animatedHead = animated
   AMM.userSettings.animatedHead = animated
 
+  local isLegacy = false
+  if GetVersion() == "v1.15.0" then isLegacy = true end
+
   local isFemale = Util:GetPlayerGender()
   if isFemale == "_Female" then gender = 'wa' else gender = 'ma' end
-  if animated then mode = "tpp" else mode = "photomode" end
+  if animated then
+    if isLegacy then mode = "tpp" else mode = "photomode" end
+  else
+    if isLegacy then mode = "photomode" else mode = "tpp" end
+  end
 
   local headItem = f("player_%s_%s_head", gender, mode)
 
@@ -412,17 +422,20 @@ function Tools:ToggleTPPCamera()
   if Tools.TPPCamera then
     Cron.After(0.1, function()
       Game.GetPlayer():GetFPPCameraComponent():SetLocalPosition(Tools.TPPCameraOptions[Tools.selectedTPPCamera].vec)
+      Game.GetPlayer():GetFPPCameraComponent():SetLocalOrientation(Tools.TPPCameraOptions[Tools.selectedTPPCamera].rot)
     end)
 
     Cron.Every(0.1, function(timer)
       if Tools.TPPCamera then
         Game.GetPlayer():GetFPPCameraComponent():SetLocalPosition(Tools.TPPCameraOptions[Tools.selectedTPPCamera].vec)
+        Game.GetPlayer():GetFPPCameraComponent():SetLocalOrientation(Tools.TPPCameraOptions[Tools.selectedTPPCamera].rot)
         Game.GetPlayer():GetFPPCameraComponent().pitchMax = 80
         Game.GetPlayer():GetFPPCameraComponent().pitchMin = -80
         Game.GetPlayer():GetFPPCameraComponent().yawMaxRight = -360
         Game.GetPlayer():GetFPPCameraComponent().yawMaxLeft = 360
       else
         Game.GetPlayer():GetFPPCameraComponent():SetLocalPosition(Vector4.new(0.0, 0, 0, 1.0))
+        Game.GetPlayer():GetFPPCameraComponent():SetLocalOrientation(Quaternion.new(0.0, 0.0, 0.0, 1.0))
         Cron.Halt(timer)
       end
     end)
@@ -917,6 +930,12 @@ function Tools:DrawNPCActions()
 
     if ImGui.Button("Reset Position", Tools.style.buttonWidth, Tools.style.buttonHeight) then
       local pos = AMM.player:GetWorldPosition()
+
+      if Tools.currentNPC.type == "vehicle" then
+        local heading = AMM.player:GetWorldForward()
+        pos = Vector4.new(pos.x + (heading.x * 2), pos.y + (heading.y * 2), pos.z + heading.z, pos.w + heading.w)
+      end
+
       Tools:SetTargetPosition(pos)
     end
 
@@ -1286,72 +1305,30 @@ function Tools:DrawNPCActions()
     end
 
     if ImGui.Button("All Friendly", Tools.style.halfButtonWidth, Tools.style.buttonHeight) then
-      local entities = Util:GetNPCsInRange(30)
-      for _, ent in ipairs(entities) do
-        if Tools.protectedNPCs[ent.handle:GetEntityID().hash] == nil then
-          Tools:SetNPCAttitude(ent, "friendly")
-        end
-      end
-
-      Tools:ClearProtected()
+      Tools:UseGeneralAction(function(ent) Tools:SetNPCAttitude(ent, "friendly") end, 10)      
     end
 
     ImGui.SameLine()
     if ImGui.Button("All Follower", Tools.style.halfButtonWidth, Tools.style.buttonHeight) then
-      local entities = Util:GetNPCsInRange(10)
-      for _, ent in ipairs(entities) do
-        if Tools.protectedNPCs[ent.handle:GetEntityID().hash] == nil then
-          AMM:SetNPCAsCompanion(ent.handle)
-        end
-      end
-
-      Tools:ClearProtected()
+      Tools:UseGeneralAction(function(ent) AMM.Spawn:SetNPCAsCompanion(ent.handle) end, 10)
     end
 
     if ImGui.Button("All Fake Die", Tools.style.halfButtonWidth, Tools.style.buttonHeight) then
-      local entities = Util:GetNPCsInRange(20)
-      for _, ent in ipairs(entities) do
-        if Tools.protectedNPCs[ent.handle:GetEntityID().hash] == nil then
-          ent.handle:SendAIDeathSignal()
-        end
-      end
-
-      Tools:ClearProtected()
+      Tools:UseGeneralAction(function(ent) ent.handle:SendAIDeathSignal() end, 20) 
     end
 
     ImGui.SameLine()
     if ImGui.Button("All Die", Tools.style.halfButtonWidth, Tools.style.buttonHeight) then
-      local entities = Util:GetNPCsInRange(20)
-      for _, ent in ipairs(entities) do
-        if Tools.protectedNPCs[ent.handle:GetEntityID().hash] == nil then
-          ent.handle:Kill(ent.handle, false, false)
-        end
-      end
-
-      Tools:ClearProtected()
+      Tools:UseGeneralAction(function(ent) ent.handle:Kill(ent.handle, false, false) end, 20)
     end
 
     if ImGui.Button("All Despawn", Tools.style.halfButtonWidth, Tools.style.buttonHeight) then
-      local entities = Util:GetNPCsInRange(20)
-      for _, ent in ipairs(entities) do
-        if Tools.protectedNPCs[ent.handle:GetEntityID().hash] == nil then
-          ent.handle:Dispose()
-        end
-      end
-
-      Tools:ClearProtected()
+      Tools:UseGeneralAction(function(ent) ent.handle:Dispose() end, 20)
     end
 
     ImGui.SameLine()
     if ImGui.Button("Cycle Appearance", Tools.style.halfButtonWidth, Tools.style.buttonHeight) then
-      local entities = Util:GetNPCsInRange(20)
-      for _, ent in ipairs(entities) do
-        if Tools.protectedNPCs[ent.handle:GetEntityID().hash] == nil then
-          AMM:ChangeScanAppearanceTo(ent, "Cycle")
-        end
-      end
-
-      Tools:ClearProtected()
+      Tools:UseGeneralAction(function(ent) AMM:ChangeScanAppearanceTo(ent, "Cycle") end, 20)
     end
   end
 end
@@ -1492,6 +1469,17 @@ function Tools:ProtectTarget(t)
 
   local newMappinID = Game.GetMappinSystem():RegisterMappinWithObject(mappinData, t.handle, slot, offset)
   Tools.protectedNPCs[target.handle:GetEntityID().hash] = newMappinID
+end
+
+function Tools:UseGeneralAction(action, range)
+  local entities = Util:GetNPCsInRange(range)
+  for _, ent in ipairs(entities) do
+    if Tools.protectedNPCs[ent.handle:GetEntityID().hash] == nil then
+      action(ent)
+    end
+  end
+
+  Tools:ClearProtected()
 end
 
 function Tools:ClearProtected()
@@ -1677,6 +1665,64 @@ function Tools:ShouldCrouchButtonAppear(spawn)
   end
 
   return false
+end
+
+function Tools:EnterPhotoMode()
+  AMM.playerInPhoto = true
+  Game.SetTimeDilation(0)
+
+  Tools.lookAtV = false
+
+  if Tools.savePhotoModeToggles then
+    Cron.After(1.0, function()
+      if not Tools.makeupToggle then 
+        Tools.makeupToggle = true
+        Tools:ToggleMakeup()
+      end						
+      if not Tools.accessoryToggle then
+        Tools.accessoryToggle = true
+        Tools:ToggleAccessories() 
+      end
+      if not Tools.seamfixToggle then 
+        Tools.seamfixToggle = true
+        Tools:ToggleSeamfix() 
+      end
+    end)
+    end
+
+  if Tools.invisibleBody then
+    Cron.After(1.0, function()
+      local v = Tools:GetVTarget()
+      Tools:ToggleInvisibleBody(v.handle)
+    end)
+  end
+end
+
+function Tools:ExitPhotoMode()
+  AMM.playerInPhoto = false
+
+  if Tools.lookAtLocked then
+    Tools:ToggleLookAt()
+  end
+
+  Tools.lookAtV = true
+
+  if not Tools.savePhotoModeToggles then
+  Tools.makeupToggle = true
+  Tools.accessoryToggle = true
+  Tools.seamfixToggle = true
+  end
+
+  local c = Tools.slowMotionSpeed
+  if c ~= 1 then
+    Tools:SetSlowMotionSpeed(c)
+  else
+    if Tools.timeState == false then
+      Tools:SetSlowMotionSpeed(0)
+    else
+      Tools:SetSlowMotionSpeed(1)
+    end
+  end
 end
 
 return Tools:new()
