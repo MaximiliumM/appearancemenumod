@@ -361,9 +361,16 @@ end
 
 function Swap:GetEntityPathFromID(id)
   local entityPath = nil
-  for path in db:urows(f("SELECT entity_path FROM paths WHERE entity_id = '%s'", id)) do
+  for path in db:urows(f("SELECT entity_path FROM entities WHERE entity_id = '%s'", id)) do
     entityPath = path
   end
+
+  if not entityPath then
+    for path in db:urows(f("SELECT entity_path FROM paths WHERE entity_id = '%s'", id)) do
+      entityPath = path
+    end
+  end
+
   if entityPath then return entityPath else print("[AMM] entity path not found!") end
 end
 

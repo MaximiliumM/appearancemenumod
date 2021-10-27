@@ -206,14 +206,17 @@ function Util:UnlockDoor(handle)
 end
 
 function Util:RepairVehicle(handle)
-  local vehPS = handle:GetVehiclePS()
   local vehVC = handle:GetVehicleComponent()
 
-  handle:DestructionResetGrid()
-  handle:DestructionResetGlass()
+  if handle then
+    handle:DestructionResetGrid()
+    handle:DestructionResetGlass()
+  end
 
-  vehPS:RepairVehicle()
-  vehVC:ForcePersistentStateChanged()
+  if vehVC then
+    vehVC:RepairVehicle()
+    vehVC:ForcePersistentStateChanged()
+  end
 end
 
 function Util:ToggleDoors(handle)

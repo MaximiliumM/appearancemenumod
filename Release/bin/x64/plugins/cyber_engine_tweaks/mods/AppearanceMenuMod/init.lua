@@ -41,7 +41,7 @@ function AMM:new()
 	 AMM.TeleportMod = ''
 
 	 -- Main Properties --
-	 AMM.currentVersion = "1.11.6"
+	 AMM.currentVersion = "1.11.6b"
 	 AMM.updateNotes = require('update_notes.lua')
 	 AMM.credits = require("credits.lua")
 	 AMM.updateLabel = "WHAT'S NEW"
@@ -1574,11 +1574,15 @@ function AMM:SetupCustomEntities()
 					end
 
 					local entity_id = AMM:GetScanID(entity_path)
+					local swappable = 0
 					local category = 55
-					if entity.type == "Vehicle" then category = 56 end
+					if entity.type == "Vehicle" then
+						swappable = 1
+						category = 56
+					end
 
 					local tables = '(entity_id, entity_name, cat_id, parameters, can_be_comp, entity_path, is_spawnable, is_swappable, template_path)'
-					local values = f('("%s", "%s", %i, %s, "%s", "%s", "%s", "%s", "%s")', entity_id, entity.name, category, nil, 0, entity_path, 1, 0, entity.path)
+					local values = f('("%s", "%s", %i, %s, "%s", "%s", "%s", "%s", "%s")', entity_id, entity.name, category, nil, 0, entity_path, 1, swappable, entity.path)
 					values = values:gsub('nil', "NULL")
 					db:execute(f('INSERT INTO entities %s VALUES %s', tables, values))
 

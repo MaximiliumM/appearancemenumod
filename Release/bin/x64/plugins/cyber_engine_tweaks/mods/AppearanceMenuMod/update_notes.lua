@@ -1,5 +1,16 @@
 return {
 	{
+		'1.11.6b',
+		'2021 Oct 27',
+		[[Added Collab Vehicles to the Swap list]],
+		[[Improved the Hide button internal method]],
+		[[Fixed issue where Toggle Marker would not work for Point and Spot Customizable Lights]],
+		[[Fixed issue where Repair Vehicle would not work and would leak UI colors to other CET windows]],
+		[[-- Some types of damages can't be fixed]],
+		[[Fixed issue where Pick Up Target would unlock target if you had it locked before using it]],
+		[[Fixed issue where Duplicate button would not work]],
+	},
+	{
 		'1.11.6',
 		'2021 Oct 25',
 		[[Added new Vehicle: Mahir MT28 Coach]],

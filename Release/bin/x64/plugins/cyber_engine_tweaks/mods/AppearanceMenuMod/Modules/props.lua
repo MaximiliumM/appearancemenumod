@@ -792,22 +792,35 @@ end
 
 function Props:ToggleHideProp(ent)
   local entID = tostring(ent.handle:GetEntityID().hash)
+  local components = Props:CheckForValidComponents(ent.handle)
   if Props.hiddenProps[entID] ~= nil then
-    local prop = Props.hiddenProps[entID]
-    local spawn = Props:SpawnPropInPosition(prop.ent, prop.pos, prop.angles)
-    Props.spawnedProps[spawn.uniqueName()] = spawn
-  else
-    local pos = ent.handle:GetWorldPosition()
-    local angles = GetSingleton('Quaternion'):ToEulerAngles(ent.handle:GetWorldOrientation())
-  	if pos == nil then
-  		pos = ent.parameters[1]
-      angles = ent.parameters[2]
-  	end
+    if components then
+      for _, comp in ipairs(components) do
+        comp:Toggle(true)
+      end
+    else
+      local prop = Props.hiddenProps[entID]
+      local spawn = Props:SpawnPropInPosition(prop.ent, prop.pos, prop.angles)
+      Props.spawnedProps[spawn.uniqueName()] = spawn
+    end
 
+    Props.hiddenProps[entID] = nil
+  else
+    if components then
+      for _, comp in ipairs(components) do
+        comp:Toggle(false)
+      end
+    else
+      local pos = ent.handle:GetWorldPosition()
+      local angles = GetSingleton('Quaternion'):ToEulerAngles(ent.handle:GetWorldOrientation())
+      if pos == nil then
+        pos = ent.parameters[1]
+        angles = ent.parameters[2]
+      end
+      exEntitySpawner.Despawn(ent.handle)
+    end
 
     Props.hiddenProps[entID] = {ent = ent, pos = pos, angles = angles}
-
-    exEntitySpawner.Despawn(ent.handle)
   end
 end
 
@@ -918,7 +931,9 @@ function Props:SpawnProp(spawn, pos, angles)
 	local playerAngles = GetSingleton('Quaternion'):ToEulerAngles(AMM.player:GetWorldOrientation())
 	local distanceFromGround = tonumber(spawn.parameters) or 0
 
-  if spawn.parameters and string.find(spawn.parameters, '{') then spawn.parameters = loadstring('return '..spawn.parameters, '')() end
+  if spawn.parameters and type(spawn.parameters) == 'string' and string.find(spawn.parameters, '{') then
+    spawn.parameters = loadstring('return '..spawn.parameters, '')()
+  end
 
 	if spawn.parameters and type(spawn.parameters) == 'table' then
     if spawn.parameters.dist then
