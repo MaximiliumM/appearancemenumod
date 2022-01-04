@@ -91,7 +91,9 @@ function Tools:Initialize()
   -- Setup TPP Camera Options --
   Tools.TPPCameraOptions = {
     {name = "Left", vec = Vector4.new(-0.5, -2, 0, 1.0), rot = Quaternion.new(0.0, 0.0, 0.0, 1.0)},
+    {name = "Left Close", vec = Vector4.new(-0.4, -1.5, 0, 1.0), rot = Quaternion.new(0.0, 0.0, 0.0, 1.0)},
     {name = "Right", vec = Vector4.new(0.5, -2, 0, 1.0), rot = Quaternion.new(0.0, 0.0, 0.0, 1.0)},
+    {name = "Right Close", vec = Vector4.new(0.4, -1.5, 0, 1.0), rot = Quaternion.new(0.0, 0.0, 0.0, 1.0)},
     {name = "Center Close", vec = Vector4.new(0, -2, 0, 1.0), rot = Quaternion.new(0.0, 0.0, 0.0, 1.0)},
     {name = "Center Far", vec = Vector4.new(0, -4, 0, 1.0), rot = Quaternion.new(0.0, 0.0, 0.0, 1.0)},
     {name = "Front Close", vec = Vector4.new(0, 2, 0, 0), rot = Quaternion.new(50.0, 0.0, 4000.0, 0.0)},
@@ -291,18 +293,15 @@ function Tools:DrawVActions()
 
     ImGui.Spacing()
     
+    Tools.animatedHead, clicked = ImGui.Checkbox("Animated Head in Photo Mode", Tools.animatedHead)
 
-    if GetVersion() == "v1.15.0" then
-      Tools.animatedHead, clicked = ImGui.Checkbox("Animated Head in Photo Mode", Tools.animatedHead)
+    if clicked then
+      Tools:ToggleAnimatedHead(Tools.animatedHead)
+      AMM:UpdateSettings()
+    end
 
-      if clicked then
-        Tools:ToggleAnimatedHead(Tools.animatedHead)
-        AMM:UpdateSettings()
-      end
-
-      if ImGui.IsItemHovered() then
-        ImGui.SetTooltip("Photo mode expressions won't work while Animated Head is enabled.")
-      end
+    if ImGui.IsItemHovered() then
+      ImGui.SetTooltip("Photo mode expressions won't work while Animated Head is enabled.")
     end
 
     -- ImGui.Spacing()
@@ -431,20 +430,11 @@ function Tools:ToggleAnimatedHead(animated)
   Tools.animatedHead = animated
   AMM.userSettings.animatedHead = animated
 
-  local isLegacy = false
-  if GetVersion() == "v1.15.0" then isLegacy = true end
+  local mode = "TPP_photomode"
+  if animated then mode = "TPP" end
 
-  local isFemale = Util:GetPlayerGender()
-  if isFemale == "_Female" then gender = 'wa' else gender = 'ma' end
-  if animated then
-    if isLegacy then mode = "tpp" else mode = "photomode" end
-  else
-    if isLegacy then mode = "photomode" else mode = "tpp" end
-  end
-
-  local headItem = f("player_%s_%s_head", gender, mode)
-
-  TweakDB:SetFlat(f("Items.Player%sPhotomodeHead.entityName", gender:gsub("^%l", string.upper)), headItem)
+  TweakDB:SetFlat("Items.PlayerMaPhotomodeHead.appearanceName", mode)
+  TweakDB:SetFlat("Items.PlayerWaPhotomodeHead.appearanceName", mode)
 end
 
 function Tools:ToggleTPPCamera()
@@ -598,7 +588,7 @@ function Tools:DrawTeleportActions()
         Tools.shareLocationName = ''
       end
     else
-      Tools.shareLocationName = ImGui.InputText("Name", Tools.shareLocationName, 30)
+      Tools.shareLocationName = ImGui.InputText("Name", Tools.shareLocationName, 50)
 
       if ImGui.Button("Save", style.halfButtonWidth + 8, style.buttonHeight) then
         if not(io.open(f("User/Locations/%s.json", Tools.shareLocationName), "r")) then
@@ -1795,17 +1785,21 @@ function Tools:DrawPhotoModeEnhancements()
     TweakDB:SetFlat('LookatPreset.PhotoMode_LookAtCamera.transitionSpeed', Tools.lookAtSpeed)
   end
 
-  Tools.headStiffness, used = ImGui.SliderFloat("Head Stiffness", Tools.headStiffness, 0.0, 1.0, "%.1f")
-  if used or reset then TweakDB:SetFlat('LookatPreset.PhotoMode_LookAtCamera_inline0.weight', Tools.headStiffness) end
+  if Tools.selectedLookAt.name ~= "Eyes Only" then
+    Tools.headStiffness, used = ImGui.SliderFloat("Head Stiffness", Tools.headStiffness, 0.0, 1.0, "%.1f")
+    if used or reset then TweakDB:SetFlat('LookatPreset.PhotoMode_LookAtCamera_inline0.weight', Tools.headStiffness) end
 
-  Tools.headPoseOverride, used = ImGui.SliderFloat("Head Pose Override", Tools.headPoseOverride, 0.0, 1.0, "%.1f")
-  if used or reset then TweakDB:SetFlat('LookatPreset.PhotoMode_LookAtCamera_inline0.suppress', Tools.headPoseOverride) end
+    Tools.headPoseOverride, used = ImGui.SliderFloat("Head Pose Override", Tools.headPoseOverride, 0.0, 1.0, "%.1f")
+    if used or reset then TweakDB:SetFlat('LookatPreset.PhotoMode_LookAtCamera_inline0.suppress', Tools.headPoseOverride) end
+  end
 
-  Tools.chestStiffness, used = ImGui.SliderFloat("Chest Stiffness", Tools.chestStiffness, 0.0, 1.0, "%.1f")
-  if used or reset then TweakDB:SetFlat('LookatPreset.PhotoMode_LookAtCamera_inline1.weight', Tools.chestStiffness) end
+  if Tools.selectedLookAt.name == "All" then
+    Tools.chestStiffness, used = ImGui.SliderFloat("Chest Stiffness", Tools.chestStiffness, 0.0, 1.0, "%.1f")
+    if used or reset then TweakDB:SetFlat('LookatPreset.PhotoMode_LookAtCamera_inline1.weight', Tools.chestStiffness) end
 
-  Tools.chestPoseOverride, used = ImGui.SliderFloat("Chest Pose Override", Tools.chestPoseOverride, 0.0, 1.0, "%.1f")
-  if used or reset then TweakDB:SetFlat('LookatPreset.PhotoMode_LookAtCamera_inline1.suppress', Tools.chestPoseOverride) end
+    Tools.chestPoseOverride, used = ImGui.SliderFloat("Chest Pose Override", Tools.chestPoseOverride, 0.0, 1.0, "%.1f")
+    if used or reset then TweakDB:SetFlat('LookatPreset.PhotoMode_LookAtCamera_inline1.suppress', Tools.chestPoseOverride) end
+  end
 
   ImGui.Spacing()
 

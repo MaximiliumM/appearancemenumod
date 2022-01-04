@@ -1,5 +1,21 @@
 return {
 	{
+		'1.12.1',
+		'2022 Jan 04',
+		[[ANIMATED HEAD IS BACK]],
+		[[Added new Nibbles pose: Sleeping]],
+		[[Added two new TPP Camera options: Left Close and Right Close]],
+		[[Added 81 new headgears, shoes and accessories to Decor Clothes category]],
+		[[-- Keep in mind if you have modded any of these items, they will spawn as your modded version and not the vanilla one]],
+		[[Added Game Version to Archives screen]],
+		[[Moved Delamain from At Your Own Risk category to Side Characters]],
+		[[-- Now Delamain finally has a full-body]],
+		[[-- Thanks Hineytroll for your incredible work!]],
+		[[Increased Locations name character limit to 50]],
+		[[Adjusted Look At Camera sliders to appear only when they are actually available to be used]],
+		[[Fixed issue with Custom Entities not being companion by default]],
+	},
+	{
 		'1.12',
 		'2021 Dec 29',
 		[[Added new Archives screen]],

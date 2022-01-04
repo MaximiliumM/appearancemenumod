@@ -41,7 +41,7 @@ function AMM:new()
 	 AMM.TeleportMod = ''
 
 	 -- Main Properties --
-	 AMM.currentVersion = "1.12"
+	 AMM.currentVersion = "1.12.1"
 	 AMM.CETVersion = tonumber(GetVersion():match("1.(%d+)."))
 	 AMM.updateNotes = require('update_notes.lua')
 	 AMM.credits = require("credits.lua")
@@ -1168,6 +1168,7 @@ function AMM:CheckMissingArchives()
 				{name = "basegame_AMM_YorinobuPP", desc = "Adds a new naked appearance.", active = true, optional = true},
 				{name = "basegame_AMM_LizzyIncognito", desc = "Adds a new appearance.", active = true, optional = true},
 				{name = "basegame_AMM_MeredithXtra", desc = "Adds a new appearance.", active = true, optional = true},
+				{name = "basegame_AMM_Delamain_Fix", desc = "Adds full body to Delamain", active = true, optional = true},
 				{name = "basegame_texture_Cheri_SkinColorFix", desc = "Fixes Cheri's skin color.", active = true, optional = true},
 				{name = "basegame_texture_HanakoNoMakeup", desc = "Allows AMM to remove Hanako's makeup when using Custom Appearance.", active = true, optional = true},
 				{name = "basegame_AMM_JudyBodyRevamp", desc = "Replaces Judy's body with a new improved one.", active = true, optional = true},
@@ -1605,6 +1606,7 @@ function AMM:SetupAMMCharacters()
 		{og = "Character.q003_cat", tdbid = "AMM_Character.Nibbles_Get_Pet", path = "nibbles_get_pet"},
 		{og = "Character.q003_cat", tdbid = "AMM_Character.Nibbles_Jump_Down", path = "nibbles_jump_down"},
 		{og = "Character.q003_cat", tdbid = "AMM_Character.Nibbles_Self_Clean", path = "nibbles_self_clean"},
+		{og = "Character.q003_cat", tdbid = "AMM_Character.Nibbles_Sleeping", path = "nibbles_sleep"},
 		{og = "Character.q105_jigjig_hologram", tdbid = "AMM_Character.Wa_Holograms_Dance", path = "wa_holograms_redlight_dance"},
 		{og = "Vehicle.av_rayfield_excalibur", tdbid = "AMM_Vehicle.Docworks_Excalibus", path = "doc_excalibus"},
 	}
@@ -1707,14 +1709,16 @@ function AMM:SetupCustomEntities()
 
 					local entity_id = AMM:GetScanID(entity_path)
 					local swappable = AMM:IsApproved(modder, entity.path)
+					local canBeComp = 1
 					local category = 55
 					if entity.type == "Vehicle" then
+						canBeComp = 0
 						swappable = 1
 						category = 56
 					end
 
 					local tables = '(entity_id, entity_name, cat_id, parameters, can_be_comp, entity_path, is_spawnable, is_swappable, template_path)'
-					local values = f('("%s", "%s", %i, %s, "%s", "%s", "%s", "%s", "%s")', entity_id, entity.name, category, nil, 0, entity_path, 1, swappable, entity.path)
+					local values = f('("%s", "%s", %i, %s, "%s", "%s", "%s", "%s", "%s")', entity_id, entity.name, category, nil, canBeComp, entity_path, 1, swappable, entity.path)
 					values = values:gsub('nil', "NULL")
 					db:execute(f('INSERT INTO entities %s VALUES %s', tables, values))
 
@@ -2668,6 +2672,8 @@ function AMM:DrawArchives()
 	AMM.UI:TextCenter("AMM Version: "..AMM.currentVersion, true)
 	ImGui.Spacing()
 	AMM.UI:TextCenter("CET Version: "..GetVersion(), true)
+	ImGui.Spacing()
+	AMM.UI:TextCenter("Game Version: "..Game.GetSystemRequestsHandler():GetGameVersion(), true)
 	AMM.UI:Separator()
 
 	local missingRequired = false

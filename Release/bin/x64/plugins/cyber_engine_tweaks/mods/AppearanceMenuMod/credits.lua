@@ -19,6 +19,7 @@ return {
 		[[Hineytroll]],
 		[[-- Lizzy Incognito appearance]],
 		[[-- Meredith Sex appearance]],
+		[[-- Delamain Fix]],
 		[[PinkyDude]],
 		[[-- V Facial Expressions]],
 		[[-- Johnny Replacer Invisible]],
