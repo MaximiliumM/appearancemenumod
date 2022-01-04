@@ -120,17 +120,15 @@ function Spawn:DrawActiveSpawns(style)
 
       if spawn.handle ~= '' and not(spawn.handle:IsVehicle()) and not(spawn.handle:IsDevice()) and not(spawn.handle:IsDead()) and Util:CanBeHostile(spawn.handle) then
 
-		if spawn.handle.isPlayerCompanionCached then
 			local hostileButtonLabel = "Hostile"
 			if not(spawn.handle.isPlayerCompanionCached) then
-			hostileButtonLabel = "Friendly"
+				hostileButtonLabel = "Friendly"
 			end
 
 			ImGui.SameLine()
 			if ImGui.SmallButton(hostileButtonLabel.."##"..spawn.name) then
-			Spawn:ToggleHostile(spawn.handle)
+				Spawn:ToggleHostile(spawn.handle)
 			end
-		end
 
         ImGui.SameLine()
         if ImGui.SmallButton("Equipment".."##"..spawn.name) then
@@ -444,6 +442,10 @@ function Spawn:SpawnVehicle(spawn)
 			Spawn.spawnedNPCs[spawn.uniqueName()] = spawn
       	Util:UnlockVehicle(spawn.handle)
 
+			if spawn.id == "0xE09AAEB8, 26" then
+				Game.GetGodModeSystem():AddGodMode(spawn.handle:GetEntityID(), 0, "")
+			end
+
 			if spawn.parameters ~= nil then
 				AMM:ChangeScanAppearanceTo(spawn, spawn.parameters)
 			end
@@ -610,10 +612,8 @@ function Spawn:SetNPCAsCompanion(npcHandle)
 end
 
 
-function Spawn:ToggleHostile(spawnHandle)
-	Util:SetGodMode(spawnHandle, false)
-
-	local handle = spawnHandle
+function Spawn:ToggleHostile(handle)
+	Util:SetGodMode(handle, false)
 
 	if handle.isPlayerCompanionCached then
 		local AIC = handle:GetAIControllerComponent()

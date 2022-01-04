@@ -57,10 +57,11 @@ function Props:new()
   Props.spawnedPropsList = {}
   Props.spawnedProps = {}
   Props.hiddenProps = {}
-  Props.savedProps = Props:GetProps()
-  Props.triggers = Props:GetTriggers()
-  Props.tags = Props:GetTags()
+  Props.savedProps = {}
+  Props.triggers = {}
+  Props.tags = {}
   Props.homes = {}
+  Props.homeTags = nil
   Props.categories = Props:GetCategories()
   Props.savingProp = ''
   Props.editingTags = {}
@@ -75,8 +76,23 @@ function Props:new()
   Props.searchBarWidth = 500
   Props.moddersList = {}
   Props.showTargetOnly = false
+  Props.showNearbyOnly = false
 
   return Props
+end
+
+function Props:Initialize()
+  Props.savedProps = Props:GetProps()
+  Props.triggers = Props:GetTriggers()
+  Props.tags = Props:GetTags()
+
+  if Props.activePreset ~= '' then
+    Props:LoadPreset(Props.activePreset)
+  end
+
+  if Props.homeTags then
+    Props:LoadHomes(Props.homeTags)
+  end
 end
 
 function Props:Update()
@@ -304,6 +320,13 @@ function Props:DrawProps(props)
       and Props.activeProps[prop.uid].handle:GetEntityID().hash == Tools.currentNPC.handle:GetEntityID().hash then
         Props:DrawSavedProp(prop, i)
       end
+    elseif Props.showNearbyOnly then
+      local playerPos = AMM.player:GetWorldPosition()
+      local propPos = Props.activeProps[prop.uid].handle:GetWorldPosition()
+      local distanceFromPlayer = Util:VectorDistance(playerPos, propPos)
+      if Props.activeProps[prop.uid].handle ~= '' and distanceFromPlayer < 3 then
+        Props:DrawSavedProp(prop, i)
+      end
     else
       Props:DrawSavedProp(prop, i)
     end
@@ -331,6 +354,16 @@ function Props:DrawSavedProp(prop, i)
     ImGui.SameLine()
     if ImGui.SmallButton("Update Prop##"..i) then
       Props:SavePropPosition(Props.activeProps[prop.uid])
+    end
+
+    ImGui.SameLine()
+    local buttonLabel = "Hide Prop"
+    local entID = tostring(Props.activeProps[prop.uid].handle:GetEntityID().hash)
+    if Props.hiddenProps[entID] ~= nil then
+      buttonLabel = "Unhide Prop"
+    end
+    if ImGui.SmallButton(buttonLabel.."##"..i) then
+      Props:ToggleHideProp(Props.activeProps[prop.uid])
     end
 
     ImGui.SameLine()
@@ -523,6 +556,9 @@ function Props:DrawHeaders()
       end
     end
 
+    ImGui.Spacing()
+
+    Props.showNearbyOnly = ImGui.Checkbox("Show Nearby Only", Props.showNearbyOnly)
     ImGui.Spacing()
 
     if Tools.lockTarget then
@@ -801,22 +837,27 @@ function Props:ToggleHideProp(ent)
     else
       local prop = Props.hiddenProps[entID]
       local spawn = Props:SpawnPropInPosition(prop.ent, prop.pos, prop.angles)
-      Props.spawnedProps[spawn.uniqueName()] = spawn
+      if ent.type ~= "Prop" then
+        Props.spawnedProps[spawn.uniqueName()] = spawn
+      end
     end
 
     Props.hiddenProps[entID] = nil
   else
+    local pos = ent.handle:GetWorldPosition()
+    local angles = GetSingleton('Quaternion'):ToEulerAngles(ent.handle:GetWorldOrientation())
+    
     if components then
       for _, comp in ipairs(components) do
         comp:Toggle(false)
       end
     else
-      local pos = ent.handle:GetWorldPosition()
-      local angles = GetSingleton('Quaternion'):ToEulerAngles(ent.handle:GetWorldOrientation())
+      
       if pos == nil then
         pos = ent.parameters[1]
         angles = ent.parameters[2]
       end
+
       exEntitySpawner.Despawn(ent.handle)
     end
 
@@ -907,7 +948,9 @@ function Props:CheckForValidComponents(handle)
 
     for comp in db:urows("SELECT cname FROM components WHERE type = 'Props'") do
       local c = handle:FindComponentByName(CName.new(comp))
-      if c then table.insert(components, c) end
+      if c and NameToString(c:GetClassName()) ~= 'entPhysicalSkinnedMeshComponent' then
+        table.insert(components, c)
+      end
     end
 
     if #components > 0 then return components end
@@ -969,6 +1012,11 @@ function Props:SpawnProp(spawn, pos, angles)
 		if entity then
 			spawn.handle = entity
       spawn.appearance = AMM:GetAppearance(spawn)
+
+      if AMM.playerInPhoto then
+        local light = AMM.Light:NewLight(entity)
+        if light then light.component:SetIntensity(50.0) end
+      end
       
       local components = Props:CheckForValidComponents(entity)
       if components then
@@ -989,6 +1037,10 @@ function Props:SpawnProp(spawn, pos, angles)
 			if AMM:GetScanClass(spawn.handle) == 'entEntity' or AMM:GetScanClass(spawn.handle) == 'entGameEntity' then
 				spawn.type = 'entEntity'
 			end
+
+      AMM.Tools:SetCurrentTarget(spawn)
+      AMM.Tools.lockTarget = true
+
 			Cron.Halt(timer)
 		elseif timer.tick > 20 then
 			spawn.parameters = {newPosition, GetSingleton('Quaternion'):ToEulerAngles(AMM.player:GetWorldOrientation())}

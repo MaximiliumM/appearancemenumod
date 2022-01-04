@@ -206,6 +206,7 @@ function Util:UnlockDoor(handle)
 end
 
 function Util:RepairVehicle(handle)
+  local vehPS = handle:GetVehiclePS()
   local vehVC = handle:GetVehicleComponent()
 
   if handle then
@@ -213,10 +214,8 @@ function Util:RepairVehicle(handle)
     handle:DestructionResetGlass()
   end
 
-  if vehVC then
-    vehVC:RepairVehicle()
-    vehVC:ForcePersistentStateChanged()
-  end
+  if vehVC then vehVC:RepairVehicle() end
+  if vehPS then vehPS:ForcePersistentStateChanged() end
 end
 
 function Util:ToggleDoors(handle)
@@ -351,6 +350,20 @@ function Util:SetInteractionHub(title, action, active)
   local interactionBB = Game.GetBlackboardSystem():Get(blackboardDefs.UIInteractions)
   interactionBB:SetVariant(blackboardDefs.UIInteractions.InteractionChoiceHub, ToVariant(choiceHubData), true)
   interactionBB:SetVariant(blackboardDefs.UIInteractions.VisualizersInfo, ToVariant(visualizersInfo), true)
+end
+
+function Util:GetAllInRange(maxDistance, includeSecondaryTargets, ignoreInstigator, action)
+  local searchQuery = Game["TSQ_ALL;"]()
+	searchQuery.maxDistance = maxDistance
+	searchQuery.includeSecondaryTargets = includeSecondaryTargets
+	searchQuery.ignoreInstigator = ignoreInstigator
+	local success, parts = Game.GetTargetingSystem():GetTargetParts(AMM.player, searchQuery)
+	if success then
+		for i, v in ipairs(parts) do
+			local entity = v:GetComponent(v):GetEntity()
+      action(entity)
+		end
+	end
 end
 
 return Util

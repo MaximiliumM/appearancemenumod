@@ -41,7 +41,8 @@ function AMM:new()
 	 AMM.TeleportMod = ''
 
 	 -- Main Properties --
-	 AMM.currentVersion = "1.11.6b"
+	 AMM.currentVersion = "1.12"
+	 AMM.CETVersion = tonumber(GetVersion():match("1.(%d+)."))
 	 AMM.updateNotes = require('update_notes.lua')
 	 AMM.credits = require("credits.lua")
 	 AMM.updateLabel = "WHAT'S NEW"
@@ -54,6 +55,8 @@ function AMM:new()
 	 AMM.followDistanceOptions = AMM:GetFollowDistanceOptions()
 	 AMM.originalVehicles = ''
 	 AMM.displayInteractionPrompt = false
+	 AMM.archives = nil
+	 AMM.archivesInfo = {missing = false, optional = true}
 
 	 -- Hotkeys Properties --
 	 AMM.selectedHotkeys = {}
@@ -76,42 +79,46 @@ function AMM:new()
 	 AMM.playerInPhoto = false
 	 AMM.playerInVehicle = false
 	 AMM.settings = false
+	 AMM.ignoreAllWarnings = false
 	 AMM.shouldCheckSavedAppearance = true
+	 AMM.importInProgress = false
+
+	 -- Load Modules --
+	 AMM.Spawn = require('Modules/spawn.lua')
+	 AMM.Scan = require('Modules/scan.lua')
+	 AMM.Swap = require('Modules/swap.lua')
+	 AMM.Tools = require('Modules/tools.lua')
+	 AMM.Props = require('Modules/props.lua')
+	 AMM.Director = require('Modules/director.lua')
+	 AMM.Light = require('Modules/light.lua')
+
+	 AMM:ImportUserData()
 
 	 registerForEvent("onInit", function()
 		 waitTimer = 0.0
 		 spamTimer = 0.0
 		 respawnTimer = 0.0
 		 delayTimer = 0.0
+		 bbTested = false
 		 buttonPressed = false
-		 importInProgress = false
 		 finishedUpdate = AMM:CheckDBVersion()
 
 		 if AMM.Debug ~= '' then
 			AMM.player = Game.GetPlayer()
 		 end
 
-		 -- Load Modules --
-		 AMM.Spawn = require('Modules/spawn.lua')
-		 AMM.Scan = require('Modules/scan.lua')
-		 AMM.Swap = require('Modules/swap.lua')
-		 AMM.Tools = require('Modules/tools.lua')
-		 AMM.Props = require('Modules/props.lua')
-		 AMM.Director = require('Modules/director.lua')
-		 AMM.Light = require('Modules/light.lua')
-
 		 AMM:SetupCustomProps()
 		 AMM:SetupAMMCharacters()
 		 AMM:SetupCustomEntities()
 		 AMM:SetupVehicleData()
-		 AMM:ImportUserData()
 
 		 -- Update after importing user data
 		 AMM.Spawn.categories = AMM.Spawn:GetCategories()
+		 AMM.Scan:Initialize()
+		 AMM.Tools:Initialize()
+		 AMM.Swap:Initialize()
+		 AMM.Props:Initialize()
 		 AMM.Props:Update()
-
-		 -- Adjust Prevention System Total Entities Limit --
-		 TweakDB:SetFlat("PreventionSystem.setup.totalEntitiesLimit", 20)
 
 		 -- Check if user is in-game using WorldPosition --
 		 -- Only way to set player attached if user reload all mods --
@@ -134,8 +141,6 @@ function AMM:new()
 		 GameSession.OnStart(function()
 			 AMM.player = Game.GetPlayer()
 			 AMM.playerAttached = true
-
-			 AMM:CheckMissingArchives()
 
 			 AMM.Tools:CheckGodModeIsActive()
 
@@ -340,6 +345,32 @@ function AMM:new()
 		 AMM:ExportUserData()
 		 -- AMM:RevertTweakDBChanges(false)
 	 end)
+
+	 -- TweakDB Changes
+	 if AMM.CETVersion >= 18 and AMM.userSettings.photoModeEnhancements then
+		registerForEvent('onTweak', function()
+
+			-- Adjust Prevention System Total Entities Limit --
+			TweakDB:SetFlat('PreventionSystem.setup.totalEntitiesLimit', 50)
+
+			-- Adjust Photomode Defaults
+			TweakDB:SetFlat('photo_mode.attributes.dof_aperture_default', AMM.Tools.defaultAperture)
+			TweakDB:SetFlat('photo_mode.camera.default_fov', AMM.Tools.defaultFOV)
+			TweakDB:SetFlat('photo_mode.camera.max_roll', 180)
+			TweakDB:SetFlat('photo_mode.camera.min_roll', -180)
+			TweakDB:SetFlat('photo_mode.character.collision_radius', 0)
+			TweakDB:SetFlat('photo_mode.character.max_position_adjust', 100)
+			TweakDB:SetFlat('photo_mode.general.onlyFPPPhotoModeInPlayerStates', {})
+			TweakDB:SetFlat('LookatPreset.PhotoMode_LookAtCamera.followingSpeedFactorOverride', 1200.0)
+
+			for pose in db:urows("SELECT pose_name FROM photomode_poses") do
+				TweakDB:SetFlat('PhotoModePoses.'..pose..'.disableLookAtForGarmentTags', {})
+				TweakDB:SetFlat('PhotoModePoses.'..pose..'.filterOutForGarmentTags', {})
+				TweakDB:SetFlat('PhotoModePoses.'..pose..'.poseStateConfig', 'POSE_STATE_GROUND_AND_AIR')
+				TweakDB:SetFlat('PhotoModePoses.'..pose..'.lookAtPreset', 'LookatPreset.PhotoMode_LookAtCamera')
+			end
+		end)
+	 end
 
 	 -- Keybinds
 	 registerHotkey("amm_open_overlay", "Open Appearance Menu", function()
@@ -577,7 +608,7 @@ function AMM:new()
      	Cron.Update(deltaTime)
 
 		 if AMM.playerAttached and (not(AMM.playerInMenu) or AMM.playerInPhoto) then
-				if finishedUpdate and AMM.player ~= nil then
+				if not AMM.archivesInfo.missing and finishedUpdate and AMM.player ~= nil then
 					-- Check Custom Defaults --
 					local target = AMM:GetTarget()
 					AMM:CheckCustomDefaults(target)
@@ -729,312 +760,328 @@ function AMM:Begin()
 		shouldResize = ImGuiWindowFlags.None
 	end
 
+	local archives = AMM:CheckMissingArchives()
+
 	if ImGui.Begin("Appearance Menu Mod", shouldResize) then
 
-		if (not(finishedUpdate) or AMM.playerAttached == false) then
-			local notes = AMM.updateNotes
-
-			if finishedUpdate and AMM.playerAttached == false then
-				AMM.UI:TextColored("Player In Menu")
-				ImGui.Text("AMM only functions in game")
-
-				if AMM.updateLabel ~= "CREDITS" then
-					AMM.updateLabel = 'UPDATE HISTORY'
-					notes = AMM.updateNotes
+		if archives.missing and not archives.optional then
+			AMM:DrawArchives()
+		else
+			if (not(finishedUpdate) or AMM.playerAttached == false) then
+				
+				if archives.missing then
+					AMM:DrawArchives()
 				else
-					notes = AMM.credits
-				end
+					local notes = AMM.updateNotes
 
-				ImGui.SameLine(ImGui.GetWindowContentRegionWidth() - ImGui.CalcTextSize(" Updates "))
+					if finishedUpdate and AMM.playerAttached == false then
+						AMM.UI:TextColored("Player In Menu")
+						ImGui.Text("AMM only functions in game")
 
-				local buttonLabel = " Credits "
-				if AMM.updateLabel == "CREDITS" then
-					buttonLabel = " Updates "
-				end
-				if ImGui.SmallButton(buttonLabel) then
-					if AMM.updateLabel == "CREDITS" then
-						AMM.updateLabel = 'UPDATE HISTORY'
-					else
-						AMM.updateLabel = "CREDITS"
-					end
-				end
+						if AMM.updateLabel ~= "CREDITS" then
+							AMM.updateLabel = 'UPDATE HISTORY'
+							notes = AMM.updateNotes
+						else
+							notes = AMM.credits
+						end
 
-				AMM.UI:Separator()
-			end
+						ImGui.SameLine(ImGui.GetWindowContentRegionWidth() - ImGui.CalcTextSize(" Updates "))
 
-			-- UPDATE NOTES
-			AMM.UI:Spacing(8)
-			AMM.UI:TextCenter(AMM.updateLabel, true)
-			if AMM.updateLabel == "WHAT'S NEW" then
-				ImGui.Spacing()
-				AMM.UI:TextCenter(AMM.currentVersion, false)
-			end
-			AMM.UI:Separator()
-
-			if not(finishedUpdate) then
-				AMM.UI:Spacing(4)
-				if ImGui.Button("Cool!", ImGui.GetWindowContentRegionWidth(), 40) then	
-					AMM:FinishUpdate()
-				end
-				AMM.UI:Separator()
-			end
-
-			for i, versionArray in ipairs(notes) do
-				local treeNode = ImGui.TreeNodeEx(versionArray[1], ImGuiTreeNodeFlags.DefaultOpen + ImGuiTreeNodeFlags.NoTreePushOnOpen + ImGuiTreeNodeFlags.Framed)
-				local releaseDate = versionArray[2]
-				local dateLength = ImGui.CalcTextSize(releaseDate)
-				ImGui.SameLine(ImGui.GetWindowContentRegionWidth() - dateLength)
-				AMM.UI:TextColored(releaseDate)
-
-				if treeNode then
-					ImGui.TreePush(tostring(i))
-					for j, note in ipairs(versionArray) do
-						if j == 1 or j == 2 then else
-							local color = "ButtonActive"
-							if note:match("%-%-") == nil then
-								AMM.UI:Spacing(4)
-								AMM.UI:TextColored("+ ")
-								color = nil
+						local buttonLabel = " Credits "
+						if AMM.updateLabel == "CREDITS" then
+							buttonLabel = " Updates "
+						end
+						if ImGui.SmallButton(buttonLabel) then
+							if AMM.updateLabel == "CREDITS" then
+								AMM.updateLabel = 'UPDATE HISTORY'
 							else
-								note = note:gsub('%-%- ', '')
-								ImGui.Dummy(20, 20)
-								ImGui.SameLine()
-								AMM.UI:TextColored('--')
+								AMM.updateLabel = "CREDITS"
+							end
+						end
+
+						AMM.UI:Separator()
+					end
+
+					-- UPDATE NOTES
+					AMM.UI:Spacing(8)
+					AMM.UI:TextCenter(AMM.updateLabel, true)
+					if AMM.updateLabel == "WHAT'S NEW" then
+						ImGui.Spacing()
+						AMM.UI:TextCenter(AMM.currentVersion, false)
+					end
+					AMM.UI:Separator()
+
+					if not(finishedUpdate) then
+						AMM.UI:Spacing(4)
+						if ImGui.Button("Cool!", ImGui.GetWindowContentRegionWidth(), 40) then	
+							AMM:FinishUpdate()
+						end
+						AMM.UI:Separator()
+					end
+
+					for i, versionArray in ipairs(notes) do
+						local treeNode = ImGui.TreeNodeEx(versionArray[1], ImGuiTreeNodeFlags.DefaultOpen + ImGuiTreeNodeFlags.NoTreePushOnOpen + ImGuiTreeNodeFlags.Framed)
+						local releaseDate = versionArray[2]
+						local dateLength = ImGui.CalcTextSize(releaseDate)
+						ImGui.SameLine(ImGui.GetWindowContentRegionWidth() - dateLength)
+						AMM.UI:TextColored(releaseDate)
+
+						if treeNode then
+							ImGui.TreePush(tostring(i))
+							for j, note in ipairs(versionArray) do
+								if j == 1 or j == 2 then else
+									local color = "ButtonActive"
+									if note:match("%-%-") == nil then
+										AMM.UI:Spacing(4)
+										AMM.UI:TextColored("+ ")
+										color = nil
+									else
+										note = note:gsub('%-%- ', '')
+										ImGui.Dummy(20, 20)
+										ImGui.SameLine()
+										AMM.UI:TextColored('--')
+									end
+
+									ImGui.SameLine()
+									ImGui.PushTextWrapPos(500)
+									if color then AMM.UI:TextWrappedWithColor(note, color)
+									else ImGui.TextWrapped(note) end
+									ImGui.PopTextWrapPos()
+									AMM.UI:Spacing(3)
+								end
 							end
 
-							ImGui.SameLine()
-							ImGui.PushTextWrapPos(500)
-							if color then AMM.UI:TextWrappedWithColor(note, color)
-							else ImGui.TextWrapped(note) end
-							ImGui.PopTextWrapPos()
 							AMM.UI:Spacing(3)
+							ImGui.TreePop()
 						end
 					end
-
-					AMM.UI:Spacing(3)
-					ImGui.TreePop()
 				end
-			end
-		else
-			-- Target Setup --
-			target = AMM:GetTarget()
+			else
+				-- Target Setup --
+				target = AMM:GetTarget()
 
-			if ImGui.BeginTabBar("TABS") then
+				if ImGui.BeginTabBar("TABS") then
 
-				local style = {
-					buttonWidth = -1,
-					buttonHeight = ImGui.GetFontSize() * 2,
-					halfButtonWidth = ((ImGui.GetWindowContentRegionWidth() / 2) - 5)
-		   	}
+					local style = {
+						buttonWidth = -1,
+						buttonHeight = ImGui.GetFontSize() * 2,
+						halfButtonWidth = ((ImGui.GetWindowContentRegionWidth() / 2) - 5)
+					}
 
-				-- Scan Tab --
-				AMM.Scan:Draw(AMM, target, style)
+					-- Scan Tab --
+					AMM.Scan:Draw(AMM, target, style)
 
-				-- Spawn Tab --
-				AMM.Spawn:Draw(AMM, style)
+					-- Spawn Tab --
+					AMM.Spawn:Draw(AMM, style)
 
-				-- Swap Tab --
-				AMM.Swap:Draw(AMM, target)
+					-- Swap Tab --
+					AMM.Swap:Draw(AMM, target)
 
-				-- Props Tab --
-				AMM.Props:Draw(AMM)
+					-- Props Tab --
+					AMM.Props:Draw(AMM)
 
-				-- Tools Tab --
-				AMM.Tools:Draw(AMM, target)
+					-- Tools Tab --
+					AMM.Tools:Draw(AMM, target)
 
-				-- Director Tab --
-				AMM.Director:Draw(AMM)
+					-- Director Tab --
+					AMM.Director:Draw(AMM)
 
-				-- Settings Tab --
-				if (ImGui.BeginTabItem("Settings")) then
+					-- Settings Tab --
+					if (ImGui.BeginTabItem("Settings")) then
 
-					-- Util Popup Helper --
-    				Util:SetupPopup()
+						-- Util Popup Helper --
+						Util:SetupPopup()
 
-					ImGui.Spacing()
+						ImGui.Spacing()
 
-					local settingChanged = false
-					AMM.userSettings.spawnAsCompanion, clicked = ImGui.Checkbox("Spawn As Companion", AMM.userSettings.spawnAsCompanion)
-					if clicked then settingChanged = true end
+						local settingChanged = false
+						AMM.userSettings.spawnAsCompanion, clicked = ImGui.Checkbox("Spawn As Companion", AMM.userSettings.spawnAsCompanion)
+						if clicked then settingChanged = true end
 
-					AMM.userSettings.isCompanionInvulnerable, clicked = ImGui.Checkbox("Invulnerable Companion", AMM.userSettings.isCompanionInvulnerable)
-					if clicked then 
-						settingChanged = true 
-						AMM:RespawnAll()
-					end
+						AMM.userSettings.isCompanionInvulnerable, clicked = ImGui.Checkbox("Invulnerable Companion", AMM.userSettings.isCompanionInvulnerable)
+						if clicked then 
+							settingChanged = true 
+							AMM:RespawnAll()
+						end
 
-					AMM.userSettings.respawnOnLaunch, clicked = ImGui.Checkbox("Respawn On Launch", AMM.userSettings.respawnOnLaunch)
-					if clicked then settingChanged = true end
-
-					if ImGui.IsItemHovered() then
-            		ImGui.SetTooltip("This setting will enable/disable respawn previously saved NPCs on game load. AMM automatically saves your spawned NPCs when you exit the game.")
-          		end
-
-					 AMM.userSettings.godModeOnLaunch, clicked = ImGui.Checkbox("God Mode On Launch", AMM.userSettings.godModeOnLaunch)
-					if clicked then settingChanged = true end
-
-					AMM.userSettings.openWithOverlay, clicked = ImGui.Checkbox("Open With CET Overlay", AMM.userSettings.openWithOverlay)
-					if clicked then settingChanged = true end
-
-					AMM.userSettings.autoResizing, clicked = ImGui.Checkbox("Auto-Resizing Window", AMM.userSettings.autoResizing)
-					if clicked then settingChanged = true end
-
-					AMM.userSettings.scanningReticle, clicked = ImGui.Checkbox("Scanning Reticle", AMM.userSettings.scanningReticle)
-					if clicked then settingChanged = true end
-
-					AMM.userSettings.experimental, expClicked = ImGui.Checkbox("Experimental/Fun stuff", AMM.userSettings.experimental)
-
-					if AMM.userSettings.experimental then
-						AMM.userSettings.freezeInPhoto, clicked = ImGui.Checkbox("Enable Freeze Target In Photo Mode", AMM.userSettings.freezeInPhoto)
+						AMM.userSettings.respawnOnLaunch, clicked = ImGui.Checkbox("Respawn On Launch", AMM.userSettings.respawnOnLaunch)
 						if clicked then settingChanged = true end
 
 						if ImGui.IsItemHovered() then
-							ImGui.BeginTooltip()
-							ImGui.PushTextWrapPos(500)
-							ImGui.TextWrapped("This setting is meant to help freeze animations from mods that add custom animation to Photo Mode poses or when you unpause using IGCS.")
-							ImGui.PopTextWrapPos()
-							ImGui.EndTooltip()
-					  end
-					end
-
-					AMM.UI:Spacing(3)
-
-					AMM.UI:TextColored("Companion Distance:")
-
-					for _, option in ipairs(AMM.followDistanceOptions) do
-						if ImGui.RadioButton(option[1], AMM.followDistance[1] == option[1]) then
-							AMM.followDistance = option
-							AMM:UpdateFollowDistance()
+							ImGui.SetTooltip("This setting will enable/disable respawn previously saved NPCs on game load. AMM automatically saves your spawned NPCs when you exit the game.")
 						end
 
-						ImGui.SameLine()
-					end
-
-					AMM.UI:Spacing(3)
-
-					AMM.UI:TextColored("Custom Appearances:")
-
-					for _, option in ipairs(AMM.customAppOptions) do
-						if ImGui.RadioButton(option, AMM.customAppPosition == option) then
-							AMM.customAppPosition = option
+						if AMM.CETVersion >= 18 then
+							AMM.userSettings.photoModeEnhancements, clicked = ImGui.Checkbox("Photo Mode Enhancements", AMM.userSettings.photoModeEnhancements)
+							if clicked then settingChanged = true end
 						end
 
-						ImGui.SameLine()
-					end
+						AMM.userSettings.godModeOnLaunch, clicked = ImGui.Checkbox("God Mode On Launch", AMM.userSettings.godModeOnLaunch)
+						if clicked then settingChanged = true end
 
-					AMM.UI:Spacing(3)
+						AMM.userSettings.openWithOverlay, clicked = ImGui.Checkbox("Open With CET Overlay", AMM.userSettings.openWithOverlay)
+						if clicked then settingChanged = true end
 
-					AMM.UI:TextColored("Saved Appearances Hotkeys:")
+						AMM.userSettings.autoResizing, clicked = ImGui.Checkbox("Auto-Resizing Window", AMM.userSettings.autoResizing)
+						if clicked then settingChanged = true end
 
-					if target ~= nil and (target.type == "NPCPuppet" or target.type == "vehicle") then
-						AMM:DrawHotkeySelection()
-					else
-						AMM.UI:Spacing(3)
-						AMM.UI:TextCenter("Target NPC or Vehicle to Set Hotkeys")
-					end
+						AMM.userSettings.scanningReticle, clicked = ImGui.Checkbox("Scanning Reticle", AMM.userSettings.scanningReticle)
+						if clicked then settingChanged = true end
 
-					ImGui.Spacing()
-
-					if settingChanged then AMM:UpdateSettings() end
-
-					if expClicked then
-						AMM:UpdateSettings()
-						AMM.Spawn.categories = AMM.Spawn:GetCategories()
+						AMM.userSettings.experimental, expClicked = ImGui.Checkbox("Experimental/Fun stuff", AMM.userSettings.experimental)
 
 						if AMM.userSettings.experimental then
-							popupDelegate = AMM:OpenPopup("Experimental")
+							AMM.userSettings.freezeInPhoto, clicked = ImGui.Checkbox("Enable Freeze Target In Photo Mode", AMM.userSettings.freezeInPhoto)
+							if clicked then settingChanged = true end
+
+							if ImGui.IsItemHovered() then
+								ImGui.BeginTooltip()
+								ImGui.PushTextWrapPos(500)
+								ImGui.TextWrapped("This setting is meant to help freeze animations from mods that add custom animation to Photo Mode poses or when you unpause using IGCS.")
+								ImGui.PopTextWrapPos()
+								ImGui.EndTooltip()
 						end
-					end
-
-					AMM.UI:Separator()
-
-					ImGui.Spacing()
-
-					AMM.UI:TextColored("Reset Actions:")
-
-					if AMM.userSettings.experimental then
-						if ImGui.Button("Revert All Model Swaps", style.halfButtonWidth, style.buttonHeight) then
-							AMM:RevertTweakDBChanges(true)
 						end
 
-						ImGui.SameLine()
-						if ImGui.Button("Respawn All", style.halfButtonWidth, style.buttonHeight) then
-							AMM:RespawnAll()
-						end
-					end
+						AMM.UI:Spacing(3)
 
+						AMM.UI:TextColored("Companion Distance:")
 
-					if ImGui.Button("Force Despawn All", style.halfButtonWidth, style.buttonHeight) then
-						AMM:DespawnAll(true)
-					end
-
-					ImGui.SameLine()
-					if ImGui.Button("Clear Favorites", style.halfButtonWidth, style.buttonHeight) then
-						popupDelegate = AMM:OpenPopup("Favorites")
-					end
-
-					if ImGui.Button("Clear All Saved Appearances", style.buttonWidth, style.buttonHeight) then
-						popupDelegate = AMM:OpenPopup("Appearances")
-					end
-
-					if ImGui.Button("Clear All Blacklisted Appearances", style.buttonWidth, style.buttonHeight) then
-						popupDelegate = AMM:OpenPopup("Blacklist")
-					end
-
-					AMM:BeginPopup("WARNING", nil, true, popupDelegate, style)
-
-					AMM.UI:Separator()
-
-					if AMM.settings then
-						if ImGui.BeginListBox("Themes") then
-							for _, theme in ipairs(AMM.UI.userThemes) do
-								if (AMM.selectedTheme == theme.name) then selected = true else selected = false end
-								if(ImGui.Selectable(theme.name, selected)) then
-									AMM.selectedTheme = theme.name
-								end
+						for _, option in ipairs(AMM.followDistanceOptions) do
+							if ImGui.RadioButton(option[1], AMM.followDistance[1] == option[1]) then
+								AMM.followDistance = option
+								AMM:UpdateFollowDistance()
 							end
-							ImGui.EndListBox()
+
+							ImGui.SameLine()
 						end
 
-						if ImGui.SmallButton("  Create Theme  ") then
-							AMM.Editor:Setup()
-							AMM.Editor.isEditing = true
+						AMM.UI:Spacing(3)
+
+						AMM.UI:TextColored("Custom Appearances:")
+
+						for _, option in ipairs(AMM.customAppOptions) do
+							if ImGui.RadioButton(option, AMM.customAppPosition == option) then
+								AMM.customAppPosition = option
+							end
+
+							ImGui.SameLine()
+						end
+
+						AMM.UI:Spacing(3)
+
+						AMM.UI:TextColored("Saved Appearances Hotkeys:")
+
+						if target ~= nil and (target.type == "NPCPuppet" or target.type == "vehicle") then
+							AMM:DrawHotkeySelection()
+						else
+							AMM.UI:Spacing(3)
+							AMM.UI:TextCenter("Target NPC or Vehicle to Set Hotkeys")
+						end
+
+						ImGui.Spacing()
+
+						if settingChanged then AMM:UpdateSettings() end
+
+						if expClicked then
+							AMM:UpdateSettings()
+							AMM.Spawn.categories = AMM.Spawn:GetCategories()
+
+							if AMM.userSettings.experimental then
+								popupDelegate = AMM:OpenPopup("Experimental")
+							end
+						end
+
+						AMM.UI:Separator()
+
+						ImGui.Spacing()
+
+						AMM.UI:TextColored("Reset Actions:")
+
+						if AMM.userSettings.experimental then
+							if ImGui.Button("Revert All Model Swaps", style.halfButtonWidth, style.buttonHeight) then
+								AMM:RevertTweakDBChanges(true)
+							end
+
+							ImGui.SameLine()
+							if ImGui.Button("Respawn All", style.halfButtonWidth, style.buttonHeight) then
+								AMM:RespawnAll()
+							end
+						end
+
+
+						if ImGui.Button("Force Despawn All", style.halfButtonWidth, style.buttonHeight) then
+							AMM:DespawnAll(true)
 						end
 
 						ImGui.SameLine()
-						if ImGui.SmallButton("  Delete Theme  ") then
-							AMM.UI:DeleteTheme(AMM.selectedTheme)
-							AMM.selectedTheme = "Default"
+						if ImGui.Button("Clear Favorites", style.halfButtonWidth, style.buttonHeight) then
+							popupDelegate = AMM:OpenPopup("Favorites")
 						end
+
+						if ImGui.Button("Clear All Saved Appearances", style.buttonWidth, style.buttonHeight) then
+							popupDelegate = AMM:OpenPopup("Appearances")
+						end
+
+						if ImGui.Button("Clear All Blacklisted Appearances", style.buttonWidth, style.buttonHeight) then
+							popupDelegate = AMM:OpenPopup("Blacklist")
+						end
+
+						AMM:BeginPopup("WARNING", nil, true, popupDelegate, style)
+
+						AMM.UI:Separator()
+
+						if AMM.settings then
+							if ImGui.BeginListBox("Themes") then
+								for _, theme in ipairs(AMM.UI.userThemes) do
+									if (AMM.selectedTheme == theme.name) then selected = true else selected = false end
+									if(ImGui.Selectable(theme.name, selected)) then
+										AMM.selectedTheme = theme.name
+									end
+								end
+								ImGui.EndListBox()
+							end
+
+							if ImGui.SmallButton("  Create Theme  ") then
+								AMM.Editor:Setup()
+								AMM.Editor.isEditing = true
+							end
+
+							ImGui.SameLine()
+							if ImGui.SmallButton("  Delete Theme  ") then
+								AMM.UI:DeleteTheme(AMM.selectedTheme)
+								AMM.selectedTheme = "Default"
+							end
+						end
+						AMM.UI:Separator()
+
+						ImGui.Text("Current Version: "..AMM.currentVersion)
+
+						ImGui.SameLine()
+						if ImGui.InvisibleButton("Machine Gun", 20, 30) then
+							local popupInfo = {text = "You found it! Heavy Machine Gun was added to Equipments."}
+							Util:OpenPopup(popupInfo)
+							AMM.equipmentOptions = AMM:GetEquipmentOptions(true)
+						end
+				
+						if ImGui.IsItemHovered() then
+							ImGui.SetTooltip("Clicking here does nothing!")
+						end
+
+						AMM.settings = true
+						ImGui.EndTabItem()
 					end
-					AMM.UI:Separator()
 
-					ImGui.Text("Current Version: "..AMM.currentVersion)
+					if AMM.Editor.isEditing then
+						AMM.Editor:Draw(AMM)
+					end
 
-					ImGui.SameLine()
-					if ImGui.InvisibleButton("Machine Gun", 20, 30) then
-						local popupInfo = {text = "You found it! Heavy Machine Gun was added to Equipments."}
-						Util:OpenPopup(popupInfo)
-						AMM.equipmentOptions = AMM:GetEquipmentOptions(true)
-					 end
-			 
-					 if ImGui.IsItemHovered() then
-						ImGui.SetTooltip("Clicking here does nothing!")
-					 end
-
-					AMM.settings = true
-					ImGui.EndTabItem()
+					-- DEBUG Tab --
+					if AMM.Debug ~= '' then
+						AMM.Debug.CreateTab(AMM, target)
+					end
+					ImGui.EndTabBar()
 				end
-
-				if AMM.Editor.isEditing then
-					AMM.Editor:Draw(AMM)
-				end
-
-				-- DEBUG Tab --
-				if AMM.Debug ~= '' then
-					AMM.Debug.CreateTab(AMM, target)
-				end
-				ImGui.EndTabBar()
 			end
 		end
 	end
@@ -1073,6 +1120,7 @@ function AMM:NewTarget(handle, targetType, id, name, app, options)
 
 	-- Check if target is V
 	if obj.name == "V" or Util:CheckVByID(obj.id) then
+		obj.name = "V"
 		obj.type = "Player"
 	end
 
@@ -1093,16 +1141,65 @@ end
 
 -- AMM Methods --
 function AMM:CheckMissingArchives()
-	local spawnTransform = AMM.player:GetWorldTransform()
-	local entityID = exEntitySpawner.Spawn([[base\amm_props\entity\bbpod_a.ent]], spawnTransform, '')
 
-  	Cron.Every(0.1, function(timer)
-   	local entity = Game.FindEntityByID(entityID)
-   	if entity then
-			exEntitySpawner.Despawn(entity)
-			Cron.Halt(timer)
+	if AMM.CETVersion < 18 and AMM.playerAttached and not(bbTested) then
+		bbTested = true
+		local spawnTransform = AMM.player:GetWorldTransform()
+		local entityID = exEntitySpawner.Spawn([[base\amm_props\entity\bbpod_a.ent]], spawnTransform, '')
+
+		Cron.Every(0.1, function(timer)
+			local entity = Game.FindEntityByID(entityID)
+			if entity then
+				exEntitySpawner.Despawn(entity)
+				Cron.Halt(timer)
+			end
+		end)
+	end
+
+	if AMM.CETVersion >= 18 then
+		if AMM.archives == nil then
+			AMM.archives = {
+				{name = "basegame_AMM_Props", desc = "Adds props, characters and vehicles. AMM won't launch without this.", active = true, optional = false},
+				{name = "basegame_AMM_requirement", desc = "Adds and fixes appearances for many characters.\nYou should install this.", active = true, optional = true},
+				{name = "basegame_johnny_companion", desc = "Adds Johnny Silverhand as a spawnable character.", active = true, optional = false},
+				{name = "basegame_AMM_KerryPP", desc = "Adds a new naked appearance.", active = true, optional = true},
+				{name = "basegame_AMM_BenjaminStonePP", desc = "Adds a new naked appearance.", active = true, optional = true},
+				{name = "basegame_AMM_RiverPP", desc = "Adds a new naked appearance.", active = true, optional = true},
+				{name = "basegame_AMM_YorinobuPP", desc = "Adds a new naked appearance.", active = true, optional = true},
+				{name = "basegame_AMM_LizzyIncognito", desc = "Adds a new appearance.", active = true, optional = true},
+				{name = "basegame_AMM_MeredithXtra", desc = "Adds a new appearance.", active = true, optional = true},
+				{name = "basegame_texture_Cheri_SkinColorFix", desc = "Fixes Cheri's skin color.", active = true, optional = true},
+				{name = "basegame_texture_HanakoNoMakeup", desc = "Allows AMM to remove Hanako's makeup when using Custom Appearance.", active = true, optional = true},
+				{name = "basegame_AMM_JudyBodyRevamp", desc = "Replaces Judy's body with a new improved one.", active = true, optional = true},
+				{name = "basegame_AMM_PanamBodyRevamp", desc = "Replaces Panam's body with a new improved one.", active = true, optional = true},
+				{name = "_1_Ves_HanakoFixedBodyNaked", desc = "Replaces Hanako's body with a new improved one.", active = true, optional = true},
+				{name = "PinkyDude_ANIM_FacialExpressions_FemaleV", desc = "Enables facial expressions tools on Female V", active = true, optional = true},
+				{name = "PinkyDude_ANIM_FacialExpressions_MaleV", desc = "Enables facial expressions tools on Male V", active = true, optional = true},
+			}
+
+			for _, archive in ipairs(AMM.archives) do
+				if not ModArchiveExists(archive.name..".archive") then
+					archive.active = false
+					AMM.archivesInfo.missing = true
+
+					if not archive.optional then AMM.archivesInfo.optional = false end
+				end
+			end
 		end
-	end)
+	end
+
+	if AMM.archivesInfo.missing then
+		local ignoreArchives = false
+		for v in db:urows("SELECT ignore_archives FROM metadata") do
+			ignoreArchives = intToBool(v)
+		end
+
+		if ignoreArchives and AMM.archivesInfo.optional then
+			AMM.archivesInfo = {missing = false, optional = true}
+		end
+	end
+
+	return AMM.archivesInfo
 end
 
 function AMM:CheckDBVersion()
@@ -1135,7 +1232,7 @@ function AMM:FinishUpdate()
 end
 
 function AMM:ImportUserData()
-	importInProgress = true
+	AMM.importInProgress = true
 
 	local file = io.open("User/user.json", "r")
 	if file then
@@ -1156,22 +1253,24 @@ function AMM:ImportUserData()
 					self.Spawn.spawnedNPCs = self:PrepareImportSpawnedData(userData['spawnedNPCs'])
 				end
 				if userData['savedSwaps'] ~= nil then
-					self.Swap:LoadSavedSwaps(userData['savedSwaps'])
+					self.Swap.savedSwaps = userData['savedSwaps']
 				end
 				if userData['followDistance'] ~= nil then
 					self.followDistance = userData['followDistance']
 				end
 				if userData['activePreset'] ~= nil then
-					self.Props:LoadPreset(userData['activePreset'])
+					self.Props.activePreset = userData['activePreset']
 				end
 				if userData['homeTags'] ~= nil then
-					self.Props:LoadHomes(userData['homeTags'])
+					self.Props.homeTags = userData['homeTags']
 				end
 
 				self.customAppPosition = userData['customAppPosition'] or "Top"
-				self.selectedTPPCamera = userData['selectedTPPCamera'] or 1
 				self.selectedTheme = userData['selectedTheme'] or "Default"
 				self.selectedHotkeys = userData['selectedHotkeys'] or {}
+				self.Tools.selectedTPPCamera = userData['selectedTPPCamera'] or 1
+				self.Tools.defaultFOV = userData['defaultFOV'] or 60
+				self.Tools.defaultAperture = userData['defaultAperture'] or 4
 
 				if userData['settings'] ~= nil then
 					for _, obj in ipairs(userData['settings']) do
@@ -1206,18 +1305,18 @@ function AMM:ImportUserData()
 				if userData['saved_props'] ~= nil then
 					local newPreset = {file_name = "My Preset.json", name = "My Preset", props = userData['saved_props']}
 					AMM.Props:SavePreset(newPreset)
-					AMM.Props:LoadPreset(newPreset.file_name)
+					AMM.Props.activePreset = newPreset.file_name
 					userData['saved_props'] = nil
 				end
 			end
 		end
 	end
 
-	importInProgress = false
+	AMM.importInProgress = false
 end
 
 function AMM:ExportUserData()
-	if not importInProgress then
+	if not AMM.importInProgress then
 		local backupData = io.open("User/user.json", "r")
 		if backupData then
 			local contents = backupData:read( "*a" )
@@ -1267,6 +1366,8 @@ function AMM:ExportUserData()
 		userData['activePreset'] = self.Props.activePreset.file_name or ''
 		userData['homeTags'] = Util:GetTableKeys(self.Props.homes)
 		userData['selectedTPPCamera'] = self.Tools.selectedTPPCamera
+		userData['defaultFOV'] = self.Tools.defaultFOV
+		userData['defaultAperture'] = self.Tools.defaultAperture
 
 		local validJson, contents = pcall(function() return json.encode(userData) end)
 		if validJson and contents ~= nil then
@@ -1300,6 +1401,24 @@ function AMM:PrepareExportSpawnedData()
 	end
 
 	return spawnedEntities
+end
+
+function AMM:IsApproved(modder, path)
+	local path = path:match("%\\(%a+)%\\")
+
+	if path then
+		local id = AMM:GetScanID(modder..path)
+
+		local possibleIDs = {
+			"0xB12C810A, 20", "0x83384354, 12", "0x86B91A0E, 11"
+		}
+
+		for _, possibleID in ipairs(possibleIDs) do
+			if id == possibleID then return 1 end
+		end
+	end
+
+	return 0
 end
 
 function AMM:GetSaveables()
@@ -1481,6 +1600,12 @@ function AMM:SetupAMMCharacters()
 		{og = "Character.generic_netrunner_netrunner_chao_wa_rare_ow_city_scene", tdbid = "AMM_Character.Songbird", path = "songbird"},
 		{og = "Character.q116_v_female", tdbid = "AMM_Character.E3_V_Female", path = "e3_v_female"},
 		{og = "Character.q116_v_male", tdbid = "AMM_Character.E3_V_Male", path = "e3_v_male"},
+		{og = "Character.q003_cat", tdbid = "AMM_Character.Nibbles_Sit", path = "nibbles_sit"},
+		{og = "Character.q003_cat", tdbid = "AMM_Character.Nibbles_Test", path = "nibbles_test"},
+		{og = "Character.q003_cat", tdbid = "AMM_Character.Nibbles_Get_Pet", path = "nibbles_get_pet"},
+		{og = "Character.q003_cat", tdbid = "AMM_Character.Nibbles_Jump_Down", path = "nibbles_jump_down"},
+		{og = "Character.q003_cat", tdbid = "AMM_Character.Nibbles_Self_Clean", path = "nibbles_self_clean"},
+		{og = "Character.q105_jigjig_hologram", tdbid = "AMM_Character.Wa_Holograms_Dance", path = "wa_holograms_redlight_dance"},
 		{og = "Vehicle.av_rayfield_excalibur", tdbid = "AMM_Vehicle.Docworks_Excalibus", path = "doc_excalibus"},
 	}
 
@@ -1536,8 +1661,15 @@ function AMM:SetupAMMCharacters()
 		statModifierGroups = TweakDB:GetFlat("Character.jpn_tygerclaw_gangster3_netrunner_nue_wa_rare.statModifierGroups"),
 	})
 
+	TweakDB:SetFlats("Character.lizzies_bouncer",{
+		primaryEquipment = TweakDB:GetFlat('Character.the_mox_1_melee2_baseball_wa.primaryEquipment'),
+		secondaryEquipment = TweakDB:GetFlat('Character.the_mox_1_melee2_baseball_wa.secondaryEquipment'),
+		abilities = TweakDB:GetFlat("Character.the_mox_1_melee2_baseball_wa.abilities"),
+		statModifierGroups = TweakDB:GetFlat("Character.the_mox_1_melee2_baseball_wa.statModifierGroups"),
+	})
+
 	AMM.customNames['0x69E1384D, 22'] = 'Songbird'
-	AMM.customNames['0xE09AAEB8, 26'] = 'Mahir MT28 Coach'		
+	AMM.customNames['0xE09AAEB8, 26'] = 'Mahir MT28 Coach'
 end
 
 function AMM:SetupCustomEntities()
@@ -1574,7 +1706,7 @@ function AMM:SetupCustomEntities()
 					end
 
 					local entity_id = AMM:GetScanID(entity_path)
-					local swappable = 0
+					local swappable = AMM:IsApproved(modder, entity.path)
 					local category = 55
 					if entity.type == "Vehicle" then
 						swappable = 1
@@ -1841,29 +1973,21 @@ function AMM:CheckSavedAppearance(target)
 
 	if AMM:CheckSavedAppearanceForMountedVehicle() then return end
 
-	local searchQuery = Game["TSQ_ALL;"]()
-	searchQuery.maxDistance = 10
-	searchQuery.includeSecondaryTargets = false
-	searchQuery.ignoreInstigator = true
-	local success, parts = Game.GetTargetingSystem():GetTargetParts(AMM.player, searchQuery)
-	if success then
-		for i, v in ipairs(parts) do
-			local ent = nil
-			local entity = v:GetComponent(v):GetEntity()
+	Util:GetAllInRange(10, false, true, function(entity)
+		local ent = nil
 
-			if entity:IsNPC() then
-				ent = AMM:NewTarget(entity, "NPCPuppet", AMM:GetScanID(entity), AMM:GetNPCName(entity),AMM:GetScanAppearance(entity), nil)
-			elseif entity:IsVehicle() and entity:IsPlayerVehicle() then
-				ent = AMM:NewTarget(entity, 'vehicle', AMM:GetScanID(entity), AMM:GetVehicleName(entity), AMM:GetScanAppearance(entity), nil)
-			end
-
-			if ent ~= nil then
-				AMM:CheckCustomDefaults(ent)
-				AMM:CheckSavedAppearanceForEntity(ent)
-				AMM:CheckBlacklistAppearance(ent)
-			end
+		if entity:IsNPC() then
+			ent = AMM:NewTarget(entity, "NPCPuppet", AMM:GetScanID(entity), AMM:GetNPCName(entity),AMM:GetScanAppearance(entity), nil)
+		elseif entity:IsVehicle() and entity:IsPlayerVehicle() then
+			ent = AMM:NewTarget(entity, 'vehicle', AMM:GetScanID(entity), AMM:GetVehicleName(entity), AMM:GetScanAppearance(entity), nil)
 		end
-	end
+
+		if ent ~= nil then
+			AMM:CheckCustomDefaults(ent)
+			AMM:CheckSavedAppearanceForEntity(ent)
+			AMM:CheckBlacklistAppearance(ent)
+		end
+	end)
 end
 
 function AMM:CheckSavedAppearanceForEntity(ent)
@@ -2329,10 +2453,10 @@ function AMM:CreateBusInteractionPrompt(t)
 			local playerPos = AMM.player:GetWorldPosition()
 			local dist = Util:VectorDistance(pos, playerPos)
 
-			if dist < 6 then
+			if dist < 6 and not AMM.displayInteractionPrompt then
 				AMM.displayInteractionPrompt = true
 				Util:SetInteractionHub("Enter Bus", "Choice1", true)
-			else
+			elseif dist > 6 and AMM.displayInteractionPrompt then
 				Util:SetInteractionHub("Enter Bus", "Choice1", false)
 				AMM.displayInteractionPrompt = false
 			end
@@ -2346,7 +2470,7 @@ function AMM:BusPromptAction()
 		local seat = "seat_front_left"
 		if AMM.Scan.selectedSeats["Player"] then seat = AMM.Scan.selectedSeats["Player"].seat.cname end
 		AMM.Scan:MountPlayer(seat, target)
-		AMM.displayInteractionPrompt = false
+		Util:SetInteractionHub("Enter Bus", "Choice1", false)
 	end
 end
 
@@ -2531,6 +2655,55 @@ function AMM:DrawHotkeySelection()
 
 		if ImGui.SmallButton("Set##"..i) then
 			AMM.selectedHotkeys[target.id][i] = target.appearance
+		end
+	end
+end
+
+function AMM:DrawArchives()
+	AMM.UI:TextColored("AMM Needs Attention")
+
+	AMM.UI:Spacing(8)
+	AMM.UI:TextCenter(" MISSING ARCHIVES ")
+	ImGui.Spacing()
+	AMM.UI:TextCenter("AMM Version: "..AMM.currentVersion, true)
+	ImGui.Spacing()
+	AMM.UI:TextCenter("CET Version: "..GetVersion(), true)
+	AMM.UI:Separator()
+
+	local missingRequired = false
+
+	for _, archive in ipairs(AMM.archives) do
+		AMM.UI:TextColored(archive.name)
+
+		if not archive.active then
+			ImGui.SameLine()
+			AMM.UI:TextError(" MISSING")
+		end
+
+		if not archive.optional and not archive.active then
+			ImGui.SameLine()
+			AMM.UI:TextError("REQUIRED")
+			missingRequired = true
+		end
+
+		ImGui.TextWrapped(archive.desc)
+
+		AMM.UI:Spacing(4)
+	end
+
+	AMM.UI:Separator()
+
+	AMM.UI:TextColored("WARNING")
+
+	if missingRequired then
+		ImGui.TextWrapped("AMM is missing one or more required archives. Please install any missing required archive in your archive/pc/mod folder.")
+	else
+		ImGui.TextWrapped("AMM is missing one or more archives. These are optional but add functionality to AMM. You may ignore these warnings, but AMM might not work properly.")
+
+		AMM.UI:Spacing(4)
+
+		if ImGui.Button("Ignore warnings for this version!", ImGui.GetWindowContentRegionWidth(), 40) then
+			db:execute("UPDATE metadata SET ignore_archives = 1")
 		end
 	end
 end

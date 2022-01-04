@@ -5,10 +5,7 @@ local Scan = {
     { name = "Back Left", cname = "seat_back_left" },
     { name = "Front Left", cname = "seat_front_left" },
   },
-  TPPCameraOptions = {
-    { name = "Close", vec = Vector4.new(0, -8, 0.5, 0)},
-    { name = "Far", vec = Vector4.new(0, -12, 0.5, 0)},
-  },
+  TPPCameraOptions = {},
   vehicleSeats = '',
   selectedSeats = {},
   vehicle = '',
@@ -21,6 +18,13 @@ local Scan = {
   carCam = false,
   currentCam = 1,
 }
+
+function Scan:Initialize()
+  Scan.TPPCameraOptions = {
+    { name = "Close", vec = Vector4.new(0, -8, 0.5, 0)},
+    { name = "Far", vec = Vector4.new(0, -12, 0.5, 0)},
+  }
+end
 
 function Scan:Draw(AMM, target, style)
   if ImGui.BeginTabItem("Scan") then
@@ -473,7 +477,7 @@ function Scan:AutoAssignSeats()
       if Scan.selectedSeats[ent.name] then
         if Game.FindEntityByID(Scan.selectedSeats[ent.name].vehicle.handle:GetEntityID()) then
           if Scan.selectedSeats[ent.name].seat.name == "Front Left" then
-            Scan.drivers[ent.id] = Scan.selectedSeats[ent.name]
+            Scan.drivers[AMM:GetScanID(ent.handle)] = Scan.selectedSeats[ent.name]
           end
         else
           Scan.selectedSeats[ent.name] = nil

@@ -6,6 +6,10 @@ local Swap = {
   specialSwap = false,
 }
 
+function Swap:Initialize()
+  self:LoadSavedSwaps(self.savedSwaps)
+end
+
 function Swap:RevertModelSwap(swapID)
   Game.GetPlayer():SetWarningMessage("Reload your save game to update changes!")
   local swapObj = self.activeSwaps[swapID]
@@ -29,7 +33,6 @@ end
 function Swap:LoadSavedSwaps(userData)
   for id, swap in pairs(userData) do
     self:ChangeEntityTemplateTo(swap[1], id, swap[2])
-    self.savedSwaps[id] = {swap[1], swap[2]}
   end
 end
 
