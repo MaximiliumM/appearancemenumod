@@ -41,7 +41,7 @@ function AMM:new()
 	 AMM.TeleportMod = ''
 
 	 -- Main Properties --
-	 AMM.currentVersion = "1.12.1"
+	 AMM.currentVersion = "1.12.2"
 	 AMM.CETVersion = tonumber(GetVersion():match("1.(%d+)."))
 	 AMM.updateNotes = require('update_notes.lua')
 	 AMM.credits = require("credits.lua")
@@ -152,9 +152,7 @@ function AMM:new()
 				end
 			 end
 			 
-			if GetVersion() == "v1.15.0" then
-				AMM.Tools:ToggleAnimatedHead(Tools.animatedHead)
-			end
+			 AMM.Tools:ToggleAnimatedHead(Tools.animatedHead)
 
 			 AMM.Props.activeProps = {}
 			 AMM.Props.playerLastPos = ''
@@ -504,7 +502,7 @@ function AMM:new()
 			face = {name = "Joy", idle = 5, category = 3}
 		end
 
-		Tools:ActivateFacialExpression(target, face, Tools.upperBodyMovement, Tools.lookAtV, Tools.lookAtTarget)
+		Tools:ActivateFacialExpression(target, face)
 	 end)
 
 	 registerHotkey("amm_npc_talk", "NPC Talk", function()

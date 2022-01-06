@@ -1,5 +1,16 @@
 return {
 	{
+		'1.12.2',
+		'2022 Jan 06',
+		[[Added Look At controls for NPCs]],
+		[[-- Now you can select between All, Head Only or Eyes Only for NPCs as well]],
+		[[-- Adjust head and chest parameters and see the results as you tweak them]],
+		[[-- Facial Expressions are now independent from Look At]],
+		[[Added new Props: Militech Crusher and Cross (without base)]],
+		[[Fixed issue where Nibbles new Sleeping pose would not spawn]],
+		[[Fixed issue where Animated Head checkbox would not work in certain conditions]],
+	},
+	{
 		'1.12.1',
 		'2022 Jan 04',
 		[[ANIMATED HEAD IS BACK]],
@@ -8,6 +19,7 @@ return {
 		[[Added 81 new headgears, shoes and accessories to Decor Clothes category]],
 		[[-- Keep in mind if you have modded any of these items, they will spawn as your modded version and not the vanilla one]],
 		[[Added Game Version to Archives screen]],
+		[[Added Look At to all Action and Animated Photo Mode poses as well]],
 		[[Moved Delamain from At Your Own Risk category to Side Characters]],
 		[[-- Now Delamain finally has a full-body]],
 		[[-- Thanks Hineytroll for your incredible work!]],

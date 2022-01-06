@@ -157,6 +157,44 @@ function Util:NPCTalk(handle, vo, category, idle)
 	end
 end
 
+function Util:NPCLookAt(handle, target, headSettings, chestSettings)
+  local stimComp = handle:GetStimReactionComponent()
+  stimComp:DeactiveLookAt()
+
+  local lookAtParts = {}
+  local lookAtEvent = LookAtAddEvent.new()
+  lookAtEvent:SetEntityTarget(target and target.handle or Game.GetPlayer(), "pla_default_tgt", Vector4.EmptyVector())
+  lookAtEvent:SetStyle(animLookAtStyle.Normal)
+  lookAtEvent.request.limits.softLimitDegrees = 360.00
+  lookAtEvent.request.limits.hardLimitDegrees = 270.00
+  lookAtEvent.request.limits.hardLimitDistance = 1000000.000000
+  lookAtEvent.request.limits.backLimitDegrees = 210.00
+  lookAtEvent.request.calculatePositionInParentSpace = true
+  lookAtEvent.bodyPart = "Eyes"
+
+  if headSettings then
+    local lookAtPartRequest = LookAtPartRequest.new()
+    lookAtPartRequest.partName = "Head"
+    lookAtPartRequest.weight = headSettings.weight
+    lookAtPartRequest.suppress = headSettings.suppress
+    lookAtPartRequest.mode = 0
+    table.insert(lookAtParts, lookAtPartRequest)
+  end
+
+  if chestSettings then
+    local lookAtPartRequest = LookAtPartRequest.new()
+    lookAtPartRequest.partName = "Chest"
+    lookAtPartRequest.weight = chestSettings.weight
+    lookAtPartRequest.suppress = chestSettings.suppress
+    lookAtPartRequest.mode = 0
+    table.insert(lookAtParts, lookAtPartRequest)
+  end
+
+  lookAtEvent:SetAdditionalPartsArray(lookAtParts)
+  handle:QueueEvent(lookAtEvent)
+  stimComp.lookatEvent = lookAtEvent
+end
+
 function Util:GetNPCsInRange(maxDistance)
 	local searchQuery = Game["TSQ_NPC;"]()
 	searchQuery.maxDistance = maxDistance

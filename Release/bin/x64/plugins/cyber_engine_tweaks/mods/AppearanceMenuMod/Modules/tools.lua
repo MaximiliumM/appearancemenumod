@@ -66,7 +66,7 @@ function Tools:new()
   Tools.savedPosition = ''
   Tools.selectedFace = {name = 'Select Expression'}
   Tools.activatedFace = false
-  Tools.upperBodyMovement = true
+  Tools.lookAtActiveNPCs = {}
   Tools.lookAtV = true
   Tools.lookAtTarget = nil
   Tools.expressions = AMM:GetPersonalityOptions()
@@ -883,6 +883,25 @@ function Tools:SetCurrentTarget(target)
   local pos, angles
   Tools.currentNPC = target
 
+  local npcHash = tostring(Tools.currentNPC.handle:GetEntityID().hash)
+
+  if Tools.lookAtActiveNPCs[npcHash] then
+    local lookAtSettings = Tools.lookAtActiveNPCs[npcHash]
+    Tools.selectedLookAt = lookAtSettings.mode
+
+    if lookAtSettings.headSettings then
+      Tools.headStiffness = lookAtSettings.headSettings.weight
+      Tools.headPoseOverride = lookAtSettings.headSettings.suppress
+    end
+
+    if lookAtSettings.chestSettings then
+      Tools.chestStiffness = lookAtSettings.chestSettings.weight
+      Tools.chestPoseOverride = lookAtSettings.chestSettings.suppress
+    end
+  else
+    Tools:ResetLookAt()
+  end
+
   Tools.currentTargetComponents = nil
 
   if Tools.currentNPC.type == 'entEntity' then
@@ -905,13 +924,11 @@ function Tools:SetCurrentTarget(target)
   end
 end
 
-function Tools:ActivateFacialExpression(target, face, upperBody, lookAtV, lookAtTarget)
-  local lookAtTarget = lookAtTarget and lookAtTarget.handle or AMM.player
+function Tools:ActivateFacialExpression(target, face)
 
   Tools.activatedFace = true
   local stimComp = target.handle:GetStimReactionComponent()
   if stimComp then
-    stimComp:DeactiveLookAt()
     stimComp:ResetFacial(0)
 
     Cron.After(0.5, function()
@@ -920,9 +937,6 @@ function Tools:ActivateFacialExpression(target, face, upperBody, lookAtV, lookAt
       animFeat.category = face.category
       animFeat.idle = face.idle
       animCon:ApplyFeature(CName.new("FacialReaction"), animFeat)
-      if lookAtV then
-        stimComp:ActivateReactionLookAt(lookAtTarget, false, true, 1, upperBody)
-      end
     end)
   end
 end
@@ -1390,17 +1404,58 @@ function Tools:DrawMovementWindow()
             local ent = Game.FindEntityByID(Tools.lookAtTarget.handle:GetEntityID())
             if not ent then Tools.lookAtTarget = nil end
           end
-          Tools:ActivateFacialExpression(Tools.currentNPC, Tools.selectedFace, Tools.upperBodyMovement, Tools.lookAtV, Tools.lookAtTarget)
+          Tools:ActivateFacialExpression(Tools.currentNPC, Tools.selectedFace)
         end
 
         ImGui.Spacing()
 
         if not AMM.playerInPhoto then
 
-          Tools.upperBodyMovement, clicked = ImGui.Checkbox("Upper Body Movement", Tools.upperBodyMovement)
+          AMM.UI:Spacing(4)
+
+          local npcHash = tostring(Tools.currentNPC.handle:GetEntityID().hash)
+
+          AMM.UI:TextCenter("Look At", true)
+          for _, option in ipairs(Tools.lookAtOptions) do
+            if ImGui.RadioButton(option.name, Tools.selectedLookAt.name == option.name) then
+              Tools.selectedLookAt = option
+              if Tools.lookAtActiveNPCs[npcHash] then Tools:ActivateLookAt() end
+            end
+
+            ImGui.SameLine()
+          end
+
+          ImGui.Dummy(20, 20)
 
           ImGui.SameLine()
-          Tools.lookAtV = ImGui.Checkbox("Look At ", Tools.lookAtV)
+
+          local reset = false
+          if ImGui.SmallButton("Reset") then
+            Tools:ResetLookAt()
+            reset = true
+          end
+
+          ImGui.Spacing()
+
+          if Tools.selectedLookAt.name ~= "Eyes Only" then
+            Tools.headStiffness, used = ImGui.SliderFloat("Head Stiffness", Tools.headStiffness, 0.0, 1.0, "%.1f")
+            if Tools.lookAtActiveNPCs[npcHash] and (used or reset) then Tools:ActivateLookAt() end
+
+            Tools.headPoseOverride, used = ImGui.SliderFloat("Head Pose Override", Tools.headPoseOverride, 0.0, 1.0, "%.1f")
+            if Tools.lookAtActiveNPCs[npcHash] and (used or reset) then Tools:ActivateLookAt() end
+          end
+          
+          if Tools.selectedLookAt.name == "All" then
+            Tools.chestStiffness, used = ImGui.SliderFloat("Chest Stiffness", Tools.chestStiffness, 0.0, 2.0, "%.1f")
+            if Tools.lookAtActiveNPCs[npcHash] and (used or reset) then Tools:ActivateLookAt() end
+
+            Tools.chestPoseOverride, used = ImGui.SliderFloat("Chest Pose Override", Tools.chestPoseOverride, 0.0, 2.0, "%.1f")
+            if Tools.lookAtActiveNPCs[npcHash] and (used or reset) then Tools:ActivateLookAt() end
+          end
+
+          AMM.UI:Spacing(4)
+
+          Tools.lookAtV = ImGui.Checkbox("Current Target:", Tools.lookAtV)
 
           ImGui.SameLine()
           local lookAtTargetName = "V"
@@ -1412,13 +1467,29 @@ function Tools:DrawMovementWindow()
 
           AMM.UI:Spacing(3)
 
-          if ImGui.Button("Change Look At Target", Tools.style.buttonWidth, Tools.style.buttonHeight) then
+          local buttonLabel = "Activate Look At"
+          if Tools.lookAtActiveNPCs[npcHash] then
+            buttonLabel = "Deactivate Look At"
+          end
+
+          if ImGui.Button(buttonLabel, Tools.style.buttonWidth, Tools.style.buttonHeight) then
+            
+            if Tools.lookAtActiveNPCs[npcHash] == nil then
+              Tools:ActivateLookAt()
+            else
+              Tools.lookAtActiveNPCs[npcHash] = nil
+              local stimComp = Tools.currentNPC.handle:GetStimReactionComponent()
+              stimComp:DeactiveLookAt()
+            end
+          end
+
+          if ImGui.Button("Change Target", Tools.style.buttonWidth, Tools.style.buttonHeight) then
             if Tools.currentNPC ~= '' then
               Tools.lookAtTarget = Tools.currentNPC
             end
           end
 
-          if ImGui.Button("Reset Look At Target", Tools.style.buttonWidth, Tools.style.buttonHeight) then
+          if ImGui.Button("Reset Target", Tools.style.buttonWidth, Tools.style.buttonHeight) then
             if target ~= nil then
               Tools.lookAtTarget = nil
             end
@@ -1767,13 +1838,8 @@ function Tools:DrawPhotoModeEnhancements()
 
   local reset = false
   if ImGui.SmallButton("Reset") then
-    Tools.selectedLookAt = Tools.lookAtOptions[1]
     TweakDB:SetFlat('LookatPreset.PhotoMode_LookAtCamera.lookAtParts', Tools.selectedLookAt.parts)
-    Tools.headStiffness = 0.0
-    Tools.headPoseOverride = 1.0
-    Tools.chestStiffness = 0.1
-    Tools.chestPoseOverride = 0.5
-    Tools.lookAtSpeed = 140.0
+    Tools:ResetLookAt()
     reset = true
   end
 
@@ -1807,6 +1873,40 @@ function Tools:DrawPhotoModeEnhancements()
 end
 
 -- Utilities
+
+function Tools:ResetLookAt()
+  Tools.selectedLookAt = Tools.lookAtOptions[1]
+  Tools.headStiffness = 0.0
+  Tools.headPoseOverride = 1.0
+  Tools.chestStiffness = 0.1
+  Tools.chestPoseOverride = 0.5
+  Tools.lookAtSpeed = 140.0
+end
+
+function Tools:ActivateLookAt()
+  local headSettings = nil
+  local chestSettings = nil
+
+  if Tools.selectedLookAt.name ~= "Eyes Only" then
+    headSettings = {weight = Tools.headStiffness, suppress = Tools.headPoseOverride}
+  end
+  
+  if Tools.selectedLookAt.name == "All" then
+    chestSettings = {weight = Tools.chestStiffness, suppress = Tools.chestPoseOverride}
+  end
+
+  local npcHash = tostring(Tools.currentNPC.handle:GetEntityID().hash)
+            
+  if Tools.lookAtActiveNPCs[npcHash] == nil then
+    Tools.lookAtActiveNPCs[npcHash] = {
+      mode = Tools.selectedLookAt,
+      headSettings = headSettings,
+      chestSettings = chestSettings
+    }
+  end
+
+  Util:NPCLookAt(Tools.currentNPC.handle, Tools.lookAtTarget, headSettings, chestSettings)
+end
 
 function Tools:ShouldCrouchButtonAppear(spawn)
   if spawn.type == 'Spawn' then return true end
