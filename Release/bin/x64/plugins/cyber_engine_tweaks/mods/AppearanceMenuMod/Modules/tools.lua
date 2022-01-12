@@ -10,6 +10,7 @@ function Tools:new()
   Tools.style = {}
   Tools.actionCategories = {}
   Tools.movementWindow = {open = false, isEditing = false}
+  Tools.scaleWidth = nil
 
   -- Time Properties
   Tools.pauseTime = false
@@ -67,7 +68,6 @@ function Tools:new()
   Tools.selectedFace = {name = 'Select Expression'}
   Tools.activatedFace = false
   Tools.lookAtActiveNPCs = {}
-  Tools.lookAtV = true
   Tools.lookAtTarget = nil
   Tools.expressions = AMM:GetPersonalityOptions()
   Tools.photoModePuppet = nil
@@ -110,14 +110,6 @@ function Tools:Initialize()
 end
 
 function Tools:Draw(AMM, target)
-  if AMM.Light.isEditing then
-    AMM.Light:Draw(AMM)
-  end
-
-  if Tools.movementWindow.isEditing and (target ~= nil or (Tools.currentNPC and Tools.currentNPC ~= '')) then
-    Tools:DrawMovementWindow()
-  end
-
   if ImGui.BeginTabItem("Tools") then
 
     -- Util Popup Helper --
@@ -782,29 +774,6 @@ function Tools:DrawNPCActions()
         Tools:OpenMovementWindow()
       end
     end
-
-    if Tools.currentNPC and Tools.currentNPC ~= '' then
-      if Tools.currentNPC.handle:FindComponentByName("amm_light") then
-        AMM.UI:Spacing(8)
-
-        AMM.UI:TextCenter("Light Control", true)
-
-        if ImGui.Button("Toggle Light", Tools.style.halfButtonWidth, Tools.style.buttonHeight) then
-          AMM.Light:ToggleLight(Tools.currentNPC)
-        end
-
-        ImGui.SameLine()
-        local buttonLabel ="Open Light Settings"
-        if AMM.Light.isEditing then
-          buttonLabel = "Update Light Target"
-        end
-
-        if ImGui.Button(buttonLabel, Tools.style.halfButtonWidth, Tools.style.buttonHeight) then
-          AMM.Light:Setup(Tools.currentNPC)
-          AMM.Light.isEditing = true
-        end
-      end
-    end
   else
     AMM.UI:Spacing(3)
 
@@ -1188,7 +1157,7 @@ function Tools:DrawMovementWindow()
     local rotationValue = 0.1
     if Tools.precisonMode then rotationValue = 0.01 end
 
-    if Tools.currentNPC ~= '' and (Tools.currentNPC.type ~= 'entEntity' and Tools.currentNPC.type ~= 'Player' and Tools.currentNPC.handle:IsNPC()) then
+    if Tools.currentNPC ~= '' and (Tools.currentNPC.type ~= 'Prop' and Tools.currentNPC.type ~= 'entEntity' and Tools.currentNPC.type ~= 'Player' and Tools.currentNPC.handle:IsNPC()) then
       Tools.npcRotation[3], rotationUsed = ImGui.SliderFloat("Rotation", Tools.npcRotation[3], -180, 180)
     elseif Tools.currentNPC ~= '' then
       Tools.npcRotation, rotationUsed = ImGui.DragFloat3("Tilt/Rotation", Tools.npcRotation, 0.1)
@@ -1261,7 +1230,7 @@ function Tools:DrawMovementWindow()
 
     AMM.UI:Spacing(3)
 
-    if not AMM.playerInPhoto and Tools.currentNPC ~= '' and Tools.currentNPC.type ~= 'entEntity' then
+    if not AMM.playerInPhoto and Tools.currentNPC ~= '' and Tools.currentNPC.type ~= 'Prop' and Tools.currentNPC.type ~= 'entEntity' then
 
       local buttonLabel = "Pick Up Target"
       if Tools.holdingNPC then
@@ -1309,7 +1278,7 @@ function Tools:DrawMovementWindow()
       ImGui.SameLine()
     end
 
-    if Tools.currentNPC ~= '' and (Tools.currentNPC.type ~= 'entEntity' and Tools.currentNPC.handle:IsNPC()) then
+    if Tools.currentNPC ~= '' and (Tools.currentNPC.type ~= 'Prop' and Tools.currentNPC.type ~= 'entEntity' and Tools.currentNPC.handle:IsNPC()) then
 
       if not AMM.playerInPhoto or AMM.userSettings.freezeInPhoto then
         local buttonLabel = " Freeze Target "
@@ -1455,7 +1424,7 @@ function Tools:DrawMovementWindow()
 
           AMM.UI:Spacing(4)
 
-          Tools.lookAtV = ImGui.Checkbox("Current Target:", Tools.lookAtV)
+          ImGui.Text("Current Target:")
 
           ImGui.SameLine()
           local lookAtTargetName = "V"
@@ -1567,9 +1536,12 @@ function Tools:DrawMovementWindow()
       if components then
         
         local scaleChanged = false
-        local scaleWidth = ImGui.GetWindowContentRegionWidth()
+        if Tools.scaleWidth == nil or Tools.scaleWidth < 50 then
+          Tools.scaleWidth = ImGui.GetWindowContentRegionWidth()
+        end
+
         if Tools.proportionalMode then
-          ImGui.PushItemWidth(scaleWidth)
+          ImGui.PushItemWidth(Tools.scaleWidth)
           Tools.currentNPC.scale.x, scaleChanged = ImGui.DragFloat("##scale", Tools.currentNPC.scale.x, 0.1)
 
           if scaleChanged then 
@@ -1577,7 +1549,7 @@ function Tools:DrawMovementWindow()
             Tools.currentNPC.scale.z = Tools.currentNPC.scale.x
           end
         else
-          ImGui.PushItemWidth((scaleWidth / 3) - 4)
+          ImGui.PushItemWidth((Tools.scaleWidth / 3) - 8)
           Tools.currentNPC.scale.x, used = ImGui.DragFloat("##scaleX", Tools.currentNPC.scale.x, 0.1)
           if used then scaleChanged = true end
           ImGui.SameLine()
@@ -1634,6 +1606,29 @@ function Tools:DrawMovementWindow()
       if ImGui.Button("Reset Look At Target", Tools.style.halfButtonWidth, Tools.style.buttonHeight) then
         if target ~= nil then
           Tools.lookAtTarget = nil
+        end
+      end
+    end
+
+    if Tools.currentNPC and Tools.currentNPC ~= '' then
+      if Tools.currentNPC.handle:FindComponentByName("amm_light") then
+        AMM.UI:Spacing(8)
+
+        AMM.UI:TextCenter("Light Control", true)
+
+        if ImGui.Button("Toggle Light", Tools.style.halfButtonWidth, Tools.style.buttonHeight) then
+          AMM.Light:ToggleLight(Tools.currentNPC)
+        end
+
+        ImGui.SameLine()
+        local buttonLabel ="Open Light Settings"
+        if AMM.Light.isEditing then
+          buttonLabel = "Update Light Target"
+        end
+
+        if ImGui.Button(buttonLabel, Tools.style.halfButtonWidth, Tools.style.buttonHeight) then
+          AMM.Light:Setup(Tools.currentNPC)
+          AMM.Light.isEditing = true
         end
       end
     end
@@ -1922,8 +1917,6 @@ function Tools:EnterPhotoMode()
   AMM.playerInPhoto = true
   Game.SetTimeDilation(0)
 
-  Tools.lookAtV = false
-
   if Tools.savePhotoModeToggles then
     Cron.After(1.0, function()
       if not Tools.makeupToggle then 
@@ -1958,8 +1951,6 @@ function Tools:ExitPhotoMode()
   if Tools.lookAtLocked then
     Tools:ToggleLookAt()
   end
-
-  Tools.lookAtV = true
 
   if not Tools.savePhotoModeToggles then
   Tools.makeupToggle = true

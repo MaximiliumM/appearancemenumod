@@ -31,6 +31,7 @@ function Spawn:new()
 
   -- Main Properties
   Spawn.categories = Spawn:GetCategories()
+  Spawn.entities = {}
   Spawn.spawnedNPCs = {}
   Spawn.searchQuery = ''
   Spawn.searchBarWidth = 500
@@ -167,7 +168,8 @@ function Spawn:DrawCategories(style)
   local validCatIDs = Util:GetAllCategoryIDs(Spawn.categories)
   if Spawn.searchQuery ~= '' then
     local entities = {}
-    local query = 'SELECT * FROM entities WHERE is_spawnable = 1 AND cat_id IN '..validCatIDs..' AND entity_name LIKE "%'..Spawn.searchQuery..'%" ORDER BY entity_name ASC'
+	 local parsedSearch = Util:ParseSearch(Spawn.searchQuery)
+    local query = 'SELECT * FROM entities WHERE is_spawnable = 1 AND cat_id IN '..validCatIDs..' AND '..parsedSearch..' ORDER BY entity_name ASC'
     for en in db:nrows(query) do
       table.insert(entities, {en.entity_name, en.entity_id, en.can_be_comp, en.parameters, en.entity_path, en.template_path})
     end
@@ -182,34 +184,40 @@ function Spawn:DrawCategories(style)
     if ImGui.BeginChild("Categories", ImGui.GetWindowContentRegionWidth(), y / 2) then
       for _, category in ipairs(Spawn.categories) do
 			local entities = {}
-         if category.cat_name == 'Favorites' then
-         	local query = "SELECT * FROM favorites"
-            for fav in db:nrows(query) do
-              query = f("SELECT * FROM entities WHERE entity_id = '%s' AND cat_id IN %s", fav.entity_id, validCatIDs)
-              for en in db:nrows(query) do
-                if fav.parameters ~= nil then en.parameters = fav.parameters end
-                table.insert(entities, {fav.entity_name, en.entity_id, en.can_be_comp, en.parameters, en.entity_path, en.template_path})
-              end
-            end
-            if #entities == 0 then
-					if ImGui.CollapsingHeader(category.cat_name) then
-            		ImGui.Text("It's empty :(")
+
+			if Spawn.entities[category] == nil or category.cat_name == 'Favorites' then
+				if category.cat_name == 'Favorites' then
+					local query = "SELECT * FROM favorites"
+					for fav in db:nrows(query) do
+						query = f("SELECT * FROM entities WHERE entity_id = '%s' AND cat_id IN %s", fav.entity_id, validCatIDs)
+						for en in db:nrows(query) do
+							if fav.parameters ~= nil then en.parameters = fav.parameters end
+							table.insert(entities, {fav.entity_name, en.entity_id, en.can_be_comp, en.parameters, en.entity_path, en.template_path})
+						end
 					end
-            end
-         end
+					if #entities == 0 then
+						if ImGui.CollapsingHeader(category.cat_name) then
+							ImGui.Text("It's empty :(")
+						end
+					end
+				else
+					local query = f("SELECT * FROM entities WHERE is_spawnable = 1 AND cat_id == '%s' ORDER BY entity_name ASC", category.cat_id)
+					for en in db:nrows(query) do
+						table.insert(entities, {en.entity_name, en.entity_id, en.can_be_comp, en.parameters, en.entity_path, en.template_path})
+					end
+				end
 
-         local query = f("SELECT * FROM entities WHERE is_spawnable = 1 AND cat_id == '%s' ORDER BY entity_name ASC", category.cat_id)
-         for en in db:nrows(query) do
-         	table.insert(entities, {en.entity_name, en.entity_id, en.can_be_comp, en.parameters, en.entity_path, en.template_path})
-         end
+				Spawn.entities[category] = entities
+			end
 
-			if #entities ~= 0 then
+			if Spawn.entities[category] ~= nil and #Spawn.entities[category] ~= 0 then
         		if ImGui.CollapsingHeader(category.cat_name) then
-					Spawn:DrawEntitiesButtons(entities, category.cat_name, style)
+					Spawn:DrawEntitiesButtons(Spawn.entities[category], category.cat_name, style)
 				end
       	end
       end
     end
+
     ImGui.EndChild()
   end
 end
@@ -229,19 +237,26 @@ function Spawn:DrawEntitiesButtons(entities, categoryName, style)
 		local buttonLabel = uniqueName..tostring(i)
 
 		local favOffset = 0
+		local currentIndex = 0
+		local favoriteType = 'favorites'
+		if string.find(tostring(newSpawn.path), "Props") then
+			favoriteType = 'favorites_props'
+		end
+
 		if categoryName == 'Favorites' then
-			favOffset = 40
-			local currentIndex = 0
-			for index in db:urows(f('SELECT position FROM favorites WHERE entity_name = "%s"', name)) do
+			for index in db:urows(f('SELECT position FROM %s WHERE entity_name = "%s"', favoriteType, name)) do
 				currentIndex = index
 			end
+		end
 
-			Spawn:DrawArrowButton("up", newSpawn, currentIndex, i)
+		if categoryName == 'Favorites' then
+			favOffset = 40
+			Spawn:DrawArrowButton("up", newSpawn, currentIndex)
 			ImGui.SameLine()
 		end
 
 		local isFavorite = 0
-		for fav in db:urows(f("SELECT COUNT(1) FROM favorites WHERE entity_id = '%s'", id)) do
+		for fav in db:urows(f("SELECT COUNT(1) FROM %s WHERE entity_id = '%s'", favoriteType, id)) do
 			isFavorite = fav
 		end
 
@@ -259,13 +274,8 @@ function Spawn:DrawEntitiesButtons(entities, categoryName, style)
 		end
 
 		if categoryName == 'Favorites' then
-			local currentIndex = 0
-			for index in db:urows(f('SELECT position FROM favorites WHERE entity_name = "%s"', name)) do
-				currentIndex = index
-			end
-
 			ImGui.SameLine()
-			Spawn:DrawArrowButton("down", newSpawn, currentIndex, i)
+			Spawn:DrawArrowButton("down", newSpawn, currentIndex)
 		end
 	end
 end
@@ -287,16 +297,22 @@ function Spawn:DrawFavoritesButton(buttonLabels, entity, fullButton)
 		halfButtonWidth = ((ImGui.GetWindowContentRegionWidth() / 2) - 12)
 	}
 
+	local favoriteType = "favorites"
+	if entity.type == "Prop" or entity.type == "entEntity" then
+		favoriteType = "favorites_props"
+		entity['parameters'] = "Prop"
+	end
+
 	if entity.parameters == nil and not Util:CheckVByID(entity.id) then
 		entity['parameters'] = entity.appearance
 	end
 
 	local isFavorite = 0
-	for fav in db:urows(f('SELECT COUNT(1) FROM favorites WHERE entity_name = "%s"', entity.name)) do
+	for fav in db:urows(f('SELECT COUNT(1) FROM %s WHERE entity_name = "%s"', favoriteType, entity.name)) do
 		isFavorite = fav
 	end
-	if isFavorite == 0 and entity.parameters ~= nil then
-		for fav in db:urows(f("SELECT COUNT(1) FROM favorites WHERE parameters = '%s'", entity.parameters)) do
+	if isFavorite == 0 and entity.parameters ~= nil and entity.parameters ~= 'Prop' then
+		for fav in db:urows(f("SELECT COUNT(1) FROM %s WHERE parameters = '%s'", favoriteType, entity.parameters)) do
 			isFavorite = fav
 		end
 	end
@@ -317,7 +333,7 @@ function Spawn:DrawFavoritesButton(buttonLabels, entity, fullButton)
 		if not(AMM:IsUnique(entity.id)) and isFavorite == 0 then
 			Spawn:SetFavoriteNamePopup(entity)
 		else
-			Spawn:ToggleFavorite(isFavorite, entity)
+			Spawn:ToggleFavorite(favoriteType, isFavorite, entity)
 		end
 	end
 
@@ -333,22 +349,20 @@ function Spawn:DrawFavoritesButton(buttonLabels, entity, fullButton)
 
 			if ImGui.Button("Save", style.halfButtonWidth + 8, style.buttonHeight) then
 				local isFavorite = 0
-				for fav in db:urows(f('SELECT COUNT(1) FROM favorites WHERE entity_name = "%s"', Spawn.currentFavoriteName)) do
+				for fav in db:urows(f('SELECT COUNT(1) FROM %s WHERE entity_name = "%s"', favoriteType, Spawn.currentFavoriteName)) do
 					isFavorite = fav
 				end
 				if isFavorite == 0 then
 					entity.name = Spawn.currentFavoriteName
 
-					if entity.type == "Prop" or entity.type == "entEntity" then
-						entity.parameters = 'Prop'
-					elseif entity.type == "Spawn" and not Util:CheckVByID(entity.id) then
+					if entity.type == "Spawn" and not Util:CheckVByID(entity.id) then
 						Spawn.spawnedNPCs[entity.uniqueName()] = nil
 						entity.parameters = AMM:GetScanAppearance(entity.handle)
 						Spawn.spawnedNPCs[entity.uniqueName()] = entity
 					end
 
 					Spawn.currentFavoriteName = ''
-					Spawn:ToggleFavorite(isFavorite, entity)
+					Spawn:ToggleFavorite(favoriteType, isFavorite, entity)
 					AMM.popupIsOpen = false
 					ImGui.CloseCurrentPopup()
 				else
@@ -366,45 +380,33 @@ function Spawn:DrawFavoritesButton(buttonLabels, entity, fullButton)
 	end
 end
 
-function Spawn:DrawArrowButton(direction, entity, index, localIndex)
+function Spawn:DrawArrowButton(direction, entity, index)
+	local favoriteType = "favorites"
+	if entity.type == "Prop" or entity.type == "entEntity" then
+		favoriteType = "favorites_props"
+		entity.parameters = 'Prop'
+	end
+
 	local dirEnum, tempPos
 	if direction == "up" then
 		dirEnum = ImGuiDir.Up
 		tempPos = index - 1
-		localIndex = localIndex - 1
 	else
 		dirEnum = ImGuiDir.Down
 		tempPos = index + 1
-		localIndex = localIndex + 1
 	end
 
+	local favoritesLength = 0
+	local query = "SELECT COUNT(1) FROM "..favoriteType
+	for x in db:urows(query) do favoritesLength = x end
+
 	if ImGui.ArrowButton(direction..entity.id, dirEnum) then
-
-		local condition = " WHERE parameters != 'Prop'"
-		if entity.type == "Prop" then condition = " WHERE parameters = 'Prop'" end
-		local query = "SELECT COUNT(1) FROM favorites"..condition
-		for x in db:urows(query) do favoritesLength = x end
-
-		local temp
-		local query = f("SELECT * FROM favorites WHERE position = %i", tempPos)
-		for fav in db:nrows(query) do temp = fav end
-		if type(entity.parameters) == 'table' then entity.parameters = 'Prop' end
-
-		if direction == "up" and temp.parameters == 'Prop' and entity.parameters ~= 'Prop' then
-			while temp.parameters == 'Prop' and entity.parameters ~= 'Prop' do
-				tempPos = tempPos - 1
-				local query = f("SELECT * FROM favorites WHERE position = %i", tempPos)
-				for fav in db:nrows(query) do temp = fav end
-			end
-
-			tempPos = tempPos + 1
-			local query = f("SELECT * FROM favorites WHERE position = %i", tempPos)
+		if not(tempPos < 1 or tempPos > favoritesLength) then
+			local query = f("SELECT * FROM %s WHERE position = %i", favoriteType, tempPos)
 			for fav in db:nrows(query) do temp = fav end
-		end
 
-		if not(localIndex < 1 or localIndex > favoritesLength) then
-			db:execute(f("UPDATE favorites SET entity_id = '%s', entity_name = '%s', parameters = '%s' WHERE position = %i", entity.id, entity.name, entity.parameters, tempPos))
-			db:execute(f("UPDATE favorites SET entity_id = '%s', entity_name = '%s', parameters = '%s' WHERE position = %i", temp.entity_id, temp.entity_name, temp.parameters, index))
+			db:execute(f("UPDATE %s SET entity_id = '%s', entity_name = '%s', parameters = '%s' WHERE position = %i", favoriteType, entity.id, entity.name, entity.parameters, tempPos))
+			db:execute(f("UPDATE %s SET entity_id = '%s', entity_name = '%s', parameters = '%s' WHERE position = %i", favoriteType, temp.entity_id, temp.entity_name, temp.parameters, index))
 		end
 	end
 end
@@ -554,6 +556,7 @@ function Spawn:SpawnNPC(spawn)
 				AMM.Tools:SetNPCAttitude(spawn, "friendly")
 			end
 
+			AMM:UpdateSettings()
 			Cron.Halt(timer)
 		end
   	end)
@@ -569,7 +572,9 @@ function Spawn:DespawnNPC(ent)
 			Util:TeleportNPCTo(handle, Util:GetBehindPlayerPosition(2))
 		end
 	end
+
 	Game.GetPreventionSpawnSystem():RequestDespawn(spawnID)
+	AMM:UpdateSettings()
 end
 
 function Spawn:DespawnAll()
@@ -580,6 +585,7 @@ function Spawn:DespawnAll()
   end
 
   Spawn.spawnedNPCs = {}
+  AMM:UpdateSettings()
 end
 
 function Spawn:SetNPCAsCompanion(npcHandle)
@@ -638,35 +644,33 @@ function Spawn:ToggleHostile(handle)
 	end
 end
 
-function Spawn:ToggleFavorite(isFavorite, entity)
+function Spawn:ToggleFavorite(favoriteType, isFavorite, entity)
 	if isFavorite == 0 then
-		local command = f('INSERT INTO favorites (entity_id, entity_name, parameters) VALUES ("%s", "%s", "%s")', entity.id, entity.name, entity.parameters)
+		local command = f('INSERT INTO %s (entity_id, entity_name, parameters) VALUES ("%s", "%s", "%s")', favoriteType, entity.id, entity.name, entity.parameters)
 		command = command:gsub('"nil"', "NULL")
 		db:execute(command)
 	else
 		local removedIndex = 0
-		local query = f('SELECT position FROM favorites WHERE entity_name = "%s"', entity.name)
+		local query = f('SELECT position FROM %s WHERE entity_name = "%s"', favoriteType, entity.name)
 		for i in db:urows(query) do removedIndex = i end
 
-		local command = f('DELETE FROM favorites WHERE entity_name = "%s"', entity.name)
-		command = command:gsub('"nil"', "NULL")
+		local command = f('DELETE FROM %s WHERE entity_name = "%s"', favoriteType, entity.name)
 		db:execute(command)
-		Spawn:RearrangeFavoritesIndex(removedIndex)
+		Spawn:RearrangeFavoritesIndex(favoriteType, removedIndex)
 	end
 end
 
-function Spawn:RearrangeFavoritesIndex(removedIndex)
+function Spawn:RearrangeFavoritesIndex(favoriteType, removedIndex)
 	local lastIndex = 0
-	query = "SELECT seq FROM sqlite_sequence WHERE name = 'favorites'"
-	for i in db:urows(query) do lastIndex = i end
-
-	if lastIndex ~= removedIndex then
-		for i = removedIndex, lastIndex - 1 do
-			db:execute(f("UPDATE favorites SET position = %i WHERE position = %i", i, i + 1))
-		end
+	for x in db:urows('SELECT COUNT(1) FROM '..favoriteType) do
+		lastIndex = x
 	end
 
-	db:execute(f("UPDATE sqlite_sequence SET seq = %i WHERE name = 'favorites'", lastIndex - 1))
+	for i = removedIndex, lastIndex do
+		db:execute(f("UPDATE %s SET position = %i WHERE position = %i", favoriteType, i, i + 1))
+	end
+
+	db:execute(f("UPDATE sqlite_sequence SET seq = %i WHERE name = '%s'", lastIndex, favoriteType))
 end
 
 

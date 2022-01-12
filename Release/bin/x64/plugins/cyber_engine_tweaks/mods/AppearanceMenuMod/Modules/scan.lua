@@ -1,4 +1,6 @@
 local Scan = {
+
+  -- Companion Drive properties
   possibleSeats = {
     { name = "Front Right", cname = "seat_front_right" },
     { name = "Back Right", cname = "seat_back_right" },
@@ -17,6 +19,10 @@ local Scan = {
   isDriving = false,
   carCam = false,
   currentCam = 1,
+
+  -- Saved Despawn properties
+  savedDespawns = {},
+  savedDespawnsActive = true,
 }
 
 function Scan:Initialize()
@@ -24,6 +30,8 @@ function Scan:Initialize()
     { name = "Close", vec = Vector4.new(0, -8, 0.5, 0)},
     { name = "Far", vec = Vector4.new(0, -12, 0.5, 0)},
   }
+
+  Scan.savedDespawns = Scan:LoadSavedDespawns()
 end
 
 function Scan:Draw(AMM, target, style)
@@ -253,7 +261,12 @@ function Scan:Draw(AMM, target, style)
       end
 
       if AMM.userSettings.experimental and not mountedVehicle then
-        if ImGui.Button("  Despawn  ", style.buttonWidth, style.buttonHeight - 5) then
+        local buttonWidth = style.buttonWidth
+        local shouldAllowSaveDespawn = not(target.handle:IsNPC() or target.handle:IsVehicle())
+
+        if shouldAllowSaveDespawn then buttonWidth = style.halfButtonWidth end
+
+        if ImGui.Button("  Despawn  ", buttonWidth, style.buttonHeight - 5) then
           local spawnedNPC = nil
     			for _, spawn in pairs(AMM.Spawn.spawnedNPCs) do
     				if target.id == spawn.id then spawnedNPC = spawn break end
@@ -264,6 +277,28 @@ function Scan:Draw(AMM, target, style)
     			else
     				Util:Despawn(target.handle)
     			end
+        end
+
+        if shouldAllowSaveDespawn then
+          ImGui.SameLine()
+          local hash = tostring(target.handle:GetEntityID().hash)
+          local buttonLabel = "  Save Despawn  "
+          if Scan.savedDespawns[hash] then buttonLabel = "Clear Saved Despawn" end
+          if ImGui.Button(buttonLabel, style.halfButtonWidth, style.buttonHeight - 5) then
+            if buttonLabel == "  Save Despawn  " then
+              Scan:SaveDespawn(target)
+            else
+              Scan:ClearSavedDespawn(hash)
+            end
+          end
+        end
+
+        if next(Scan.savedDespawns) ~= nil then
+          Scan.savedDespawnsActive = ImGui.Checkbox("Saved Despawns Active", Scan.savedDespawnsActive)
+
+          if ImGui.IsItemHovered() then
+            ImGui.SetTooltip("Disable this checkbox and reload your save to be able to target and Clear Saved Despawns")
+          end
         end
       end
 
@@ -618,6 +653,64 @@ function Scan:ShouldDisplayAssignSeatsButton()
   end
 
   return false
+end
+
+-- Save Despawn methods
+function Scan:LoadSavedDespawns()
+  local despawns = {}
+  
+  for r in db:nrows("SELECT * FROM saved_despawns") do
+    despawns[r.entity_hash] = {pos = r.position, removed = false}
+  end
+
+  return despawns
+end
+
+function Scan:ClearSavedDespawn(hash)
+  Scan.savedDespawns[hash] = nil
+  db:execute(f('DELETE FROM saved_despawns WHERE entity_hash = "%s"', hash))
+end
+
+function Scan:SaveDespawn(target)
+  local hash = tostring(target.handle:GetEntityID().hash)
+  local playerPos = Util:GetPosString(Game.GetPlayer():GetWorldPosition())
+
+  Scan.savedDespawns[hash] = playerPos
+  db:execute(f('INSERT INTO saved_despawns (entity_hash, position) VALUES ("%s", "%s")', hash, playerPos))
+end
+
+function Scan:ResetSavedDespawns()
+  for hash, ent in pairs(Scan.savedDespawns) do
+    ent.removed = false
+  end
+end
+
+function Scan:SenseSavedDespawns()
+  if Scan.savedDespawnsActive then
+
+    if next(Scan.savedDespawns) ~= nil then
+      local playerPos = Game.GetPlayer():GetWorldPosition()
+      for hash, ent in pairs(Scan.savedDespawns) do
+        if ent.removed == false then
+          local dist = Util:VectorDistance(playerPos, Util:GetPosFromString(ent.pos))
+
+          if dist <= 30 then
+            Scan:FindEntityByHash(hash)
+          end
+        end
+      end
+    end
+  end
+end
+
+function Scan:FindEntityByHash(hash)
+  Util:GetAllInRange(30, true, true, function(entity)
+    local entityHash = tostring(entity:GetEntityID().hash)
+		if entity and entityHash == hash then
+			entity:Dispose()
+      Scan.savedDespawns[hash].removed = true
+		end
+	end)
 end
 
 return Scan

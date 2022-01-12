@@ -41,7 +41,7 @@ function AMM:new()
 	 AMM.TeleportMod = ''
 
 	 -- Main Properties --
-	 AMM.currentVersion = "1.12.2"
+	 AMM.currentVersion = "1.12.3"
 	 AMM.CETVersion = tonumber(GetVersion():match("1.(%d+)."))
 	 AMM.updateNotes = require('update_notes.lua')
 	 AMM.credits = require("credits.lua")
@@ -157,6 +157,8 @@ function AMM:new()
 			 AMM.Props.activeProps = {}
 			 AMM.Props.playerLastPos = ''
 
+			 AMM.Scan:ResetSavedDespawns()
+
 			 AMM.Director:StopAll()
 		 end)
 
@@ -180,6 +182,12 @@ function AMM:new()
 		 end)
 
 		 -- Setup Observers and Overrides --
+		 Observe('FastTravelSystem', 'OnLoadingScreenFinished', function(self)
+			if next(AMM.Spawn.spawnedNPCs) ~= nil then
+				AMM:TeleportAll()
+			end
+		 end)
+
 		 local vehicleMap = {}
 		 Observe('VehicleObject', 'OnRequestComponents', function(self, ri)
 			EntityRequestComponentsInterface.RequestComponent(ri, "AIComponent", "AIVehicleAgent", false)
@@ -612,8 +620,15 @@ function AMM:new()
 					AMM:CheckCustomDefaults(target)
 			 		-- Load Saved Appearance --
 			 		if not drawWindow and AMM.shouldCheckSavedAppearance then
-			 			AMM:CheckSavedAppearance(target)
-						AMM.shouldCheckSavedAppearance = false
+						local count = 0
+						for x in db:urows("SELECT COUNT(1) FROM saved_appearances UNION ALL SELECT COUNT(1) FROM blacklist_appearances") do
+							count = count + x
+						end
+
+						if count ~= 0 then
+			 				AMM:CheckSavedAppearance(target)
+							AMM.shouldCheckSavedAppearance = false
+						end
 			 		elseif AMM.shouldCheckSavedAppearance == false then
 						delayTimer = delayTimer + deltaTime
 						delay = 1.0
@@ -632,6 +647,7 @@ function AMM:new()
 						AMM.Director:SenseNPCTalk()
 						AMM.Director:SenseTriggers()
 						AMM.Props:SensePropsTriggers()
+						AMM.Scan:SenseSavedDespawns()
 					end
 
 					-- Travel Animation Done Check --
@@ -650,8 +666,8 @@ function AMM:new()
 							waitTimer = 0.0
 							AMM.Tools.isTeleporting = false
 							if next(AMM.Spawn.spawnedNPCs) ~= nil then
-					      AMM:TeleportAll()
-					    end
+					      	AMM:TeleportAll()
+					    	end
 						end
 					end
 
@@ -1025,6 +1041,12 @@ function AMM:Begin()
 							popupDelegate = AMM:OpenPopup("Blacklist")
 						end
 
+						if AMM.userSettings.experimental then
+							if ImGui.Button("Clear All Saved Despawns", style.buttonWidth, style.buttonHeight) then
+								popupDelegate = AMM:OpenPopup("Saved Despawns")
+							end
+						end
+
 						AMM:BeginPopup("WARNING", nil, true, popupDelegate, style)
 
 						AMM.UI:Separator()
@@ -1084,6 +1106,14 @@ function AMM:Begin()
 		end
 	end
 	ImGui.End()
+
+	if AMM.Light.isEditing then
+		AMM.Light:Draw(AMM)
+	 end
+  
+	 if AMM.Tools.movementWindow.isEditing and (target ~= nil or (AMM.Tools.currentNPC and AMM.Tools.currentNPC ~= '')) then
+		AMM.Tools:DrawMovementWindow()
+	 end
 end
 
 -- AMM Objects
@@ -1291,6 +1321,13 @@ function AMM:ImportUserData()
 						db:execute(command)
 					end
 				end
+				if userData['favorites_props'] ~= nil then
+					for _, obj in ipairs(userData['favorites_props']) do
+						local command = f("INSERT INTO favorites_props (position, entity_id, entity_name, parameters) VALUES (%i, '%s', '%s', '%s')", obj.position, obj.entity_id, obj.entity_name, obj.parameters)
+						command = command:gsub("'nil'", "NULL")
+						db:execute(command)
+					end
+				end
 				if userData['saved_appearances'] ~= nil then
 					for _, obj in ipairs(userData['saved_appearances']) do
 						db:execute(f("INSERT INTO saved_appearances (entity_id, app_name) VALUES ('%s', '%s')", obj.entity_id, obj.app_name))
@@ -1299,6 +1336,11 @@ function AMM:ImportUserData()
 				if userData['blacklist_appearances'] ~= nil then
 					for _, obj in ipairs(userData['blacklist_appearances']) do
 						db:execute(f("INSERT INTO blacklist_appearances (entity_id, app_name) VALUES ('%s', '%s')", obj.entity_id, obj.app_name))
+					end
+				end
+				if userData['saved_despawns'] ~= nil then
+					for _, obj in ipairs(userData['saved_despawns']) do
+						db:execute(f("INSERT INTO saved_despawns (entity_hash, position) VALUES ('%s', '%s')", obj.entity_hash, obj.position))
 					end
 				end
 				if userData['saved_props'] ~= nil then
@@ -1343,6 +1385,10 @@ function AMM:ExportUserData()
 		for r in db:nrows("SELECT * FROM favorites_swap") do
 			table.insert(userData['favorites_swap'], {position = r.position, entity_id = r.entity_id})
 		end
+		userData['favorites_props'] = {}
+		for r in db:nrows("SELECT * FROM favorites_props") do
+			table.insert(userData['favorites_props'], {position = r.position, entity_id = r.entity_id, entity_name = r.entity_name, parameters = r.parameters})
+		end
 		userData['saved_appearances'] = {}
 		for r in db:nrows("SELECT * FROM saved_appearances") do
 			table.insert(userData['saved_appearances'], {entity_id = r.entity_id, app_name = r.app_name})
@@ -1350,6 +1396,10 @@ function AMM:ExportUserData()
 		userData['blacklist_appearances'] = {}
 		for r in db:nrows("SELECT * FROM blacklist_appearances") do
 			table.insert(userData['blacklist_appearances'], {entity_id = r.entity_id, app_name = r.app_name})
+		end
+		userData['saved_despawns'] = {}
+		for r in db:nrows("SELECT * FROM saved_despawns") do
+			table.insert(userData['saved_despawns'], {entity_hash = r.entity_hash, position = r.position})
 		end
 
 		if self.userSettings.respawnOnLaunch then
@@ -1580,12 +1630,28 @@ function AMM:UpdateOldFavorites()
 	db:execute("UPDATE favorites SET entity_id = '0x5E611B16, 24' WHERE entity_id = '0x903E76AF, 43';")
 	db:execute("DELETE FROM favorites WHERE parameters LIKE '%table%'")
 
+	-- Move Props from favorites to favorites_props
+	local index = 0
+	for prop in db:nrows("SELECT * FROM favorites WHERE parameters = 'Prop'") do
+		index = index + 1
+		local tables = '(position, entity_id, entity_name, parameters)'
+		local values = f('(%i, "%s", "%s", "%s")', index, prop.entity_id, prop.entity_name, prop.parameters)
+		db:execute(f('INSERT INTO favorites_props %s VALUES %s', tables, values))
+		db:execute(f('DELETE FROM favorites WHERE position = %i', prop.position))
+	end
+
 	local count = 0
 	for x in db:urows('SELECT COUNT(1) FROM favorites') do
 		count = x
 	end
 
 	db:execute(f("UPDATE sqlite_sequence SET seq = %i WHERE name = 'favorites'", count))
+
+	for x in db:urows('SELECT COUNT(1) FROM favorites_props') do
+		count = x
+	end
+
+	db:execute(f("UPDATE sqlite_sequence SET seq = %i WHERE name = 'favorites_props'", count))
 end
 
 function AMM:SetupAMMCharacters()
@@ -1895,7 +1961,9 @@ end
 
 function AMM:TeleportAll()
 	for _, ent in pairs(AMM.Spawn.spawnedNPCs) do
-		Util:TeleportNPCTo(ent.handle, Util:GetBehindPlayerPosition(2))
+		if ent.handle:IsNPC() then
+			Util:TeleportNPCTo(ent.handle, Util:GetBehindPlayerPosition(2))
+		end
 	end
 end
 
@@ -2090,6 +2158,10 @@ end
 
 function AMM:ClearAllBlacklistedAppearances()
 	db:execute("DELETE FROM blacklist_appearances")
+end
+
+function AMM:ClearAllSavedDespawns()
+	db:execute("DELETE FROM saved_despawns")
 end
 
 function AMM:ClearAllFavorites()
@@ -2587,6 +2659,12 @@ function AMM:OpenPopup(name)
 		ImGui.SetNextWindowSize(400, 140)
 		popupDelegate.message = "Are you sure you want to delete all your blacklisted appearances?"
 		table.insert(popupDelegate.buttons, {label = "Yes", action = function() AMM:ClearAllBlacklistedAppearances() end})
+		table.insert(popupDelegate.buttons, {label = "No", action = ''})
+		name = "WARNING"
+	elseif name == "Saved Despawns" then
+		ImGui.SetNextWindowSize(400, 140)
+		popupDelegate.message = "Are you sure you want to delete all your saved despawns?"
+		table.insert(popupDelegate.buttons, {label = "Yes", action = function() AMM:ClearAllSavedDespawns() end})
 		table.insert(popupDelegate.buttons, {label = "No", action = ''})
 		name = "WARNING"
 	elseif name == "Preset" then

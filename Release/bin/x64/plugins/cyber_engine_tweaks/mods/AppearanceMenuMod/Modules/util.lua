@@ -24,6 +24,43 @@ function Util:GetTableKeys(tab)
   return keyset
 end
 
+function Util:Split(s, delimiter)
+  result = {}
+  for match in (s..delimiter):gmatch("(.-)"..delimiter) do
+      table.insert(result, match)
+  end
+  return result
+end
+
+function Util:ParseSearch(query)
+  local words = Util:Split(query, " ")
+  local r = ""
+  for i, word in ipairs(words) do
+      r = r..string.format('entity_name LIKE "%%%s%%"', word)
+      if i ~= #words then r = r..' AND ' end
+  end
+  return r
+end
+
+function Util:GetPosString(pos, angles)
+  local posString = f("{x = %f, y = %f, z = %f, w = %f}", pos.x, pos.y, pos.z, pos.w)
+  if angles then
+    posString = f("{x = %f, y = %f, z = %f, w = %f, roll = %f, pitch = %f, yaw = %f}", pos.x, pos.y, pos.z, pos.w, angles.roll, angles.pitch, angles.yaw)
+  end
+
+  return posString
+end
+
+function Util:GetPosFromString(posString)
+  local pos = loadstring("return "..posString, '')()
+  return Vector4.new(pos.x, pos.y, pos.z, pos.w)
+end
+
+function Util:GetAnglesFromString(posString)
+  local pos = loadstring("return "..posString, '')()
+  return EulerAngles.new(pos.roll, pos.pitch, pos.yaw)
+end
+
 -- Game Related Helpers
 function Util:GetPlayerGender()
   -- True = Female / False = Male

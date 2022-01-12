@@ -24,9 +24,8 @@ end
 function Props:NewTrigger(triggerString)
   local obj = {}
 
-  local trig = loadstring("return "..triggerString, '')()
   obj.str = triggerString
-	obj.pos = Vector4.new(trig.x, trig.y, trig.z, trig.w)
+	obj.pos = Util:GetPosFromString(triggerString)
 	obj.type = "Trigger"
 
   return obj
@@ -54,6 +53,7 @@ function Props:new()
 
   -- Main Properties
   Props.presets = {}
+  Props.entities = {}
   Props.spawnedPropsList = {}
   Props.spawnedProps = {}
   Props.hiddenProps = {}
@@ -266,7 +266,8 @@ function Props:DrawCategories()
   local validCatIDs = Util:GetAllCategoryIDs(Props.categories)
   if Props.searchQuery ~= '' then
     local entities = {}
-    local query = 'SELECT * FROM entities WHERE is_spawnable = 1 AND cat_id IN '..validCatIDs..' AND entity_name LIKE "%'..Props.searchQuery..'%" ORDER BY entity_name ASC'
+    local parsedSearch = Util:ParseSearch(Props.searchQuery)
+    local query = 'SELECT * FROM entities WHERE is_spawnable = 1 AND cat_id IN '..validCatIDs..' AND '..parsedSearch..' ORDER BY entity_name ASC'
     for en in db:nrows(query) do
       table.insert(entities, {en.entity_name, en.entity_id, en.can_be_comp, en.parameters, en.entity_path, en.template_path})
     end
@@ -281,30 +282,34 @@ function Props:DrawCategories()
     if ImGui.BeginChild("Categories", ImGui.GetWindowContentRegionWidth(), y / 2) then
       for _, category in ipairs(Props.categories) do
         local entities = {}
-        if category.cat_name == 'Favorites' then
-          local query = "SELECT * FROM favorites"
-          for fav in db:nrows(query) do
-            query = f("SELECT * FROM entities WHERE entity_id = '%s' AND cat_id IN %s", fav.entity_id, validCatIDs)
+
+        if Props.entities[category] == nil or category.cat_name == 'Favorites' then
+          if category.cat_name == 'Favorites' then
+            local query = "SELECT * FROM favorites_props"
+            for fav in db:nrows(query) do
+              query = f("SELECT * FROM entities WHERE entity_id = '%s' AND cat_id IN %s", fav.entity_id, validCatIDs)
+              for en in db:nrows(query) do
+                table.insert(entities, {fav.entity_name, en.entity_id, en.can_be_comp, en.parameters, en.entity_path, en.template_path})
+              end
+            end
+            if #entities == 0 then
+              if ImGui.CollapsingHeader(category.cat_name) then
+                ImGui.Text("It's empty :(")
+              end
+            end
+          else
+            local query = f("SELECT * FROM entities WHERE is_spawnable = 1 AND cat_id == '%s' ORDER BY entity_name ASC", category.cat_id)
             for en in db:nrows(query) do
-              if fav.parameters ~= nil then en.parameters = fav.parameters end
-              table.insert(entities, {fav.entity_name, en.entity_id, en.can_be_comp, en.parameters, en.entity_path, en.template_path})
-            end
+              table.insert(entities, {en.entity_name, en.entity_id, en.can_be_comp, en.parameters, en.entity_path, en.template_path})
+            end            
           end
-          if #entities == 0 then
-            if ImGui.CollapsingHeader(category.cat_name) then
-              ImGui.Text("It's empty :(")
-            end
-          end
+
+          Props.entities[category] = entities
         end
 
-        local query = f("SELECT * FROM entities WHERE is_spawnable = 1 AND cat_id == '%s' ORDER BY entity_name ASC", category.cat_id)
-        for en in db:nrows(query) do
-          table.insert(entities, {en.entity_name, en.entity_id, en.can_be_comp, en.parameters, en.entity_path, en.template_path})
-        end
-
-        if #entities ~= 0 then
+        if Props.entities[category] ~= nil and #Props.entities[category] ~= 0 then
           if ImGui.CollapsingHeader(category.cat_name) then
-            AMM.Spawn:DrawEntitiesButtons(entities, category.cat_name, Props.style)
+            AMM.Spawn:DrawEntitiesButtons(Props.entities[category], category.cat_name, Props.style)
           end
         end
       end
@@ -877,8 +882,8 @@ function Props:SavePropPosition(ent)
 
   local tag = Props:GetTagBasedOnLocation()
 
-  local trigger = Props:GetPosString(Props:CheckForTriggersNearby(pos))
-  pos = Props:GetPosString(pos, angles)
+  local trigger = Util:GetPosString(Props:CheckForTriggersNearby(pos))
+  pos = Util:GetPosString(pos, angles)
 
   local scale = nil
   if ent.scale and ent.scale ~= "nil" then
@@ -1036,7 +1041,9 @@ function Props:SpawnProp(spawn, pos, angles)
 			spawn.parameters = {newPosition, GetSingleton('Quaternion'):ToEulerAngles(AMM.player:GetWorldOrientation())}
 			if AMM:GetScanClass(spawn.handle) == 'entEntity' or AMM:GetScanClass(spawn.handle) == 'entGameEntity' then
 				spawn.type = 'entEntity'
-			end
+      else
+        spawn.type = 'Prop'
+      end
 
       AMM.Tools:SetCurrentTarget(spawn)
       AMM.Tools.lockTarget = true
@@ -1296,15 +1303,6 @@ function Props:GetCategories()
   end
 
   return categories
-end
-
-function Props:GetPosString(pos, angles)
-  local posString = f("{x = %f, y = %f, z = %f, w = %f}", pos.x, pos.y, pos.z, pos.w)
-  if angles then
-    posString = f("{x = %f, y = %f, z = %f, w = %f, roll = %f, pitch = %f, yaw = %f}", pos.x, pos.y, pos.z, pos.w, angles.roll, angles.pitch, angles.yaw)
-  end
-
-  return posString
 end
 
 function Props:GetScaleString(scale)
