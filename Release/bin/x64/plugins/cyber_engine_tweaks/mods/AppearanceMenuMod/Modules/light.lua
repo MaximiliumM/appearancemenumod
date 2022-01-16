@@ -8,6 +8,7 @@ function Light:NewLight(handle)
   obj.marker = handle:FindComponentByName("Mesh3185")
 
   if obj.component then
+    obj.isOn = obj.component:IsOn()
     obj.intensity = obj.component.intensity
     obj.radius = obj.component.radius
     obj.color = Light:ConvertColor({obj.component.color.Red, obj.component.color.Green, obj.component.color.Blue, obj.component.color.Alpha})
@@ -27,6 +28,7 @@ function Light:new()
   Light.open = false
   Light.isEditing = false
   Light.settings = nil
+  Light.disabled = {}
 
   return Light
 end
@@ -94,7 +96,24 @@ end
 
 function Light:ToggleLight(light)
   local component = light.handle:FindComponentByName("amm_light")
-  component:ToggleLight(not component:IsOn())
+
+  if AMM.playerInPhoto then
+    if Light.disabled[tostring(light.handle:GetEntityID().hash)] == nil then
+      Light.disabled[tostring(light.handle:GetEntityID().hash)] = component.intensity
+      component:SetIntensity(0)
+    else
+      component:SetIntensity(Light.disabled[tostring(light.handle:GetEntityID().hash)])
+      Light.disabled[tostring(light.handle:GetEntityID().hash)] = nil
+    end
+  else
+    if Light.disabled[tostring(light.handle:GetEntityID().hash)] then
+      component:SetIntensity(Light.disabled[tostring(light.handle:GetEntityID().hash)])
+      Light.disabled[tostring(light.handle:GetEntityID().hash)] = nil
+    end
+    component:ToggleLight(light.isOn)
+  end
+
+  light.isOn = not light.isOn
 end
 
 function Light:UpdateColor()

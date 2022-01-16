@@ -832,10 +832,13 @@ function Props:UpdatePropTag(prop, newTag)
 end
 
 function Props:ToggleHideProp(ent)
+  local light = AMM.Light:GetLightData(ent)
   local entID = tostring(ent.handle:GetEntityID().hash)
   local components = Props:CheckForValidComponents(ent.handle)
   if Props.hiddenProps[entID] ~= nil then
-    if components then
+    if light then
+      AMM.Light:ToggleLight(light)
+    elseif components then
       for _, comp in ipairs(components) do
         comp:Toggle(true)
       end
@@ -852,12 +855,13 @@ function Props:ToggleHideProp(ent)
     local pos = ent.handle:GetWorldPosition()
     local angles = GetSingleton('Quaternion'):ToEulerAngles(ent.handle:GetWorldOrientation())
     
-    if components then
+    if light then
+      AMM.Light:ToggleLight(light)
+    elseif components then
       for _, comp in ipairs(components) do
         comp:Toggle(false)
       end
     else
-      
       if pos == nil then
         pos = ent.parameters[1]
         angles = ent.parameters[2]
@@ -953,7 +957,8 @@ function Props:CheckForValidComponents(handle)
 
     for comp in db:urows("SELECT cname FROM components WHERE type = 'Props'") do
       local c = handle:FindComponentByName(CName.new(comp))
-      if c and NameToString(c:GetClassName()) ~= 'entPhysicalSkinnedMeshComponent' then
+      if c and NameToString(c:GetClassName()) ~= 'entPhysicalSkinnedMeshComponent'
+      and NameToString(c:GetClassName()) ~= 'entSkinnedMeshComponent' then
         table.insert(components, c)
       end
     end
@@ -1092,7 +1097,9 @@ end
 
 function Props:DeleteAll()
   db:execute("DELETE FROM saved_props")
+  db:execute("DELETE FROM saved_lights")
   db:execute("UPDATE sqlite_sequence SET seq = 0 WHERE name = 'saved_props'")
+  db:execute("UPDATE sqlite_sequence SET seq = 0 WHERE name = 'saved_lights'")
 end
 
 function Props:ActivatePreset(preset)

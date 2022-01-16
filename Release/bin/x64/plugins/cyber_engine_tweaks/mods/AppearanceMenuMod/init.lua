@@ -41,7 +41,7 @@ function AMM:new()
 	 AMM.TeleportMod = ''
 
 	 -- Main Properties --
-	 AMM.currentVersion = "1.12.3"
+	 AMM.currentVersion = "1.12.3b"
 	 AMM.CETVersion = tonumber(GetVersion():match("1.(%d+)."))
 	 AMM.updateNotes = require('update_notes.lua')
 	 AMM.credits = require("credits.lua")
@@ -362,10 +362,14 @@ function AMM:new()
 			-- Adjust Photomode Defaults
 			TweakDB:SetFlat('photo_mode.attributes.dof_aperture_default', AMM.Tools.defaultAperture)
 			TweakDB:SetFlat('photo_mode.camera.default_fov', AMM.Tools.defaultFOV)
+			TweakDB:SetFlat('photo_mode.camera.min_fov', 1.0)
 			TweakDB:SetFlat('photo_mode.camera.max_roll', 180)
 			TweakDB:SetFlat('photo_mode.camera.min_roll', -180)
+			TweakDB:SetFlat('photo_mode.camera.max_dist', 100)
 			TweakDB:SetFlat('photo_mode.character.collision_radius', 0)
 			TweakDB:SetFlat('photo_mode.character.max_position_adjust', 100)
+			-- TweakDB:SetFlat('photo_mode.general.force_lod0_characters_dist', 0)
+			-- TweakDB:SetFlat('photo_mode.general.force_lod0_vehicles_dist', 0)
 			TweakDB:SetFlat('photo_mode.general.onlyFPPPhotoModeInPlayerStates', {})
 			TweakDB:SetFlat('LookatPreset.PhotoMode_LookAtCamera.followingSpeedFactorOverride', 1200.0)
 

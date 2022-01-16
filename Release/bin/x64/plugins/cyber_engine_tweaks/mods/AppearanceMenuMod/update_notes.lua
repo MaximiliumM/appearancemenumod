@@ -1,5 +1,17 @@
 return {
 	{
+		'1.12.3b',
+		'2022 Jan 16',
+		[[Added two new features to Photo Mode Enhancements:]],
+		[[-- Increased distance you can move from V]],
+		[[-- Changed Field of View minimum value to 1]],
+		[[Added V's Table colors and scalability]],
+		[[Fixed MAJOR issue where Customizable Lights saved in one preset would not be removed properly when changing presets affecting the next preset you loaded]],
+		[[-- If your Decor preset file can't be loaded because of this issue, please contact me.]],
+		[[Fixed issue where Toggle Light would not work while in Photo Mode]],
+		[[Fixed issue where Hide Prop would not work with Customizable Lights]],
+	},
+	{
 		'1.12.3',
 		'2022 Jan 12',
 		[[Added new Experimental feature: Saved Despawns]],
