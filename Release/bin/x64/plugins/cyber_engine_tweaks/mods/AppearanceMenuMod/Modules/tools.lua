@@ -422,11 +422,21 @@ function Tools:ToggleAnimatedHead(animated)
   Tools.animatedHead = animated
   AMM.userSettings.animatedHead = animated
 
-  local mode = "TPP_photomode"
-  if animated then mode = "TPP" end
+  if GetVersion() == "v1.15.0" then
+    local isFemale = Util:GetPlayerGender()
+    if isFemale == "_Female" then gender = 'wa' else gender = 'ma' end
+    if animated then mode = "tpp" else mode = "photomode" end
 
-  TweakDB:SetFlat("Items.PlayerMaPhotomodeHead.appearanceName", mode)
-  TweakDB:SetFlat("Items.PlayerWaPhotomodeHead.appearanceName", mode)
+    local headItem = f("player_%s_%s_head", gender, mode)
+
+    TweakDB:SetFlat(f("Items.Player%sPhotomodeHead.entityName", gender:gsub("^%l", string.upper)), headItem)
+  else
+    local mode = "TPP_photomode"
+    if animated then mode = "TPP" end
+  
+    TweakDB:SetFlat("Items.PlayerMaPhotomodeHead.appearanceName", mode)
+    TweakDB:SetFlat("Items.PlayerWaPhotomodeHead.appearanceName", mode)
+  end
 end
 
 function Tools:ToggleTPPCamera()
@@ -1436,6 +1446,32 @@ function Tools:DrawMovementWindow()
 
           AMM.UI:Spacing(3)
 
+          local availableTargets = {}
+
+          table.insert(availableTargets, {name = "V", handle = Game.GetPlayer()})
+
+          for _, spawned in pairs(AMM.Spawn.spawnedNPCs) do
+            if Tools.currentNPC.hash ~= spawned.hash then
+              table.insert(availableTargets, spawned)
+            elseif Tools.currentNPC.hash == spawned.hash then
+              Tools.currentNPC = spawned
+            end
+          end
+
+          if Tools.currentNPC ~= '' then
+            table.insert(availableTargets, Tools.currentNPC)
+          end
+
+          if ImGui.BeginCombo("Look At Target", lookAtTargetName) then
+            for i, t in ipairs(availableTargets) do
+              if ImGui.Selectable(t.name.."##"..i, (t.name == lookAtTargetName)) then
+                lookAtTargetName = t.name
+                Tools.lookAtTarget = t
+              end
+            end
+            ImGui.EndCombo()
+          end
+
           local buttonLabel = "Activate Look At"
           if Tools.lookAtActiveNPCs[npcHash] then
             buttonLabel = "Deactivate Look At"
@@ -1449,12 +1485,6 @@ function Tools:DrawMovementWindow()
               Tools.lookAtActiveNPCs[npcHash] = nil
               local stimComp = Tools.currentNPC.handle:GetStimReactionComponent()
               stimComp:DeactiveLookAt()
-            end
-          end
-
-          if ImGui.Button("Change Target", Tools.style.buttonWidth, Tools.style.buttonHeight) then
-            if Tools.currentNPC ~= '' then
-              Tools.lookAtTarget = Tools.currentNPC
             end
           end
 

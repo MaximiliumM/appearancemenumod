@@ -364,6 +364,11 @@ end
 
 function Swap:GetEntityPathFromID(id)
   local entityPath = nil
+
+  if Util:CheckVByID(id) then
+    return "Character.TPP_Player_Cutscene"..Util:GetPlayerGender()
+  end
+
   for path in db:urows(f("SELECT entity_path FROM entities WHERE entity_id = '%s'", id)) do
     entityPath = path
   end

@@ -24,6 +24,11 @@ function Spawn:NewSpawn(name, id, parameters, companion, path, template)
 		obj.path = path..Util:GetPlayerGender()
 		obj.parameters = nil
 	end
+
+	function obj:Despawn()
+		AMM.Spawn:DespawnNPC(obj)
+	end
+
 	return obj
 end
 
@@ -565,15 +570,15 @@ end
 function Spawn:DespawnNPC(ent)
 	Spawn.spawnedNPCs[ent.uniqueName()] = nil
 
-	local spawnID = ent.entityID
-	local handle = Game.FindEntityByID(spawnID)
+	local handle = Game.FindEntityByID(ent.entityID)
 	if handle then
 		if handle:IsNPC() then
 			Util:TeleportNPCTo(handle, Util:GetBehindPlayerPosition(2))
 		end
 	end
 
-	Game.GetPreventionSpawnSystem():RequestDespawn(spawnID)
+	Game.GetPreventionSpawnSystem():RequestDespawn(ent.entityID)
+	ent.handle:Dispose()
 	AMM:UpdateSettings()
 end
 

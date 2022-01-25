@@ -6,6 +6,8 @@ function Props:NewProp(uid, id, name, template, posString, scale, app, tag)
   obj.uid = uid
 	obj.id = id
 	obj.name = name
+  obj.parameters = Props:GetParameters(template)
+  obj.path = Props:GetEntityPath(template)
 	obj.template = template
   obj.appearance = app
   obj.tag = tag
@@ -82,13 +84,14 @@ function Props:new()
 end
 
 function Props:Initialize()
-  Props.savedProps = Props:GetProps()
-  Props.triggers = Props:GetTriggers()
-  Props.tags = Props:GetTags()
 
   if Props.activePreset ~= '' then
     Props:LoadPreset(Props.activePreset)
   end
+
+  Props.savedProps = Props:GetProps()
+  Props.triggers = Props:GetTriggers()
+  Props.tags = Props:GetTags()
 
   if Props.homeTags then
     Props:LoadHomes(Props.homeTags)
@@ -97,13 +100,15 @@ end
 
 function Props:Update()
   if Props.activePreset ~= '' then
+    Props.presets = Props:LoadPresets()
     Props.moddersList = {}
     Props.activePreset.customIncluded = false
-    Props.activePreset.props = Props:GetPropsForPreset()
+    Props.activePreset.props, Props.activePreset.lights = Props:GetPropsForPreset()
     Props.savedProps = Props:GetProps()
     Props.triggers = Props:GetTriggers()
     Props.tags = Props:GetTags()
     Props.playerLastPos = ''
+    spdlog.info('during update')
     Props:SavePreset(Props.activePreset)
   else
     Props.savedProps = {}
@@ -651,6 +656,10 @@ function Props:DrawTagActions(props, tag)
 
   AMM.UI:Spacing(8)
 
+  if ImGui.Button("Teleport To Location", -1, 40) then
+    Props:TeleportToTag(tag)
+  end
+
   if Props.savingPreset == '' then
     if ImGui.Button("Share Preset With This Tag Only", -1, 40) then
       Props:SharePresetWithTag(tag)
@@ -719,7 +728,17 @@ function Props:SpawnPropInPosition(ent, pos, angles)
   spawnTransform:SetPosition(pos)
   spawnTransform:SetOrientationEuler(angles)
 
-  ent.entityID = exEntitySpawner.Spawn(ent.template, spawnTransform, '')
+  local record = ''
+  if ent.parameters and type(ent.parameters) == 'string' and string.find(ent.parameters, '{') then
+    ent.parameters = loadstring('return '..ent.parameters, '')()
+
+    if ent.parameters.veh then
+      local entName = ent.path:match("Props.(.*)")
+      record = 'Vehicle.'..entName
+    end
+  end
+
+  ent.entityID = exEntitySpawner.Spawn(ent.template, spawnTransform, ent.appearance, record)
 
   Cron.Every(0.1, {tick = 1}, function(timer)
     local entity = Game.FindEntityByID(ent.entityID)
@@ -729,16 +748,6 @@ function Props:SpawnPropInPosition(ent, pos, angles)
 
       if AMM:GetScanClass(ent.handle) == 'entEntity' then
 				ent.type = 'entEntity'
-      end
-
-      local currentApp = AMM:GetAppearance(ent)
-      if currentApp ~= ent.appearance and ent.appearance ~= "nil" then
-        entity:PrefetchAppearanceChange(ent.appearance)
-		    entity:ScheduleAppearanceChange(ent.appearance)
-
-        local shiftPos = Vector4.new(pos.x + 0.01, pos.y, pos.z, pos.w)
-        Game.GetTeleportationFacility():Teleport(entity, shiftPos, angles)
-        Game.GetTeleportationFacility():Teleport(entity, pos, angles)
       end
 
       for light in db:nrows(f('SELECT * FROM saved_lights WHERE uid = %i', ent.uid)) do
@@ -795,6 +804,17 @@ function Props:LoadHomes(userHomes)
   end
 end
 
+function Props:TeleportToTag(tag)
+  local loc = nil
+
+  for trigger in db:urows(f('SELECT DISTINCT trigger FROM saved_props WHERE tag = "%s"', tag)) do
+    local newTrigger = Props:NewTrigger(trigger)
+    loc = AMM.Tools:NewLocationData(tag, {pos = newTrigger.pos, yaw = Game.GetPlayer():GetWorldYaw()})
+  end
+
+  AMM.Tools:TeleportToLocation(loc)
+end
+
 function Props:AddHomeMarker(tag)
   local pos = nil
 
@@ -829,6 +849,16 @@ end
 
 function Props:UpdatePropTag(prop, newTag)
   db:execute(f('UPDATE saved_props SET tag = "%s" WHERE uid = %i', newTag, prop.uid))
+end
+
+function Props:ToggleAllActiveLights()
+  local lights = Props:GetAllActiveLights()
+
+  if lights then
+    for _, light in ipairs(lights) do
+      AMM.Light:ToggleLight(light)
+    end
+  end
 end
 
 function Props:ToggleHideProp(ent)
@@ -976,6 +1006,33 @@ function Props:RemoveProp(ent)
   Props:Update()
 end
 
+function Props:ChangePropAppearance(ent, app)
+  Game.FindEntityByID(ent.entityID):GetEntity():Destroy()
+
+  local transform = Game.GetPlayer():GetWorldTransform()
+  local pos = ent.handle:GetWorldPosition()
+  local angles = GetSingleton('Quaternion'):ToEulerAngles(ent.handle:GetWorldOrientation())
+  transform:SetPosition(pos)
+  transform:SetOrientationEuler(angles)
+
+  ent.entityID = exEntitySpawner.Spawn(ent.template, transform, app)
+
+  Cron.Every(0.1, {tick = 1}, function(timer)
+    local entity = Game.FindEntityByID(ent.entityID)
+
+    if entity then
+      ent.handle = entity
+      ent.appearance = app
+      Props.spawnedProps[ent.uniqueName()] = ent
+      AMM.Tools:SetCurrentTarget(ent)
+      Tools.lockTarget = true
+
+      Cron.Halt(timer)
+    end
+  end)
+
+end
+
 function Props:SpawnProp(spawn, pos, angles)
   local record = ''
 	local offSetSpawn = 0
@@ -1107,22 +1164,24 @@ function Props:ActivatePreset(preset)
     Props.activePreset = preset
   end
 
+  spdlog.info('Before saving '..Props.activePreset.file_name)
+
   Props:SavePreset(Props.activePreset)
   Props:DespawnAllSavedProps()
   Props:DeleteAll()
 
   local values = {}
+  local lights = {}
   for i, prop in ipairs(preset.props) do
     local scale = prop.scale
     if scale == -1 then scale = nil end
     if type(scale) == "table" then scale = Props:GetScaleString(scale) end
     prop.uid = prop.uid or i
     table.insert(values, f('(%i, "%s", "%s", "%s", "%s", "%s", "%s", "%s", "%s")', prop.uid, prop.entity_id, prop.name, prop.template_path, prop.pos, prop.trigger, scale, prop.app, prop.tag))
-  end
 
-  local lights = {}
-  for i, light in ipairs(preset.lights) do
-    table.insert(lights, f('(%i, "%s", "%s", %f, %f, "%s")', prop.uid, light.entity_id, light.color, light.intensity, light.radius, light.angles))
+    for _, light in ipairs(preset.lights) do
+      table.insert(lights, f('(%i, "%s", "%s", %f, %f, "%s")', prop.uid, light.entity_id, light.color, light.intensity, light.radius, light.angles))
+    end
   end
 
   db:execute(f('INSERT INTO saved_props (uid, entity_id, name, template_path, pos, trigger, scale, app, tag) VALUES %s', table.concat(values, ", ")))
@@ -1130,8 +1189,12 @@ function Props:ActivatePreset(preset)
 
   Props.activePreset = preset
 
+  spdlog.info('After setting variable '..Props.activePreset.file_name)
+
   Props:Update()
   Props:SensePropsTriggers()
+
+  spdlog.info('After update '..Props.activePreset.file_name)
 end
 
 function Props:BackupPreset(preset)
@@ -1236,6 +1299,7 @@ function Props:DeletePreset(preset)
 end
 
 function Props:SavePreset(preset, path)
+  spdlog.info('saving...')
   local file = io.open(f(path or "User/Decor/%s", preset.file_name or preset.name..".json"), "w")
   if file then
     local contents = json.encode(preset)
@@ -1249,11 +1313,16 @@ function Props:GetPropsForPreset()
   local dbQuery = 'SELECT * FROM saved_props ORDER BY name ASC'
   if query then dbQuery = 'SELECT * FROM saved_props WHERE name LIKE "%'..query..'%" OR tag LIKE "%'..query..'%" ORDER BY name ASC' end
   local props = {}
+  local lights = {}
   for prop in db:nrows(dbQuery) do
     table.insert(props, prop)
+
+    for light in db:nrows(f('SELECT * FROM saved_lights WHERE uid = %i', prop.uid)) do
+      table.insert(lights, light)
+    end
   end
 
-  return props
+  return props, lights
 end
 
 function Props:GetProps(query, tag)
@@ -1310,6 +1379,39 @@ function Props:GetCategories()
   end
 
   return categories
+end
+
+function Props:GetAllActiveLights()
+  local lights = {}
+  for _, prop in pairs(Props.activeProps) do
+    local light = AMM.Light:GetLightData(prop)
+
+    if light then
+      table.insert(lights, prop)
+    end
+  end
+
+  if #lights > 0 then return lights else return nil end
+end
+
+function Props:GetParameters(templatePath)
+  local parameters = nil
+
+  for r in db:urows(f("SELECT parameters FROM entities WHERE template_path = '%s'", templatePath)) do
+    parameters = r
+  end
+
+  return parameters
+end
+
+function Props:GetEntityPath(templatePath)
+  local entityPath = nil
+
+  for path in db:urows(f("SELECT entity_path FROM entities WHERE template_path = '%s'", templatePath)) do
+    entityPath = path
+  end
+
+  return entityPath
 end
 
 function Props:GetScaleString(scale)

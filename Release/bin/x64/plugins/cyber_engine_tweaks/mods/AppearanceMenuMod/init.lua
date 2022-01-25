@@ -41,7 +41,7 @@ function AMM:new()
 	 AMM.TeleportMod = ''
 
 	 -- Main Properties --
-	 AMM.currentVersion = "1.12.3b"
+	 AMM.currentVersion = "1.12.4"
 	 AMM.CETVersion = tonumber(GetVersion():match("1.(%d+)."))
 	 AMM.updateNotes = require('update_notes.lua')
 	 AMM.credits = require("credits.lua")
@@ -53,6 +53,7 @@ function AMM:new()
 	 AMM.allowedNPCs = AMM:GetSaveables()
 	 AMM.equipmentOptions = AMM:GetEquipmentOptions()
 	 AMM.followDistanceOptions = AMM:GetFollowDistanceOptions()
+	 AMM.companionAttackMultiplier = 0
 	 AMM.originalVehicles = ''
 	 AMM.displayInteractionPrompt = false
 	 AMM.archives = nil
@@ -182,6 +183,23 @@ function AMM:new()
 		 end)
 
 		 -- Setup Observers and Overrides --
+		 Observe('DamageSystem', 'ProcessRagdollHit', function(self, hitEvent)
+			if AMM.companionAttackMultiplier ~= 0 then
+				AMM:ProcessCompanionAttack(hitEvent)
+			end
+		 end)
+
+
+		 Observe('SimpleSwitchControllerPS', 'OnToggleON', function(self)
+			-- if self.switchAction == ESwitchAction.ToggleOn then
+			-- 	self.switchAction = ESwitchAction.ToggleActivate
+			-- else
+			-- 	self.switchAction = ESwitchAction.ToggleOn
+			-- end
+
+			AMM.Props:ToggleAllActiveLights()
+		 end)
+
 		 Observe('FastTravelSystem', 'OnLoadingScreenFinished', function(self)
 			if next(AMM.Spawn.spawnedNPCs) ~= nil then
 				AMM:TeleportAll()
@@ -349,7 +367,7 @@ function AMM:new()
 
 	 registerForEvent("onShutdown", function()
 		 AMM:ExportUserData()
-		 -- AMM:RevertTweakDBChanges(false)
+		 AMM:RevertTweakDBChanges(false)
 	 end)
 
 	 -- TweakDB Changes
@@ -976,6 +994,14 @@ function AMM:Begin()
 
 						AMM.UI:Spacing(3)
 
+						AMM.UI:TextColored("Companion Damage:")
+
+						ImGui.PushItemWidth(200)
+						AMM.companionAttackMultiplier = ImGui.InputFloat("x Damage", AMM.companionAttackMultiplier, 0.5, 50, "%.1f")
+						ImGui.PopItemWidth()
+
+						AMM.UI:Spacing(3)
+
 						AMM.UI:TextColored("Custom Appearances:")
 
 						for _, option in ipairs(AMM.customAppOptions) do
@@ -1127,6 +1153,8 @@ function AMM:NewTarget(handle, targetType, id, name, app, options)
 	obj.id = id
 	obj.hash = tostring(handle:GetEntityID().hash)
 	obj.name = name
+	obj.uniqueName = function() return obj.name.."##"..obj.id end
+	obj.entityID = handle:GetEntityID()
 	obj.appearance = app
 	obj.type = targetType
 	obj.options = options or nil
@@ -1164,6 +1192,26 @@ function AMM:NewTarget(handle, targetType, id, name, app, options)
 	-- Check if custom appearance is active
 	if self.activeCustomApps[obj.hash] ~= nil then
 		obj.appearance = self.activeCustomApps[obj.hash]
+	end
+
+	-- Check if object is spawnedProp
+	if next(AMM.Props.spawnedProps) ~= nil then
+		for _, prop in pairs(AMM.Props.spawnedProps) do
+			if tostring(prop.entityID.hash) == tostring(obj.entityID.hash) then
+				obj = prop
+				break
+			end
+		end
+	end
+
+	function obj:Despawn()
+		if obj.type == "NPCPuppet" then
+			AMM.Spawn:DespawnNPC(obj)
+		elseif obj.type == "Prop" then
+			AMM.Props:DespawnProp(obj)
+		else
+			Util:Despawn(obj.handle)
+		end
 	end
 
 	return obj
@@ -1293,6 +1341,7 @@ function AMM:ImportUserData()
 				end
 				if userData['activePreset'] ~= nil then
 					self.Props.activePreset = userData['activePreset']
+					spdlog.info('During import '..tostring(self.Props.activePreset))
 				end
 				if userData['homeTags'] ~= nil then
 					self.Props.homeTags = userData['homeTags']
@@ -1304,6 +1353,7 @@ function AMM:ImportUserData()
 				self.Tools.selectedTPPCamera = userData['selectedTPPCamera'] or 1
 				self.Tools.defaultFOV = userData['defaultFOV'] or 60
 				self.Tools.defaultAperture = userData['defaultAperture'] or 4
+				self.companionAttackMultiplier = userData['companionAttackMultiplier'] or 0
 
 				if userData['settings'] ~= nil then
 					for _, obj in ipairs(userData['settings']) do
@@ -1421,6 +1471,7 @@ function AMM:ExportUserData()
 		userData['selectedTPPCamera'] = self.Tools.selectedTPPCamera
 		userData['defaultFOV'] = self.Tools.defaultFOV
 		userData['defaultAperture'] = self.Tools.defaultAperture
+		userData['companionDamageMultiplier'] = self.companionAttackMultiplier
 
 		local validJson, contents = pcall(function() return json.encode(userData) end)
 		if validJson and contents ~= nil then
@@ -1628,7 +1679,7 @@ function AMM:ResetAllPropsScale()
 end
 
 function AMM:UpdateOldFavorites()
-	db:execute("UPDATE favorites SET parameters = NULL WHERE parameters = 'None' OR parameters = 'TPP_Body';")
+	db:execute("UPDATE favorites SET parameters = NULL WHERE parameters = 'None' OR parameters = 'TPP_Body' OR parameters = 'nil';")
 	db:execute("UPDATE favorites SET entity_id = '0xCD70BCE4, 20' WHERE entity_id = '0xC111FBAC, 16';")
 	db:execute("UPDATE favorites_swap SET entity_id = '0xCD70BCE4, 20' WHERE entity_id = '0xC111FBAC, 16';")
 	db:execute("UPDATE favorites SET entity_id = '0x5E611B16, 24' WHERE entity_id = '0x903E76AF, 43';")
@@ -2396,20 +2447,12 @@ end
 
 function AMM:ChangeScanAppearanceTo(t, newAppearance)
 	if not(string.find(t.name, 'Mech')) then
+		
 		t.handle:PrefetchAppearanceChange(newAppearance)
 		t.handle:ScheduleAppearanceChange(newAppearance)
 
 		if self.activeCustomApps[t.hash] ~= nil and self.activeCustomApps[t.hash] ~= 'reverse' then
 			self.activeCustomApps[t.hash] = nil
-		end
-
-		if t.type == "Prop" then
-			pos = t.handle:GetWorldPosition()
-    		angles = GetSingleton('Quaternion'):ToEulerAngles(t.handle:GetWorldOrientation())
-
-			local shiftPos = Vector4.new(pos.x + 0.01, pos.y, pos.z, pos.w)
-			Game.GetTeleportationFacility():Teleport(t.handle, shiftPos, angles)
-			Game.GetTeleportationFacility():Teleport(t.handle, pos, angles)
 		end
 	end
 end
@@ -2430,31 +2473,34 @@ end
 
 function AMM:ChangeAppearanceTo(entity, appearance)
 	-- local appearance, reverse = AMM:CheckForReverseCustomAppearance(appearance, entity)
+	if entity.type == "Prop" then
+		AMM.Props:ChangePropAppearance(entity, appearance)
+	else
+		-- Check if custom app is active
+		local activeApp = nil
 
-	-- Check if custom app is active
-	local activeApp = nil
-
-	if next(self.activeCustomApps) ~= nil and self.activeCustomApps[entity.hash] ~= nil then
-		activeApp = self.activeCustomApps[entity.hash]
-	end
-
-	local custom = AMM:GetCustomAppearanceParams(entity, appearance)
-
-	if (activeApp and #custom == 0) or (#custom > 0 and AMM:ShouldCycleAppearance(appearance)) then
-		AMM:ChangeScanAppearanceTo(entity, "Cycle")
-	end
-
-	Cron.After(0.15, function()
-		if #custom > 0 then
-			AMM:ChangeScanCustomAppearanceTo(entity, custom)
-		else
-			AMM:ChangeScanAppearanceTo(entity, appearance)
+		if next(self.activeCustomApps) ~= nil and self.activeCustomApps[entity.hash] ~= nil then
+			activeApp = self.activeCustomApps[entity.hash]
 		end
 
-		Cron.After(0.2, function()
-			entity.appearance = AMM:GetAppearance(entity)
+		local custom = AMM:GetCustomAppearanceParams(entity, appearance)
+
+		if (activeApp and #custom == 0) or (#custom > 0 and AMM:ShouldCycleAppearance(appearance)) then
+			AMM:ChangeScanAppearanceTo(entity, "Cycle")
+		end
+
+		Cron.After(0.15, function()
+			if #custom > 0 then
+				AMM:ChangeScanCustomAppearanceTo(entity, custom)
+			else
+				AMM:ChangeScanAppearanceTo(entity, appearance)
+			end
+
+			Cron.After(0.2, function()
+				entity.appearance = AMM:GetAppearance(entity)
+			end)
 		end)
-	end)
+	end
 end
 
 function AMM:GetTarget()
@@ -2521,6 +2567,15 @@ end
 
 function AMM:ChangeNPCEquipment(npcPath, equipmentPath)
 	TweakDB:SetFlat(TweakDBID.new(npcPath..".primaryEquipment"), TweakDBID.new(equipmentPath))
+end
+
+function AMM:ProcessCompanionAttack(hitEvent)
+	local instigatorNPC = hitEvent.attackData:GetInstigator()
+	local dmgType = hitEvent.attackComputed:GetDominatingDamageType()
+
+	if instigatorNPC and instigatorNPC:IsPlayerCompanion() then
+		hitEvent.attackComputed:MultAttackValue(AMM.companionAttackMultiplier, dmgType)
+	end
 end
 
 -- Helper methods

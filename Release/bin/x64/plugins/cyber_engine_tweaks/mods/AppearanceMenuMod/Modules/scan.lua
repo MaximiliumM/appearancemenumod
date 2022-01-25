@@ -267,16 +267,7 @@ function Scan:Draw(AMM, target, style)
         if shouldAllowSaveDespawn then buttonWidth = style.halfButtonWidth end
 
         if ImGui.Button("  Despawn  ", buttonWidth, style.buttonHeight - 5) then
-          local spawnedNPC = nil
-    			for _, spawn in pairs(AMM.Spawn.spawnedNPCs) do
-    				if target.id == spawn.id then spawnedNPC = spawn break end
-    			end
-
-    			if spawnedNPC then
-    				AMM.Spawn:DespawnNPC(spawnedNPC)
-    			else
-    				Util:Despawn(target.handle)
-    			end
+          target:Despawn()
         end
 
         if shouldAllowSaveDespawn then
