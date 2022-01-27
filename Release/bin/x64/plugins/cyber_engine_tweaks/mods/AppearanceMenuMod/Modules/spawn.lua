@@ -305,7 +305,6 @@ function Spawn:DrawFavoritesButton(buttonLabels, entity, fullButton)
 	local favoriteType = "favorites"
 	if entity.type == "Prop" or entity.type == "entEntity" then
 		favoriteType = "favorites_props"
-		entity['parameters'] = "Prop"
 	end
 
 	if entity.parameters == nil and not Util:CheckVByID(entity.id) then
@@ -651,7 +650,9 @@ end
 
 function Spawn:ToggleFavorite(favoriteType, isFavorite, entity)
 	if isFavorite == 0 then
-		local command = f('INSERT INTO %s (entity_id, entity_name, parameters) VALUES ("%s", "%s", "%s")', favoriteType, entity.id, entity.name, entity.parameters)
+		local parameters = entity.parameters
+		if favoriteType == "favorites_props" then parameters = "Prop" end
+		local command = f('INSERT INTO %s (entity_id, entity_name, parameters) VALUES ("%s", "%s", "%s")', favoriteType, entity.id, entity.name, parameters)
 		command = command:gsub('"nil"', "NULL")
 		db:execute(command)
 	else

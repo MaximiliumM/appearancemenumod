@@ -666,7 +666,7 @@ function Scan:SaveDespawn(target)
   local hash = tostring(target.handle:GetEntityID().hash)
   local playerPos = Util:GetPosString(Game.GetPlayer():GetWorldPosition())
 
-  Scan.savedDespawns[hash] = playerPos
+  Scan.savedDespawns[hash] = {pos = playerPos, removed = false}
   db:execute(f('INSERT INTO saved_despawns (entity_hash, position) VALUES ("%s", "%s")', hash, playerPos))
 end
 
@@ -681,7 +681,7 @@ function Scan:SenseSavedDespawns()
 
     if next(Scan.savedDespawns) ~= nil then
       local playerPos = Game.GetPlayer():GetWorldPosition()
-      for hash, ent in pairs(Scan.savedDespawns) do
+      for hash, ent in pairs(Scan.savedDespawns) do        
         if ent.removed == false then
           local dist = Util:VectorDistance(playerPos, Util:GetPosFromString(ent.pos))
 

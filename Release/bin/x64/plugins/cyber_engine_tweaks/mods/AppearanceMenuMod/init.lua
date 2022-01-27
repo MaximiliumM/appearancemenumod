@@ -41,7 +41,7 @@ function AMM:new()
 	 AMM.TeleportMod = ''
 
 	 -- Main Properties --
-	 AMM.currentVersion = "1.12.4"
+	 AMM.currentVersion = "1.12.4b"
 	 AMM.CETVersion = tonumber(GetVersion():match("1.(%d+)."))
 	 AMM.updateNotes = require('update_notes.lua')
 	 AMM.credits = require("credits.lua")
@@ -367,7 +367,6 @@ function AMM:new()
 
 	 registerForEvent("onShutdown", function()
 		 AMM:ExportUserData()
-		 AMM:RevertTweakDBChanges(false)
 	 end)
 
 	 -- TweakDB Changes
@@ -696,8 +695,8 @@ function AMM:new()
 					-- Check if Locked Target is gone --
 					if Tools.lockTarget then
 						if Tools.currentNPC.handle and Tools.currentNPC.handle ~= '' then
-							local ent = Game.FindEntityByID(Tools.currentNPC.handle:GetEntityID())
-							if not ent then Tools:ClearTarget() end
+							local ent = Game.FindEntityByID(Tools.currentNPC.handle:GetEntityID())							
+							if not ent or not Tools.currentNPC.spawned then Tools:ClearTarget() end
 						else
 							Tools:ClearTarget()
 						end
@@ -1309,6 +1308,10 @@ function AMM:FinishUpdate()
 		end
 	end
 
+	if AMM.playerAttached then
+		AMM.Props:SensePropsTriggers()
+	end
+
 	db:execute(f("UPDATE metadata SET current_version = '%s'", self.currentVersion))
 end
 
@@ -1341,7 +1344,7 @@ function AMM:ImportUserData()
 				end
 				if userData['activePreset'] ~= nil then
 					self.Props.activePreset = userData['activePreset']
-					spdlog.info('During import '..tostring(self.Props.activePreset))
+					pcall(function() spdlog.info('During import '..tostring(self.Props.activePreset)) end)
 				end
 				if userData['homeTags'] ~= nil then
 					self.Props.homeTags = userData['homeTags']
@@ -1353,7 +1356,7 @@ function AMM:ImportUserData()
 				self.Tools.selectedTPPCamera = userData['selectedTPPCamera'] or 1
 				self.Tools.defaultFOV = userData['defaultFOV'] or 60
 				self.Tools.defaultAperture = userData['defaultAperture'] or 4
-				self.companionAttackMultiplier = userData['companionAttackMultiplier'] or 0
+				self.companionAttackMultiplier = userData['companionDamageMultiplier'] or 0
 
 				if userData['settings'] ~= nil then
 					for _, obj in ipairs(userData['settings']) do

@@ -1,5 +1,19 @@
 return {
 	{
+		'1.12.4b',
+		'2022 Jan 27',
+		[[Added new Marker above locked Targets]],
+		[[-- Some Props won't get the Marker due to game engine limitation]],
+		[[Fixed issue where the game would flatline when quitting]],
+		[[Fixed issue where the Companion Damage setting would not get saved]],
+		[[Fixed issue where Unhide Prop would fail with certain Props]],
+		[[Fixed issue where targeting some specific Props would break the Movement Tools window]],
+		[[Fixed issue where certain Props would be stuck as locked target even after despawn]],
+		[[Fixed issue where changing Decor presets would not work in certain conditions]],
+		[[Fixed issue where Saved Despawns would not despawn certain objects]],
+		[[-- Now AMM will also include what's under the crosshair in its scanning]],
+	},
+	{
 		'1.12.4',
 		'2022 Jan 25',
 		[[Introducing Light Switches:]],

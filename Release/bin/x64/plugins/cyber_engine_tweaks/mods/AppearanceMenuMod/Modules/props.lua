@@ -13,6 +13,7 @@ function Props:NewProp(uid, id, name, template, posString, scale, app, tag)
   obj.tag = tag
   obj.entityID = ''
   obj.mappinData = nil
+  obj.spawned = false
 
   local pos = loadstring("return "..posString, '')()
   obj.pos = Vector4.new(pos.x, pos.y, pos.z, pos.w)
@@ -875,7 +876,7 @@ function Props:ToggleHideProp(ent)
     else
       local prop = Props.hiddenProps[entID]
       local spawn = Props:SpawnPropInPosition(prop.ent, prop.pos, prop.angles)
-      if ent.type ~= "Prop" then
+      if ent.type ~= "Prop" or ent.type ~= "entEntity" then
         Props.spawnedProps[spawn.uniqueName()] = spawn
       end
     end
@@ -1079,6 +1080,7 @@ function Props:SpawnProp(spawn, pos, angles)
 		if entity then
 			spawn.handle = entity
       spawn.appearance = AMM:GetAppearance(spawn)
+      spawn.spawned = true
 
       if AMM.playerInPhoto then
         local light = AMM.Light:NewLight(entity)
@@ -1133,6 +1135,8 @@ function Props:DespawnProp(ent)
     exEntitySpawner.Despawn(Props.activeProps[ent.uid].handle)
     Props.activeProps[ent.uid] = nil
   else
+    ent.spawned = false
+    Game.FindEntityByID(ent.handle:GetEntityID()):GetEntity():Destroy()
     exEntitySpawner.Despawn(ent.handle)
     Props.spawnedProps[ent.uniqueName()] = nil
 
@@ -1146,7 +1150,9 @@ end
 
 function Props:DespawnAllSavedProps()
   for _, ent in pairs(Props.activeProps) do
-    exEntitySpawner.Despawn(ent.handle)
+    if ent.handle then
+      exEntitySpawner.Despawn(ent.handle)
+    end
   end
 
   Props.activeProps = {}
@@ -1164,7 +1170,7 @@ function Props:ActivatePreset(preset)
     Props.activePreset = preset
   end
 
-  spdlog.info('Before saving '..Props.activePreset.file_name)
+  pcall(function() spdlog.info('Before saving '..Props.activePreset.file_name) end)
 
   Props:SavePreset(Props.activePreset)
   Props:DespawnAllSavedProps()
@@ -1189,12 +1195,12 @@ function Props:ActivatePreset(preset)
 
   Props.activePreset = preset
 
-  spdlog.info('After setting variable '..Props.activePreset.file_name)
+  pcall(function() spdlog.info('After setting variable '..Props.activePreset.file_name) end)
 
   Props:Update()
   Props:SensePropsTriggers()
 
-  spdlog.info('After update '..Props.activePreset.file_name)
+  pcall(function() spdlog.info('After update '..Props.activePreset.file_name) end)
 end
 
 function Props:BackupPreset(preset)

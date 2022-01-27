@@ -55,6 +55,7 @@ function Tools:new()
   Tools.forceWeapon = false
   Tools.currentNPC = ''
   Tools.lockTarget = false
+  Tools.lockTargetPinID = nil
   Tools.precisonMode = false
   Tools.relativeMode = false
   Tools.proportionalMode = true
@@ -858,9 +859,21 @@ function Tools:ClearTarget()
   Tools.currentNPC = ''
 end
 
-function Tools:SetCurrentTarget(target)
+function Tools:SetCurrentTarget(target, systemActivated)
   local pos, angles
   Tools.currentNPC = target
+
+  if not systemActivated then
+    local light = AMM.Light:GetLightData(target)
+
+    if Tools.lockTargetPinID ~= nil then
+      Game.GetMappinSystem():UnregisterMappin(Tools.lockTargetPinID)
+    end
+      
+    if not light and Tools.lockTarget and target.type ~= 'entEntity' then
+      Tools.lockTargetPinID = Util:SetMarkerOverObject(target.handle, gamedataMappinVariant.FastTravelVariant)
+    end
+  end
 
   local npcHash = tostring(Tools.currentNPC.handle:GetEntityID().hash)
 
@@ -977,15 +990,7 @@ end
 
 
 function Tools:ProtectTarget(t)
-  local mappinData = NewObject('gamemappinsMappinData')
-  mappinData.mappinType = TweakDBID.new('Mappins.DefaultStaticMappin')
-  mappinData.variant = Enum.new('gamedataMappinVariant', 'QuestGiverVariant')
-  mappinData.visibleThroughWalls = true
-
-  local slot = CName.new('poi_mappin')
-  local offset = ToVector3{ x = 0, y = 0, z = 2 } -- Move the pin a bit up relative to the target
-
-  local newMappinID = Game.GetMappinSystem():RegisterMappinWithObject(mappinData, t.handle, slot, offset)
+  local newMappinID = Util:SetMarkerOverObject(t.handle, gamemappinVariant.QuestGiverVariant)
   Tools.protectedNPCs[target.handle:GetEntityID().hash] = newMappinID
 end
 
@@ -1046,7 +1051,7 @@ function Tools:DrawMovementWindow()
       if target == nil and Tools.currentNPC ~= '' and Tools.currentNPC.type ~= "Player" then
         Tools.currentNPC = ''
       elseif Tools.currentNPC == '' or (not(Tools.holdingNPC) and (target ~= nil and Tools.currentNPC.handle:GetEntityID().hash ~= target.handle:GetEntityID().hash)) then
-        Tools:SetCurrentTarget(target)
+        Tools:SetCurrentTarget(target, true)
       end
 
       Tools.currentTargetComponents = nil
@@ -1064,6 +1069,7 @@ function Tools:DrawMovementWindow()
     ImGui.SameLine()
     if ImGui.SmallButton(buttonLabel) then
       Tools.lockTarget = not Tools.lockTarget
+      Tools:SetCurrentTarget(Tools.currentNPC)
     end
 
     ImGui.SameLine(500)
@@ -1551,7 +1557,7 @@ function Tools:DrawMovementWindow()
           end
         end
       end
-    elseif Tools.currentNPC ~= '' then
+    elseif Tools.currentNPC and Tools.currentNPC ~= '' then
 
       if Tools.currentTargetComponents == nil then
         Tools.currentTargetComponents = AMM.Props:CheckForValidComponents(Tools.currentNPC.handle)

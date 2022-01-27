@@ -250,6 +250,21 @@ function Util:GetNPCsInRange(maxDistance)
 	end
 end
 
+function Util:SetMarkerOverObject(handle, variant)
+  local mappinData = NewObject('gamemappinsMappinData')
+  mappinData.mappinType = TweakDBID.new('Mappins.DefaultStaticMappin')
+  mappinData.variant = variant
+  mappinData.visibleThroughWalls = true
+
+  local zOffset = 1
+  local _, isNPC = pcall(function() return handle:IsNPC() end)
+  if isNPC then zOffset = 2 end
+  local offset = ToVector3{ x = 0, y = 0, z = zOffset } -- Move the pin a bit up relative to the target
+  local slot = CName.new('poi_mappin')
+
+  return Game.GetMappinSystem():RegisterMappinWithObject(mappinData, handle, slot, offset)
+end
+
 function Util:SetGodMode(entity, immortal)
   local entityID = entity:GetEntityID()
 	local gs = Game.GetGodModeSystem()
@@ -437,8 +452,11 @@ function Util:GetAllInRange(maxDistance, includeSecondaryTargets, ignoreInstigat
 		for i, v in ipairs(parts) do
 			local entity = v:GetComponent(v):GetEntity()
       action(entity)
-		end
-	end
+    end
+
+    local target = Game.GetTargetingSystem():GetLookAtObject(AMM.player, true, false) or Game.GetTargetingSystem():GetLookAtObject(AMM.player, false, false)
+    if target then action(target) end    
+  end
 end
 
 return Util
