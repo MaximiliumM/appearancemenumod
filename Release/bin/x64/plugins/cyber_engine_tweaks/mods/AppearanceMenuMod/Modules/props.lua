@@ -233,8 +233,8 @@ function Props:DrawSpawnedProps()
 
           ImGui.SameLine()
           if ImGui.SmallButton("Target".."##"..spawn.name) then
-            AMM.Tools:SetCurrentTarget(spawn)
             AMM.Tools.lockTarget = true
+            AMM.Tools:SetCurrentTarget(spawn)
           end
 
           ImGui.SameLine()
@@ -746,6 +746,7 @@ function Props:SpawnPropInPosition(ent, pos, angles)
     if entity then
       ent.handle = entity
       ent.parameters = {ent.pos, ent.angles}
+      ent.spawned = true
 
       if AMM:GetScanClass(ent.handle) == 'entEntity' then
 				ent.type = 'entEntity'
@@ -1024,9 +1025,11 @@ function Props:ChangePropAppearance(ent, app)
     if entity then
       ent.handle = entity
       ent.appearance = app
+      ent.spawned = true
+
       Props.spawnedProps[ent.uniqueName()] = ent
-      AMM.Tools:SetCurrentTarget(ent)
       Tools.lockTarget = true
+      AMM.Tools:SetCurrentTarget(ent)
 
       Cron.Halt(timer)
     end
@@ -1109,8 +1112,8 @@ function Props:SpawnProp(spawn, pos, angles)
         spawn.type = 'Prop'
       end
 
-      AMM.Tools:SetCurrentTarget(spawn)
       AMM.Tools.lockTarget = true
+      AMM.Tools:SetCurrentTarget(spawn)
 
 			Cron.Halt(timer)
 		elseif timer.tick > 20 then
@@ -1170,7 +1173,7 @@ function Props:ActivatePreset(preset)
     Props.activePreset = preset
   end
 
-  pcall(function() spdlog.info('Before saving '..Props.activePreset.file_name) end)
+  pcall(function() spdlog.info('Before saving '..Props.activePreset.file_name or "no file name") end)
 
   Props:SavePreset(Props.activePreset)
   Props:DespawnAllSavedProps()
@@ -1184,10 +1187,10 @@ function Props:ActivatePreset(preset)
     if type(scale) == "table" then scale = Props:GetScaleString(scale) end
     prop.uid = prop.uid or i
     table.insert(values, f('(%i, "%s", "%s", "%s", "%s", "%s", "%s", "%s", "%s")', prop.uid, prop.entity_id, prop.name, prop.template_path, prop.pos, prop.trigger, scale, prop.app, prop.tag))
+  end
 
-    for _, light in ipairs(preset.lights) do
-      table.insert(lights, f('(%i, "%s", "%s", %f, %f, "%s")', prop.uid, light.entity_id, light.color, light.intensity, light.radius, light.angles))
-    end
+  for _, light in ipairs(preset.lights) do
+    table.insert(lights, f('(%i, "%s", "%s", %f, %f, "%s")', light.uid, light.entity_id, light.color, light.intensity, light.radius, light.angles))
   end
 
   db:execute(f('INSERT INTO saved_props (uid, entity_id, name, template_path, pos, trigger, scale, app, tag) VALUES %s', table.concat(values, ", ")))
@@ -1195,12 +1198,12 @@ function Props:ActivatePreset(preset)
 
   Props.activePreset = preset
 
-  pcall(function() spdlog.info('After setting variable '..Props.activePreset.file_name) end)
+  pcall(function() spdlog.info('After setting variable '..Props.activePreset.file_name or "no file name") end)
 
   Props:Update()
   Props:SensePropsTriggers()
 
-  pcall(function() spdlog.info('After update '..Props.activePreset.file_name) end)
+  pcall(function() spdlog.info('After update '..Props.activePreset.file_name or "no file name") end)
 end
 
 function Props:BackupPreset(preset)

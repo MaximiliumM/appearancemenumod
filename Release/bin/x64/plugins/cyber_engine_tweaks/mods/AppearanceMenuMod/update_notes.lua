@@ -1,5 +1,12 @@
 return {
 	{
+		'1.12.4c',
+		'2022 Jan 27',
+		[[Fixed issue where Lights would not load their data when changing presets]],
+		[[-- You might have to remove your Customizable Lights and save them again. Sorry.]],
+		[[Fixed issue where the user could not lock NPC targets]],
+	},
+	{
 		'1.12.4b',
 		'2022 Jan 27',
 		[[Added new Marker above locked Targets]],

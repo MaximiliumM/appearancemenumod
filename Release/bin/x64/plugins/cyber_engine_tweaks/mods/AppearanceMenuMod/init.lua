@@ -41,7 +41,7 @@ function AMM:new()
 	 AMM.TeleportMod = ''
 
 	 -- Main Properties --
-	 AMM.currentVersion = "1.12.4b"
+	 AMM.currentVersion = "1.12.4c"
 	 AMM.CETVersion = tonumber(GetVersion():match("1.(%d+)."))
 	 AMM.updateNotes = require('update_notes.lua')
 	 AMM.credits = require("credits.lua")
@@ -696,7 +696,7 @@ function AMM:new()
 					if Tools.lockTarget then
 						if Tools.currentNPC.handle and Tools.currentNPC.handle ~= '' then
 							local ent = Game.FindEntityByID(Tools.currentNPC.handle:GetEntityID())							
-							if not ent or not Tools.currentNPC.spawned then Tools:ClearTarget() end
+							if not ent or (not Tools.currentNPC.spawned and Tools.currentNPC.type == 'entEntity') then Tools:ClearTarget() end
 						else
 							Tools:ClearTarget()
 						end
