@@ -1,7 +1,20 @@
 local Util = {
+  errorDisplayed = false,
   openPopup = false,
   popup = {},
 }
+
+-- AMM Helper Methods
+function Util:AMMError(msg, reset)
+  if reset then
+    Util.errorDisplayed = false
+  end
+
+  if not Util.errorDisplayed then
+    print('[AMM Error] '..msg)
+    Util.errorDisplayed = true
+  end
+end
 
 -- Code Helper Methods
 function Util:ShallowCopy(copy, orig)
@@ -263,6 +276,27 @@ function Util:SetMarkerOverObject(handle, variant)
   local slot = CName.new('poi_mappin')
 
   return Game.GetMappinSystem():RegisterMappinWithObject(mappinData, handle, slot, offset)
+end
+
+function Util:ToggleCompanion(handle)
+  if handle.isPlayerCompanionCached then
+		local AIC = handle:GetAIControllerComponent()
+		local targetAttAgent = handle:GetAttitudeAgent()
+		local reactionComp = handle.reactionComponent
+
+		local aiRole = NewObject('handle:AIRole')
+		aiRole:OnRoleSet(handle)
+
+		handle.isPlayerCompanionCached = false
+		handle.isPlayerCompanionCachedTimeStamp = 0
+
+    senseComponent.RequestMainPresetChange(handle, "Neutral")
+		AIC:GetCurrentRole():OnRoleCleared(handle)
+		AIC:SetAIRole(aiRole)
+		handle.movePolicies:Toggle(true)
+  else
+    AMM.Spawn:SetNPCAsCompanion(handle)
+  end
 end
 
 function Util:SetGodMode(entity, immortal)

@@ -861,6 +861,7 @@ end
 
 function Tools:SetCurrentTarget(target, systemActivated)
   local pos, angles
+  target.appearance = AMM:GetAppearance(target)
   Tools.currentNPC = target
 
   if not systemActivated then
@@ -905,14 +906,15 @@ function Tools:SetCurrentTarget(target, systemActivated)
   end
 
   Tools.npcRotation = {angles.roll, angles.pitch, angles.yaw}
-  Tools.npcUpDown = pos.z
 
   if Tools.relativeMode then
     Tools.npcLeft = 0
-    Tools.npcRight = 0  
+    Tools.npcRight = 0
+    Tools.npcUpDown = 0
   else
     Tools.npcLeft = pos.x
     Tools.npcRight = pos.y
+    Tools.npcUpDown = pos.z
   end
 end
 
@@ -1085,18 +1087,8 @@ function Tools:DrawMovementWindow()
     Tools.npcUpDown, upDownUsed = ImGui.DragFloat("Up/Down", Tools.npcUpDown, adjustmentValue)
     ImGui.PopItemWidth()
 
-    if upDownUsed and Tools.currentNPC ~= '' then
-      local pos = Tools.currentNPC.handle:GetWorldPosition()
-      pos = Vector4.new(pos.x, pos.y, Tools.npcUpDown, pos.w)
-      if Tools.currentNPC.type == 'entEntity' then
-        if not Tools.movingProp then
-          Tools:TeleportPropTo(Tools.currentNPC, pos, EulerAngles.new(Tools.npcRotation[1], Tools.npcRotation[2], Tools.npcRotation[3]))
-        end
-      elseif Tools.currentNPC.type ~= 'Player' and Tools.currentNPC.handle:IsNPC() then
-        Tools:TeleportNPCTo(Tools.currentNPC.handle, pos, Tools.npcRotation[3])
-      else
-        Game.GetTeleportationFacility():Teleport(Tools.currentNPC.handle, pos, EulerAngles.new(Tools.npcRotation[1], Tools.npcRotation[2], Tools.npcRotation[3]))
-      end
+    if Tools.relativeMode and ImGui.IsItemDeactivatedAfterEdit() then
+      Tools.npcUpDown = 0
     end
 
     ImGui.PushItemWidth((width / 2) - 4)
@@ -1123,15 +1115,28 @@ function Tools:DrawMovementWindow()
 
     local forward = {x = 0, y = 0, z = 0}
     local right = {x = 0, y = 0, z = 0}
+    local up = {x = 0, y = 0, z = 0}
     local pos = nil
 
     if Tools.currentNPC ~= '' then
       if Tools.relativeMode then
         forward = Tools.currentNPC.handle:GetWorldForward()
         right = Tools.currentNPC.handle:GetWorldRight()
+        up = Tools.currentNPC.handle:GetWorldUp()
       end
 
       pos = Tools.currentNPC.handle:GetWorldPosition()
+
+      if upDownUsed then
+        local z = Tools.npcUpDown
+        local targetZ = Tools.npcUpDown
+
+        if Tools.relativeMode then
+          targetZ = pos.z
+        end
+
+        pos = Vector4.new(pos.x + (up.x * z), pos.y + (up.y * z), targetZ + (up.z * z), pos.w)
+      end
 
       if leftUsed then
         local x = Tools.npcLeft
@@ -1153,6 +1158,18 @@ function Tools:DrawMovementWindow()
         end
 
         pos = Vector4.new(pos.x + (right.x * y), targetY + (right.y * y), pos.z + (right.z * y), pos.w)
+      end
+    end
+
+    if upDownUsed and Tools.currentNPC ~= '' then
+      if Tools.currentNPC.type == 'entEntity' then
+        if not Tools.movingProp then
+          Tools:TeleportPropTo(Tools.currentNPC, pos, EulerAngles.new(Tools.npcRotation[1], Tools.npcRotation[2], Tools.npcRotation[3]))
+        end
+      elseif Tools.currentNPC.type ~= 'Player' and Tools.currentNPC.handle:IsNPC() then
+        Tools:TeleportNPCTo(Tools.currentNPC.handle, pos, Tools.npcRotation[3])
+      else
+        Game.GetTeleportationFacility():Teleport(Tools.currentNPC.handle, pos, EulerAngles.new(Tools.npcRotation[1], Tools.npcRotation[2], Tools.npcRotation[3]))
       end
     end
 
@@ -1202,10 +1219,12 @@ function Tools:DrawMovementWindow()
       if Tools.relativeMode then
         Tools.npcLeft = 0
         Tools.npcRight = 0
+        Tools.npcUpDown = 0
       else
         local pos = Tools.currentNPC.handle:GetWorldPosition()
         Tools.npcLeft = pos.x
         Tools.npcRight = pos.y
+        Tools.npcUpDown = pos.z
       end
     end
 
@@ -1579,6 +1598,7 @@ function Tools:DrawMovementWindow()
         if Tools.proportionalMode then
           ImGui.PushItemWidth(Tools.scaleWidth)
           Tools.currentNPC.scale.x, scaleChanged = ImGui.DragFloat("##scale", Tools.currentNPC.scale.x, 0.1)
+          ImGui.PopItemWidth()
 
           if scaleChanged then 
             Tools.currentNPC.scale.y = Tools.currentNPC.scale.x
@@ -1594,9 +1614,8 @@ function Tools:DrawMovementWindow()
           ImGui.SameLine()
           Tools.currentNPC.scale.z, used = ImGui.DragFloat("##scaleZ", Tools.currentNPC.scale.z, 0.1)
           if used then scaleChanged = true end
+          ImGui.PopItemWidth()
         end
-
-        ImGui.PopItemWidth()
 
         if scaleChanged then
           Tools:SetScale(components, Tools.currentNPC.scale, Tools.proportionalMode)
@@ -1647,7 +1666,7 @@ function Tools:DrawMovementWindow()
     end
 
     if Tools.currentNPC and Tools.currentNPC ~= '' then
-      if Tools.currentNPC.handle:FindComponentByName("amm_light") then
+      if AMM.Light:GetLightComponent(Tools.currentNPC.handle) then
         AMM.UI:Spacing(8)
 
         AMM.UI:TextCenter("Light Control", true)

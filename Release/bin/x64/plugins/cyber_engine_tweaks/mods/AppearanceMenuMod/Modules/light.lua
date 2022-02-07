@@ -3,11 +3,13 @@ Light = {}
 function Light:NewLight(handle)
   local obj = {}
 	obj.handle = handle
+  obj.hash = tostring(handle:GetEntityID().hash)
 
-  obj.component = handle:FindComponentByName("amm_light")
-  obj.marker = handle:FindComponentByName("Mesh3185")
+  local components = Light:GetLightComponent(handle)
 
-  if obj.component then
+  if components then
+    obj.component = components[1]
+    obj.marker = handle:FindComponentByName("Mesh3185")
     obj.isOn = obj.component:IsOn()
     obj.intensity = obj.component.intensity
     obj.radius = obj.component.radius
@@ -27,7 +29,7 @@ function Light:new()
   -- Main Properties
   Light.open = false
   Light.isEditing = false
-  Light.settings = nil
+  Light.activeLight = nil
   Light.disabled = {}
 
   return Light
@@ -42,46 +44,64 @@ function Light:Setup(light)
     ImGui.SetNextWindowPos(x - (sizeX + 200), y - 40)
   end
 
-  Light.settings = Light:NewLight(light.handle)
+  Light.activeLight = Light:NewLight(light.handle)
 end
 
 function Light:Draw(AMM)
   Light.open = ImGui.Begin("Light Settings", ImGuiWindowFlags.AlwaysAutoResize + ImGuiWindowFlags.NoCollapse)
   if Light.open then
+    -- Check if Light is still in world
+    local despawned = true
+    for _, prop in ipairs(Props.spawnedPropsList) do
+      if prop.hash == Light.activeLight.hash then
+        despawned = false
+      end
+    end
+
+    for _, prop in pairs(Props.activeProps) do
+      if prop.hash == Light.activeLight.hash then
+        despawned = false
+      end
+    end
+
+    if despawned then Light.open = false end
+
     Light.isEditing = true
-    Light.settings.color, colorChanged = ImGui.ColorPicker4("Color", Light.settings.color)
+    Light.activeLight.color, colorChanged = ImGui.ColorPicker4("Color", Light.activeLight.color)
 
     if colorChanged then
       Light:UpdateColor()
     end
 
-    Light.settings.intensity, intensityChanged = ImGui.DragFloat("Intensity", Light.settings.intensity, 1.0, 0.0, 10000.0)
+    Light.activeLight.intensity, intensityChanged = ImGui.DragFloat("Intensity", Light.activeLight.intensity, 1.0, 0.0, 10000.0)
     if intensityChanged then
-      Light.settings.component:SetIntensity(Light.settings.intensity)
+      Light.activeLight.component:SetIntensity(Light.activeLight.intensity)
     end
 
-    if Light.settings.lightType == ELightType.LT_Area or Light.settings.lightType == ELightType.LT_Area then
-      Light.settings.radius, radiusChanged = ImGui.DragFloat("Radius", Light.settings.radius, 0.1, 0.0, 10000.0)
+    if Light.activeLight.lightType == ELightType.LT_Area or Light.activeLight.lightType == ELightType.LT_Area then
+      Light.activeLight.radius, radiusChanged = ImGui.DragFloat("Radius", Light.activeLight.radius, 0.1, 0.0, 10000.0)
       if radiusChanged then
-        Light.settings.component:SetRadius(Light.settings.radius)
+        Light.activeLight.component:SetRadius(Light.activeLight.radius)
       end
     end
 
-    if Light.settings.lightType == ELightType.LT_Spot then
+    if Light.activeLight.lightType == ELightType.LT_Spot then
       local anglesChanged = false
-      Light.settings.innerAngle, innerUsed = ImGui.DragFloat("Inner Angle", Light.settings.innerAngle, 1.0, 0.0, 10000.0)
-      Light.settings.outerAngle, anglesChanged = ImGui.DragFloat("Outer Angle", Light.settings.outerAngle, 1.0, 0.0, 10000.0)
+      Light.activeLight.innerAngle, innerUsed = ImGui.DragFloat("Inner Angle", Light.activeLight.innerAngle, 1.0, 0.0, 10000.0)
+      Light.activeLight.outerAngle, anglesChanged = ImGui.DragFloat("Outer Angle", Light.activeLight.outerAngle, 1.0, 0.0, 10000.0)
 
       if innerUsed or anglesChanged then
-        Light.settings.component:SetAngles(Light.settings.innerAngle, Light.settings.outerAngle)
+        Light.activeLight.component:SetAngles(Light.activeLight.innerAngle, Light.activeLight.outerAngle)
       end
     end
 
-    if ImGui.Button(" Toggle Marker ") then
-      Light.settings.marker:Toggle(not Light.settings.marker:IsEnabled())
+    if Light.activeLight.marker then
+      if ImGui.Button(" Toggle Marker ") then
+        Light.activeLight.marker:Toggle(not Light.activeLight.marker:IsEnabled())
+      end
+      ImGui.SameLine()
     end
 
-    ImGui.SameLine()
     if ImGui.Button(" Close Window ") then
       Light.open = false
     end
@@ -95,22 +115,20 @@ function Light:Draw(AMM)
 end
 
 function Light:ToggleLight(light)
-  local component = light.handle:FindComponentByName("amm_light")
+  local components = Light:GetLightComponent(light.handle)
 
-  if AMM.playerInPhoto then
-    if Light.disabled[tostring(light.handle:GetEntityID().hash)] == nil then
-      Light.disabled[tostring(light.handle:GetEntityID().hash)] = component.intensity
-      component:SetIntensity(0)
-    else
-      component:SetIntensity(Light.disabled[tostring(light.handle:GetEntityID().hash)])
-      Light.disabled[tostring(light.handle:GetEntityID().hash)] = nil
-    end
-  else
-    if Light.disabled[tostring(light.handle:GetEntityID().hash)] then
-      component:SetIntensity(Light.disabled[tostring(light.handle:GetEntityID().hash)])
-      Light.disabled[tostring(light.handle:GetEntityID().hash)] = nil
-    end
+  for i, component in ipairs(components) do
     component:ToggleLight(light.isOn)
+    if AMM.playerInPhoto then component:SetIntensity(0) end
+
+    if not light.isOn then
+      Light.disabled[light.hash..i] = component.intensity
+    elseif light.isOn then
+      local savedIntensity = Light.disabled[light.hash..i]
+      if savedIntensity < 1 then savedIntensity = 100 end
+      if savedIntensity then component:SetIntensity(savedIntensity) end
+      Light.disabled[light.hash..i] = nil
+    end
   end
 
   light.isOn = not light.isOn
@@ -118,12 +136,12 @@ end
 
 function Light:UpdateColor()
   local newColor = NewObject('Color')
-  local rgbColor = Light:ConvertToRGB(Light.settings.color)
+  local rgbColor = Light:ConvertToRGB(Light.activeLight.color)
   newColor.Red = rgbColor[1]
   newColor.Green = rgbColor[2]
   newColor.Blue = rgbColor[3]
   newColor.Alpha = rgbColor[4]
-  Light.settings.component:SetColor(newColor)
+  Light.activeLight.component:SetColor(newColor)
 end
 
 function Light:ConvertToRGB(color)
@@ -145,7 +163,8 @@ function Light:GetLightData(light)
 end
 
 function Light:SetLightData(light, data)
-  local component = light.handle:FindComponentByName('amm_light')
+  local components = Light:GetLightComponent(light.handle)
+  local component = components[1]
   local angles = loadstring('return '..data.angles, '')()
   local newColor = NewObject('Color')
   local rgbColor = Light:ConvertToRGB(loadstring('return '..data.color, '')())
@@ -157,6 +176,19 @@ function Light:SetLightData(light, data)
   component:SetIntensity(data.intensity)
   component:SetRadius(data.radius)
   component:SetAngles(angles.inner, angles.outer)
+end
+
+function Light:GetLightComponent(handle)
+  local components = {}
+
+  for comp in db:urows("SELECT cname FROM components WHERE type = 'Lights'") do
+    component = handle:FindComponentByName(comp)
+    if component then
+      table.insert(components, component)
+    end
+  end
+
+  if #components > 0 then return components else return nil end
 end
 
 return Light:new()

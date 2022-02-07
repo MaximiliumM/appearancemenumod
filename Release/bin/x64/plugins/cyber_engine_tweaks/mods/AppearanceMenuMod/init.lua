@@ -41,7 +41,7 @@ function AMM:new()
 	 AMM.TeleportMod = ''
 
 	 -- Main Properties --
-	 AMM.currentVersion = "1.12.4c"
+	 AMM.currentVersion = "1.13"
 	 AMM.CETVersion = tonumber(GetVersion():match("1.(%d+)."))
 	 AMM.updateNotes = require('update_notes.lua')
 	 AMM.credits = require("credits.lua")
@@ -79,6 +79,9 @@ function AMM:new()
 	 AMM.playerInMenu = true
 	 AMM.playerInPhoto = false
 	 AMM.playerInVehicle = false
+	 AMM.playerInCombat = false
+	 AMM.playerCurrentDistrict = nil
+	 AMM.playerCurrentZone = nil
 	 AMM.settings = false
 	 AMM.ignoreAllWarnings = false
 	 AMM.shouldCheckSavedAppearance = true
@@ -183,6 +186,55 @@ function AMM:new()
 		 end)
 
 		 -- Setup Observers and Overrides --
+		 Observe('PlayerPuppet', 'OnZoneChange', function(self, enum)
+			AMM.playerCurrentZone = enum.value
+			AMM.Scan:ActivateAppTriggerForType("zone")
+		 end)
+
+
+		 Observe('PlayerPuppet', 'OnCombatStateChanged', function(self, newState)
+			if newState == 1 or newState == 3 then 
+				AMM.playerInCombat = true
+			else
+				AMM.playerInCombat = false
+			end
+
+			if AMM.playerInCombat then
+				AMM.Scan:ActivateAppTriggerForType("combat")
+			else
+				AMM.Scan:ActivateAppTriggerForType("default")
+			end
+		 end)
+
+
+		 local previousDistrict = nil
+		 Observe('DistrictManager', 'PushDistrict', function(self, request)
+			if self then
+				local currentDistrict = self:GetCurrentDistrict()
+				if currentDistrict then
+					local previousDistrictRecord = TweakDB:GetRecord(currentDistrict:GetDistrictID())
+					previousDistrict = Game.GetLocalizedText(previousDistrictRecord:LocalizedName())
+				end
+
+				local districtRecord = TweakDB:GetRecord(request.district)
+				AMM.playerCurrentDistrict = Game.GetLocalizedText(districtRecord:LocalizedName())
+				AMM.Scan:ActivateAppTriggerForType("area")
+			end
+		 end)
+
+
+		 Observe('DistrictManager', 'PopDistrict', function(self, request)
+			local districtRecord = TweakDB:GetRecord(request.district)
+			local districtName = Game.GetLocalizedText(districtRecord:LocalizedName())
+			
+			if AMM.playerCurrentDistrict == districtName and previousDistrict ~= districtName then
+				AMM.playerCurrentDistrict = previousDistrict
+		 	end
+
+			AMM.Scan:ActivateAppTriggerForType("area")
+		 end)
+
+
 		 Observe('DamageSystem', 'ProcessRagdollHit', function(self, hitEvent)
 			if AMM.companionAttackMultiplier ~= 0 then
 				AMM:ProcessCompanionAttack(hitEvent)
@@ -475,6 +527,14 @@ function AMM:new()
 	 	AMM:RespawnAll()
 	 end)
 
+	 registerHotkey("amm_toggle_companions", "Toggle Companions", function()
+		if next(AMM.Spawn.spawnedNPCs) ~= nil then
+			for _, spawn in pairs(AMM.Spawn.spawnedNPCs) do
+				Util:ToggleCompanion(spawn.handle)
+			end
+		end
+	 end)
+
 	 registerHotkey("amm_toggle_vehicle_camera", "Toggle Vehicle Camera", function()
 		local qm = AMM.player:GetQuickSlotsManager()
 		mountedVehicle = qm:GetVehicleObject()
@@ -669,6 +729,10 @@ function AMM:new()
 						AMM.Director:SenseTriggers()
 						AMM.Props:SensePropsTriggers()
 						AMM.Scan:SenseSavedDespawns()
+						AMM.Scan:SenseAppTriggers()
+					elseif drawWindow and AMM.playerAttached then
+						AMM.Props.playerLastPos = ''
+						AMM.Scan.playerLastPos = ''
 					end
 
 					-- Travel Animation Done Check --
@@ -1070,6 +1134,10 @@ function AMM:Begin()
 							popupDelegate = AMM:OpenPopup("Blacklist")
 						end
 
+						if ImGui.Button("Clear All Appearance Triggers", style.buttonWidth, style.buttonHeight) then
+							popupDelegate = AMM:OpenPopup("Appearance Triggers")
+						end
+
 						if AMM.userSettings.experimental then
 							if ImGui.Button("Clear All Saved Despawns", style.buttonWidth, style.buttonHeight) then
 								popupDelegate = AMM:OpenPopup("Saved Despawns")
@@ -1194,12 +1262,20 @@ function AMM:NewTarget(handle, targetType, id, name, app, options)
 	end
 
 	-- Check if object is spawnedProp
-	if next(AMM.Props.spawnedProps) ~= nil then
-		for _, prop in pairs(AMM.Props.spawnedProps) do
-			if tostring(prop.entityID.hash) == tostring(obj.entityID.hash) then
+	if next(AMM.Props.spawnedProps) ~= nil then	
+		for _, prop in pairs(AMM.Props.spawnedProps) do			
+			if prop.hash == obj.hash then
 				obj = prop
 				break
 			end
+		end
+	end
+
+	-- Check if object is activeProp
+	if next(AMM.Props.cachedActivePropsByHash) ~= nil then
+		if AMM.Props.cachedActivePropsByHash[obj.hash] then
+			obj = AMM.Props.cachedActivePropsByHash[obj.hash]
+			obj.options = AMM:GetAppearanceOptions(handle, obj.id)
 		end
 	end
 
@@ -1406,6 +1482,13 @@ function AMM:ImportUserData()
 					AMM.Props.activePreset = newPreset.file_name
 					userData['saved_props'] = nil
 				end
+				if userData['appTriggers'] ~= nil then
+					for _, obj in ipairs(userData['appTriggers']) do
+						local command = f("INSERT INTO appearance_triggers (entity_id, appearance, type, args) VALUES ('%s', '%s', %i, '%s')", obj.entity_id, obj.appearance, obj.type, obj.args)
+						command = command:gsub("'nil'", "NULL")
+						db:execute(command)
+					end
+				end
 			end
 		end
 	end
@@ -1458,6 +1541,10 @@ function AMM:ExportUserData()
 		for r in db:nrows("SELECT * FROM saved_despawns") do
 			table.insert(userData['saved_despawns'], {entity_hash = r.entity_hash, position = r.position})
 		end
+		userData['appTriggers'] = {}
+		for r in db:nrows("SELECT * FROM appearance_triggers") do
+			table.insert(userData['appTriggers'], {entity_id = r.entity_id, appearance = r.appearance, type = r.type, args = r.args})
+		end
 
 		if self.userSettings.respawnOnLaunch then
 			userData['spawnedNPCs'] = self:PrepareExportSpawnedData()
@@ -1468,13 +1555,14 @@ function AMM:ExportUserData()
 		userData['favoriteLocations'] = self.Tools:GetFavoriteLocations()
 		userData['followDistance'] = self.followDistance
 		userData['customAppPosition'] = self.customAppPosition
-		userData['selectedHotkeys'] = self.selectedHotkeys
+		userData['selectedHotkeys'] = self:ExportSelectedHotkeys()
 		userData['activePreset'] = self.Props.activePreset.file_name or ''
 		userData['homeTags'] = Util:GetTableKeys(self.Props.homes)
 		userData['selectedTPPCamera'] = self.Tools.selectedTPPCamera
 		userData['defaultFOV'] = self.Tools.defaultFOV
 		userData['defaultAperture'] = self.Tools.defaultAperture
 		userData['companionDamageMultiplier'] = self.companionAttackMultiplier
+		-- userData['appTriggers'] = self.Scan:PrepareAppTriggersForExport()
 
 		local validJson, contents = pcall(function() return json.encode(userData) end)
 		if validJson and contents ~= nil then
@@ -1483,6 +1571,8 @@ function AMM:ExportUserData()
 				file:write(contents)
 				file:close()
 			end
+		else
+			Util:AMMError("Failed to export user data.\n"..contents, true)
 		end
 	end
 end
@@ -1510,6 +1600,20 @@ function AMM:PrepareExportSpawnedData()
 	return spawnedEntities
 end
 
+function AMM:ExportSelectedHotkeys()
+	local selectedHotkeys = {}
+	for id, hotkeys in pairs(AMM.selectedHotkeys) do
+		for _, hotkey in ipairs(hotkeys) do
+			if hotkey ~= '' then 
+				selectedHotkeys[id] = hotkeys
+				break 
+			end
+		end
+	end
+
+	return selectedHotkeys
+end
+
 function AMM:IsApproved(modder, path)
 	local path = path:match("%\\(%a+)%\\")
 
@@ -1517,7 +1621,8 @@ function AMM:IsApproved(modder, path)
 		local id = AMM:GetScanID(modder..path)
 
 		local possibleIDs = {
-			"0xB12C810A, 20", "0x83384354, 12", "0x86B91A0E, 11"
+			"0xB12C810A, 20", "0x83384354, 12",
+			"0x86B91A0E, 11", "0xA582326C, 10"
 		}
 
 		for _, possibleID in ipairs(possibleIDs) do
@@ -2222,6 +2327,10 @@ function AMM:ClearAllSavedDespawns()
 	db:execute("DELETE FROM saved_despawns")
 end
 
+function AMM:ClearAllAppearanceTriggers()
+	db:execute("DELETE FROM appearance_triggers")
+end
+
 function AMM:ClearAllFavorites()
 	db:execute("DELETE FROM favorites; UPDATE sqlite_sequence SET seq = 0")
 end
@@ -2727,6 +2836,12 @@ function AMM:OpenPopup(name)
 		ImGui.SetNextWindowSize(400, 140)
 		popupDelegate.message = "Are you sure you want to delete all your saved despawns?"
 		table.insert(popupDelegate.buttons, {label = "Yes", action = function() AMM:ClearAllSavedDespawns() end})
+		table.insert(popupDelegate.buttons, {label = "No", action = ''})
+		name = "WARNING"
+	elseif name == "Appearance Triggers" then
+		ImGui.SetNextWindowSize(400, 140)
+		popupDelegate.message = "Are you sure you want to delete all your appearance triggers?"
+		table.insert(popupDelegate.buttons, {label = "Yes", action = function() AMM:ClearAllAppearanceTriggers() end})
 		table.insert(popupDelegate.buttons, {label = "No", action = ''})
 		name = "WARNING"
 	elseif name == "Preset" then

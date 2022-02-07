@@ -23,6 +23,13 @@ local Scan = {
   -- Saved Despawn properties
   savedDespawns = {},
   savedDespawnsActive = true,
+
+  -- Appearance Trigger properties
+  lastAppTriggers = {},
+  selectedAppTrigger = nil,
+  appTriggerOptions = {},
+  playerLastPos = '',
+  shouldSenseOnce = false,
 }
 
 function Scan:Initialize()
@@ -30,6 +37,17 @@ function Scan:Initialize()
     { name = "Close", vec = Vector4.new(0, -8, 0.5, 0)},
     { name = "Far", vec = Vector4.new(0, -12, 0.5, 0)},
   }
+
+  Scan.appTriggerOptions = {
+    { name = "None", type = 1},
+    { name = "Default", type = 2},
+    { name = "Combat", type = 3},
+    { name = "Zone", type = 4},
+    { name = "Area", type = 5},
+    { name = "Position", type = 6},
+  }
+
+  Scan.selectedAppTrigger = Scan.appTriggerOptions[1]
 
   Scan.savedDespawns = Scan:LoadSavedDespawns()
 end
@@ -40,6 +58,9 @@ function Scan:Draw(AMM, target, style)
     -- Util Popup Helper --
     Util:SetupPopup()
 
+    -- Reset Should Sense
+    Scan.shouldSenseOnce = true
+
     AMM.UI:DrawCrossHair()
 
     if Tools.lockTarget then
@@ -48,6 +69,10 @@ function Scan:Draw(AMM, target, style)
 
         if target.handle and target.handle ~= '' then
           target.options = AMM:GetAppearanceOptions(target.handle, target.id)
+
+          if target.type == "Spawn" and target.handle:IsNPC() then
+            target.type = "NPCPuppet"
+          end
         end
       end
     end
@@ -108,6 +133,17 @@ function Scan:Draw(AMM, target, style)
       -- Check if target is V
       if target.appearance ~= nil and target.appearance ~= "None" then
 
+        local buttonLabel = " Lock Target "
+        if Tools.lockTarget then
+          buttonLabel = " Unlock Target "
+        end
+
+        ImGui.SameLine()
+        if ImGui.SmallButton(buttonLabel) then
+          Tools.lockTarget = not Tools.lockTarget
+          Tools:SetCurrentTarget(target)
+        end
+
         AMM.UI:Separator()
 
         AMM.UI:TextColored(tabConfig[target.type].currentTitle)
@@ -162,6 +198,68 @@ function Scan:Draw(AMM, target, style)
             AMM.UI:TextColored("Saved Appearance:")
             ImGui.Text(savedApp)
             AMM:DrawButton("Clear Saved Appearance", style.buttonWidth, style.buttonHeight, "Clear", target)
+          end
+
+          AMM.UI:Spacing(3)
+
+          if Scan:TargetIsSpawn(target) then
+            AMM.UI:TextColored("Appearance Trigger:")
+
+            local existingTrigger = nil
+            for x in db:nrows(f("SELECT * FROM appearance_triggers WHERE appearance = '%s'", target.appearance)) do
+              existingTrigger = x
+            end
+
+            if existingTrigger then
+              if existingTrigger.type == 5 and not AMM.playerCurrentDistrict then 
+                -- Avoid loading Area type if user reloaded all mods
+              else
+                Scan.selectedAppTrigger = Scan.appTriggerOptions[existingTrigger.type]
+              end
+            else
+              Scan.selectedAppTrigger = Scan.appTriggerOptions[1]
+            end
+
+            for _, option in ipairs(Scan.appTriggerOptions) do
+
+              if option.name == "Area" and AMM.playerCurrentDistrict == nil then
+                Util:AMMError("Don't use Reload All Mods.\nPlease reload your save game or move to a different area.")
+              else
+                if ImGui.RadioButton(option.name, Scan.selectedAppTrigger.name == option.name) then
+                  Scan.selectedAppTrigger = option
+
+                  if option.type == 1 then
+                    Scan:RemoveTrigger(target)
+                  else
+                    Scan:AddTrigger(target, option.type)
+                  end
+                end
+              end
+  
+              if option.name ~= "None" then ImGui.SameLine() end
+            end
+
+            ImGui.Spacing()
+
+            local currentTrigger = Scan.selectedAppTrigger.name
+            if currentTrigger == "Area" or currentTrigger == "Zone" then
+              ImGui.Text("Current "..Scan.selectedAppTrigger.name..": ")
+
+              local currentArea = AMM.playerCurrentDistrict
+              if currentTrigger == "Zone" then currentArea = AMM.player:GetCurrentSecurityZoneType(AMM.player).value end
+              ImGui.SameLine()
+              AMM.UI:TextColored(currentArea)
+
+              local shouldDrawSavedArea = existingTrigger ~= nil and (existingTrigger.type == 4 or existingTrigger.type == 5)
+              if shouldDrawSavedArea then
+                local area = existingTrigger.args        
+                if area ~= currentArea then
+                  ImGui.Text("Saved "..Scan.selectedAppTrigger.name..": ")
+                  ImGui.SameLine()
+                  AMM.UI:TextColored(area)
+                end
+              end
+            end
           end
         end
       end
@@ -254,8 +352,14 @@ function Scan:Draw(AMM, target, style)
   
           ImGui.SameLine()
   
-          if ImGui.Button("  Follower  ", style.halfButtonWidth, style.buttonHeight - 5) then
-            AMM.Spawn:SetNPCAsCompanion(target.handle)
+          local buttonLabel = "  Follower  "
+          if target.handle.isPlayerCompanionCached then buttonLabel = "  Unfollower  " end
+          if ImGui.Button(buttonLabel, style.halfButtonWidth, style.buttonHeight - 5) then
+            if target.handle.isPlayerCompanionCached then
+              Util:ToggleCompanion(target.handle)
+            else
+              AMM.Spawn:SetNPCAsCompanion(target.handle)
+            end
           end
         end
       end
@@ -646,6 +750,18 @@ function Scan:ShouldDisplayAssignSeatsButton()
   return false
 end
 
+function Scan:TargetIsSpawn(target)
+  if next(AMM.Spawn.spawnedNPCs) ~= nil then
+		for _, ent in pairs(AMM.Spawn.spawnedNPCs) do
+			if ent.hash == target.hash then
+				return true
+			end
+		end
+
+    return false
+	end
+end
+
 -- Save Despawn methods
 function Scan:LoadSavedDespawns()
   local despawns = {}
@@ -702,6 +818,132 @@ function Scan:FindEntityByHash(hash)
       Scan.savedDespawns[hash].removed = true
 		end
 	end)
+end
+
+-- App Trigger methods
+function Scan:RemoveTrigger(target)
+  db:execute(f("DELETE FROM appearance_triggers WHERE appearance = '%s'", target.appearance))
+end
+
+function Scan:RemoveTriggerByType(target, triggerType)
+  db:execute(f("DELETE FROM appearance_triggers WHERE entity_id = '%s' AND type = %i", target.id, triggerType))
+end
+
+function Scan:RemoveTriggerByArgs(target, triggerType, args)
+  db:execute(f('DELETE FROM appearance_triggers WHERE entity_id = "%s" AND type = %i AND args = "%s"', target.id, triggerType, args))
+end
+
+function Scan:RemoveTriggerByPosition(target, playerPos)
+  local check = nil
+  for pos in db:urows(f('SELECT args FROM appearance_triggers WHERE entity_id = "%s" AND type = 6', target.id)) do
+    local dist = Util:VectorDistance(Util:GetPosFromString(pos), playerPos)
+    if dist < 20 then
+      db:execute(f("DELETE FROM appearance_triggers WHERE entity_id = '%s' AND args = '%s'", target.id, pos))
+    end
+  end
+end
+
+function Scan:AddTrigger(target, triggerType)
+  local args = nil
+  if triggerType == 4 then
+    args = AMM.playerCurrentZone or AMM.player:GetCurrentSecurityZoneType(AMM.player).value
+    Scan:RemoveTriggerByArgs(target, triggerType, args)
+  elseif triggerType == 5 then
+    args = AMM.playerCurrentDistrict
+    Scan:RemoveTriggerByArgs(target, triggerType, args)
+  elseif triggerType == 6 then
+    local playerPos = AMM.player:GetWorldPosition()
+    Scan:RemoveTriggerByPosition(target, playerPos)
+    args = Util:GetPosString(playerPos)
+  else
+    Scan:RemoveTriggerByType(target, triggerType)
+  end
+
+  Scan:RemoveTrigger(target)
+
+  local command = (f('INSERT INTO appearance_triggers (entity_id, appearance, type, args) VALUES ("%s", "%s", %i, "%s")', target.id, target.appearance, triggerType, args))
+  command = command:gsub('"nil"', "NULL")
+  db:execute(command)
+end
+
+function Scan:ActivateAppTriggerForType(triggerType)
+  local typeNum = {
+    default = 2,
+    combat = 3,
+    zone = 4,
+    area = 5,
+    position = 6
+  }
+
+  local currentType = typeNum[triggerType]
+
+  if next(AMM.Spawn.spawnedNPCs) ~= nil then
+    for _, ent in pairs(AMM.Spawn.spawnedNPCs) do
+      if ent.handle:IsNPC() then
+        local triggers = {}
+        for x in db:nrows(f('SELECT * FROM appearance_triggers WHERE entity_id = "%s" AND type = %i', ent.id, currentType)) do
+          table.insert(triggers, x)
+        end
+
+        local lastApp = Scan.lastAppTriggers[ent.id] or nil
+
+        if triggers then
+          Scan.lastAppTriggers[ent.id] = ent.appearance
+
+          for _, trigger in ipairs(triggers) do
+            if (triggerType == "area" and trigger.args == AMM.playerCurrentDistrict)
+            or (triggerType == "zone" and trigger.args == AMM.playerCurrentZone) then
+              AMM:ChangeAppearanceTo(ent, trigger.appearance)
+            elseif triggerType == "combat" or triggerType == "default" then
+              AMM:ChangeAppearanceTo(ent, trigger.appearance)
+            end
+          end
+        elseif lastApp then
+          AMM:ChangeAppearanceTo(ent, lastApp)
+        end
+      end
+    end
+  end
+end
+
+function Scan:SenseAppTriggers(target)
+  -- Sense Zone and Area triggers once
+  if Scan.shouldSenseOnce then
+    Scan:ActivateAppTriggerForType('area')
+    Scan:ActivateAppTriggerForType('zone')
+    Scan.shouldSenseOnce = false
+  end
+
+  local playerPos = Game.GetPlayer():GetWorldPosition()
+  local distFromLastPos = 60
+
+  if Scan.playerLastPos ~= '' then
+    distFromLastPos = Util:VectorDistance(playerPos, Scan.playerLastPos)
+  end
+
+  if distFromLastPos >= 60 then
+    Scan.playerLastPos = Game.GetPlayer():GetWorldPosition()
+
+    if next(AMM.Spawn.spawnedNPCs) ~= nil then
+      for _, ent in pairs(AMM.Spawn.spawnedNPCs) do
+        if ent.handle:IsNPC() then
+          local triggers = {}
+          for x in db:nrows(f('SELECT * FROM appearance_triggers WHERE entity_id = "%s" AND type = 6', ent.id)) do
+            table.insert(triggers, x)
+          end
+
+          if #triggers > 0 then
+            for _, trigger in ipairs(triggers) do
+              local dist = Util:VectorDistance(playerPos, Util:GetPosFromString(trigger.args))
+              if dist <= 60 then
+                AMM:ChangeAppearanceTo(ent, trigger.app)
+              end
+            end
+          end
+        end
+      end
+    end
+  end
 end
 
 return Scan

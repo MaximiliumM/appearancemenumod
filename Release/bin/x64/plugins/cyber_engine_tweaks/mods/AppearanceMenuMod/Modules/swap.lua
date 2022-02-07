@@ -1,4 +1,5 @@
 local Swap = {
+  entities = {},
   activeSwaps = {},
   searchQuery = '',
   searchBarWidth = 500,
@@ -139,32 +140,39 @@ function Swap:Draw(AMM, target)
         if ImGui.BeginChild("Categories", ImGui.GetWindowContentRegionWidth(), ImGui.GetWindowHeight() / 1.5) then
           for _, category in ipairs(AMM.Spawn.categories) do
             local entities = {}
-            if category.cat_name == 'Favorites' then
-              local query = "SELECT * FROM favorites_swap"
-              for fav in db:nrows(query) do
-                query = f("SELECT * FROM entities WHERE entity_id = '%s'", fav.entity_id)
+
+            if Swap.entities[category] == nil or category.cat_name == 'Favorites' then
+              if category.cat_name == 'Favorites' then
+                local query = "SELECT * FROM favorites_swap"
+                for fav in db:nrows(query) do
+                  query = f("SELECT * FROM entities WHERE entity_id = '%s'", fav.entity_id)
+                  for en in db:nrows(query) do
+                    table.insert(entities, {en.entity_name, en.entity_id, en.entity_path})
+                  end
+                end
+                if #entities == 0 then
+                  if ImGui.CollapsingHeader(category.cat_name) then
+                    ImGui.Text("It's empty :(")
+                  end
+                end
+              else
+                local query = f("SELECT * FROM entities WHERE is_swappable = 1 AND cat_id == '%s' AND cat_id != 22 ORDER BY entity_name ASC", category.cat_id)
                 for en in db:nrows(query) do
                   table.insert(entities, {en.entity_name, en.entity_id, en.entity_path})
                 end
               end
+
+              Swap.entities[category] = entities
             end
 
-            local query = f("SELECT * FROM entities WHERE is_swappable = 1 AND cat_id == '%s' AND cat_id != 22 ORDER BY entity_name ASC", category.cat_id)
-            for en in db:nrows(query) do
-              table.insert(entities, {en.entity_name, en.entity_id, en.entity_path})
-            end
-
-            if #entities ~= 0 or category.cat_name == 'Favorites' then
+            if Swap.entities[category] ~= nil and #Swap.entities[category] ~= 0 then
               if(ImGui.CollapsingHeader(category.cat_name)) then
-                if #entities == 0 then
-                  ImGui.Text("It's empty :(")
-                else
-                  Swap:DrawEntitiesButtons(entities, category.cat_name)
-                end
+                  Swap:DrawEntitiesButtons(Swap.entities[category], category.cat_name)
               end
             end
           end
         end
+
         ImGui.EndChild()
       end
     else

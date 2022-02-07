@@ -739,47 +739,49 @@ function Director:GetScriptByTitle(title)
 end
 
 function Director:StopScript(script)
-  local pos = Game.GetPlayer():GetWorldPosition()
-  local heading = Game.GetPlayer():GetWorldForward()
-  local behindPlayer = Vector4.new(pos.x - (heading.x * 2), pos.y - (heading.y * 2), pos.z, pos.w)
-  for _, actor in pairs(script.actors) do
-    Director:TeleportActorTo(actor, behindPlayer)
-  end
-
-  Game.GetPreventionSpawnSystem():RequestDespawnPreventionLevel(script.spawnLevel * -1)
-
-  Cron.Halt(script.timer)
-
-  script.done = true
-  Director.stopPressed = true
-
-  if script.trigger then
-    script.trigger.activated = false
-  end
-
-  Cron.Every(0.1, { tick = 1 }, function(timer)
-    local allGone = true
+  if script and not script.done then
+    local pos = Game.GetPlayer():GetWorldPosition()
+    local heading = Game.GetPlayer():GetWorldForward()
+    local behindPlayer = Vector4.new(pos.x - (heading.x * 2), pos.y - (heading.y * 2), pos.z, pos.w)
     for _, actor in pairs(script.actors) do
-      Cron.Halt(actor.timer)
-      local entity = Game.FindEntityByID(actor.entityID)
-      if entity then allGone = false end
+      Director:TeleportActorTo(actor, behindPlayer)
     end
 
-    timer.tick = timer.tick + 1
+    Game.GetPreventionSpawnSystem():RequestDespawnPreventionLevel(script.spawnLevel * -1)
 
-    if timer.tick == 50 then
-      Game.GetPlayer():SetWarningMessage("Stopping requires looking away from Actors")
+    Cron.Halt(script.timer)
+
+    script.done = true
+    Director.stopPressed = true
+
+    if script.trigger then
+      script.trigger.activated = false
     end
 
-    if allGone then
-      script = Util:ShallowCopy(script, Director:LoadScriptData(script.title..".json"))
+    Cron.Every(0.1, { tick = 1 }, function(timer)
+      local allGone = true
+      for _, actor in pairs(script.actors) do
+        Cron.Halt(actor.timer)
+        local entity = Game.FindEntityByID(actor.entityID)
+        if entity then allGone = false end
+      end
 
-      Director.stopPressed = false
-      Director.allowTalk = false
+      timer.tick = timer.tick + 1
 
-      Cron.Halt(timer)
-    end
-  end)
+      if timer.tick == 50 then
+        Game.GetPlayer():SetWarningMessage("Stopping requires looking away from Actors")
+      end
+
+      if allGone then
+        script = Util:ShallowCopy(script, Director:LoadScriptData(script.title..".json"))
+
+        Director.stopPressed = false
+        Director.allowTalk = false
+
+        Cron.Halt(timer)
+      end
+    end)
+  end
 end
 
 function Director:RestartScript(script)

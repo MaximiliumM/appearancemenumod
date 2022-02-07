@@ -3,6 +3,7 @@ Props = {}
 function Props:NewProp(uid, id, name, template, posString, scale, app, tag)
   local obj = {}
 	obj.handle = ''
+  obj.hash = ''
   obj.uid = uid
 	obj.id = id
 	obj.name = name
@@ -69,6 +70,7 @@ function Props:new()
   Props.savingProp = ''
   Props.editingTags = {}
   Props.activeProps = {}
+  Props.cachedActivePropsByHash = {}
   Props.activePreset = ''
   Props.selectedPreset = {name = "No Preset Available"}
   Props.removingFromTag = ''
@@ -80,6 +82,7 @@ function Props:new()
   Props.moddersList = {}
   Props.showTargetOnly = false
   Props.showNearbyOnly = false
+  Props.showCustomizableOnly = false
 
   return Props
 end
@@ -90,7 +93,8 @@ function Props:Initialize()
     Props:LoadPreset(Props.activePreset)
   end
 
-  Props.savedProps = Props:GetProps()
+  Props.savedProps = {}
+  Props.savedProps['all_props'] = Props:GetProps()
   Props.triggers = Props:GetTriggers()
   Props.tags = Props:GetTags()
 
@@ -105,7 +109,8 @@ function Props:Update()
     Props.moddersList = {}
     Props.activePreset.customIncluded = false
     Props.activePreset.props, Props.activePreset.lights = Props:GetPropsForPreset()
-    Props.savedProps = Props:GetProps()
+    Props.savedProps = {}
+    Props.savedProps['all_props'] = Props:GetProps()
     Props.triggers = Props:GetTriggers()
     Props.tags = Props:GetTags()
     Props.playerLastPos = ''
@@ -113,6 +118,7 @@ function Props:Update()
     Props:SavePreset(Props.activePreset)
   else
     Props.savedProps = {}
+    Props.savedProps['all_props'] = {}
     Props.tags = {}
   end
 end
@@ -134,7 +140,7 @@ function Props:Draw(AMM)
 
       Props:DrawSpawnTab()
 
-      if #Props.savedProps > 0 then
+      if #Props.savedProps['all_props'] > 0 then
         Props:DrawSavedPropsTab()
       end
 
@@ -267,13 +273,20 @@ function Props:DrawCategories()
 
   ImGui.Spacing()
 
+  Props.showCustomizableOnly, used = ImGui.Checkbox("Show Customizable Only", Props.showCustomizableOnly)
+  if used then Props.entities = {} end
+
+  ImGui.Spacing()
+
   AMM.UI:TextColored("Select Prop To Spawn:")
 
   local validCatIDs = Util:GetAllCategoryIDs(Props.categories)
+  local customizableIDs = "entity_id IN (SELECT entity_id FROM appearances) AND "
+  if not Props.showCustomizableOnly then customizableIDs = '' end
   if Props.searchQuery ~= '' then
     local entities = {}
     local parsedSearch = Util:ParseSearch(Props.searchQuery)
-    local query = 'SELECT * FROM entities WHERE is_spawnable = 1 AND cat_id IN '..validCatIDs..' AND '..parsedSearch..' ORDER BY entity_name ASC'
+    local query = 'SELECT * FROM entities WHERE is_spawnable = 1 AND '..customizableIDs..'cat_id IN '..validCatIDs..' AND '..parsedSearch..' ORDER BY entity_name ASC'
     for en in db:nrows(query) do
       table.insert(entities, {en.entity_name, en.entity_id, en.can_be_comp, en.parameters, en.entity_path, en.template_path})
     end
@@ -293,7 +306,7 @@ function Props:DrawCategories()
           if category.cat_name == 'Favorites' then
             local query = "SELECT * FROM favorites_props"
             for fav in db:nrows(query) do
-              query = f("SELECT * FROM entities WHERE entity_id = '%s' AND cat_id IN %s", fav.entity_id, validCatIDs)
+              query = f("SELECT * FROM entities WHERE entity_id = '%s' AND "..customizableIDs.."cat_id IN %s", fav.entity_id, validCatIDs)
               for en in db:nrows(query) do
                 table.insert(entities, {fav.entity_name, en.entity_id, en.can_be_comp, en.parameters, en.entity_path, en.template_path})
               end
@@ -304,7 +317,7 @@ function Props:DrawCategories()
               end
             end
           else
-            local query = f("SELECT * FROM entities WHERE is_spawnable = 1 AND cat_id == '%s' ORDER BY entity_name ASC", category.cat_id)
+            local query = f("SELECT * FROM entities WHERE is_spawnable = 1 AND "..customizableIDs.."cat_id == '%s' ORDER BY entity_name ASC", category.cat_id)
             for en in db:nrows(query) do
               table.insert(entities, {en.entity_name, en.entity_id, en.can_be_comp, en.parameters, en.entity_path, en.template_path})
             end            
@@ -360,6 +373,14 @@ function Props:DrawSavedProp(prop, i)
   if ImGui.SmallButton("Remove##"..i) then
     Props:RemoveProp(prop)
   end
+
+  ImGui.SameLine()
+  if ImGui.SmallButton("Rename##"..i) then
+    Props.rename = ''
+	  ImGui.OpenPopup("Rename Prop##"..prop.name)
+  end
+
+  Props:RenamePropPopup(prop)
 
   if Props.activeProps[prop.uid] ~= nil and Props.activeProps[prop.uid].handle ~= '' then
     ImGui.SameLine()
@@ -470,7 +491,7 @@ function Props:DrawPresetConfig()
   end
 
   if ImGui.Button("New Preset", Props.style.buttonWidth, Props.style.buttonHeight) then
-    if #Props.savedProps > 0 then
+    if #Props.savedProps['all_props'] > 0 then
       Props:SavePreset(Props.activePreset)
     end
 
@@ -483,8 +504,9 @@ function Props:DrawPresetConfig()
 
   if Props.activePreset ~= '' then
 
-    if ImGui.Button("Rename", Props.style.buttonWidth, Props.style.buttonHeight) then
-      Props:RenamePresetPopup()
+    if ImGui.Button("Rename", Props.style.buttonWidth, Props.style.buttonHeight) then        
+      Props.rename = ''
+      ImGui.OpenPopup("Rename Preset")
     end
 
     if ImGui.Button("Delete", Props.style.buttonWidth, Props.style.buttonHeight) then
@@ -504,52 +526,11 @@ function Props:DrawPresetConfig()
 
   AMM:BeginPopup("WARNING", nil, true, popupDelegate, style)
 
-  local sizeX = ImGui.GetWindowSize()
-  local x, y = ImGui.GetWindowPos()
-  ImGui.SetNextWindowPos(x + ((sizeX / 2) - 200), y - 40)
-  ImGui.SetNextWindowSize(400, ImGui.GetFontSize() * 10)
-
-  if ImGui.BeginPopupModal("Rename Preset") then
-    
-    if Props.presetName == 'existing' then
-      ImGui.TextColored(1, 0.16, 0.13, 0.75, "Existing Name")
-
-      if ImGui.Button("Ok", -1, style.buttonHeight) then
-        Props.presetName = ''
-      end
-    else
-      if Props.presetName == '' then
-        Props.presetName = Props.activePreset.name
-      end
-
-      Props.presetName = ImGui.InputText("Name", Props.presetName, 30)
-
-      AMM.UI:Spacing(8)
-
-      if ImGui.Button("Save", style.buttonWidth, style.buttonHeight) then
-        if not(io.open(f("User/Decor/%s.json", Props.presetName), "r")) then
-          local fileName = Props.activePreset.file_name or Props.activePreset.name..".json"
-          os.remove("User/Decor/"..fileName)
-          Props.activePreset.name = Props.presetName
-          Props:SavePreset(Props.activePreset)
-          Props.presetName = ''
-          ImGui.CloseCurrentPopup()
-        else
-          Props.presetName = 'existing'
-        end
-      end
-
-      if ImGui.Button("Cancel", style.buttonWidth, style.buttonHeight) then
-        Props.presetName = ''
-        ImGui.CloseCurrentPopup()
-      end
-    end
-    ImGui.EndPopup()
-  end
+  Props:RenamePresetPopup(style)
 end
 
 function Props:DrawHeaders()
-  if #Props.savedProps > 0 then
+  if #Props.savedProps['all_props'] > 0 then
 
     local props = {}
 
@@ -587,12 +568,22 @@ function Props:DrawHeaders()
       for _, tag in ipairs(Props.tags) do
         if ImGui.CollapsingHeader(tag) then
 
-          props = Props:GetProps(nil, tag)
+          if Props.savedProps[tag] == nil then
+            Props.savedProps[tag] = Props:GetProps(nil, tag)
+          end
 
-          Props:DrawTagActions(props, tag)
-          Props:DrawProps(props)
+          Props:DrawTagActions(Props.savedProps[tag], tag)
+          Props:DrawProps(Props.savedProps[tag])
         end
       end
+
+      AMM.UI:Spacing(3)
+
+      local count = 0
+      for x in db:urows('SELECT COUNT(1) FROM saved_props') do
+        count = x
+      end
+      ImGui.Text("Total Props: "..count)
     end
   end
 end
@@ -677,9 +668,90 @@ function Props:DrawTagActions(props, tag)
   AMM.UI:Separator()
 end
 
-function Props:RenamePresetPopup()
-	Props.presetName = ''
-	ImGui.OpenPopup("Rename Preset")
+function Props:RenamePresetPopup(style)
+  local sizeX = ImGui.GetWindowSize()
+  local x, y = ImGui.GetWindowPos()
+  ImGui.SetNextWindowPos(x + ((sizeX / 2) - 200), y - 40)
+  ImGui.SetNextWindowSize(400, ImGui.GetFontSize() * 10)
+
+  if ImGui.BeginPopupModal("Rename Preset") then
+    
+    if Props.rename == 'existing' then
+      ImGui.TextColored(1, 0.16, 0.13, 0.75, "Existing Name")
+
+      if ImGui.Button("Ok", -1, style.buttonHeight) then
+        Props.rename = ''
+      end
+    else
+      if Props.rename == '' then
+        Props.rename = Props.activePreset.name
+      end
+
+      Props.rename = ImGui.InputText("Name", Props.rename, 30)
+
+      AMM.UI:Spacing(8)
+
+      if ImGui.Button("Save", style.buttonWidth, style.buttonHeight) then
+        if not(io.open(f("User/Decor/%s.json", Props.rename), "r")) then
+          local fileName = Props.activePreset.file_name or Props.activePreset.name..".json"
+          os.remove("User/Decor/"..fileName)
+          Props.activePreset.name = Props.rename
+          Props.activePreset.file_name = Props.rename..".json"
+          Props:SavePreset(Props.activePreset)
+          Props.rename = ''
+          ImGui.CloseCurrentPopup()
+        else
+          Props.rename = 'existing'
+        end
+      end
+
+      if ImGui.Button("Cancel", style.buttonWidth, style.buttonHeight) then
+        Props.rename = ''
+        ImGui.CloseCurrentPopup()
+      end
+    end
+    ImGui.EndPopup()
+  end
+end
+
+function Props:RenamePropPopup(prop)
+  local style = {
+    buttonHeight = ImGui.GetFontSize() * 2,
+    halfButtonWidth = ((ImGui.GetWindowContentRegionWidth() / 2) - 12),
+    buttonWidth = -1,
+  }
+
+  local sizeX = ImGui.GetWindowSize()
+  local x, y = ImGui.GetWindowPos()
+  ImGui.SetNextWindowPos(x + ((sizeX / 2) - 200), y - 40)
+  ImGui.SetNextWindowSize(400, ImGui.GetFontSize() * 10)
+
+  if ImGui.BeginPopupModal("Rename Prop##"..prop.name) then
+    
+    if Props.rename == '' then
+      Props.rename = prop.name
+    end
+
+    Props.rename = ImGui.InputText("Name", Props.rename, 50)
+
+    AMM.UI:Spacing(8)
+
+    if ImGui.Button("Save", style.buttonWidth, style.buttonHeight) then
+      prop.name = Props.rename
+
+      db:execute(f('UPDATE saved_props SET name = "%s" WHERE uid = %i', Props.rename, prop.uid))
+
+      Props.rename = ''
+      ImGui.CloseCurrentPopup()
+    end
+
+    if ImGui.Button("Cancel", style.buttonWidth, style.buttonHeight) then
+      Props.rename = ''
+      ImGui.CloseCurrentPopup()
+    end
+
+    ImGui.EndPopup()
+  end
 end
 
 function Props:SensePropsTriggers()
@@ -725,7 +797,7 @@ function Props:SpawnSavedProp(ent)
 end
 
 function Props:SpawnPropInPosition(ent, pos, angles)
-  local spawnTransform = AMM.player:GetWorldTransform()
+  local spawnTransform = Game.GetPlayer():GetWorldTransform()
   spawnTransform:SetPosition(pos)
   spawnTransform:SetOrientationEuler(angles)
 
@@ -745,11 +817,16 @@ function Props:SpawnPropInPosition(ent, pos, angles)
     local entity = Game.FindEntityByID(ent.entityID)
     if entity then
       ent.handle = entity
+      ent.hash = tostring(entity:GetEntityID().hash)
       ent.parameters = {ent.pos, ent.angles}
       ent.spawned = true
 
+      Props.cachedActivePropsByHash[ent.hash] = ent
+
       if AMM:GetScanClass(ent.handle) == 'entEntity' then
 				ent.type = 'entEntity'
+      else
+        ent.type = 'Prop'
       end
 
       for light in db:nrows(f('SELECT * FROM saved_lights WHERE uid = %i', ent.uid)) do
@@ -1010,6 +1087,9 @@ end
 
 function Props:ChangePropAppearance(ent, app)
   Game.FindEntityByID(ent.entityID):GetEntity():Destroy()
+  Props.cachedActivePropsByHash[ent.hash] = nil
+
+  local lockedTarget = AMM.Tools.lockTarget
 
   local transform = Game.GetPlayer():GetWorldTransform()
   local pos = ent.handle:GetWorldPosition()
@@ -1024,20 +1104,31 @@ function Props:ChangePropAppearance(ent, app)
 
     if entity then
       ent.handle = entity
+      ent.hash = tostring(entity:GetEntityID().hash)
       ent.appearance = app
       ent.spawned = true
 
-      Props.spawnedProps[ent.uniqueName()] = ent
-      Tools.lockTarget = true
-      AMM.Tools:SetCurrentTarget(ent)
+      if ent.uniqueName then
+        Props.spawnedProps[ent.uniqueName()] = ent
+      end
 
+      if ent.uid and Props.activeProps[ent.uid] then
+        Props.activeProps[ent.uid] = ent
+        Props.cachedActivePropsByHash[ent.hash] = ent
+      end
+
+      if lockedTarget then
+        AMM.Tools.lockTarget = true
+        AMM.Tools:SetCurrentTarget(ent)
+      end
+      
       Cron.Halt(timer)
     end
   end)
-
 end
 
 function Props:SpawnProp(spawn, pos, angles)
+  local app = ''
   local record = ''
 	local offSetSpawn = 0
 	local distanceFromPlayer = 1
@@ -1066,6 +1157,10 @@ function Props:SpawnProp(spawn, pos, angles)
       local entName = spawn.path:match("Props.(.*)")
       record = 'Vehicle.'..entName
     end
+
+    if spawn.parameters.app then
+      app = spawn.parameters.app
+    end
 	end
 
 	local heading = AMM.player:GetWorldForward()
@@ -1076,12 +1171,13 @@ function Props:SpawnProp(spawn, pos, angles)
 	spawnTransform:SetPosition(spawnTransform, pos or newPosition)
 	spawnTransform:SetOrientationEuler(spawnTransform, angles or EulerAngles.new(0, 0, playerAngles.yaw - rotation))
 	  
-  spawn.entityID = exEntitySpawner.Spawn(spawn.template, spawnTransform, '', record)
+  spawn.entityID = exEntitySpawner.Spawn(spawn.template, spawnTransform, app, record)
 
 	Cron.Every(0.1, {tick = 1}, function(timer)
 		local entity = Game.FindEntityByID(spawn.entityID)
 		if entity then
 			spawn.handle = entity
+      spawn.hash = tostring(entity:GetEntityID().hash)
       spawn.appearance = AMM:GetAppearance(spawn)
       spawn.spawned = true
 
