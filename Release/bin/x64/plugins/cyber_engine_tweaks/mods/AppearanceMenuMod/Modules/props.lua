@@ -1185,6 +1185,11 @@ function Props:SpawnProp(spawn, pos, angles)
         local light = AMM.Light:NewLight(entity)
         if light then light.component:SetIntensity(50.0) end
       end
+
+      local workspotMarker = Util:IsCustomWorkspot(entity)
+      if workspotMarker then
+        workspotMarker:Toggle(true)
+      end
       
       local components = Props:CheckForValidComponents(entity)
       if components then

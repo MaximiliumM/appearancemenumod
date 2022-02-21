@@ -692,16 +692,17 @@ function Scan:SetVehicleDestination(worldMap, vehicleMap)
   local mappinPos = mappin:GetWorldPosition()
   local mappinNodeRef = mappin:GetPointData():GetMarkerRef()
 
-  local cmd = AMM.Scan:SetDriverVehicleToGoTo(AMM.Scan.companionDriver, mappinNodeRef)
+  local cmd = Scan:SetDriverVehicleToGoTo(Scan.companionDriver, mappinNodeRef)
   Scan.isDriving = true
 
   Cron.Every(1, function(timer)
-    if AMM.Scan.vehicle ~= '' then
+    if Scan.vehicle ~= '' then
       local playerPos = AMM.player:GetWorldPosition()
       local dist = Util:VectorDistance(playerPos, mappinPos)
 
-      if dist < 45 and vehicleMap[tostring(AMM.Scan.companionDriver.vehicle.handle:GetEntityID().hash)] ~= nil then
-        vehicleMap[tostring(AMM.Scan.companionDriver.vehicle.handle:GetEntityID().hash)]:StopExecutingCommand(cmd, true)
+      if dist < 45 and vehicleMap[tostring(Scan.companionDriver.vehicle.handle:GetEntityID().hash)] ~= nil then
+        vehicleMap[tostring(Scan.companionDriver.vehicle.handle:GetEntityID().hash)]:StopExecutingCommand(cmd, true)
+        Util:ToggleEngine(Scan.companionDriver.vehicle.handle)
         Scan.isDriving = false
         Cron.Halt(timer)
       end

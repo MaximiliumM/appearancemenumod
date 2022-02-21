@@ -347,9 +347,9 @@ function Util:ToggleDoors(handle)
   local state = vehPS:GetDoorState(1).value
 
   if state == "Closed" then
-    vehPS:OpenAllRegularVehDoors()
+    vehPS:OpenAllRegularVehDoors(false)
   elseif state == "Open" then
-    vehPS:CloseAllVehDoors()
+    vehPS:CloseAllVehDoors(false)
   end
 end
 
@@ -412,6 +412,10 @@ function Util:CheckVByID(id)
   end
 
   return false
+end
+
+function Util:IsCustomWorkspot(handle)
+  return handle:FindComponentByName("amm_marker")
 end
 
 function Util:GetAllCategoryIDs(categories)

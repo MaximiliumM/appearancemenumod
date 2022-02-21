@@ -7,7 +7,6 @@ local Director = {
   activeTab = '',
   scripts = {},
   triggers = '',
-  triggersEnabled = true,
   selectedTrigger = {title = "Select Trigger"},
   selectedActor = '',
   selectedNode = '',
@@ -163,7 +162,7 @@ function Director:SenseNPCTalk()
 end
 
 function Director:SenseTriggers()
-  if Director.triggersEnabled and Director.triggers ~= '' then
+  if AMM.userSettings.directorTriggers and Director.triggers ~= '' then
     local playerPos = Game.GetPlayer():GetWorldPosition()
     local dist
     for _, trigger in ipairs(Director.triggers) do
@@ -215,7 +214,7 @@ function Director:Draw(AMM)
     ImGui.SameLine()
     AMM.UI:TextColored("Triggers On/Off")
     ImGui.SameLine()
-    Director.triggersEnabled = ImGui.Checkbox(" ", Director.triggersEnabled)
+    AMM.userSettings.directorTriggers = ImGui.Checkbox(" ", AMM.userSettings.directorTriggers)
 
     if AMM.playerInMenu then
       AMM.UI:TextColored("Player In Menu")

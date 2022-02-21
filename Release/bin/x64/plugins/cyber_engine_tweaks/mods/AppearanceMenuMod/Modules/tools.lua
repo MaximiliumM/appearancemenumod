@@ -42,6 +42,7 @@ function Tools:new()
   Tools.seamfixToggle = false
   Tools.savePhotoModeToggles = false
   Tools.animatedHead = AMM.userSettings.animatedHead
+  Tools.tppHead = false
   Tools.TPPCamera = false
   Tools.TPPCameraBeforeVehicle = false
   Tools.selectedTPPCamera = 1
@@ -469,6 +470,7 @@ function Tools:ToggleTPPCamera()
 end
 
 function Tools:ToggleHead()
+  Tools.tppHead = not Tools.tppHead
 
   local isFemale = Util:GetPlayerGender()
 	if isFemale == "_Female" then gender = 'Wa' else gender = 'Ma' end
@@ -476,21 +478,36 @@ function Tools:ToggleHead()
   local headItem = f("Items.CharacterCustomization%sHead", gender)
 
   local ts = Game.GetTransactionSystem()
-  local gameItemID = GetSingleton('gameItemID')
   local tdbid = TweakDBID.new(headItem)
-  local itemID = gameItemID:FromTDBID(tdbid)
+  local itemID = ItemID.FromTDBID(tdbid)
 
   if ts:HasItem(Game.GetPlayer(), itemID) == false then
     Game.AddToInventory(headItem, 1)
   end
 
-  Game.EquipItemOnPlayer(headItem, "TppHead")
+  -- ts:AddItemToSlot(AMM.player, EquipmentSystem.GetPlacementSlot(itemID), itemID)
 
-  if ts:GetItemInSlot(AMM.player, TweakDBID.new("AttachmentSlots.TppHead")) ~= nil then
-    ts:RemoveItemFromSlot(AMM.player, TweakDBID.new('AttachmentSlots.TppHead'), true, true, true)
-    Game.EquipItemOnPlayer("Items.PlayerFppHead", "TppHead")
+  if Tools.tppHead then
+    Cron.Every(0.001, { tick = 1 }, function(timer)      
+      if timer.tick > 20 then        
+        Cron.Halt(timer)
+      else
+        timer.tick = timer.tick + 1
+      end
+
+      Cron.After(0.01, function()
+        ts:RemoveItemFromSlot(AMM.player, TweakDBID.new('AttachmentSlots.TppHead'), true, true, true)
+      end)
+
+      Cron.After(0.1, function()
+        Game.EquipItemOnPlayer(headItem, "TppHead")        
+      end)
+    end)
   else
-    Game.EquipItemOnPlayer(headItem, "TppHead")
+    if ts:GetItemInSlot(AMM.player, TweakDBID.new("AttachmentSlots.TppHead")) ~= nil then
+      ts:RemoveItemFromSlot(AMM.player, TweakDBID.new('AttachmentSlots.TppHead'), true, true, true)
+      Game.EquipItemOnPlayer("Items.PlayerFppHead", "TppHead")
+    end
   end
 end
 
@@ -768,22 +785,29 @@ function Tools:DrawNPCActions()
     end
   end
 
-  AMM.UI:TextCenter("Movement", true)
-
   if target ~= nil or (Tools.currentNPC and Tools.currentNPC ~= '') then
-
-    local buttonLabel = "Open Movement Tools"
-    if Tools.movementWindow.open then 
-      buttonLabel = "Close Movement Tools"
+    
+    if not AMM.userSettings.floatingTargetTools then
+      AMM.UI:TextCenter("Movement", true)
     end
 
-    if ImGui.Button(buttonLabel, Tools.style.buttonWidth, Tools.style.buttonHeight) then
-      if Tools.movementWindow.open then
-        Tools.movementWindow.open = false
-        Tools.movementWindow.isEditing = false
-      else
-        Tools:OpenMovementWindow()
+    if AMM.userSettings.floatingTargetTools then
+      local buttonLabel = "Open Target Tools"
+      if Tools.movementWindow.open then 
+        buttonLabel = "Close Target Tools"
       end
+
+      if ImGui.Button(buttonLabel, Tools.style.buttonWidth, Tools.style.buttonHeight) then
+        if Tools.movementWindow.open then
+          Tools.movementWindow.open = false
+          Tools.movementWindow.isEditing = false
+        else
+          Tools:OpenMovementWindow()
+        end
+      end
+    else
+      Tools.movementWindow.open = true
+      Tools:DrawMovementWindow()
     end
   else
     AMM.UI:Spacing(3)
@@ -871,7 +895,7 @@ function Tools:SetCurrentTarget(target, systemActivated)
       Game.GetMappinSystem():UnregisterMappin(Tools.lockTargetPinID)
     end
       
-    if not light and Tools.lockTarget and target.type ~= 'entEntity' then
+    if drawWindow and not light and Tools.lockTarget and target.type ~= 'entEntity' then
       Tools.lockTargetPinID = Util:SetMarkerOverObject(target.handle, gamedataMappinVariant.FastTravelVariant)
     end
   end
@@ -990,6 +1014,44 @@ function Tools:FreezeNPC(handle, freeze)
   end
 end
 
+function Tools:PickupTarget(target)
+  Tools.holdingNPC = not Tools.holdingNPC
+  Tools.lockTarget = true
+
+  if target then
+    Tools:SetCurrentTarget(target)
+
+    local handle = target.handle
+
+    if handle:IsNPC() then
+      Tools:FreezeNPC(handle, true)
+      handle:GetAIControllerComponent():DisableCollider()
+    end
+
+    Cron.Every(0.000001, function(timer)
+      local pos = AMM.player:GetWorldPosition()
+      local heading = AMM.player:GetWorldForward()
+      local currentPos = Tools.currentNPC.handle:GetWorldPosition()
+      local offset = 1
+      if handle:IsNPC() then offset = 2 end
+      local newPos = Vector4.new(pos.x + (heading.x * offset), pos.y + (heading.y * offset), currentPos.z, pos.w)
+
+      if Tools.currentNPC.type ~= 'Player' and Tools.currentNPC.handle:IsNPC() then
+        Tools:TeleportNPCTo(handle, newPos, Tools.npcRotation[3])
+      else
+        Game.GetTeleportationFacility():Teleport(handle, newPos, EulerAngles.new(Tools.npcRotation[1], Tools.npcRotation[2], Tools.npcRotation[3]))
+      end
+
+      if Tools.holdingNPC == false then
+        if handle:IsNPC() then
+          Tools:FreezeNPC(handle, false)
+          handle:GetAIControllerComponent():EnableCollider()
+        end
+        Cron.Halt(timer)
+      end
+    end)
+  end
+end
 
 function Tools:ProtectTarget(t)
   local newMappinID = Util:SetMarkerOverObject(t.handle, gamemappinVariant.QuestGiverVariant)
@@ -1044,7 +1106,10 @@ function Tools:OpenMovementWindow()
 end
 
 function Tools:DrawMovementWindow()
-  Tools.movementWindow.open = ImGui.Begin("Movement Tool", ImGuiWindowFlags.AlwaysAutoResize + ImGuiWindowFlags.NoCollapse)
+  if AMM.userSettings.floatingTargetTools then
+    Tools.movementWindow.open = ImGui.Begin("Target Tools", ImGuiWindowFlags.AlwaysAutoResize + ImGuiWindowFlags.NoCollapse)
+  end
+
   if Tools.movementWindow.open then
     Tools.movementWindow.isEditing = true
 
@@ -1074,9 +1139,11 @@ function Tools:DrawMovementWindow()
       Tools:SetCurrentTarget(Tools.currentNPC)
     end
 
-    ImGui.SameLine(500)
-    if ImGui.Button(" Close Window ") then
-      Tools.movementWindow.open = false
+    if AMM.userSettings.floatingTargetTools then
+      ImGui.SameLine(500)
+      if ImGui.Button(" Close Window ") then
+        Tools.movementWindow.open = false
+      end
     end
 
     local adjustmentValue = 0.01
@@ -1265,7 +1332,7 @@ function Tools:DrawMovementWindow()
 
     AMM.UI:Spacing(3)
 
-    if not AMM.playerInPhoto and Tools.currentNPC ~= '' and Tools.currentNPC.type ~= 'Prop' and Tools.currentNPC.type ~= 'entEntity' then
+    if not AMM.playerInPhoto and Tools.currentNPC ~= '' and Tools.currentNPC.type ~= 'entEntity' then
 
       local buttonLabel = "Pick Up Target"
       if Tools.holdingNPC then
@@ -1278,36 +1345,7 @@ function Tools:DrawMovementWindow()
       end
 
       if ImGui.Button(buttonLabel, buttonWidth, Tools.style.buttonHeight) then
-        Tools.holdingNPC = not Tools.holdingNPC
-        Tools.lockTarget = true
-
-        local npcHandle = Tools.currentNPC.handle
-
-        if npcHandle:IsNPC() then
-          Tools:FreezeNPC(npcHandle, true)
-          npcHandle:GetAIControllerComponent():DisableCollider()
-        end
-
-        Cron.Every(0.000001, function(timer)
-          local pos = AMM.player:GetWorldPosition()
-          local heading = AMM.player:GetWorldForward()
-          local currentPos = Tools.currentNPC.handle:GetWorldPosition()
-          local newPos = Vector4.new(pos.x + (heading.x * 2), pos.y + (heading.y * 2), currentPos.z, pos.w)
-
-          if Tools.currentNPC.type ~= 'Player' and Tools.currentNPC.handle:IsNPC() then
-            Tools:TeleportNPCTo(npcHandle, newPos, Tools.npcRotation[3])
-          else
-            Game.GetTeleportationFacility():Teleport(npcHandle, newPos, EulerAngles.new(Tools.npcRotation[1], Tools.npcRotation[2], Tools.npcRotation[3]))
-          end
-
-          if Tools.holdingNPC == false then
-            if npcHandle:IsNPC() then
-              Tools:FreezeNPC(npcHandle, false)
-              npcHandle:GetAIControllerComponent():EnableCollider()
-            end
-            Cron.Halt(timer)
-          end
-        end)
+        Tools:PickupTarget(Tools.currentNPC)
       end
 
       ImGui.SameLine()
@@ -1689,7 +1727,9 @@ function Tools:DrawMovementWindow()
     end
   end
 
-  ImGui.End()
+  if AMM.userSettings.floatingTargetTools then
+    ImGui.End()
+  end
 
   if not(Tools.movementWindow.open) and Tools.movementWindow.isEditing then
     Tools.movementWindow.isEditing = false
@@ -1923,6 +1963,11 @@ function Tools:DrawPhotoModeEnhancements()
 end
 
 -- Utilities
+function Tools:ToggleLookAtMarker(active)
+  if Tools.lockTargetPinID ~= nil then
+    Game.GetMappinSystem():SetMappinActive(Tools.lockTargetPinID, active)
+  end
+end
 
 function Tools:ResetLookAt()
   Tools.selectedLookAt = Tools.lookAtOptions[1]

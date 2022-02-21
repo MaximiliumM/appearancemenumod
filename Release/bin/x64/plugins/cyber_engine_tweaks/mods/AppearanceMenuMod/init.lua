@@ -41,7 +41,7 @@ function AMM:new()
 	 AMM.TeleportMod = ''
 
 	 -- Main Properties --
-	 AMM.currentVersion = "1.13"
+	 AMM.currentVersion = "1.13.1"
 	 AMM.CETVersion = tonumber(GetVersion():match("1.(%d+)."))
 	 AMM.updateNotes = require('update_notes.lua')
 	 AMM.credits = require("credits.lua")
@@ -270,26 +270,36 @@ function AMM:new()
 
 		local fastTravelScenario
       Observe("MenuScenario_HubMenu", "GetMenusState", function(self)
-			if self:IsA("MenuScenario_HubMenu") then
+			if self:IsA("MenuScenario_HubMenu") then				
 				fastTravelScenario = self
 			else
 				fastTravelScenario = nil
 			end
       end)
 
-		Observe("gameuiWorldMapMenuGameController", "TryFastTravel", function(self)
-			if self.selectedMappin and AMM.Scan.companionDriver then
+		Override("gameuiWorldMapMenuGameController", "IsFastTravelEnabled", function(self, wrappedMethod)
+			if AMM.Scan.companionDriver then
+				return true
+			else
+				wrappedMethod()
+			end
+		end)
+
+		Override("gameuiWorldMapMenuGameController", "TryFastTravel", function(self, wrappedMethod)
+			if self.selectedMappin and AMM.Scan.companionDriver then		
 				if fastTravelScenario and fastTravelScenario:IsA("MenuScenario_HubMenu") then
-					if tostring(self.selectedMappin:GetMappinVariant()) == "gamedataMappinVariant : FastTravelVariant (51)" then
+					if tostring(self.selectedMappin:GetMappinVariant()) == "gamedataMappinVariant : FastTravelVariant (51)" then										
 						AMM.Scan:SetVehicleDestination(self, vehicleMap)
 						fastTravelScenario:GotoIdleState()
 						fastTravelScenario:GotoIdleState()
 					end
 				end
+			else
+				wrappedMethod()
 			end
 		end)
 
-		 Observe('PhotoModePlayerEntityComponent', 'ListAllItems', function(self)
+		 Observe('PhotoModePlayerEntityComponent', 'ListAllCurrentItems', function(self)
 			 AMM.Tools.photoModePuppet = self.fakePuppet
 		 end)
 
@@ -394,11 +404,9 @@ function AMM:new()
 
 		Observe("PlayerPuppet", "OnGameAttached", function(self)
 			
-			if GetVersion() == "v1.16.0" then
-				self:RegisterInputListener(self, 'TogglePhotoMode')
-				self:RegisterInputListener(self, 'ExitPhotoMode')
-				self:RegisterInputListener(self, 'Choice1')
-			end
+			self:RegisterInputListener(self, 'TogglePhotoMode')
+			self:RegisterInputListener(self, 'ExitPhotoMode')
+			self:RegisterInputListener(self, 'Choice1')
 
 			AMM.activeCustomApps = {}
 
@@ -434,7 +442,10 @@ function AMM:new()
 			TweakDB:SetFlat('photo_mode.camera.min_fov', 1.0)
 			TweakDB:SetFlat('photo_mode.camera.max_roll', 180)
 			TweakDB:SetFlat('photo_mode.camera.min_roll', -180)
-			TweakDB:SetFlat('photo_mode.camera.max_dist', 100)
+			TweakDB:SetFlat('photo_mode.camera.max_dist', 1000)
+			TweakDB:SetFlat('photo_mode.camera.min_dist', 0.2)
+			TweakDB:SetFlat('photo_mode.camera.max_dist_up_down', 1000)
+			TweakDB:SetFlat('photo_mode.camera.max_dist_left_right', 1000)
 			TweakDB:SetFlat('photo_mode.character.collision_radius', 0)
 			TweakDB:SetFlat('photo_mode.character.max_position_adjust', 100)
 			-- TweakDB:SetFlat('photo_mode.general.force_lod0_characters_dist', 0)
@@ -519,6 +530,15 @@ function AMM:new()
 			else
 				Util:Despawn(target.handle)
 			end
+		end
+	 end)
+
+	 registerHotkey("amm_pickup_target", "Pick Up Target", function()
+		local target = AMM:GetTarget()
+		if target ~= nil then
+			AMM.Tools:PickupTarget(target)
+		elseif AMM.Tools.holdingNPC then
+			AMM.Tools:PickupTarget()
 		end
 	 end)
 
@@ -730,9 +750,6 @@ function AMM:new()
 						AMM.Props:SensePropsTriggers()
 						AMM.Scan:SenseSavedDespawns()
 						AMM.Scan:SenseAppTriggers()
-					elseif drawWindow and AMM.playerAttached then
-						AMM.Props.playerLastPos = ''
-						AMM.Scan.playerLastPos = ''
 					end
 
 					-- Travel Animation Done Check --
@@ -823,10 +840,21 @@ function AMM:new()
 
 	 registerForEvent("onOverlayOpen", function()
 		 if AMM.userSettings.openWithOverlay then drawWindow = true end
+
+		 if drawWindow and AMM.playerAttached then
+			AMM.Props.playerLastPos = ''
+			AMM.Scan.playerLastPos = ''
+		 end
+
+		 -- Toggle Marker With AMM Window --
+		 AMM.Tools:ToggleLookAtMarker(drawWindow)
 	 end)
 
 	 registerForEvent("onOverlayClose", function()
 		 drawWindow = false
+
+		 -- Toggle Marker With AMM Window --
+		 AMM.Tools:ToggleLookAtMarker(drawWindow)
 	 end)
 
 	 registerForEvent("onDraw", function()
@@ -1027,6 +1055,9 @@ function AMM:Begin()
 						AMM.userSettings.scanningReticle, clicked = ImGui.Checkbox("Scanning Reticle", AMM.userSettings.scanningReticle)
 						if clicked then settingChanged = true end
 
+						AMM.userSettings.floatingTargetTools, clicked = ImGui.Checkbox("Floating Target Tools", AMM.userSettings.floatingTargetTools)
+						if clicked then settingChanged = true end
+
 						AMM.userSettings.experimental, expClicked = ImGui.Checkbox("Experimental/Fun stuff", AMM.userSettings.experimental)
 
 						if AMM.userSettings.experimental then
@@ -1208,7 +1239,7 @@ function AMM:Begin()
 		AMM.Light:Draw(AMM)
 	 end
   
-	 if AMM.Tools.movementWindow.isEditing and (target ~= nil or (AMM.Tools.currentNPC and AMM.Tools.currentNPC ~= '')) then
+	 if AMM.userSettings.floatingTargetTools and AMM.Tools.movementWindow.isEditing and (target ~= nil or (AMM.Tools.currentNPC and AMM.Tools.currentNPC ~= '')) then
 		AMM.Tools:DrawMovementWindow()
 	 end
 end
@@ -2919,12 +2950,18 @@ end
 function AMM:DrawArchives()
 	AMM.UI:TextColored("AMM Needs Attention")
 
+	local GameVersion = Game.GetSystemRequestsHandler():GetGameVersion()
+
 	AMM.UI:Spacing(8)
 	AMM.UI:TextCenter(" MISSING ARCHIVES ")
 	ImGui.Spacing()
 	AMM.UI:TextCenter("AMM Version: "..AMM.currentVersion, true)
 	ImGui.Spacing()
 	AMM.UI:TextCenter("CET Version: "..GetVersion(), true)
+	if AMM.CETVersion < 18 and not(AMM.CETVersion == 15 and GameVersion == "1.23") then
+		ImGui.SameLine()
+		AMM.UI:TextError(" Needs Update")
+	end
 	ImGui.Spacing()
 	AMM.UI:TextCenter("Game Version: "..Game.GetSystemRequestsHandler():GetGameVersion(), true)
 	AMM.UI:Separator()
