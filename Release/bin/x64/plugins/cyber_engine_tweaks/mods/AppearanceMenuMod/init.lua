@@ -4,6 +4,9 @@ AMM = {
 	description = "",
 }
 
+-- ALIAS for spdlog.error --
+log = spdlog.error
+
 -- ALIAS for string.format --
 f = string.format
 
@@ -430,34 +433,36 @@ function AMM:new()
 	 end)
 
 	 -- TweakDB Changes
-	 if AMM.CETVersion >= 18 and AMM.userSettings.photoModeEnhancements then
+	 if AMM.CETVersion >= 18 then
 		registerForEvent('onTweak', function()
 
 			-- Adjust Prevention System Total Entities Limit --
-			TweakDB:SetFlat('PreventionSystem.setup.totalEntitiesLimit', 50)
+			TweakDB:SetFlat('PreventionSystem.setup.totalEntitiesLimit', 200)
 
-			-- Adjust Photomode Defaults
-			TweakDB:SetFlat('photo_mode.attributes.dof_aperture_default', AMM.Tools.defaultAperture)
-			TweakDB:SetFlat('photo_mode.camera.default_fov', AMM.Tools.defaultFOV)
-			TweakDB:SetFlat('photo_mode.camera.min_fov', 1.0)
-			TweakDB:SetFlat('photo_mode.camera.max_roll', 180)
-			TweakDB:SetFlat('photo_mode.camera.min_roll', -180)
-			TweakDB:SetFlat('photo_mode.camera.max_dist', 1000)
-			TweakDB:SetFlat('photo_mode.camera.min_dist', 0.2)
-			TweakDB:SetFlat('photo_mode.camera.max_dist_up_down', 1000)
-			TweakDB:SetFlat('photo_mode.camera.max_dist_left_right', 1000)
-			TweakDB:SetFlat('photo_mode.character.collision_radius', 0)
-			TweakDB:SetFlat('photo_mode.character.max_position_adjust', 100)
-			-- TweakDB:SetFlat('photo_mode.general.force_lod0_characters_dist', 0)
-			-- TweakDB:SetFlat('photo_mode.general.force_lod0_vehicles_dist', 0)
-			TweakDB:SetFlat('photo_mode.general.onlyFPPPhotoModeInPlayerStates', {})
-			TweakDB:SetFlat('LookatPreset.PhotoMode_LookAtCamera.followingSpeedFactorOverride', 1200.0)
+			if AMM.userSettings.photoModeEnhancements then
+				-- Adjust Photomode Defaults
+				TweakDB:SetFlat('photo_mode.attributes.dof_aperture_default', AMM.Tools.defaultAperture)
+				TweakDB:SetFlat('photo_mode.camera.default_fov', AMM.Tools.defaultFOV)
+				TweakDB:SetFlat('photo_mode.camera.min_fov', 1.0)
+				TweakDB:SetFlat('photo_mode.camera.max_roll', 180)
+				TweakDB:SetFlat('photo_mode.camera.min_roll', -180)
+				TweakDB:SetFlat('photo_mode.camera.max_dist', 1000)
+				TweakDB:SetFlat('photo_mode.camera.min_dist', 0.2)
+				TweakDB:SetFlat('photo_mode.camera.max_dist_up_down', 1000)
+				TweakDB:SetFlat('photo_mode.camera.max_dist_left_right', 1000)
+				TweakDB:SetFlat('photo_mode.character.collision_radius', 0)
+				TweakDB:SetFlat('photo_mode.character.max_position_adjust', 100)
+				-- TweakDB:SetFlat('photo_mode.general.force_lod0_characters_dist', 0)
+				-- TweakDB:SetFlat('photo_mode.general.force_lod0_vehicles_dist', 0)
+				TweakDB:SetFlat('photo_mode.general.onlyFPPPhotoModeInPlayerStates', {})
+				TweakDB:SetFlat('LookatPreset.PhotoMode_LookAtCamera.followingSpeedFactorOverride', 1200.0)
 
-			for pose in db:urows("SELECT pose_name FROM photomode_poses") do
-				TweakDB:SetFlat('PhotoModePoses.'..pose..'.disableLookAtForGarmentTags', {})
-				TweakDB:SetFlat('PhotoModePoses.'..pose..'.filterOutForGarmentTags', {})
-				TweakDB:SetFlat('PhotoModePoses.'..pose..'.poseStateConfig', 'POSE_STATE_GROUND_AND_AIR')
-				TweakDB:SetFlat('PhotoModePoses.'..pose..'.lookAtPreset', 'LookatPreset.PhotoMode_LookAtCamera')
+				for pose in db:urows("SELECT pose_name FROM photomode_poses") do
+					TweakDB:SetFlat('PhotoModePoses.'..pose..'.disableLookAtForGarmentTags', {})
+					TweakDB:SetFlat('PhotoModePoses.'..pose..'.filterOutForGarmentTags', {})
+					TweakDB:SetFlat('PhotoModePoses.'..pose..'.poseStateConfig', 'POSE_STATE_GROUND_AND_AIR')
+					TweakDB:SetFlat('PhotoModePoses.'..pose..'.lookAtPreset', 'LookatPreset.PhotoMode_LookAtCamera')
+				end
 			end
 		end)
 	 end
@@ -620,6 +625,37 @@ function AMM:new()
 			Util:NPCTalk(target.handle)
 		end
 	 end)
+
+	 registerHotkey("amm_npc_move", "NPC Move To Position", function()
+		if next(AMM.Spawn.spawnedNPCs) ~= nil then
+			local spatialQuery = Game.GetSpatialQueriesSystem()
+			local cameraSystem = Game.GetCameraSystem()
+			local playerPos = Game.GetPlayer():GetWorldPosition()
+			playerPos = Vector4.new(playerPos.x, playerPos.y, playerPos.z + 1.7, playerPos.w)
+			local heading = Vector4.Normalize(cameraSystem:GetActiveCameraForward())
+			local point = Vector4.new(playerPos.x + (heading.x * 100), playerPos.y + (heading.y * 100), playerPos.z + (heading.z * 100), playerPos.w)
+
+			local collision, result = spatialQuery:SyncRaycastByCollisionGroup(playerPos, point, "Static", true, true)
+			local pos = Vector4.new(result.position.x, result.position.y, result.position.z, 1)
+
+			if collision then
+				for _, ent in pairs(AMM.Spawn.spawnedNPCs) do
+					if ent.handle:IsNPC() and ent.handle.isPlayerCompanionCached then
+						Util:MoveTo(ent.handle, pos)
+						local mappinID = Util:SetMarkerAtPosition(pos)
+
+						Cron.After(2, function()
+							Game.GetMappinSystem():UnregisterMappin(mappinID)
+						end)
+					end
+				end
+			end
+		end
+	 end)
+
+	--  registerHotkey("amm_npc_attack", "NPC Attack Target", function()
+
+	--  end)
 
 	 registerHotkey("amm_npc_hold", "NPC Hold Position", function()
 		local target = AMM:GetTarget()
@@ -1865,6 +1901,11 @@ function AMM:SetupAMMCharacters()
 		{og = "Character.q003_cat", tdbid = "AMM_Character.Nibbles_Jump_Down", path = "nibbles_jump_down"},
 		{og = "Character.q003_cat", tdbid = "AMM_Character.Nibbles_Self_Clean", path = "nibbles_self_clean"},
 		{og = "Character.q003_cat", tdbid = "AMM_Character.Nibbles_Sleeping", path = "nibbles_sleep"},
+		{og = "Character.q003_cat", tdbid = "AMM_Character.Nibbles_Sleeping_01", path = "nibbles_sleep_01"},
+		{og = "Character.q003_cat", tdbid = "AMM_Character.Nibbles_Sleeping_02", path = "nibbles_sleep_02"},
+		{og = "Character.q003_cat", tdbid = "AMM_Character.Nibbles_Sleeping_Belly_Up", path = "nibbles_sleep_belly_up"},
+		{og = "Character.q003_cat", tdbid = "AMM_Character.Nibbles_Scratch", path = "nibbles_scratch"},
+		{og = "Character.q003_cat", tdbid = "AMM_Character.Nibbles_Lie", path = "nibbles_lie"},
 		{og = "Character.q105_jigjig_hologram", tdbid = "AMM_Character.Wa_Holograms_Dance", path = "wa_holograms_redlight_dance"},
 		{og = "Vehicle.av_rayfield_excalibur", tdbid = "AMM_Vehicle.Docworks_Excalibus", path = "doc_excalibus"},
 	}
@@ -2145,7 +2186,7 @@ function AMM:GetNPCTweakDBID(npc)
 end
 
 function AMM:DespawnAll(message)
-	if message then AMM.player:SetWarningMessage("Despawning will occur once you look away") end
+	-- if message then AMM.player:SetWarningMessage("Despawning will occur once you look away") end
 	for i = 0, 99 do
 		Game.GetPreventionSpawnSystem():RequestDespawnPreventionLevel(i * -1)
 	end

@@ -509,7 +509,7 @@ function Spawn:SpawnNPC(spawn)
 	local pos = AMM.player:GetWorldPosition()
 	local heading = AMM.player:GetWorldForward()
 	local angles = GetSingleton('Quaternion'):ToEulerAngles(AMM.player:GetWorldOrientation())
-	local newPos = Vector4.new(pos.x - heading.x, pos.y - heading.y, pos.z - heading.z, pos.w - heading.w)
+	local newPos = Vector4.new(pos.x - (heading.x * 4), pos.y - (heading.y * 4), pos.z - heading.z, pos.w - heading.w)
 	spawnTransform:SetPosition(newPos)
 	spawnTransform:SetOrientationEuler(EulerAngles.new(0, 0, angles.yaw - 180))
 
@@ -585,6 +585,7 @@ function Spawn:DespawnAll()
   for _, ent in pairs(Spawn.spawnedNPCs) do
 	if ent.handle and ent.handle ~= '' then
     	exEntitySpawner.Despawn(ent.handle)
+		ent.handle:Dispose()
 	end
   end
 
@@ -592,30 +593,32 @@ function Spawn:DespawnAll()
   AMM:UpdateSettings()
 end
 
-function Spawn:SetNPCAsCompanion(npcHandle)
-	Util:SetGodMode(npcHandle, AMM.userSettings.isCompanionInvulnerable)
+function Spawn:SetNPCAsCompanion(targetPuppet)
+	Util:SetGodMode(targetPuppet, AMM.userSettings.isCompanionInvulnerable)
 	
-	local npcManager = npcHandle.NPCManager
+	local npcManager = targetPuppet.NPCManager
 	npcManager:ScaleToPlayer()
 
-	local targCompanion = npcHandle
-	local AIC = targCompanion:GetAIControllerComponent()
-	local targetAttAgent = targCompanion:GetAttitudeAgent()
-	local currTime = targCompanion.isPlayerCompanionCachedTimeStamp + 11
+	local currentRole = targetPuppet:GetAIControllerComponent():GetAIRole()
 
-	if targCompanion.isPlayerCompanionCached == false then
-		local roleComp = NewObject('handle:AIFollowerRole')
-		roleComp:SetFollowTarget(Game.GetPlayerSystem():GetLocalPlayerControlledGameObject())
-		roleComp:OnRoleSet(targCompanion)
-		roleComp.followerRef = Game.CreateEntityReference("#player", {})
-		targetAttAgent:SetAttitudeGroup(CName.new("player"))
-		roleComp.attitudeGroupName = CName.new("player")
-		Game['senseComponent::RequestMainPresetChange;GameObjectString'](targCompanion, "Follower")
-		targCompanion.isPlayerCompanionCached = true
-		targCompanion.isPlayerCompanionCachedTimeStamp = currTime
+	if currentRole then
+		currentRole:OnRoleCleared(targetPuppet)
+	end
 
-		AIC:SetAIRole(roleComp)
-		targCompanion.movePolicies:Toggle(true)
+	if targetPuppet.isPlayerCompanionCached == false then
+		local followerRole = AIFollowerRole.new()
+		followerRole.followerRef = Game.CreateEntityReference("#player", {})
+
+		targetPuppet:GetAttitudeAgent():SetAttitudeGroup(CName.new("player"))
+		followerRole.attitudeGroupName = CName.new("player")
+
+		targetPuppet.isPlayerCompanionCached = true
+		targetPuppet.isPlayerCompanionCachedTimeStamp = 0
+
+		targetPuppet:GetAIControllerComponent():SetAIRole(followerRole)
+		targetPuppet:GetAIControllerComponent():OnAttach()
+
+		targetPuppet.movePolicies:Toggle(true)
 
 		AMM:UpdateFollowDistance()
 	end

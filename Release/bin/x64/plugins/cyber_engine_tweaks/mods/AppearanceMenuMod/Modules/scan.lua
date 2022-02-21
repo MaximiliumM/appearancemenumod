@@ -702,7 +702,6 @@ function Scan:SetVehicleDestination(worldMap, vehicleMap)
 
       if dist < 45 and vehicleMap[tostring(Scan.companionDriver.vehicle.handle:GetEntityID().hash)] ~= nil then
         vehicleMap[tostring(Scan.companionDriver.vehicle.handle:GetEntityID().hash)]:StopExecutingCommand(cmd, true)
-        Util:ToggleEngine(Scan.companionDriver.vehicle.handle)
         Scan.isDriving = false
         Cron.Halt(timer)
       end

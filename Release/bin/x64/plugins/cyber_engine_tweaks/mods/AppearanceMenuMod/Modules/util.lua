@@ -263,10 +263,19 @@ function Util:GetNPCsInRange(maxDistance)
 	end
 end
 
+function Util:SetMarkerAtPosition(pos, variant)
+  local mappinData = NewObject('gamemappinsMappinData')
+  mappinData.mappinType = TweakDBID.new('Mappins.QuestDynamicMappinDefinition')
+  mappinData.variant = Enum.new('gamedataMappinVariant', variant or 'FastTravelVariant')
+  mappinData.visibleThroughWalls = true
+
+  return Game.GetMappinSystem():RegisterMappin(mappinData, pos)
+end
+
 function Util:SetMarkerOverObject(handle, variant)
   local mappinData = NewObject('gamemappinsMappinData')
   mappinData.mappinType = TweakDBID.new('Mappins.DefaultStaticMappin')
-  mappinData.variant = variant
+  mappinData.variant = variant or 'FastTravelVariant'
   mappinData.visibleThroughWalls = true
 
   local zOffset = 1

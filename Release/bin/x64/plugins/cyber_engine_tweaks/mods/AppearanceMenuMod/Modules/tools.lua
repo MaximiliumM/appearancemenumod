@@ -181,7 +181,7 @@ end
 function Tools:DrawVActions()
   -- AMM.UI:TextColored("V Actions:")
 
-  if AMM.playerInPhoto then
+  if AMM.playerInPhoto or Util:CheckVByID(Tools.currentNPC.id) then
     if ImGui.Button("Toggle Makeup", Tools.style.halfButtonWidth, Tools.style.buttonHeight) then
       Tools:ToggleMakeup()
     end
@@ -191,29 +191,36 @@ function Tools:DrawVActions()
       Tools:ToggleAccessories()
     end
 
-    if ImGui.Button("Toggle Seamfix", Tools.style.halfButtonWidth, Tools.style.buttonHeight) then
+    local buttonWidth = Tools.style.halfButtonWidth
+    if not AMM.playerInPhoto then
+      buttonWidth = Tools.style.buttonWidth
+    end
+
+    if ImGui.Button("Toggle Seamfix", buttonWidth, Tools.style.buttonHeight) then
       Tools:ToggleSeamfix()
     end
 
-    ImGui.SameLine()
-    if ImGui.Button("Target V", Tools.style.halfButtonWidth, Tools.style.buttonHeight) then
-      Tools:SetCurrentTarget(Tools:GetVTarget())
-      Tools.lockTarget = true
-    end
+    if AMM.playerInPhoto then
+      ImGui.SameLine()
+      if ImGui.Button("Target V", Tools.style.halfButtonWidth, Tools.style.buttonHeight) then
+        Tools:SetCurrentTarget(Tools:GetVTarget())
+        Tools.lockTarget = true
+      end
 
-    local buttonLabel = "Lock Look At Camera"
-    if Tools.lookAtLocked then
-      buttonLabel = "Unlock Look At Camera"
-    end
+      local buttonLabel = "Lock Look At Camera"
+      if Tools.lookAtLocked then
+        buttonLabel = "Unlock Look At Camera"
+      end
 
-    if ImGui.Button(buttonLabel, Tools.style.buttonWidth, Tools.style.buttonHeight) then
-      Tools:ToggleLookAt()
-    end
+      if ImGui.Button(buttonLabel, Tools.style.buttonWidth, Tools.style.buttonHeight) then
+        Tools:ToggleLookAt()
+      end
 
-    Tools.savePhotoModeToggles = ImGui.Checkbox("Save Toggles State", Tools.savePhotoModeToggles)
+      Tools.savePhotoModeToggles = ImGui.Checkbox("Save Toggles State", Tools.savePhotoModeToggles)
 
-    if ImGui.IsItemHovered() then
-      ImGui.SetTooltip("This will save Makeup, Piercing and Seamfix toggles state until you close the game.")
+      if ImGui.IsItemHovered() then
+        ImGui.SetTooltip("This will save Makeup, Piercing and Seamfix toggles state until you close the game.")
+      end
     end
   else
     local buttonLabel = "Disable Passive Mode"
@@ -488,11 +495,12 @@ function Tools:ToggleHead()
   -- ts:AddItemToSlot(AMM.player, EquipmentSystem.GetPlacementSlot(itemID), itemID)
 
   if Tools.tppHead then
-    Cron.Every(0.001, { tick = 1 }, function(timer)      
+    Cron.Every(0.001, { tick = 1 }, function(timer)
+      
+      timer.tick = timer.tick + 1
+
       if timer.tick > 20 then        
         Cron.Halt(timer)
-      else
-        timer.tick = timer.tick + 1
       end
 
       Cron.After(0.01, function()
@@ -500,7 +508,7 @@ function Tools:ToggleHead()
       end)
 
       Cron.After(0.1, function()
-        Game.EquipItemOnPlayer(headItem, "TppHead")        
+        Game.EquipItemOnPlayer(headItem, "TppHead")
       end)
     end)
   else
@@ -513,7 +521,14 @@ end
 
 function Tools:GetVTarget()
   local entity = Tools.photoModePuppet
-  if not entity then return nil end
+  if not entity then
+    if Util:CheckVByID(Tools.currentNPC.id) then
+      return Tools.currentNPC
+    else
+      return nil
+    end
+  end
+
   return AMM:NewTarget(entity, "NPCPuppet", AMM:GetScanID(entity), AMM:GetNPCName(entity),AMM:GetScanAppearance(entity), nil)
 end
 
@@ -1240,7 +1255,7 @@ function Tools:DrawMovementWindow()
       end
     end
 
-    if leftUsed or rightUsed and Tools.currentNPC ~= '' then
+    if (leftUsed or rightUsed) and Tools.currentNPC ~= '' then
       if Tools.currentNPC.type == 'entEntity' then
         if not Tools.movingProp then
           Tools:TeleportPropTo(Tools.currentNPC, pos, EulerAngles.new(Tools.npcRotation[1], Tools.npcRotation[2], Tools.npcRotation[3]))
@@ -1451,7 +1466,7 @@ function Tools:DrawMovementWindow()
 
         ImGui.Spacing()
 
-        if not AMM.playerInPhoto then
+        if not AMM.playerInPhoto and Tools.currentNPC ~= '' then
 
           AMM.UI:Spacing(4)
 
@@ -1559,7 +1574,7 @@ function Tools:DrawMovementWindow()
         end
       end
 
-      if AMM.userSettings.experimental and Tools.currentNPC.handle:IsNPC() then
+      if AMM.userSettings.experimental and Tools.currentNPC ~= '' and Tools.currentNPC.handle:IsNPC() then
 
         local es = Game.GetScriptableSystemsContainer():Get(CName.new("EquipmentSystem"))
         local weapon = es:GetActiveWeaponObject(AMM.player, 39)
@@ -2044,6 +2059,7 @@ end
 
 function Tools:ExitPhotoMode()
   AMM.playerInPhoto = false
+  Tools.photoModePuppet = nil
 
   -- Trigger User Data save in case the user changed FOV and Aperture defaults
   AMM:UpdateSettings()
