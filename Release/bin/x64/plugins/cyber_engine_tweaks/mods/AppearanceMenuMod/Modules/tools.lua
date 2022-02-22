@@ -268,7 +268,7 @@ function Tools:DrawVActions()
 
     ImGui.SameLine()
     if ImGui.Button("Toggle V Head", Tools.style.halfButtonWidth, Tools.style.buttonHeight) then
-      Tools:ToggleHead()
+      Tools:ToggleHead(true)
     end
 
     if AMM.userSettings.experimental then
@@ -476,11 +476,15 @@ function Tools:ToggleTPPCamera()
   Tools:ToggleHead()
 end
 
-function Tools:ToggleHead()
+function Tools:ToggleHead(userActivated)
+  if AMM.playerInVehicle and userActivated then
+    return
+  end
+
   Tools.tppHead = not Tools.tppHead
 
   local isFemale = Util:GetPlayerGender()
-	if isFemale == "_Female" then gender = 'Wa' else gender = 'Ma' end
+  if isFemale == "_Female" then gender = 'Wa' else gender = 'Ma' end
 
   local headItem = f("Items.CharacterCustomization%sHead", gender)
 
@@ -905,12 +909,13 @@ function Tools:SetCurrentTarget(target, systemActivated)
 
   if not systemActivated then
     local light = AMM.Light:GetLightData(target)
+    local workspotMarker = Util:IsCustomWorkspot(target.handle)
 
     if Tools.lockTargetPinID ~= nil then
       Game.GetMappinSystem():UnregisterMappin(Tools.lockTargetPinID)
     end
       
-    if drawWindow and not light and Tools.lockTarget and target.type ~= 'entEntity' then
+    if drawWindow and not workspotMarker and not light and Tools.lockTarget and target.type ~= 'entEntity' then
       Tools.lockTargetPinID = Util:SetMarkerOverObject(target.handle, gamedataMappinVariant.FastTravelVariant)
     end
   end

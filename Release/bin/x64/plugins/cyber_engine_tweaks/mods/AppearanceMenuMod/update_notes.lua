@@ -1,9 +1,22 @@
 return {
 	{
+		'1.13.2',
+		'2022 Feb 22',
+		[[Added Joanne Koch to Spawn and Swap lists]],
+		[[-- I've also added some Custom Apppearances for her]],
+		[[Added new Restore Access button when targeting Elevator terminals with Scan tab]],
+		[[Toggle Head can't be toggled while in car anymore]],
+		[[-- This has been done to prevent an issue that V would be stuck in a crouch animation after exiting the car]],
+		[[Fixed issue where E3 V would not do some animations]],
+		[[Fixed issue with clipping on E3 V Female Default and Combat appearances (again)]],
+		[[Fixed issue where Fast Travel terminals would not work]],
+		[[Fixed issue where pressing Lock Target would crash AMM leaking colors to CET]],
+	},
+	{
 		'1.13.1',
 		'2022 Feb 21',
 		[[AMM will no longer support CET 1.15 and Game Version 1.23]],
-		[[Added 3 Interactions: Sleep, Sit and Shower]],
+		[[Introducing Interactions: Sleep, Sit and Shower]],
 		[[-- These are stil very WIP and their activation point is not at an ideal height]],
 		[[Added NPC Move To Position hotkey]],
 		[[-- The NPC will teleport instead of walking sometimes. That's a game limitation]],

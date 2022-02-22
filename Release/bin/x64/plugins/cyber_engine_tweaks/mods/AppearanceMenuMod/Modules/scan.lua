@@ -274,6 +274,10 @@ function Scan:Draw(AMM, target, style)
         if ImGui.Button("  Unlock Door  ", style.buttonWidth, style.buttonHeight - 5) then
           Util:UnlockDoor(target.handle)
         end
+      elseif target.name == "ElevatorFloorTerminal" then
+        if ImGui.Button("  Restore Access  ", style.buttonWidth, style.buttonHeight - 5) then
+          Util:RestoreElevator(target.handle)
+        end
       elseif target.handle:IsVehicle() then
         if ImGui.Button("  Unlock Vehicle  ", style.halfButtonWidth, style.buttonHeight - 5) then
           Util:UnlockVehicle(target.handle)

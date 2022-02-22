@@ -1160,7 +1160,6 @@ function Director:SetHostileTowards(handle, target, group)
 
   local AIC = handle:GetAIControllerComponent()
   local targetAttAgent = handle:GetAttitudeAgent()
-  print(Dump(targetAttAgent, false))
   local reactionComp = handle.reactionComponent
 
   local aiRole = NewObject('handle:AIRole')

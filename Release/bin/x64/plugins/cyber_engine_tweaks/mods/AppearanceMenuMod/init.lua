@@ -44,7 +44,7 @@ function AMM:new()
 	 AMM.TeleportMod = ''
 
 	 -- Main Properties --
-	 AMM.currentVersion = "1.13.1"
+	 AMM.currentVersion = "1.13.2"
 	 AMM.CETVersion = tonumber(GetVersion():match("1.(%d+)."))
 	 AMM.updateNotes = require('update_notes.lua')
 	 AMM.credits = require("credits.lua")
@@ -283,8 +283,8 @@ function AMM:new()
 		Override("gameuiWorldMapMenuGameController", "IsFastTravelEnabled", function(self, wrappedMethod)
 			if AMM.Scan.companionDriver then
 				return true
-			else
-				wrappedMethod()
+			else				
+				return wrappedMethod()
 			end
 		end)
 
@@ -654,7 +654,14 @@ function AMM:new()
 	 end)
 
 	--  registerHotkey("amm_npc_attack", "NPC Attack Target", function()
-
+	-- 	if next(AMM.Spawn.spawnedNPCs) ~= nil then
+	-- 		local target = AMM:GetTarget()
+	-- 		if target ~= nil and target.handle:IsNPC() then
+	-- 			for _, ent in pairs(AMM.Spawn.spawnedNPCs) do
+	-- 				Util:TriggerCombatAgainst(ent.handle, target.handle)
+	-- 			end
+	-- 		end
+	-- 	end
 	--  end)
 
 	 registerHotkey("amm_npc_hold", "NPC Hold Position", function()
@@ -1689,7 +1696,8 @@ function AMM:IsApproved(modder, path)
 
 		local possibleIDs = {
 			"0xB12C810A, 20", "0x83384354, 12",
-			"0x86B91A0E, 11", "0xA582326C, 10"
+			"0x86B91A0E, 11", "0xA582326C, 10",
+			"0x61487D07, 14"
 		}
 
 		for _, possibleID in ipairs(possibleIDs) do
@@ -1893,8 +1901,8 @@ function AMM:SetupAMMCharacters()
 		{og = "Character.Takemura", tdbid = "AMM_Character.Silverhand", path = "silverhand"},
 		{og = "Character.Hanako", tdbid = "AMM_Character.Hanako", path = "hanako"},
 		{og = "Character.generic_netrunner_netrunner_chao_wa_rare_ow_city_scene", tdbid = "AMM_Character.Songbird", path = "songbird"},
-		{og = "Character.q116_v_female", tdbid = "AMM_Character.E3_V_Female", path = "e3_v_female"},
-		{og = "Character.q116_v_male", tdbid = "AMM_Character.E3_V_Male", path = "e3_v_male"},
+		{og = "Character.mq030_melisa", tdbid = "AMM_Character.E3_V_Female", path = "e3_v_female"},
+		{og = "Character.afterlife_rare_fmelee3_mantis_ma_elite", tdbid = "AMM_Character.E3_V_Male", path = "e3_v_male"},
 		{og = "Character.q003_cat", tdbid = "AMM_Character.Nibbles_Sit", path = "nibbles_sit"},
 		{og = "Character.q003_cat", tdbid = "AMM_Character.Nibbles_Test", path = "nibbles_test"},
 		{og = "Character.q003_cat", tdbid = "AMM_Character.Nibbles_Get_Pet", path = "nibbles_get_pet"},
@@ -1942,15 +1950,20 @@ function AMM:SetupAMMCharacters()
 	})
 
 	TweakDB:SetFlats("AMM_Character.E3_V_Female",{
-		primaryEquipment = TweakDB:GetFlat('Character.afterlife_rare_fmelee3_mantis_wa_elite.primaryEquipment'),
+		fullDisplayName = TweakDB:GetFlat('Character.q116_v_female.fullDisplayName'),
+		displayName = TweakDB:GetFlat('Character.q116_v_female.displayName'),
+		reactionPreset = TweakDB:GetFlat('Character.q116_v_female.reactionPreset'),
+		sensePreset = TweakDB:GetFlat('Character.q116_v_female.sensePreset'),
 		secondaryEquipment = TweakDB:GetFlat('Character.arr_ncpd_inspector_ranged1_lexington_ma.primaryEquipment'),
-		abilities = TweakDB:GetFlat('Character.afterlife_rare_fmelee3_mantis_wa_elite.abilities')
+		affiliation = TweakDB:GetFlat('Character.afterlife_rare_fmelee3_mantis_ma_elite.affiliation'),
 	})
 
 	TweakDB:SetFlats("AMM_Character.E3_V_Male",{
-		primaryEquipment = TweakDB:GetFlat('Character.afterlife_rare_fmelee3_mantis_ma_elite.primaryEquipment'),
+		fullDisplayName = TweakDB:GetFlat('Character.q116_v_male.fullDisplayName'),
+		displayName = TweakDB:GetFlat('Character.q116_v_male.displayName'),
+		reactionPreset = TweakDB:GetFlat('Character.q116_v_male.reactionPreset'),
+		sensePreset = TweakDB:GetFlat('Character.q116_v_male.sensePreset'),
 		secondaryEquipment = TweakDB:GetFlat('Character.arr_ncpd_inspector_ranged1_lexington_ma.primaryEquipment'),
-		abilities = TweakDB:GetFlat('Character.Takemura.abilities')
 	})
 
 	TweakDB:SetFlats("AMM_Character.Songbird",{

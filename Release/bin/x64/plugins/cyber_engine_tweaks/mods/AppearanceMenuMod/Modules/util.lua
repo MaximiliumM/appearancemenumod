@@ -308,6 +308,13 @@ function Util:ToggleCompanion(handle)
   end
 end
 
+-- Not working
+function Util:TriggerCombatAgainst(handle, target)
+  local reactionComp = handle.reactionComponent
+  handle:GetAttitudeAgent():SetAttitudeTowards(target:GetAttitudeAgent(), Enum.new("EAIAttitude", "AIA_Hostile"))
+  reactionComp:TriggerCombat(target)
+end
+
 function Util:SetGodMode(entity, immortal)
   local entityID = entity:GetEntityID()
 	local gs = Game.GetGodModeSystem()
@@ -326,6 +333,42 @@ function Util:Despawn(handle)
     vehPS:SetHasExploded(false)
   end
   handle:Dispose()
+end
+
+function Util:RestoreElevator(handle)
+  if handle and handle:IsExactlyA("ElevatorFloorTerminal") then
+    for _, parent in ipairs(handle:GetDevicePS():GetImmediateParents()) do
+      if parent and parent:IsExactlyA("LiftControllerPS") then
+        parent:TurnAuthorizationModuleOFF()
+        parent:ForceEnableDevice()
+        parent:ForceDeviceON()
+
+        for _, elevatorPS in ipairs(parent:GetImmediateSlaves()) do
+            if elevatorPS and elevatorPS:IsExactlyA("ElevatorFloorTerminalControllerPS") then
+                elevatorPS:PowerDevice()
+                elevatorPS:ForceDeviceON()
+                elevatorPS:ForceEnableDevice()
+                elevatorPS:TurnAuthorizationModuleOFF()
+            end
+        end
+
+        for i = 0, #parent:GetFloors() do
+            local actionShowFloor = parent:ActionQuestShowFloor()
+            local actionActiveFloor = parent:ActionQuestSetFloorActive()
+
+            actionShowFloor:SetProperties(i)
+            actionActiveFloor:SetProperties(i)
+
+            Game.GetPersistencySystem():QueuePSDeviceEvent(actionShowFloor)
+            Game.GetPersistencySystem():QueuePSDeviceEvent(actionActiveFloor)
+        end
+
+        parent:ForceEnableDevice()
+        parent:ForceDeviceON()
+        parent:WakeUpDevice()
+      end
+    end
+  end
 end
 
 function Util:UnlockDoor(handle)

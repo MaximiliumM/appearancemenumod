@@ -555,6 +555,7 @@ function Spawn:SpawnNPC(spawn)
 			end)
 
 			if AMM.userSettings.spawnAsCompanion and spawn.canBeCompanion then
+				AMM.Tools:SetNPCAttitude(spawn, "friendly")
 				Spawn:SetNPCAsCompanion(spawn.handle)
 			else
 				AMM.Tools:SetNPCAttitude(spawn, "friendly")
