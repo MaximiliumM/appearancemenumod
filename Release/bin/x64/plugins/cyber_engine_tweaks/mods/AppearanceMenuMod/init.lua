@@ -44,7 +44,7 @@ function AMM:new()
 	 AMM.TeleportMod = ''
 
 	 -- Main Properties --
-	 AMM.currentVersion = "1.13.2"
+	 AMM.currentVersion = "1.13.2b"
 	 AMM.CETVersion = tonumber(GetVersion():match("1.(%d+)."))
 	 AMM.updateNotes = require('update_notes.lua')
 	 AMM.credits = require("credits.lua")
@@ -407,9 +407,9 @@ function AMM:new()
 
 		Observe("PlayerPuppet", "OnGameAttached", function(self)
 			
-			self:RegisterInputListener(self, 'TogglePhotoMode')
-			self:RegisterInputListener(self, 'ExitPhotoMode')
-			self:RegisterInputListener(self, 'Choice1')
+			-- self:RegisterInputListener(self, 'TogglePhotoMode')
+			-- self:RegisterInputListener(self, 'ExitPhotoMode')
+			-- self:RegisterInputListener(self, 'Choice1')
 
 			AMM.activeCustomApps = {}
 
@@ -437,7 +437,7 @@ function AMM:new()
 		registerForEvent('onTweak', function()
 
 			-- Adjust Prevention System Total Entities Limit --
-			TweakDB:SetFlat('PreventionSystem.setup.totalEntitiesLimit', 200)
+			TweakDB:SetFlat('PreventionSystem.setup.totalEntitiesLimit', 50)
 
 			if AMM.userSettings.photoModeEnhancements then
 				-- Adjust Photomode Defaults

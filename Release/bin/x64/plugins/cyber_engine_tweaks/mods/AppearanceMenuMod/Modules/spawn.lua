@@ -509,7 +509,9 @@ function Spawn:SpawnNPC(spawn)
 	local pos = AMM.player:GetWorldPosition()
 	local heading = AMM.player:GetWorldForward()
 	local angles = GetSingleton('Quaternion'):ToEulerAngles(AMM.player:GetWorldOrientation())
-	local newPos = Vector4.new(pos.x - (heading.x * 4), pos.y - (heading.y * 4), pos.z - heading.z, pos.w - heading.w)
+	local offset = 1
+	if Tools.TPPCamera then offset = 4 end
+	local newPos = Vector4.new(pos.x - (heading.x * offset), pos.y - (heading.y * offset), pos.z - heading.z, pos.w - heading.w)
 	spawnTransform:SetPosition(newPos)
 	spawnTransform:SetOrientationEuler(EulerAngles.new(0, 0, angles.yaw - 180))
 

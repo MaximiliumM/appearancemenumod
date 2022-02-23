@@ -1,5 +1,11 @@
 return {
 	{
+		'1.13.2b',
+		'2022 Feb 23',
+		[[Fixed issue where Spawning would not work for some users]],
+		[[Fixed issue where Jig-Jig Poledancer could not be swapped]],
+	},
+	{
 		'1.13.2',
 		'2022 Feb 22',
 		[[Added Joanne Koch to Spawn and Swap lists]],
@@ -7,6 +13,8 @@ return {
 		[[Added new Restore Access button when targeting Elevator terminals with Scan tab]],
 		[[Toggle Head can't be toggled while in car anymore]],
 		[[-- This has been done to prevent an issue that V would be stuck in a crouch animation after exiting the car]],
+		[[Fixed issue where V would be bald when swapped]],
+		[[Fixed issue with Lizzies Waitress exploding meshes]],
 		[[Fixed issue where E3 V would not do some animations]],
 		[[Fixed issue with clipping on E3 V Female Default and Combat appearances (again)]],
 		[[Fixed issue where Fast Travel terminals would not work]],
