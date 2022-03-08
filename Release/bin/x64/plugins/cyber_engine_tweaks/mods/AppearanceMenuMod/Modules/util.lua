@@ -2,6 +2,7 @@ local Util = {
   errorDisplayed = false,
   openPopup = false,
   popup = {},
+  playerLastPos = '',
 }
 
 -- AMM Helper Methods
@@ -100,6 +101,22 @@ function Util:CancelCommand(handle, cmd)
   handle:GetAIControllerComponent():CancelCommand(cmd)
 end
 
+function Util:PlayerPositionChangedSignificantly(playerPos)
+  local distFromLastPos = 60
+
+  if Util.playerLastPos ~= '' then
+    distFromLastPos = Util:VectorDistance(playerPos, Util.playerLastPos)
+  end
+
+  if distFromLastPos >= 60 then
+    Util.playerLastPos = Game.GetPlayer():GetWorldPosition()
+
+    return true
+  end
+
+  return false
+end
+
 function Util:GetBehindPlayerPosition(distance)
   local pos = AMM.player:GetWorldPosition()
   local heading = AMM.player:GetWorldForward()
@@ -193,7 +210,7 @@ function Util:HoldPosition(targetPuppet, duration)
 	return holdCmd, targetPuppet
 end
 
-function Util:NPCTalk(handle, vo, category, idle)
+function Util:NPCTalk(handle, vo, category, idle, upperBody)
 	local stimComp = handle:GetStimReactionComponent()
 	local animComp = handle:GetAnimationControllerComponent()
 
@@ -201,7 +218,7 @@ function Util:NPCTalk(handle, vo, category, idle)
 		local animFeat = NewObject("handle:AnimFeature_FacialReaction")
 		animFeat.category = category or 3
 		animFeat.idle = idle or 5
-		stimComp:ActivateReactionLookAt(Game.GetPlayer(), false, true, 1, true)
+		stimComp:ActivateReactionLookAt(Game.GetPlayer(), false, 1, upperBody or true, true)
 		Util:PlayVoiceOver(handle, vo or "greeting")
 		animComp:ApplyFeature(CName.new("FacialReaction"), animFeat)
 	end
@@ -481,9 +498,9 @@ function Util:GetAllCategoryIDs(categories)
 end
 
 function Util:CanBeHostile(t)
-	local canBeHostile = t:GetRecord():AbilitiesContains(GetSingleton("gamedataTweakDBInterface"):GetGameplayAbilityRecord(TweakDBID.new("Ability.CanCloseCombat")))
+  local canBeHostile = TweakDB:GetRecord(t.path):AbilitiesContains(TweakDBInterface.GetGameplayAbilityRecord("Ability.CanCloseCombat"))
 	if not(canBeHostile) then
-		canBeHostile = t:GetRecord():AbilitiesContains(GetSingleton("gamedataTweakDBInterface"):GetGameplayAbilityRecord(TweakDBID.new("Ability.HasChargeJump")))
+		canBeHostile = TweakDB:GetRecord(t.path):AbilitiesContains(TweakDBInterface.GetGameplayAbilityRecord("Ability.HasChargeJump"))
 	end
 
 	return canBeHostile

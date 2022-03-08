@@ -75,7 +75,6 @@ function Props:new()
   Props.selectedPreset = {name = "No Preset Available"}
   Props.removingFromTag = ''
   Props.savingPreset = ''
-  Props.playerLastPos = ''
   Props.searchQuery = ''
   Props.savedPropsSearchQuery = ''
   Props.searchBarWidth = 500
@@ -113,7 +112,7 @@ function Props:Update()
     Props.savedProps['all_props'] = Props:GetProps()
     Props.triggers = Props:GetTriggers()
     Props.tags = Props:GetTags()
-    Props.playerLastPos = ''
+    Util.playerLastPos = ''
     spdlog.info('during update')
     Props:SavePreset(Props.activePreset)
   else
@@ -755,26 +754,15 @@ function Props:RenamePropPopup(prop)
 end
 
 function Props:SensePropsTriggers()
-  local playerPos = Game.GetPlayer():GetWorldPosition()
-  local distFromLastPos = 60
+  for _, trigger in ipairs(Props.triggers) do
+    local dist = Util:VectorDistance(Game.GetPlayer():GetWorldPosition(), trigger.pos)
 
-  if Props.playerLastPos ~= '' then
-    distFromLastPos = Util:VectorDistance(playerPos, Props.playerLastPos)
-  end
-
-  if distFromLastPos >= 60 then
-    Props.playerLastPos = Game.GetPlayer():GetWorldPosition()
-
-    for _, trigger in ipairs(Props.triggers) do
-      local dist = Util:VectorDistance(playerPos, trigger.pos)
-
-      if dist <= 60 then
-        local props = Props:GetPropsToSpawn(trigger)
-        if #props > 0 then
-          for _, prop in ipairs(props) do
-            if Props.activeProps[prop.uid] == nil then
-              Props:SpawnSavedProp(prop)
-            end
+    if dist <= 60 then
+      local props = Props:GetPropsToSpawn(trigger)
+      if #props > 0 then
+        for _, prop in ipairs(props) do
+          if Props.activeProps[prop.uid] == nil then
+            Props:SpawnSavedProp(prop)
           end
         end
       end
@@ -808,6 +796,10 @@ function Props:SpawnPropInPosition(ent, pos, angles)
     if ent.parameters.veh then
       local entName = ent.path:match("Props.(.*)")
       record = 'Vehicle.'..entName
+    end
+
+    if ent.parameters.rec then
+      record = ent.parameters.rec
     end
   end
 
@@ -1158,6 +1150,10 @@ function Props:SpawnProp(spawn, pos, angles)
       record = 'Vehicle.'..entName
     end
 
+    if spawn.parameters.rec then
+      record = spawn.parameters.rec
+    end
+
     if spawn.parameters.app then
       app = spawn.parameters.app
     end
@@ -1175,6 +1171,7 @@ function Props:SpawnProp(spawn, pos, angles)
 
 	Cron.Every(0.1, {tick = 1}, function(timer)
 		local entity = Game.FindEntityByID(spawn.entityID)
+    timer.tick = timer.tick + 1
 		if entity then
 			spawn.handle = entity
       spawn.hash = tostring(entity:GetEntityID().hash)
@@ -1213,8 +1210,10 @@ function Props:SpawnProp(spawn, pos, angles)
         spawn.type = 'Prop'
       end
 
-      AMM.Tools.lockTarget = true
-      AMM.Tools:SetCurrentTarget(spawn)
+      if AMM.userSettings.autoLock then
+        AMM.Tools.lockTarget = true
+        AMM.Tools:SetCurrentTarget(spawn)
+      end
 
 			Cron.Halt(timer)
 		elseif timer.tick > 20 then
@@ -1236,12 +1235,13 @@ end
 
 function Props:DespawnProp(ent)
   if ent.uid then
-    exEntitySpawner.Despawn(Props.activeProps[ent.uid].handle)
+    exEntitySpawner.Despawn(Props.activeProps[ent.uid].handle)    
     Props.activeProps[ent.uid] = nil
   else
     ent.spawned = false
-    Game.FindEntityByID(ent.handle:GetEntityID()):GetEntity():Destroy()
     exEntitySpawner.Despawn(ent.handle)
+    Game.FindEntityByID(ent.handle:GetEntityID()):GetEntity():Destroy()
+    ent.handle:Dispose()
     Props.spawnedProps[ent.uniqueName()] = nil
 
     for i, prop in ipairs(Props.spawnedPropsList) do

@@ -1057,7 +1057,7 @@ function Tools:PickupTarget(target)
       local newPos = Vector4.new(pos.x + (heading.x * offset), pos.y + (heading.y * offset), currentPos.z, pos.w)
 
       if Tools.currentNPC.type ~= 'Player' and Tools.currentNPC.handle:IsNPC() then
-        Tools:TeleportNPCTo(handle, newPos, Tools.npcRotation[3])
+        Tools:TeleportNPCTo(handle, newPos, Tools.npcRotation[3])        
       else
         Game.GetTeleportationFacility():Teleport(handle, newPos, EulerAngles.new(Tools.npcRotation[1], Tools.npcRotation[2], Tools.npcRotation[3]))
       end
@@ -1254,7 +1254,7 @@ function Tools:DrawMovementWindow()
           Tools:TeleportPropTo(Tools.currentNPC, pos, EulerAngles.new(Tools.npcRotation[1], Tools.npcRotation[2], Tools.npcRotation[3]))
         end
       elseif Tools.currentNPC.type ~= 'Player' and Tools.currentNPC.handle:IsNPC() then
-        Tools:TeleportNPCTo(Tools.currentNPC.handle, pos, Tools.npcRotation[3])
+        Tools:TeleportNPCTo(Tools.currentNPC.handle, pos, Tools.npcRotation[3])        
       else
         Game.GetTeleportationFacility():Teleport(Tools.currentNPC.handle, pos, EulerAngles.new(Tools.npcRotation[1], Tools.npcRotation[2], Tools.npcRotation[3]))
       end

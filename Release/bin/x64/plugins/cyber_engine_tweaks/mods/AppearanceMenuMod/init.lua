@@ -44,7 +44,7 @@ function AMM:new()
 	 AMM.TeleportMod = ''
 
 	 -- Main Properties --
-	 AMM.currentVersion = "1.13.2b"
+	 AMM.currentVersion = "1.13.3"
 	 AMM.CETVersion = tonumber(GetVersion():match("1.(%d+)."))
 	 AMM.updateNotes = require('update_notes.lua')
 	 AMM.credits = require("credits.lua")
@@ -61,6 +61,12 @@ function AMM:new()
 	 AMM.displayInteractionPrompt = false
 	 AMM.archives = nil
 	 AMM.archivesInfo = {missing = false, optional = true}
+
+	 -- Songbird Properties --
+	 AMM.SBInWorld = false
+	 AMM.SBLocations = nil
+	 AMM.SBLookAt = false
+	 AMM.playerLastPos = ''
 
 	 -- Hotkeys Properties --
 	 AMM.selectedHotkeys = {}
@@ -126,6 +132,7 @@ function AMM:new()
 		 AMM.Swap:Initialize()
 		 AMM.Props:Initialize()
 		 AMM.Props:Update()
+		 AMM:SBInitialize()
 
 		 -- Check if user is in-game using WorldPosition --
 		 -- Only way to set player attached if user reload all mods --
@@ -162,7 +169,7 @@ function AMM:new()
 			 AMM.Tools:ToggleAnimatedHead(Tools.animatedHead)
 
 			 AMM.Props.activeProps = {}
-			 AMM.Props.playerLastPos = ''
+			 Util.playerLastPos = ''
 
 			 AMM.Scan:ResetSavedDespawns()
 
@@ -406,10 +413,6 @@ function AMM:new()
 		 end)
 
 		Observe("PlayerPuppet", "OnGameAttached", function(self)
-			
-			-- self:RegisterInputListener(self, 'TogglePhotoMode')
-			-- self:RegisterInputListener(self, 'ExitPhotoMode')
-			-- self:RegisterInputListener(self, 'Choice1')
 
 			AMM.activeCustomApps = {}
 
@@ -458,10 +461,20 @@ function AMM:new()
 				TweakDB:SetFlat('LookatPreset.PhotoMode_LookAtCamera.followingSpeedFactorOverride', 1200.0)
 
 				for pose in db:urows("SELECT pose_name FROM photomode_poses") do
+					local poseID = 'PhotoModePoses.'..pose
+
+					if not TweakDB:GetRecord(poseID) then
+						Util:AMMError(pose.." doesn't exist.")
+						db:execute(f("DELETE FROM photomode_poses WHERE pose_name = '%s'", pose))
+					end
+					
 					TweakDB:SetFlat('PhotoModePoses.'..pose..'.disableLookAtForGarmentTags', {})
 					TweakDB:SetFlat('PhotoModePoses.'..pose..'.filterOutForGarmentTags', {})
-					TweakDB:SetFlat('PhotoModePoses.'..pose..'.poseStateConfig', 'POSE_STATE_GROUND_AND_AIR')
 					TweakDB:SetFlat('PhotoModePoses.'..pose..'.lookAtPreset', 'LookatPreset.PhotoMode_LookAtCamera')
+
+					if pose ~= "action___swim_01" or pose ~= "action___swim_02" then
+						TweakDB:SetFlat('PhotoModePoses.'..pose..'.poseStateConfig', 'POSE_STATE_GROUND_AND_AIR')
+					end
 				end
 			end
 		end)
@@ -790,9 +803,17 @@ function AMM:new()
 					if not drawWindow and AMM.playerAttached then
 						AMM.Director:SenseNPCTalk()
 						AMM.Director:SenseTriggers()
-						AMM.Props:SensePropsTriggers()
 						AMM.Scan:SenseSavedDespawns()
-						AMM.Scan:SenseAppTriggers()
+
+						local playerPos = Game.GetPlayer():GetWorldPosition()
+						local playerPosChanged = Util:PlayerPositionChangedSignificantly(playerPos)
+
+						AMM:SenseSBTriggers()
+
+						if playerPosChanged then
+							AMM.Props:SensePropsTriggers()
+							AMM.Scan:SenseAppTriggers()							
+						end
 					end
 
 					-- Travel Animation Done Check --
@@ -867,6 +888,9 @@ function AMM:new()
 											appParam:Toggle(true)
 											appParam:TemporaryHide(false)
 										else
+											appParam.chunkMask = 0
+											appParam:Toggle(false)
+											appParam:Toggle(true)
 											appParam:TemporaryHide(true)
 										end
 									end
@@ -885,8 +909,7 @@ function AMM:new()
 		 if AMM.userSettings.openWithOverlay then drawWindow = true end
 
 		 if drawWindow and AMM.playerAttached then
-			AMM.Props.playerLastPos = ''
-			AMM.Scan.playerLastPos = ''
+			Util.playerLastPos = ''
 		 end
 
 		 -- Toggle Marker With AMM Window --
@@ -1081,6 +1104,9 @@ function AMM:Begin()
 							ImGui.SetTooltip("This setting will enable/disable respawn previously saved NPCs on game load. AMM automatically saves your spawned NPCs when you exit the game.")
 						end
 
+						AMM.userSettings.autoLock, clicked = ImGui.Checkbox("Lock Target After Spawn", AMM.userSettings.autoLock)
+						if clicked then settingChanged = true end
+
 						if AMM.CETVersion >= 18 then
 							AMM.userSettings.photoModeEnhancements, clicked = ImGui.Checkbox("Photo Mode Enhancements", AMM.userSettings.photoModeEnhancements)
 							if clicked then settingChanged = true end
@@ -1101,7 +1127,7 @@ function AMM:Begin()
 						AMM.userSettings.floatingTargetTools, clicked = ImGui.Checkbox("Floating Target Tools", AMM.userSettings.floatingTargetTools)
 						if clicked then settingChanged = true end
 
-						AMM.userSettings.experimental, expClicked = ImGui.Checkbox("Experimental/Fun stuff", AMM.userSettings.experimental)
+						AMM.userSettings.experimental, expClicked = ImGui.Checkbox("Experimental/Fun stuff", AMM.userSettings.experimental)						
 
 						if AMM.userSettings.experimental then
 							AMM.userSettings.freezeInPhoto, clicked = ImGui.Checkbox("Enable Freeze Target In Photo Mode", AMM.userSettings.freezeInPhoto)
@@ -1113,7 +1139,31 @@ function AMM:Begin()
 								ImGui.TextWrapped("This setting is meant to help freeze animations from mods that add custom animation to Photo Mode poses or when you unpause using IGCS.")
 								ImGui.PopTextWrapPos()
 								ImGui.EndTooltip()
+							end
+
+							
+							AMM.userSettings.weaponizeNPC, weapClicked = ImGui.Checkbox("Weaponize Companions", AMM.userSettings.weaponizeNPC)						
+
+							if ImGui.IsItemHovered() then
+								ImGui.SetTooltip("This will give weapons and combat abilities to all NPCs. T-posing and weird animations are expected.")
+							end
 						end
+
+						if expClicked then
+							AMM:UpdateSettings()
+							AMM.Spawn.categories = AMM.Spawn:GetCategories()
+
+							if AMM.userSettings.experimental then
+								popupDelegate = AMM:OpenPopup("Experimental")
+							end
+						end
+
+						if weapClicked then 
+							settingChanged = true
+
+							if AMM.userSettings.weaponizeNPC then
+								popupDelegate = AMM:OpenPopup("Weaponize")
+							end
 						end
 
 						AMM.UI:Spacing(3)
@@ -1162,16 +1212,7 @@ function AMM:Begin()
 
 						ImGui.Spacing()
 
-						if settingChanged then AMM:UpdateSettings() end
-
-						if expClicked then
-							AMM:UpdateSettings()
-							AMM.Spawn.categories = AMM.Spawn:GetCategories()
-
-							if AMM.userSettings.experimental then
-								popupDelegate = AMM:OpenPopup("Experimental")
-							end
-						end
+						if settingChanged then AMM:UpdateSettings() end						
 
 						AMM.UI:Separator()
 
@@ -1914,7 +1955,6 @@ function AMM:SetupAMMCharacters()
 		{og = "Character.q003_cat", tdbid = "AMM_Character.Nibbles_Sleeping_Belly_Up", path = "nibbles_sleep_belly_up"},
 		{og = "Character.q003_cat", tdbid = "AMM_Character.Nibbles_Scratch", path = "nibbles_scratch"},
 		{og = "Character.q003_cat", tdbid = "AMM_Character.Nibbles_Lie", path = "nibbles_lie"},
-		{og = "Character.q105_jigjig_hologram", tdbid = "AMM_Character.Wa_Holograms_Dance", path = "wa_holograms_redlight_dance"},
 		{og = "Vehicle.av_rayfield_excalibur", tdbid = "AMM_Vehicle.Docworks_Excalibus", path = "doc_excalibus"},
 	}
 
@@ -2054,13 +2094,13 @@ function AMM:SetupCustomEntities()
 
     				TweakDB:SetFlat(entity_path..".entityTemplatePath", entity.path)
 
-					 if attributes ~= nil then
+					if attributes ~= nil then
 						local newAttributes = {}
 						for attr, value in pairs(attributes) do
 							newAttributes[attr] = TweakDB:GetFlat(value)
 						end
 						TweakDB:SetFlats(entity_path, newAttributes)
-					 end
+					end
 				end
 			end
 		end
@@ -2110,7 +2150,7 @@ function AMM:SetupCustomProps()
 						local tables = '(entity_id, entity_name, cat_id, parameters, can_be_comp, entity_path, is_spawnable, is_swappable, template_path)'
 						local values = f('("%s", "%s", %i, %s, "%s", "%s", "%s", "%s", "%s")', entity_id, prop.name, category, prop.distanceFromGround, 0, entity_path, 1, 0, prop.path)
 						values = values:gsub('nil', "NULL")
-						db:execute(f('INSERT INTO entities %s VALUES %s', tables, values))
+						db:execute(f('INSERT INTO entities %s VALUES %s', tables, values))						
 					end
 				end
 			end
@@ -2137,19 +2177,34 @@ function AMM:SetupCollabAppearances()
 	  	for _, mod in ipairs(files) do
 	    	if string.find(mod.name, '.lua') then
 				local collab = require("Collabs/Custom Appearances/"..mod.name)
-				local metadata = collab.metadata
+				local metadata = collab.metadata				
 		
 				if metadata == nil then
 					local entity_id = collab.entity_id
 					local uid = collab.unique_identifier
 					local appearances = collab.appearances
-
+					local attributes = collab.attributes
+					
 					-- Setup Appearances
 					for _, app in ipairs(appearances) do
 						db:execute(f('INSERT INTO appearances (entity_id, app_name, collab_tag) VALUES ("%s", "%s", "%s")', entity_id, app, uid))
 					end
-				else
 
+					if attributes ~= nil then
+						local entity_path = nil
+						for path in db:urows(f("SELECT entity_path FROM entities WHERE entity_id = '%s'", entity_id)) do
+							entity_path = path
+						end
+
+						if entity_path then									
+							local newAttributes = {}
+							for attr, value in pairs(attributes) do								
+								newAttributes[attr] = TweakDB:GetFlat(value)
+							end
+							TweakDB:SetFlats(entity_path, newAttributes)
+						end
+					end
+				else
 					for _, newApp in ipairs(metadata) do
 						newApp.disabledByDefault = collab.disabledByDefault
 						table.insert(collabs, newApp)
@@ -2318,9 +2373,24 @@ function AMM:CheckSavedAppearanceForEntity(ent)
 		end
 	end
 
-	if savedApp ~= nil and currentApp ~= savedApp then
-		AMM:ChangeToSavedAppearance(ent, savedApp)
-		return true
+	if savedApp ~= nil then
+		local custom = {}
+		for app in db:urows(f("SELECT app_param FROM custom_appearances WHERE app_name = '%s'", savedApp)) do
+			table.insert(custom, app)
+		end
+
+		if #custom > 0 then
+			for _, component in ipairs(custom) do
+				local comp = ent.handle:FindComponentByName(component)		
+				if comp and tostring(comp.chunkMask) ~= "0ULL" then
+					AMM:ChangeToSavedAppearance(ent, savedApp)
+					return true
+				end
+			end
+		elseif currentApp ~= savedApp then
+			AMM:ChangeToSavedAppearance(ent, savedApp)
+			return true
+		end
 	end
 
 	return false
@@ -2373,6 +2443,7 @@ function AMM:ChangeToSavedAppearance(ent, savedApp)
 	for count in db:urows(f("SELECT COUNT(1) FROM custom_appearances WHERE app_name = '%s'", savedApp)) do
 		check = count
 	end
+	
 	if check ~= 0 then
 		custom = self:GetCustomAppearanceParams(ent, savedApp)
 		self:ChangeScanCustomAppearanceTo(ent, custom)
@@ -2670,7 +2741,7 @@ end
 
 function AMM:ChangeAppearanceTo(entity, appearance)
 	-- local appearance, reverse = AMM:CheckForReverseCustomAppearance(appearance, entity)
-	if entity.type == "Prop" then
+	if entity.type == "Prop" and not entity.handle:IsNPC() then
 		AMM.Props:ChangePropAppearance(entity, appearance)
 	else
 		-- Check if custom app is active
@@ -2717,7 +2788,7 @@ function AMM:GetTarget()
 
 			if t ~= nil and t.name ~= "gameuiWorldMapGameObject" and t.name ~= "ScriptedWeakspotObject" then
 				AMM:SetCurrentTarget(t)
-				AMM:CreateBusInteractionPrompt(t)				
+				AMM:CreateBusInteractionPrompt(t)			
 				return t
 			end
 		end
@@ -2935,6 +3006,12 @@ function AMM:OpenPopup(name)
 		table.insert(popupDelegate.buttons, {label = "Yes", action = function() AMM.Props:DeletePreset(AMM.Props.activePreset) end})
 		table.insert(popupDelegate.buttons, {label = "No", action = ''})
 		name = "WARNING"
+	elseif name == "Weaponize" then
+		ImGui.SetNextWindowSize(400, 140)
+		popupDelegate.message = "Not every NPC will have the necessary animations to use every type of weapon. T-posing and incorrect animations might occur.\nAre you sure you want to enable it?"
+		table.insert(popupDelegate.buttons, {label = "Yes", action = ''})
+		table.insert(popupDelegate.buttons, {label = "No", action = function() AMM.userSettings.weaponizeNPC = false end})
+		name = "WARNING"
 	end
 
 	ImGui.OpenPopup(name)
@@ -3056,6 +3133,117 @@ function AMM:DrawArchives()
 			db:execute("UPDATE metadata SET ignore_archives = 1")
 		end
 	end
+end
+
+-- Songbird Immersion Methods
+function AMM:SBInitialize()
+	AMM.SBLocations = {
+		{
+		-- Red Dirt
+			locs = {
+				{ent = 'songbird_lean', pos = Vector4.new(-733.955, -1007.806, 8.004, 1), angles = EulerAngles.new(0, 0, 55.759), apps = {'default', 'casual', 'casual_alt'}},
+				{ent = 'songbird_sit_stool', pos = Vector4.new(-730.423, -1009.008, 8.204, 1), angles = EulerAngles.new(0, 0, -55.010), apps = {'default', 'casual', 'casual_alt'}},
+			},
+
+			pos = Vector4.new(-733.955, -1007.806, 8.004, 1),
+			time = 18
+		},
+		-- Empathy
+		{
+			locs = {
+				{ent = 'songbird_lean', pos = Vector4.new(-1638.851, 381.142, 8.115, 1), angles = EulerAngles.new(0, 0, 180), apps = {'casual', 'night_out'}},
+				{ent = 'songbird_dance', pos = Vector4.new(-1630.422, 386.515, 7.697, 1), angles = EulerAngles.new(0, 0, 180), apps = {'casual', 'night_out'}},
+				{ent = 'songbird_sit_stool_lean_left', pos = Vector4.new(-1639.469, 384.896, 8.101, 1), angles = EulerAngles.new(0, 0, -96.923), apps = {'casual', 'night_out'}},
+			},
+
+			pos = Vector4.new(-1630.422, 386.515, 7.697, 1),
+			time = 21
+		}
+	}
+end
+
+function AMM:SenseSBTriggers()
+	local distFromLastPos = 60
+
+	if AMM.playerLastPos ~= '' then
+		distFromLastPos = Util:VectorDistance(Game.GetPlayer():GetWorldPosition(), AMM.playerLastPos)
+	end
+
+	if AMM.SBInWorld then
+		local SB = Game.FindEntityByID(AMM.SBInWorld)
+
+		if SB then
+			local dist = Util:VectorDistance(Game.GetPlayer():GetWorldPosition(), SB:GetWorldPosition())
+
+			if dist >= 50 then
+				SB:Dispose()
+				AMM.SBInWorld = false
+			else
+				if SB:GetStimReactionComponent().playerProximity then
+					if not AMM.SBLookAt then
+						Util:NPCTalk(SB)
+						AMM.SBLookAt = true
+					end
+				else
+					SB:GetStimReactionComponent():DeactiveLookAt()
+					AMM.SBLookAt = false
+				end
+			end
+		end
+	elseif distFromLastPos >= 60 then
+   	AMM.playerLastPos = Game.GetPlayer():GetWorldPosition()
+		for _, trigger in ipairs(AMM.SBLocations) do
+			local dist = Util:VectorDistance(Game.GetPlayer():GetWorldPosition(), trigger.pos)
+			
+			if dist <= 50 then
+				local chance = math.random(100)
+				
+				if chance < 25 then
+					local time = Tools:GetCurrentHour()
+
+					if time.hour > trigger.time then
+						local location = trigger.locs[math.random(#trigger.locs)]
+						AMM:SpawnSBInPosition(location)
+					end
+				end
+			end
+		end
+	end
+end
+
+function AMM:SpawnSBInPosition(location)
+	local spawnTransform = Game.GetPlayer():GetWorldTransform()
+	spawnTransform:SetPosition(location.pos)
+	spawnTransform:SetOrientationEuler(location.angles)
+
+	local randomApp = location.apps[math.random(#location.apps)]
+	local ent = 'base\\amm_characters\\entity\\'..location.ent..'.ent'
+
+	AMM.SBInWorld = exEntitySpawner.Spawn(ent, spawnTransform, 'songbird_'..randomApp, 'AMM_Character.Songbird')
+
+	Cron.Every(0.1, {tick = 1}, function(timer)
+		
+		local entity = Game.FindEntityByID(AMM.SBInWorld)
+
+		timer.tick = timer.tick + 1
+
+		if timer.tick > 30 then
+			Cron.Halt(timer)
+		end
+
+		if entity then 
+			local stimComp = entity:GetStimReactionComponent()
+			local role = AIRole.new()
+
+			entity:GetAttitudeAgent():SetAttitudeGroup(CName.new("friendly"))
+
+			entity:GetAIControllerComponent():SetAIRole(role)
+			entity:GetAIControllerComponent():OnAttach()
+
+			stimComp:SetReactionPreset(TweakDBInterface.GetReactionPresetRecord("ReactionPresets.NoReaction"))
+			Cron.Halt(timer)
+		end
+	end)
 end
 
 -- End of AMM Class

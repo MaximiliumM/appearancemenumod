@@ -124,7 +124,7 @@ function Spawn:DrawActiveSpawns(style)
         end
       end
 
-      if spawn.handle ~= '' and not(spawn.handle:IsVehicle()) and not(spawn.handle:IsDevice()) and not(spawn.handle:IsDead()) and Util:CanBeHostile(spawn.handle) then
+      if spawn.handle ~= '' and not(spawn.handle:IsVehicle()) and not(spawn.handle:IsDevice()) and not(spawn.handle:IsDead()) and Util:CanBeHostile(spawn) then
 
 			local hostileButtonLabel = "Hostile"
 			if not(spawn.handle.isPlayerCompanionCached) then
@@ -265,7 +265,7 @@ function Spawn:DrawEntitiesButtons(entities, categoryName, style)
 			isFavorite = fav
 		end
 
-		if Spawn.spawnedNPCs[uniqueName] and isFavorite ~= 0 then
+		if Spawn.spawnedNPCs[uniqueName] and AMM:IsUnique(newSpawn.id) then
 			ImGui.PushStyleColor(ImGuiCol.Button, 0.56, 0.06, 0.03, 0.25)
 			ImGui.PushStyleColor(ImGuiCol.ButtonHovered, 0.56, 0.06, 0.03, 0.25)
 			ImGui.PushStyleColor(ImGuiCol.ButtonActive, 0.56, 0.06, 0.03, 0.25)
@@ -520,6 +520,13 @@ function Spawn:SpawnNPC(spawn)
 		custom = AMM:GetCustomAppearanceParams(spawn, spawn.parameters)
 	end
 
+	if AMM.userSettings.weaponizeNPC and not Util:CanBeHostile(spawn) then
+		TweakDB:SetFlat(spawn.path..".abilities", TweakDB:GetFlat("Character.Judy.abilities"))
+		TweakDB:SetFlat(spawn.path..".primaryEquipment", TweakDB:GetFlat("Character.Judy.primaryEquipment"))
+		TweakDB:SetFlat(spawn.path..".secondaryEquipment", TweakDB:GetFlat("Character.Judy.secondaryEquipment"))
+		TweakDB:SetFlat(spawn.path..".archetypeData", TweakDB:GetFlat("Character.Judy.archetypeData"))
+	end
+
 	spawn.entityID = Game.GetPreventionSpawnSystem():RequestSpawn(AMM:GetNPCTweakDBID(spawn.path), -99, spawnTransform)
 
 	while Spawn.spawnedNPCs[spawn.uniqueName()] ~= nil do
@@ -562,6 +569,11 @@ function Spawn:SpawnNPC(spawn)
 			else
 				AMM.Tools:SetNPCAttitude(spawn, "friendly")
 			end
+
+			if AMM.userSettings.autoLock then
+				AMM.Tools.lockTarget = true
+				AMM.Tools:SetCurrentTarget(spawn)
+			 end
 
 			AMM:UpdateSettings()
 			Cron.Halt(timer)

@@ -28,7 +28,6 @@ local Scan = {
   lastAppTriggers = {},
   selectedAppTrigger = nil,
   appTriggerOptions = {},
-  playerLastPos = '',
   shouldSenseOnce = false,
 }
 
@@ -60,6 +59,13 @@ function Scan:Draw(AMM, target, style)
 
     -- Reset Should Sense
     Scan.shouldSenseOnce = true
+
+    -- Sense Zone and Area triggers once
+    if Scan.shouldSenseOnce then
+      Scan:ActivateAppTriggerForType('area')
+      Scan:ActivateAppTriggerForType('zone')
+      Scan.shouldSenseOnce = false
+    end
 
     AMM.UI:DrawCrossHair()
 
@@ -910,38 +916,20 @@ function Scan:ActivateAppTriggerForType(triggerType)
   end
 end
 
-function Scan:SenseAppTriggers(target)
-  -- Sense Zone and Area triggers once
-  if Scan.shouldSenseOnce then
-    Scan:ActivateAppTriggerForType('area')
-    Scan:ActivateAppTriggerForType('zone')
-    Scan.shouldSenseOnce = false
-  end
+function Scan:SenseAppTriggers()
+  if next(AMM.Spawn.spawnedNPCs) ~= nil then
+    for _, ent in pairs(AMM.Spawn.spawnedNPCs) do
+      if ent.handle:IsNPC() then
+        local triggers = {}
+        for x in db:nrows(f('SELECT * FROM appearance_triggers WHERE entity_id = "%s" AND type = 6', ent.id)) do
+          table.insert(triggers, x)
+        end
 
-  local playerPos = Game.GetPlayer():GetWorldPosition()
-  local distFromLastPos = 60
-
-  if Scan.playerLastPos ~= '' then
-    distFromLastPos = Util:VectorDistance(playerPos, Scan.playerLastPos)
-  end
-
-  if distFromLastPos >= 60 then
-    Scan.playerLastPos = Game.GetPlayer():GetWorldPosition()
-
-    if next(AMM.Spawn.spawnedNPCs) ~= nil then
-      for _, ent in pairs(AMM.Spawn.spawnedNPCs) do
-        if ent.handle:IsNPC() then
-          local triggers = {}
-          for x in db:nrows(f('SELECT * FROM appearance_triggers WHERE entity_id = "%s" AND type = 6', ent.id)) do
-            table.insert(triggers, x)
-          end
-
-          if #triggers > 0 then
-            for _, trigger in ipairs(triggers) do
-              local dist = Util:VectorDistance(playerPos, Util:GetPosFromString(trigger.args))
-              if dist <= 60 then
-                AMM:ChangeAppearanceTo(ent, trigger.app)
-              end
+        if #triggers > 0 then
+          for _, trigger in ipairs(triggers) do
+            local dist = Util:VectorDistance(Game.GetPlayer():GetWorldPosition(), Util:GetPosFromString(trigger.args))
+            if dist <= 60 then
+              AMM:ChangeAppearanceTo(ent, trigger.app)
             end
           end
         end
