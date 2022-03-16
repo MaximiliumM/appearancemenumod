@@ -1203,12 +1203,13 @@ function Props:SpawnProp(spawn, pos, angles)
         }
       end
 
-			spawn.parameters = {newPosition, GetSingleton('Quaternion'):ToEulerAngles(AMM.player:GetWorldOrientation())}
 			if AMM:GetScanClass(spawn.handle) == 'entEntity' or AMM:GetScanClass(spawn.handle) == 'entGameEntity' then
 				spawn.type = 'entEntity'
       else
         spawn.type = 'Prop'
       end
+
+      spawn.parameters = {newPosition, GetSingleton('Quaternion'):ToEulerAngles(AMM.player:GetWorldOrientation())}
 
       if AMM.userSettings.autoLock then
         AMM.Tools.lockTarget = true

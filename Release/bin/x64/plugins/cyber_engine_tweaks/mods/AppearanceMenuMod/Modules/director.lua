@@ -744,6 +744,7 @@ function Director:StopScript(script)
     local behindPlayer = Vector4.new(pos.x - (heading.x * 2), pos.y - (heading.y * 2), pos.z, pos.w)
     for _, actor in pairs(script.actors) do
       Director:TeleportActorTo(actor, behindPlayer)
+      actor.handle:Dispose()
     end
 
     Game.GetPreventionSpawnSystem():RequestDespawnPreventionLevel(script.spawnLevel * -1)

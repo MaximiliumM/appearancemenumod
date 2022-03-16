@@ -85,6 +85,8 @@ function Tools:new()
   Tools.chestStiffness = 0.1
   Tools.chestPoseOverride = 0.5
   Tools.lookAtSpeed = 140.0
+  Tools.cursorController = nil
+  Tools.cursorDisabled = false
 
   return Tools
 end
@@ -965,16 +967,18 @@ end
 function Tools:ActivateFacialExpression(target, face)
 
   Tools.activatedFace = true
-  local stimComp = target.handle:GetStimReactionComponent()
-  if stimComp then
+  
+  local stimComp = target.handle:FindComponentByName("ReactionManager")
+  local animComp = target.handle:FindComponentByName("AnimationControllerComponent")
+
+  if stimComp and animComp then
     stimComp:ResetFacial(0)
 
     Cron.After(0.5, function()
-      local animCon = target.handle:GetAnimationControllerComponent()
       local animFeat = NewObject("handle:AnimFeature_FacialReaction")
       animFeat.category = face.category
       animFeat.idle = face.idle
-      animCon:ApplyFeature(CName.new("FacialReaction"), animFeat)
+      animComp:ApplyFeature(CName.new("FacialReaction"), animFeat)
     end)
   end
 end
@@ -1371,7 +1375,8 @@ function Tools:DrawMovementWindow()
       ImGui.SameLine()
     end
 
-    if Tools.currentNPC ~= '' and (Tools.currentNPC.type ~= 'Prop' and Tools.currentNPC.type ~= 'entEntity' and Tools.currentNPC.handle:IsNPC()) then
+    if Tools.currentNPC ~= '' and (Tools.currentNPC.type ~= 'Prop' and Tools.currentNPC.type ~= 'entEntity'
+    and Tools.currentNPC.handle:IsNPC()) then
 
       if not AMM.playerInPhoto or AMM.userSettings.freezeInPhoto then
         local buttonLabel = " Freeze Target "
@@ -1980,6 +1985,15 @@ function Tools:DrawPhotoModeEnhancements()
   ImGui.Spacing()
 
   AMM.UI:TextWrappedWithColor("Disable 'Look At Camera' in Photo Mode once to take effect", "ButtonActive")
+
+  AMM.UI:Spacing(3)
+
+  Tools.cursorDisabled, clicked = ImGui.Checkbox("Disable Photo Mode Cursor", Tools.cursorDisabled)
+  if clicked and Tools.cursorController then
+    local context = "Show"
+    if Tools.cursorDisabled then context = "Hide" end
+    Tools.cursorController:ProcessCursorContext(CName.new(context), nil)
+  end
 end
 
 -- Utilities
@@ -2034,9 +2048,13 @@ function Tools:ShouldCrouchButtonAppear(spawn)
 end
 
 function Tools:EnterPhotoMode()
-  AMM.playerInPhoto = true
-  Game.SetTimeDilation(0)
-
+  Cron.After(1.0, function()
+    if Tools.photoModePuppet then
+      AMM.playerInPhoto = true
+      Game.SetTimeDilation(0)
+    end
+  end)
+  
   if Tools.savePhotoModeToggles then
     Cron.After(1.0, function()
       if not Tools.makeupToggle then 
@@ -2052,7 +2070,7 @@ function Tools:EnterPhotoMode()
         Tools:ToggleSeamfix() 
       end
     end)
-    end
+  end
 
   if Tools.invisibleBody then
     Cron.After(1.0, function()
@@ -2065,6 +2083,7 @@ end
 function Tools:ExitPhotoMode()
   AMM.playerInPhoto = false
   Tools.photoModePuppet = nil
+  Tools.cursorDisabled = false
 
   -- Trigger User Data save in case the user changed FOV and Aperture defaults
   AMM:UpdateSettings()

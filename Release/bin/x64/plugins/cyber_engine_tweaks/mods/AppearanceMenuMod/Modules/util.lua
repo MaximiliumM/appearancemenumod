@@ -94,7 +94,7 @@ function Util:VectorDistance(pointA, pointB)
 end
 
 function Util:CheckIfCommandIsActive(handle, cmd)
-  return GetSingleton('AIbehaviorUniqueActiveCommandList'):IsActionCommandById(handle:GetAIControllerComponent().activeCommands, cmd.id)
+  return AIbehaviorUniqueActiveCommandList.IsActionCommandById(handle:GetAIControllerComponent().activeCommands, cmd.id)
 end
 
 function Util:CancelCommand(handle, cmd)
@@ -224,42 +224,55 @@ function Util:NPCTalk(handle, vo, category, idle, upperBody)
 	end
 end
 
+function Util:NPCApplyFeature(handle, input, value)
+  local evt = AnimInputSetterAnimFeature.new()
+  evt.key = input
+  evt.value = value
+  handle:QueueEvent(evt)
+end
+
 function Util:NPCLookAt(handle, target, headSettings, chestSettings)
-  local stimComp = handle:GetStimReactionComponent()
-  stimComp:DeactiveLookAt()
+  local stimComp = handle:FindComponentByName("ReactionManager")
 
-  local lookAtParts = {}
-  local lookAtEvent = LookAtAddEvent.new()
-  lookAtEvent:SetEntityTarget(target and target.handle or Game.GetPlayer(), "pla_default_tgt", Vector4.EmptyVector())
-  lookAtEvent:SetStyle(animLookAtStyle.Normal)
-  lookAtEvent.request.limits.softLimitDegrees = 360.00
-  lookAtEvent.request.limits.hardLimitDegrees = 270.00
-  lookAtEvent.request.limits.hardLimitDistance = 1000000.000000
-  lookAtEvent.request.limits.backLimitDegrees = 210.00
-  lookAtEvent.request.calculatePositionInParentSpace = true
-  lookAtEvent.bodyPart = "Eyes"
+  if stimComp then
 
-  if headSettings then
-    local lookAtPartRequest = LookAtPartRequest.new()
-    lookAtPartRequest.partName = "Head"
-    lookAtPartRequest.weight = headSettings.weight
-    lookAtPartRequest.suppress = headSettings.suppress
-    lookAtPartRequest.mode = 0
-    table.insert(lookAtParts, lookAtPartRequest)
+    stimComp:DeactiveLookAt()
+
+    local lookAtParts = {}
+    local lookAtEvent = LookAtAddEvent.new()
+    lookAtEvent:SetEntityTarget(target and target.handle or Game.GetPlayer(), "pla_default_tgt", Vector4.EmptyVector())
+    lookAtEvent:SetStyle(animLookAtStyle.Normal)
+    lookAtEvent.request.limits.softLimitDegrees = 360.00
+    lookAtEvent.request.limits.hardLimitDegrees = 270.00
+    lookAtEvent.request.limits.hardLimitDistance = 1000000.000000
+    lookAtEvent.request.limits.backLimitDegrees = 210.00
+    lookAtEvent.request.calculatePositionInParentSpace = true
+    lookAtEvent.bodyPart = "Eyes"
+
+    if headSettings then
+      local lookAtPartRequest = LookAtPartRequest.new()
+      lookAtPartRequest.partName = "Head"
+      lookAtPartRequest.weight = headSettings.weight
+      lookAtPartRequest.suppress = headSettings.suppress
+      lookAtPartRequest.mode = 0
+      table.insert(lookAtParts, lookAtPartRequest)
+    end
+
+    if chestSettings then
+      local lookAtPartRequest = LookAtPartRequest.new()
+      lookAtPartRequest.partName = "Chest"
+      lookAtPartRequest.weight = chestSettings.weight
+      lookAtPartRequest.suppress = chestSettings.suppress
+      lookAtPartRequest.mode = 0
+      table.insert(lookAtParts, lookAtPartRequest)
+    end
+
+    lookAtEvent:SetAdditionalPartsArray(lookAtParts)
+    handle:QueueEvent(lookAtEvent)
+    stimComp.lookatEvent = lookAtEvent
+  else
+    log("Couldn't find ReactionManager")
   end
-
-  if chestSettings then
-    local lookAtPartRequest = LookAtPartRequest.new()
-    lookAtPartRequest.partName = "Chest"
-    lookAtPartRequest.weight = chestSettings.weight
-    lookAtPartRequest.suppress = chestSettings.suppress
-    lookAtPartRequest.mode = 0
-    table.insert(lookAtParts, lookAtPartRequest)
-  end
-
-  lookAtEvent:SetAdditionalPartsArray(lookAtParts)
-  handle:QueueEvent(lookAtEvent)
-  stimComp.lookatEvent = lookAtEvent
 end
 
 function Util:GetNPCsInRange(maxDistance)
@@ -317,7 +330,10 @@ function Util:ToggleCompanion(handle)
 		handle.isPlayerCompanionCachedTimeStamp = 0
 
     senseComponent.RequestMainPresetChange(handle, "Neutral")
-		AIC:GetCurrentRole():OnRoleCleared(handle)
+
+    local currentRole = AIC:GetCurrentRole()
+		if currentRole then currentRole:OnRoleCleared(handle) end
+    
 		AIC:SetAIRole(aiRole)
 		handle.movePolicies:Toggle(true)
   else

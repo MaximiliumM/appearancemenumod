@@ -14,6 +14,7 @@ function Spawn:NewSpawn(name, id, parameters, companion, path, template)
 	obj.path = path
 	obj.template = template or ''
 	obj.type = 'Spawn'
+	obj.archetype = ''
 	obj.entityID = ''
 
 	if string.find(obj.path, "Props") then
@@ -520,7 +521,7 @@ function Spawn:SpawnNPC(spawn)
 		custom = AMM:GetCustomAppearanceParams(spawn, spawn.parameters)
 	end
 
-	if AMM.userSettings.weaponizeNPC and not Util:CanBeHostile(spawn) then
+	if AMM.userSettings.weaponizeNPC and not Util:CanBeHostile(spawn) and not Spawn:IsWeaponizeBlacklisted(spawn) then
 		TweakDB:SetFlat(spawn.path..".abilities", TweakDB:GetFlat("Character.Judy.abilities"))
 		TweakDB:SetFlat(spawn.path..".primaryEquipment", TweakDB:GetFlat("Character.Judy.primaryEquipment"))
 		TweakDB:SetFlat(spawn.path..".secondaryEquipment", TweakDB:GetFlat("Character.Judy.secondaryEquipment"))
@@ -549,6 +550,8 @@ function Spawn:SpawnNPC(spawn)
 			spawn.handle = entity
 			spawn.hash = tostring(entity:GetEntityID().hash)
 			spawn.appearance = AMM:GetAppearance(spawn)
+			spawn.archetype = Game.NameToString(TweakDB:GetFlat(spawn.path..".archetypeName"))
+
 			Spawn.spawnedNPCs[spawn.uniqueName()] = spawn
 
 			if (#custom > 0 or spawn.parameters ~= nil) and not Util:CheckVByID(spawn.id) then
@@ -557,7 +560,7 @@ function Spawn:SpawnNPC(spawn)
 				AMM:ChangeScanAppearanceTo(spawn, 'Cycle')
 			end
 
-			Cron.After(0.2, function() 
+			Cron.After(0.2, function()
 				if not(string.find(spawn.name, "Drone")) then
 					Util:TeleportNPCTo(spawn.handle)
 				end
@@ -709,6 +712,18 @@ function Spawn:GetCategories()
 		table.insert(categories, {cat_id = category.cat_id, cat_name = category.cat_name})
 	end
 	return categories
+end
+
+function Spawn:IsWeaponizeBlacklisted(ent)
+	local blacklist = {
+		"0xD47FABFD, 21"
+	}
+
+	for _, id in ipairs(blacklist) do
+		if id == ent.id then return true end
+	end
+
+	return false
 end
 
 return Spawn:new()

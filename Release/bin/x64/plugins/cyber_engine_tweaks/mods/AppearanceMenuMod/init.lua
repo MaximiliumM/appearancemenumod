@@ -44,7 +44,7 @@ function AMM:new()
 	 AMM.TeleportMod = ''
 
 	 -- Main Properties --
-	 AMM.currentVersion = "1.13.3"
+	 AMM.currentVersion = "1.13.4"
 	 AMM.CETVersion = tonumber(GetVersion():match("1.(%d+)."))
 	 AMM.updateNotes = require('update_notes.lua')
 	 AMM.credits = require("credits.lua")
@@ -195,12 +195,22 @@ function AMM:new()
 			 Props:BackupPreset(Props.activePreset)
 		 end)
 
+		 node = nil
 		 -- Setup Observers and Overrides --
+		 Override("CursorGameController", "ProcessCursorContext", function(self, context, data, force, wrapped)
+			AMM.Tools.cursorController = self
+
+			if AMM.Tools.cursorDisabled then
+				wrapped(CName.new("Hide"), data, force)
+			else
+				wrapped(context, data, force)
+			end
+		 end)
+
 		 Observe('PlayerPuppet', 'OnZoneChange', function(self, enum)
 			AMM.playerCurrentZone = enum.value
 			AMM.Scan:ActivateAppTriggerForType("zone")
 		 end)
-
 
 		 Observe('PlayerPuppet', 'OnCombatStateChanged', function(self, newState)
 			if newState == 1 or newState == 3 then 
@@ -440,7 +450,7 @@ function AMM:new()
 		registerForEvent('onTweak', function()
 
 			-- Adjust Prevention System Total Entities Limit --
-			TweakDB:SetFlat('PreventionSystem.setup.totalEntitiesLimit', 50)
+			TweakDB:SetFlat('PreventionSystem.setup.totalEntitiesLimit', 30)
 
 			if AMM.userSettings.photoModeEnhancements then
 				-- Adjust Photomode Defaults
@@ -666,6 +676,8 @@ function AMM:new()
 		end
 	 end)
 
+	-- Probably needs to change to hostile state to be able to trigger combat
+	-- If player isn't in combat, companions won't attack
 	--  registerHotkey("amm_npc_attack", "NPC Attack Target", function()
 	-- 	if next(AMM.Spawn.spawnedNPCs) ~= nil then
 	-- 		local target = AMM:GetTarget()
@@ -834,6 +846,13 @@ function AMM:new()
 							if next(AMM.Spawn.spawnedNPCs) ~= nil then
 					      	AMM:TeleportAll()
 					    	end
+						end
+					end
+
+					-- Disable Photo Mode Restriction --
+					if AMM.userSettings.photoModeEnhancements then
+						if StatusEffectSystem.ObjectHasStatusEffectWithTag(Game.GetPlayer(), 'NoPhotoMode') then
+							Game.RemoveEffectPlayer('GameplayRestriction.NoPhotoMode')
 						end
 					end
 
@@ -1955,6 +1974,7 @@ function AMM:SetupAMMCharacters()
 		{og = "Character.q003_cat", tdbid = "AMM_Character.Nibbles_Sleeping_Belly_Up", path = "nibbles_sleep_belly_up"},
 		{og = "Character.q003_cat", tdbid = "AMM_Character.Nibbles_Scratch", path = "nibbles_scratch"},
 		{og = "Character.q003_cat", tdbid = "AMM_Character.Nibbles_Lie", path = "nibbles_lie"},
+		{og = "Character.q003_cat", tdbid = "AMM_Character.Nibbles", path = "nibbles"},
 		{og = "Vehicle.av_rayfield_excalibur", tdbid = "AMM_Vehicle.Docworks_Excalibus", path = "doc_excalibus"},
 	}
 
@@ -2127,13 +2147,13 @@ function AMM:SetupCustomProps()
 					local entity_path = "Custom_"..uid.."_Props."..ent
 
 					local check = 0
-					for count in db:urows(f("SELECT COUNT(1) FROM entities WHERE entity_path = '%s'", entity_path)) do
+					for count in db:urows(f('SELECT COUNT(1) FROM entities WHERE entity_path = "%s"', entity_path)) do
 						check = count
 					end
 
 					if check == 0 then
 						local check = 0
-						for count in db:urows(f("SELECT COUNT(1) FROM entities WHERE entity_name = '%s'", prop.name)) do
+						for count in db:urows(f('SELECT COUNT(1) FROM entities WHERE entity_name = "%s"', prop.name)) do
 							check = count
 						end
 
@@ -2143,7 +2163,7 @@ function AMM:SetupCustomProps()
 
 						local entity_id = AMM:GetScanID(entity_path)
 						local category = 48
-						for cat_id in db:urows(f("SELECT cat_id FROM categories WHERE cat_name = '%s'", prop.category)) do
+						for cat_id in db:urows(f('SELECT cat_id FROM categories WHERE cat_name = "%s"', prop.category)) do
 			      		category = cat_id
 			      	end
 
@@ -2714,7 +2734,7 @@ function AMM:ChangeScanCustomAppearanceTo(t, customAppearance)
 end
 
 function AMM:ChangeScanAppearanceTo(t, newAppearance)
-	if not(string.find(t.name, 'Mech')) then
+	if t.archetype ~= "mech" then
 		
 		t.handle:PrefetchAppearanceChange(newAppearance)
 		t.handle:ScheduleAppearanceChange(newAppearance)
@@ -2848,7 +2868,7 @@ end
 
 -- Helper methods
 function AMM:CreateBusInteractionPrompt(t)
-	if GetVersion() ~= "v1.15.0" then
+	if GetVersion() ~= "v1.15.0" and not AMM.playerInVehicle then
 		if t.id == '0xE09AAEB8, 26' then
 			local pos = t.handle:GetWorldPosition()
 			local playerPos = AMM.player:GetWorldPosition()
@@ -2866,12 +2886,14 @@ function AMM:CreateBusInteractionPrompt(t)
 end
 
 function AMM:BusPromptAction()
-	local target = Game.GetTargetingSystem():GetLookAtObject(AMM.player, false, false)
-	if target ~= nil and target:IsVehicle() and AMM.displayInteractionPrompt then
-		local seat = "seat_front_left"
-		if AMM.Scan.selectedSeats["Player"] then seat = AMM.Scan.selectedSeats["Player"].seat.cname end
-		AMM.Scan:MountPlayer(seat, target)
-		Util:SetInteractionHub("Enter Bus", "Choice1", false)
+	if not AMM.playerInVehicle then
+		local target = Game.GetTargetingSystem():GetLookAtObject(AMM.player, false, false)
+		if target ~= nil and target:IsVehicle() and AMM.displayInteractionPrompt then
+			local seat = "seat_front_left"
+			if AMM.Scan.selectedSeats["Player"] then seat = AMM.Scan.selectedSeats["Player"].seat.cname end
+			AMM.Scan:MountPlayer(seat, target)
+			Util:SetInteractionHub("Enter Bus", "Choice1", false)
+		end
 	end
 end
 
