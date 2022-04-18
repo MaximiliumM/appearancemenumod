@@ -44,7 +44,7 @@ function AMM:new()
 	 AMM.TeleportMod = ''
 
 	 -- Main Properties --
-	 AMM.currentVersion = "1.13.4"
+	 AMM.currentVersion = "1.14"
 	 AMM.CETVersion = tonumber(GetVersion():match("1.(%d+)."))
 	 AMM.updateNotes = require('update_notes.lua')
 	 AMM.credits = require("credits.lua")
@@ -61,6 +61,8 @@ function AMM:new()
 	 AMM.displayInteractionPrompt = false
 	 AMM.archives = nil
 	 AMM.archivesInfo = {missing = false, optional = true}
+	 AMM.collabArchives = {}
+	 AMM.savedAppearanceCheckCache = {}
 
 	 -- Songbird Properties --
 	 AMM.SBInWorld = false
@@ -97,6 +99,7 @@ function AMM:new()
 	 AMM.importInProgress = false
 
 	 -- Load Modules --
+	 AMM.API = require("Collabs/API.lua")
 	 AMM.Spawn = require('Modules/spawn.lua')
 	 AMM.Scan = require('Modules/scan.lua')
 	 AMM.Swap = require('Modules/swap.lua')
@@ -104,6 +107,7 @@ function AMM:new()
 	 AMM.Props = require('Modules/props.lua')
 	 AMM.Director = require('Modules/director.lua')
 	 AMM.Light = require('Modules/light.lua')
+	 AMM.Camera = require('Modules/camera.lua')
 
 	 AMM:ImportUserData()
 
@@ -165,7 +169,7 @@ function AMM:new()
 					AMM.Spawn.spawnedNPCs = {}
 				end
 			 end
-			 
+
 			 AMM.Tools:ToggleAnimatedHead(Tools.animatedHead)
 
 			 AMM.Props.activeProps = {}
@@ -179,6 +183,7 @@ function AMM:new()
 		 GameSession.OnEnd(function()
 			 AMM.playerAttached = false
 			 AMM.player = nil
+			 AMM.savedAppearanceCheckCache = {}
 		 end)
 
 		 GameSession.OnPause(function()
@@ -213,16 +218,18 @@ function AMM:new()
 		 end)
 
 		 Observe('PlayerPuppet', 'OnCombatStateChanged', function(self, newState)
-			if newState == 1 or newState == 3 then 
+			if newState == 1 then
 				AMM.playerInCombat = true
-			else
-				AMM.playerInCombat = false
 			end
 
-			if AMM.playerInCombat then
-				AMM.Scan:ActivateAppTriggerForType("combat")
-			else
+			if AMM.playerInCombat and newState == 2 then
 				AMM.Scan:ActivateAppTriggerForType("default")
+			elseif AMM.playerInCombat then
+				AMM.Scan:ActivateAppTriggerForType("combat")
+			end
+
+			if newState ~= 1 then
+				AMM.playerInCombat = false
 			end
 		 end)
 
@@ -246,7 +253,7 @@ function AMM:new()
 		 Observe('DistrictManager', 'PopDistrict', function(self, request)
 			local districtRecord = TweakDB:GetRecord(request.district)
 			local districtName = Game.GetLocalizedText(districtRecord:LocalizedName())
-			
+
 			if AMM.playerCurrentDistrict == districtName and previousDistrict ~= districtName then
 				AMM.playerCurrentDistrict = previousDistrict
 		 	end
@@ -282,7 +289,7 @@ function AMM:new()
 		 Observe('VehicleObject', 'OnRequestComponents', function(self, ri)
 			EntityRequestComponentsInterface.RequestComponent(ri, "AIComponent", "AIVehicleAgent", false)
 		 end)
-		 
+
 		 Observe('VehicleObject', 'OnTakeControl', function(self, ri)
 			local vehicleAI = EntityResolveComponentsInterface.GetComponent(ri, "AIComponent")
 			vehicleMap[tostring(self:GetEntityID().hash)] = vehicleAI
@@ -290,7 +297,7 @@ function AMM:new()
 
 		local fastTravelScenario
       Observe("MenuScenario_HubMenu", "GetMenusState", function(self)
-			if self:IsA("MenuScenario_HubMenu") then				
+			if self:IsA("MenuScenario_HubMenu") then
 				fastTravelScenario = self
 			else
 				fastTravelScenario = nil
@@ -300,15 +307,15 @@ function AMM:new()
 		Override("gameuiWorldMapMenuGameController", "IsFastTravelEnabled", function(self, wrappedMethod)
 			if AMM.Scan.companionDriver then
 				return true
-			else				
+			else
 				return wrappedMethod()
 			end
 		end)
 
 		Override("gameuiWorldMapMenuGameController", "TryFastTravel", function(self, wrappedMethod)
-			if self.selectedMappin and AMM.Scan.companionDriver then		
+			if self.selectedMappin and AMM.Scan.companionDriver then
 				if fastTravelScenario and fastTravelScenario:IsA("MenuScenario_HubMenu") then
-					if tostring(self.selectedMappin:GetMappinVariant()) == "gamedataMappinVariant : FastTravelVariant (51)" then										
+					if tostring(self.selectedMappin:GetMappinVariant()) == "gamedataMappinVariant : FastTravelVariant (51)" then
 						AMM.Scan:SetVehicleDestination(self, vehicleMap)
 						fastTravelScenario:GotoIdleState()
 						fastTravelScenario:GotoIdleState()
@@ -334,7 +341,7 @@ function AMM:new()
 					if AMM.TeleportMod ~= '' then
 						AMM.TeleportMod.api.modBlocked = true
 					end
-					
+
 					Cron.After(5, function()
 						if not AMM.Scan.isDriving then
 							AMM.player:SetWarningMessage("Select a Fast Travel point on your map to get going")
@@ -392,7 +399,7 @@ function AMM:new()
 				AMM.Tools.TPPCameraBeforeVehicle = true
 			end
 		end)
-		
+
 		Observe("UnequippedEvents", "OnExit", function(self, script)
 			if AMM.Tools.TPPCameraBeforeVehicle and not AMM.playerInVehicle then
 				AMM.Tools.TPPCameraBeforeVehicle = false
@@ -406,6 +413,10 @@ function AMM:new()
 		Observe("PlayerPuppet", "OnAction", function(self, action)
 			local actionName = Game.NameToString(action:GetName(action))
 			local actionType = action:GetType(action).value
+
+			if AMM.Director.activeCamera then
+				AMM.Director.activeCamera:HandleInput(actionName, actionType, action)
+			end
 
 			if actionName == 'TogglePhotoMode' then
 	        	if actionType == 'BUTTON_RELEASED' then
@@ -470,20 +481,20 @@ function AMM:new()
 				TweakDB:SetFlat('photo_mode.general.onlyFPPPhotoModeInPlayerStates', {})
 				TweakDB:SetFlat('LookatPreset.PhotoMode_LookAtCamera.followingSpeedFactorOverride', 1200.0)
 
-				for pose in db:urows("SELECT pose_name FROM photomode_poses") do
-					local poseID = 'PhotoModePoses.'..pose
+				for pose in db:nrows("SELECT * FROM photomode_poses") do
+					local poseID = 'PhotoModePoses.'..pose.pose_name
 
 					if not TweakDB:GetRecord(poseID) then
-						Util:AMMError(pose.." doesn't exist.")
-						db:execute(f("DELETE FROM photomode_poses WHERE pose_name = '%s'", pose))
+						Util:AMMError(pose.pose_name.." doesn't exist.")
+						db:execute(f("DELETE FROM photomode_poses WHERE pose_name = '%s'", pose.pose_name))
 					end
-					
-					TweakDB:SetFlat('PhotoModePoses.'..pose..'.disableLookAtForGarmentTags', {})
-					TweakDB:SetFlat('PhotoModePoses.'..pose..'.filterOutForGarmentTags', {})
-					TweakDB:SetFlat('PhotoModePoses.'..pose..'.lookAtPreset', 'LookatPreset.PhotoMode_LookAtCamera')
 
-					if pose ~= "action___swim_01" or pose ~= "action___swim_02" then
-						TweakDB:SetFlat('PhotoModePoses.'..pose..'.poseStateConfig', 'POSE_STATE_GROUND_AND_AIR')
+					TweakDB:SetFlat('PhotoModePoses.'..pose.pose_name..'.disableLookAtForGarmentTags', {})
+					TweakDB:SetFlat('PhotoModePoses.'..pose.pose_name..'.filterOutForGarmentTags', {})
+					TweakDB:SetFlat('PhotoModePoses.'..pose.pose_name..'.lookAtPreset', 'LookatPreset.PhotoMode_LookAtCamera')
+
+					if not pose.ignore then
+						TweakDB:SetFlat('PhotoModePoses.'..pose.pose_name..'.poseStateConfig', 'POSE_STATE_GROUND_AND_AIR')
 					end
 				end
 			end
@@ -649,6 +660,19 @@ function AMM:new()
 		end
 	 end)
 
+	 registerHotkey("amm_npc_move_to_v", "NPC Move To V", function()
+		if next(AMM.Spawn.spawnedNPCs) ~= nil then
+			for _, ent in pairs(AMM.Spawn.spawnedNPCs) do
+				if ent.handle:IsNPC() and ent.handle.isPlayerCompanionCached then
+					local pos = AMM.player:GetWorldPosition()
+					local heading = AMM.player:GetWorldForward()
+					local frontPlayer = Vector4.new(pos.x + heading.x, pos.y + heading.y, pos.z, pos.w)
+					Util:MoveTo(ent.handle, frontPlayer)
+				end
+			end
+		end
+	 end)
+
 	 registerHotkey("amm_npc_move", "NPC Move To Position", function()
 		if next(AMM.Spawn.spawnedNPCs) ~= nil then
 			local spatialQuery = Game.GetSpatialQueriesSystem()
@@ -771,6 +795,28 @@ function AMM:new()
 		 end)
 	 end
 
+	 registerHotkey("amm_new_camera", "Spawn New Camera", function()
+
+		if AMM.Director.activeCamera then
+			AMM.Director.activeCamera:Deactivate(1)
+			AMM.Director.activeCamera = nil
+		else
+			local camera = AMM.Camera:new()
+			camera:Spawn()
+      	camera:StartListeners()
+
+			AMM.Director.activeCamera = camera
+			table.insert(AMM.Director.cameras, camera)
+
+			Cron.Every(0.1, function(timer)
+				if AMM.Director.activeCamera.handle then
+					AMM.Director.activeCamera:Activate(1)
+					Cron.Halt(timer)
+				end
+			end)
+		end
+	 end)
+
 	 registerForEvent("onUpdate", function(deltaTime)
 		 -- Setup Travel Mod API --
 		 local mod = GetMod("gtaTravel")
@@ -795,7 +841,7 @@ function AMM:new()
 						end
 
 						if count ~= 0 then
-			 				AMM:CheckSavedAppearance(target)
+							AMM:CheckSavedAppearance(target)
 							AMM.shouldCheckSavedAppearance = false
 						end
 			 		elseif AMM.shouldCheckSavedAppearance == false then
@@ -824,8 +870,13 @@ function AMM:new()
 
 						if playerPosChanged then
 							AMM.Props:SensePropsTriggers()
-							AMM.Scan:SenseAppTriggers()							
+							AMM.Scan:SenseAppTriggers()
 						end
+					end
+
+					-- Camera Movement --
+					if AMM.Director.activeCamera then
+						AMM.Director.activeCamera:Move()
 					end
 
 					-- Travel Animation Done Check --
@@ -859,8 +910,11 @@ function AMM:new()
 					-- Check if Locked Target is gone --
 					if Tools.lockTarget then
 						if Tools.currentNPC.handle and Tools.currentNPC.handle ~= '' then
-							local ent = Game.FindEntityByID(Tools.currentNPC.handle:GetEntityID())							
-							if not ent or (not Tools.currentNPC.spawned and Tools.currentNPC.type == 'entEntity') then Tools:ClearTarget() end
+							local ent = Game.FindEntityByID(Tools.currentNPC.handle:GetEntityID())
+							if not ent or (not Tools.currentNPC.spawned and Tools.currentNPC.type == 'entEntity') 
+							or (Tools.currentNPC.type == 'Player' and not AMM.playerInPhoto) then 
+								Tools:ClearTarget()
+							end
 						else
 							Tools:ClearTarget()
 						end
@@ -929,6 +983,7 @@ function AMM:new()
 
 		 if drawWindow and AMM.playerAttached then
 			Util.playerLastPos = ''
+			AMM.savedAppearanceCheckCache = {}
 		 end
 
 		 -- Toggle Marker With AMM Window --
@@ -980,7 +1035,7 @@ function AMM:Begin()
 			AMM:DrawArchives()
 		else
 			if (not(finishedUpdate) or AMM.playerAttached == false) then
-				
+
 				if archives.missing then
 					AMM:DrawArchives()
 				else
@@ -1025,7 +1080,7 @@ function AMM:Begin()
 
 					if not(finishedUpdate) then
 						AMM.UI:Spacing(4)
-						if ImGui.Button("Cool!", ImGui.GetWindowContentRegionWidth(), 40) then	
+						if ImGui.Button("Cool!", ImGui.GetWindowContentRegionWidth(), 40) then
 							AMM:FinishUpdate()
 						end
 						AMM.UI:Separator()
@@ -1111,8 +1166,8 @@ function AMM:Begin()
 						if clicked then settingChanged = true end
 
 						AMM.userSettings.isCompanionInvulnerable, clicked = ImGui.Checkbox("Invulnerable Companion", AMM.userSettings.isCompanionInvulnerable)
-						if clicked then 
-							settingChanged = true 
+						if clicked then
+							settingChanged = true
 							AMM:RespawnAll()
 						end
 
@@ -1146,7 +1201,7 @@ function AMM:Begin()
 						AMM.userSettings.floatingTargetTools, clicked = ImGui.Checkbox("Floating Target Tools", AMM.userSettings.floatingTargetTools)
 						if clicked then settingChanged = true end
 
-						AMM.userSettings.experimental, expClicked = ImGui.Checkbox("Experimental/Fun stuff", AMM.userSettings.experimental)						
+						AMM.userSettings.experimental, expClicked = ImGui.Checkbox("Experimental/Fun stuff", AMM.userSettings.experimental)
 
 						if AMM.userSettings.experimental then
 							AMM.userSettings.freezeInPhoto, clicked = ImGui.Checkbox("Enable Freeze Target In Photo Mode", AMM.userSettings.freezeInPhoto)
@@ -1160,8 +1215,8 @@ function AMM:Begin()
 								ImGui.EndTooltip()
 							end
 
-							
-							AMM.userSettings.weaponizeNPC, weapClicked = ImGui.Checkbox("Weaponize Companions", AMM.userSettings.weaponizeNPC)						
+
+							AMM.userSettings.weaponizeNPC, weapClicked = ImGui.Checkbox("Weaponize Companions", AMM.userSettings.weaponizeNPC)
 
 							if ImGui.IsItemHovered() then
 								ImGui.SetTooltip("This will give weapons and combat abilities to all NPCs. T-posing and weird animations are expected.")
@@ -1177,7 +1232,7 @@ function AMM:Begin()
 							end
 						end
 
-						if weapClicked then 
+						if weapClicked then
 							settingChanged = true
 
 							if AMM.userSettings.weaponizeNPC then
@@ -1231,7 +1286,7 @@ function AMM:Begin()
 
 						ImGui.Spacing()
 
-						if settingChanged then AMM:UpdateSettings() end						
+						if settingChanged then AMM:UpdateSettings() end
 
 						AMM.UI:Separator()
 
@@ -1314,7 +1369,7 @@ function AMM:Begin()
 							Util:OpenPopup(popupInfo)
 							AMM.equipmentOptions = AMM:GetEquipmentOptions(true)
 						end
-				
+
 						if ImGui.IsItemHovered() then
 							ImGui.SetTooltip("Clicking here does nothing!")
 						end
@@ -1341,7 +1396,7 @@ function AMM:Begin()
 	if AMM.Light.isEditing then
 		AMM.Light:Draw(AMM)
 	 end
-  
+
 	 if AMM.userSettings.floatingTargetTools and AMM.Tools.movementWindow.isEditing and (target ~= nil or (AMM.Tools.currentNPC and AMM.Tools.currentNPC ~= '')) then
 		AMM.Tools:DrawMovementWindow()
 	 end
@@ -1396,8 +1451,8 @@ function AMM:NewTarget(handle, targetType, id, name, app, options)
 	end
 
 	-- Check if object is spawnedProp
-	if next(AMM.Props.spawnedProps) ~= nil then	
-		for _, prop in pairs(AMM.Props.spawnedProps) do			
+	if next(AMM.Props.spawnedProps) ~= nil then
+		for _, prop in pairs(AMM.Props.spawnedProps) do
 			if prop.hash == obj.hash then
 				obj = prop
 				break
@@ -1466,6 +1521,12 @@ function AMM:CheckMissingArchives()
 				{name = "PinkyDude_ANIM_FacialExpressions_FemaleV", desc = "Enables facial expressions tools on Female V", active = true, optional = true},
 				{name = "PinkyDude_ANIM_FacialExpressions_MaleV", desc = "Enables facial expressions tools on Male V", active = true, optional = true},
 			}
+
+			if #AMM.collabArchives > 0 then
+				for _, archive in ipairs(AMM.collabArchives) do
+					table.insert(AMM.archives, archive)
+				end
+			end
 
 			for _, archive in ipairs(AMM.archives) do
 				if not ModArchiveExists(archive.name..".archive") then
@@ -1683,7 +1744,7 @@ function AMM:ExportUserData()
 		if self.userSettings.respawnOnLaunch then
 			userData['spawnedNPCs'] = self:PrepareExportSpawnedData()
 		end
-		
+
 		userData['selectedTheme'] = self.selectedTheme
 		userData['savedSwaps'] = self.Swap:GetSavedSwaps()
 		userData['favoriteLocations'] = self.Tools:GetFavoriteLocations()
@@ -1738,9 +1799,9 @@ function AMM:ExportSelectedHotkeys()
 	local selectedHotkeys = {}
 	for id, hotkeys in pairs(AMM.selectedHotkeys) do
 		for _, hotkey in ipairs(hotkeys) do
-			if hotkey ~= '' then 
+			if hotkey ~= '' then
 				selectedHotkeys[id] = hotkeys
-				break 
+				break
 			end
 		end
 	end
@@ -1830,7 +1891,7 @@ function AMM:GetPersonalityOptions()
         {name = "Aggressive", idle = 2, category = 3},
         {name = "Anger", idle = 1, category = 3},
         {name = "Interested", idle = 3, category = 1},
-        {name = "Disinterested", idle = 6, category = 1},        
+        {name = "Disinterested", idle = 6, category = 1},
         {name = "Disappointed", idle = 4, category = 3},
         {name = "Disgust", idle = 7, category = 3},
         {name = "Exertion", idle = 1, category = 1},
@@ -1868,7 +1929,7 @@ function AMM:GetEquipmentOptions(HMG)
 	if HMG then
 		table.insert(equipments, {name = 'Machine Gun', path = 'Character.militech_enforcer3_gunner3_HMG_mb_elite_inline2'})
 	end
-	
+
 	return equipments
 end
 
@@ -2055,11 +2116,14 @@ function AMM:SetupCustomEntities()
 				local data = require("Collabs/Custom Entities/"..mod.name)
 				local modder = data.modder
 				local uid = data.unique_identifier
+				local archive = data.archive or nil
 				local entity = data.entity_info
 				local appearances = data.appearances
 				local attributes = data.attributes
 
 				AMM.modders[uid] = modder
+
+				if archive then table.insert(AMM.collabArchives, {name = archive.name, desc = archive.description, active = true, optional = false}) end
 
 				local ent = entity.path:match("[^\\]*.ent$"):gsub(".ent", "")
 				local entity_path = "Custom_"..uid.."_"..entity.type.."."..ent
@@ -2137,9 +2201,12 @@ function AMM:SetupCustomProps()
 				local data = require("Collabs/Custom Props/"..mod.name)
 				local modder = data.modder
 				local uid = data.unique_identifier
+				local archive = data.archive or nil
 				local props = data.props
 
 				AMM.modders[uid] = modder
+
+				if archive then table.insert(AMM.collabArchives, {name = archive.name, desc = archive.description, active = true, optional = false}) end
 
 				for _, prop in ipairs(props) do
 
@@ -2170,7 +2237,7 @@ function AMM:SetupCustomProps()
 						local tables = '(entity_id, entity_name, cat_id, parameters, can_be_comp, entity_path, is_spawnable, is_swappable, template_path)'
 						local values = f('("%s", "%s", %i, %s, "%s", "%s", "%s", "%s", "%s")', entity_id, prop.name, category, prop.distanceFromGround, 0, entity_path, 1, 0, prop.path)
 						values = values:gsub('nil', "NULL")
-						db:execute(f('INSERT INTO entities %s VALUES %s', tables, values))						
+						db:execute(f('INSERT INTO entities %s VALUES %s', tables, values))
 					end
 				end
 			end
@@ -2185,7 +2252,7 @@ function AMM:SetupCollabAppearances()
 	local files = dir("./Collabs")
 	if #files > 0 then
 		for _, mod in ipairs(files) do
-			if string.find(mod.name, '.lua') then
+			if string.find(mod.name, '.lua') and mod.name ~= "API.lua" then
 				os.rename("./Collabs/"..mod.name, "./Collabs/Custom Appearances/"..mod.name)
 			end
 		end
@@ -2197,14 +2264,17 @@ function AMM:SetupCollabAppearances()
 	  	for _, mod in ipairs(files) do
 	    	if string.find(mod.name, '.lua') then
 				local collab = require("Collabs/Custom Appearances/"..mod.name)
-				local metadata = collab.metadata				
-		
+				local metadata = collab.metadata
+
 				if metadata == nil then
 					local entity_id = collab.entity_id
+					local archive = collab.archive or nil
 					local uid = collab.unique_identifier
 					local appearances = collab.appearances
 					local attributes = collab.attributes
-					
+
+					if archive then table.insert(AMM.collabArchives, {name = archive.name, desc = archive.description, active = true, optional = false}) end
+
 					-- Setup Appearances
 					for _, app in ipairs(appearances) do
 						db:execute(f('INSERT INTO appearances (entity_id, app_name, collab_tag) VALUES ("%s", "%s", "%s")', entity_id, app, uid))
@@ -2216,9 +2286,9 @@ function AMM:SetupCollabAppearances()
 							entity_path = path
 						end
 
-						if entity_path then									
+						if entity_path then
 							local newAttributes = {}
-							for attr, value in pairs(attributes) do								
+							for attr, value in pairs(attributes) do
 								newAttributes[attr] = TweakDB:GetFlat(value)
 							end
 							TweakDB:SetFlats(entity_path, newAttributes)
@@ -2295,7 +2365,7 @@ function AMM:RespawnAll()
 		AMM.entitiesForRespawn = {}
 		for _, ent in pairs(AMM.Spawn.spawnedNPCs) do
 			if not(string.find(ent.path, "Vehicle")) then
-				if ent.handle and ent.handle ~= '' then					
+				if ent.handle and ent.handle ~= '' then
 					if ent.handle:IsNPC() then
 						Util:TeleportNPCTo(ent.handle, Util:GetBehindPlayerPosition(2))
 					end
@@ -2311,7 +2381,7 @@ function AMM:RespawnAll()
 	Cron.Every(0.5, function(timer)
 		local ent = AMM.entitiesForRespawn[1]
 		local entity = nil
-	
+
 		if ent then
 			if ent.entityID ~= '' then entity = Game.FindEntityByID(ent.entityID) end
 			if entity == nil then
@@ -2361,7 +2431,10 @@ end
 
 function AMM:CheckSavedAppearance(target)
 	if target ~= nil and (target.type == "NPCPuppet" or target.type == "vehicle") then
-		if AMM:CheckSavedAppearanceForEntity(target) then return end
+		if not AMM.savedAppearanceCheckCache[target.hash] then
+			AMM.savedAppearanceCheckCache[target.hash] = true
+			if AMM:CheckSavedAppearanceForEntity(target) then return end
+		end
 	end
 
 	if AMM:CheckSavedAppearanceForMountedVehicle() then return end
@@ -2375,7 +2448,8 @@ function AMM:CheckSavedAppearance(target)
 			ent = AMM:NewTarget(entity, 'vehicle', AMM:GetScanID(entity), AMM:GetVehicleName(entity), AMM:GetScanAppearance(entity), nil)
 		end
 
-		if ent ~= nil then
+		if ent ~= nil and not AMM.savedAppearanceCheckCache[ent.hash] then
+			AMM.savedAppearanceCheckCache[ent.hash] = true
 			AMM:CheckCustomDefaults(ent)
 			AMM:CheckSavedAppearanceForEntity(ent)
 			AMM:CheckBlacklistAppearance(ent)
@@ -2401,7 +2475,7 @@ function AMM:CheckSavedAppearanceForEntity(ent)
 
 		if #custom > 0 then
 			for _, component in ipairs(custom) do
-				local comp = ent.handle:FindComponentByName(component)		
+				local comp = ent.handle:FindComponentByName(component)
 				if comp and tostring(comp.chunkMask) ~= "0ULL" then
 					AMM:ChangeToSavedAppearance(ent, savedApp)
 					return true
@@ -2463,7 +2537,7 @@ function AMM:ChangeToSavedAppearance(ent, savedApp)
 	for count in db:urows(f("SELECT COUNT(1) FROM custom_appearances WHERE app_name = '%s'", savedApp)) do
 		check = count
 	end
-	
+
 	if check ~= 0 then
 		custom = self:GetCustomAppearanceParams(ent, savedApp)
 		self:ChangeScanCustomAppearanceTo(ent, custom)
@@ -2735,7 +2809,7 @@ end
 
 function AMM:ChangeScanAppearanceTo(t, newAppearance)
 	if t.archetype ~= "mech" then
-		
+
 		t.handle:PrefetchAppearanceChange(newAppearance)
 		t.handle:ScheduleAppearanceChange(newAppearance)
 
@@ -2808,7 +2882,7 @@ function AMM:GetTarget()
 
 			if t ~= nil and t.name ~= "gameuiWorldMapGameObject" and t.name ~= "ScriptedWeakspotObject" then
 				AMM:SetCurrentTarget(t)
-				AMM:CreateBusInteractionPrompt(t)			
+				AMM:CreateBusInteractionPrompt(t)
 				return t
 			end
 		end
@@ -2819,7 +2893,7 @@ function AMM:GetTarget()
 		Util:SetInteractionHub("Enter Bus", "Choice1", false)
 		AMM.displayInteractionPrompt = false
 	end
-	
+
 	return nil
 end
 
@@ -2837,20 +2911,20 @@ function AMM:UpdateFollowDistance()
 end
 
 function AMM:SetFollowDistance(followDistance)
- TweakDB:SetFlatNoUpdate(TweakDBID.new('FollowerActions.FollowCloseMovePolicy.distance'), followDistance)
+	TweakDB:SetFlatNoUpdate(TweakDBID.new('FollowerActions.FollowCloseMovePolicy.distance'), followDistance)
 
-TweakDB:SetFlatNoUpdate(TweakDBID.new('FollowerActions.FollowCloseMovePolicy.avoidObstacleWithinTolerance'), true)
-TweakDB:SetFlatNoUpdate(TweakDBID.new('FollowerActions.FollowCloseMovePolicy.ignoreCollisionAvoidance'), false)
-TweakDB:SetFlatNoUpdate(TweakDBID.new('FollowerActions.FollowCloseMovePolicy.ignoreSpotReservation'), false)
+	TweakDB:SetFlatNoUpdate(TweakDBID.new('FollowerActions.FollowCloseMovePolicy.avoidObstacleWithinTolerance'), true)
+	TweakDB:SetFlatNoUpdate(TweakDBID.new('FollowerActions.FollowCloseMovePolicy.ignoreCollisionAvoidance'), false)
+	TweakDB:SetFlatNoUpdate(TweakDBID.new('FollowerActions.FollowCloseMovePolicy.ignoreSpotReservation'), false)
 
- TweakDB:SetFlatNoUpdate(TweakDBID.new('FollowerActions.FollowCloseMovePolicy.tolerance'), 0.0)
+	TweakDB:SetFlatNoUpdate(TweakDBID.new('FollowerActions.FollowCloseMovePolicy.tolerance'), 0.0)
 
- TweakDB:SetFlatNoUpdate(TweakDBID.new('FollowerActions.FollowStayPolicy.distance'), followDistance)
- TweakDB:SetFlatNoUpdate(TweakDBID.new('FollowerActions.FollowGetOutOfWayMovePolicy.distance'), 0.0)
+	TweakDB:SetFlatNoUpdate(TweakDBID.new('FollowerActions.FollowStayPolicy.distance'), followDistance)
+	TweakDB:SetFlatNoUpdate(TweakDBID.new('FollowerActions.FollowGetOutOfWayMovePolicy.distance'), 0.0)
 
- TweakDB:Update(TweakDBID.new('FollowerActions.FollowCloseMovePolicy'))
- TweakDB:Update(TweakDBID.new('FollowerActions.FollowStayPolicy'))
- TweakDB:Update(TweakDBID.new('FollowerActions.FollowGetOutOfWayMovePolicy'))
+	TweakDB:Update(TweakDBID.new('FollowerActions.FollowCloseMovePolicy'))
+	TweakDB:Update(TweakDBID.new('FollowerActions.FollowStayPolicy'))
+	TweakDB:Update(TweakDBID.new('FollowerActions.FollowGetOutOfWayMovePolicy'))
 end
 
 function AMM:ChangeNPCEquipment(npcPath, equipmentPath)
@@ -3180,7 +3254,17 @@ function AMM:SBInitialize()
 
 			pos = Vector4.new(-1630.422, 386.515, 7.697, 1),
 			time = 21
-		}
+		},
+		-- Charter Hill
+		{
+			locs = {
+				{ent = 'songbird_lean', pos = Vector4.new(22.314, -43.276, 14.829, 1), angles = EulerAngles.new(0, 0, -123.118), apps = {'casual', 'casual_alt', 'sport'}},
+				{ent = 'songbird_lean_rail_look_around', pos = Vector4.new(24.711, -46.334, 14.841, 1), angles = EulerAngles.new(0, 0, -112.640), apps = {'casual', 'casual_alt', 'sport'}},
+			},
+
+			pos = Vector4.new(22.314, -43.276, 14.829, 1),
+			time = 14
+		},
 	}
 end
 
@@ -3212,15 +3296,17 @@ function AMM:SenseSBTriggers()
 				end
 			end
 		end
-	elseif distFromLastPos >= 60 then
+	elseif distFromLastPos >= 20 then
    	AMM.playerLastPos = Game.GetPlayer():GetWorldPosition()
 		for _, trigger in ipairs(AMM.SBLocations) do
 			local dist = Util:VectorDistance(Game.GetPlayer():GetWorldPosition(), trigger.pos)
-			
+
 			if dist <= 50 then
 				local chance = math.random(100)
-				
-				if chance < 25 then
+
+				Util:AMMDebug(chance, true)
+
+				if chance < 50 then
 					local time = Tools:GetCurrentHour()
 
 					if time.hour > trigger.time then
@@ -3244,7 +3330,7 @@ function AMM:SpawnSBInPosition(location)
 	AMM.SBInWorld = exEntitySpawner.Spawn(ent, spawnTransform, 'songbird_'..randomApp, 'AMM_Character.Songbird')
 
 	Cron.Every(0.1, {tick = 1}, function(timer)
-		
+
 		local entity = Game.FindEntityByID(AMM.SBInWorld)
 
 		timer.tick = timer.tick + 1
@@ -3253,7 +3339,7 @@ function AMM:SpawnSBInPosition(location)
 			Cron.Halt(timer)
 		end
 
-		if entity then 
+		if entity then
 			local stimComp = entity:GetStimReactionComponent()
 			local role = AIRole.new()
 

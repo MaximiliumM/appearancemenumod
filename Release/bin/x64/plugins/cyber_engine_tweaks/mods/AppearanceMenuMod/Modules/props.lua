@@ -810,7 +810,7 @@ function Props:SpawnPropInPosition(ent, pos, angles)
     if entity then
       ent.handle = entity
       ent.hash = tostring(entity:GetEntityID().hash)
-      ent.parameters = {ent.pos, ent.angles}
+      ent.parameters = {pos, angles}
       ent.spawned = true
 
       Props.cachedActivePropsByHash[ent.hash] = ent
@@ -821,8 +821,10 @@ function Props:SpawnPropInPosition(ent, pos, angles)
         ent.type = 'Prop'
       end
 
-      for light in db:nrows(f('SELECT * FROM saved_lights WHERE uid = %i', ent.uid)) do
-        AMM.Light:SetLightData(ent, light)
+      if ent.uid then
+        for light in db:nrows(f('SELECT * FROM saved_lights WHERE uid = %i', ent.uid)) do
+          AMM.Light:SetLightData(ent, light)
+        end
       end
 
       local components = Props:CheckForValidComponents(ent.handle)
@@ -998,7 +1000,7 @@ function Props:SavePropPosition(ent)
   local light = AMM.Light:GetLightData(ent)
 
   if ent.uid then
-    db:execute(f('UPDATE saved_props SET pos = "%s", scale = "%s", app = "%s" WHERE uid = %i', pos, scale, app, ent.uid))
+    db:execute(f('UPDATE saved_props SET template_path = "%s", pos = "%s", scale = "%s", app = "%s" WHERE uid = %i', ent.template, pos, scale, app, ent.uid))
 
     if light then
       db:execute(f('UPDATE saved_lights SET color = "%s", intensity = %f, radius = %f, angles = "%s" WHERE uid = %i', light.color, light.intensity, light.radius, light.angles, ent.uid))
@@ -1159,6 +1161,10 @@ function Props:SpawnProp(spawn, pos, angles)
     end
 	end
 
+  if Light:IsAMMLight(spawn) and AMM.userSettings.contactShadows then
+    spawn.template = template:gsub("%.ent", "_shadows.ent")
+  end
+
 	local heading = AMM.player:GetWorldForward()
 	local offsetDir = Vector3.new(heading.x * distanceFromPlayer, heading.y * distanceFromPlayer, heading.z)
 	local spawnTransform = AMM.player:GetWorldTransform()
@@ -1179,7 +1185,7 @@ function Props:SpawnProp(spawn, pos, angles)
       spawn.spawned = true
 
       if AMM.playerInPhoto then
-        local light = AMM.Light:NewLight(entity)
+        local light = AMM.Light:NewLight(spawn)
         if light then light.component:SetIntensity(50.0) end
       end
 

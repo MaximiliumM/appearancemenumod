@@ -17,6 +17,19 @@ function Util:AMMError(msg, reset)
   end
 end
 
+function Util:AMMDebug(msg, reset)
+  if AMM.Debug ~= '' then
+    if reset then
+      Util.errorDisplayed = false
+    end
+
+    if not Util.errorDisplayed then
+      print('[AMM Debug] '..msg)
+      Util.errorDisplayed = true
+    end
+  end
+end
+
 -- Code Helper Methods
 function Util:ShallowCopy(copy, orig)
   local orig_type = type(orig)
@@ -302,13 +315,13 @@ function Util:SetMarkerAtPosition(pos, variant)
   return Game.GetMappinSystem():RegisterMappin(mappinData, pos)
 end
 
-function Util:SetMarkerOverObject(handle, variant)
+function Util:SetMarkerOverObject(handle, variant, offset)
   local mappinData = NewObject('gamemappinsMappinData')
   mappinData.mappinType = TweakDBID.new('Mappins.DefaultStaticMappin')
   mappinData.variant = variant or 'FastTravelVariant'
   mappinData.visibleThroughWalls = true
 
-  local zOffset = 1
+  local zOffset = offset or 1
   local _, isNPC = pcall(function() return handle:IsNPC() end)
   if isNPC then zOffset = 2 end
   local offset = ToVector3{ x = 0, y = 0, z = zOffset } -- Move the pin a bit up relative to the target
@@ -461,6 +474,18 @@ function Util:ToggleEngine(handle)
   end
 end
 
+function Util:GetMountedVehicleTarget()
+  local vehicle = nil
+  local qm = AMM.player:GetQuickSlotsManager()
+  vehicle = qm:GetVehicleObject()
+
+  if vehicle then
+    return AMM:NewTarget(vehicle, 'vehicle', AMM:GetScanID(vehicle), AMM:GetVehicleName(vehicle),AMM:GetScanAppearance(vehicle), AMM:GetAppearanceOptions(vehicle))
+  end
+
+  return nil
+end
+
 function Util:SetupPopup()
   if Util.openPopup then
     if ImGui.BeginPopupModal("Error", ImGuiWindowFlags.AlwaysAutoResize) then
@@ -578,7 +603,7 @@ function Util:GetAllInRange(maxDistance, includeSecondaryTargets, ignoreInstigat
     end
 
     local target = Game.GetTargetingSystem():GetLookAtObject(AMM.player, true, false) or Game.GetTargetingSystem():GetLookAtObject(AMM.player, false, false)
-    if target then action(target) end    
+    if target then action(target) end
   end
 end
 

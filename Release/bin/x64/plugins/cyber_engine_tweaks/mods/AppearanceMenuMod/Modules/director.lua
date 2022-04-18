@@ -13,7 +13,7 @@ local Director = {
   lastSelectedNode = {name = ''},
   lastSelectedTrigger = {title = ''},
   lastSelectedActor = {name = ''},
-  newNode = '',
+  newNode = '',  
   activeTriggers = {},
   activeScripts = {},
   activeActors = {},
@@ -27,6 +27,10 @@ local Director = {
   teleportCommand = '',
   expressions = AMM:GetPersonalityOptions(),
   voData = AMM:GetPossibleVOs(),
+
+  -- Camera Properites
+  cameras = {},
+  activeCamera = nil,
 
   -- Cron Callback Properties
   finishedSpawning = false,
@@ -199,6 +203,8 @@ function Director:Draw(AMM)
 
     if Director.activeTab == "Triggers" then
       description = "Create Triggers to activate pre-made Scripts on contact."
+    elseif Director.activeTab == "Cameras" then
+      description = "Create Cameras to move around freely, set different field of views and zoom levels."
     end
 
     ImGui.TextWrapped(description)
@@ -216,15 +222,21 @@ function Director:Draw(AMM)
     ImGui.SameLine()
     AMM.userSettings.directorTriggers = ImGui.Checkbox(" ", AMM.userSettings.directorTriggers)
 
-    if AMM.playerInMenu then
+    if AMM.playerInPhoto then
+      if ImGui.BeginTabBar("Director Tabs") then
+        Director:DrawCamerasTab()
+
+        ImGui.EndTabBar()
+      end
+    elseif AMM.playerInMenu then
       AMM.UI:TextColored("Player In Menu")
       ImGui.Text("Director only works in game")
     else
-
       if ImGui.BeginTabBar("Director Tabs") then
 
         Director:DrawScriptTab()
         Director:DrawTriggerTab()
+        Director:DrawCamerasTab()
 
         local running = false
         for _, script in ipairs(Director.scripts) do
@@ -276,6 +288,104 @@ function Director:DrawRunningTab()
 
         AMM.UI:Spacing(3)
       end
+    end
+
+    ImGui.EndTabItem()
+  end
+end
+
+function Director:DrawCamerasTab()
+  if ImGui.BeginTabItem("Cameras") then
+    Director.activeTab = "Cameras"
+
+    AMM.UI:Spacing(6)
+
+    if ImGui.Button("New Camera", -1, 30) then
+      local camera = AMM.Camera:new()
+      camera:Spawn()
+      camera:StartListeners()
+
+      table.insert(Director.cameras, camera)
+      Director.activeCamera = camera
+      
+      Cron.Every(0.1, function(timer)
+				if AMM.Director.activeCamera.handle then
+					AMM.Director.activeCamera:Activate(1)
+					Cron.Halt(timer)
+				end
+			end)
+    end
+
+    AMM.UI:Separator()
+
+    if #Director.cameras > 0 then
+      for i, camera in ipairs(Director.cameras) do
+        if ImGui.CollapsingHeader("Camera "..i.."##"..i) then
+
+          local buttonLabel = "Activate"      
+          if Director.activeCamera and Director.activeCamera.hash == camera.hash then
+            buttonLabel = "Deactivate"
+          end
+
+          local buttonWidth = AMM.UI.style.halfButtonWidth - 10
+
+          if ImGui.Button(buttonLabel.."##"..i, buttonWidth, 30) then
+            if buttonLabel == "Activate" then
+              Director.activeCamera = camera
+              camera:Activate(1)
+            else
+              Director.activeCamera = nil
+              camera:Deactivate(1)
+            end
+          end
+
+          ImGui.SameLine()
+
+          camera.fov, fovUsed = ImGui.DragInt("FOV##"..i, camera.fov, 1, 1, 175)
+
+          if fovUsed then
+            camera:SetFOV(camera.fov)
+          end
+
+          if ImGui.Button("Toggle Marker".."##"..i, buttonWidth, 30) then
+            if camera.mappinID then
+              Game.GetMappinSystem():UnregisterMappin(camera.mappinID)
+              camera.mappinID = nil
+            else
+              camera.mappinID = Util:SetMarkerOverObject(camera.handle, gamedataMappinVariant.CustomPositionVariant, 0)
+            end
+          end
+
+          ImGui.SameLine()
+
+          camera.zoom, zoomUsed = ImGui.DragInt("Zoom##"..i, camera.zoom, 1, 1, 175)
+
+          if zoomUsed then
+            camera:SetZoom(camera.zoom)
+          end
+
+          if ImGui.Button("Despawn".."##"..i, buttonWidth, 30) then
+            if Director.activeCamera and Director.activeCamera.hash == camera.hash then
+              Director.activeCamera = nil
+            end
+
+            camera:Despawn()
+            table.remove(Director.cameras, i)
+          end
+
+          ImGui.SameLine()
+
+          local speed = camera.speed * 100
+          speed = ImGui.DragFloat("Speed##"..i, speed, 1, 1, 100, "%.0f")
+          camera.speed = speed / 100
+        end
+      end
+
+      AMM.UI:Separator()
+
+      AMM.UI:TextColored("WARNING:")
+      ImGui.SameLine()
+      ImGui.Text("Close the menu to be able to move the camera")
     end
 
     ImGui.EndTabItem()

@@ -351,7 +351,8 @@ function Scan:Draw(AMM, target, style)
         local spawnID = AMM:IsSpawnable(target)
         if spawnID ~= nil then
           local favoritesLabels = {"  Add to Spawnable Favorites  ", "  Remove from Spawnable Favorites  "}
-          target.id = spawnID
+          local newTarget = Util:ShallowCopy({}, target)
+          newTarget.id = spawnID
           AMM.Spawn:DrawFavoritesButton(favoritesLabels, target, true)
         end
 
@@ -432,7 +433,7 @@ function Scan:Draw(AMM, target, style)
 
         if ImGui.BeginChild("Scrolling", x, y) then
           for i, appearance in ipairs(target.options) do
-            if (ImGui.Button(appearance)) then              
+            if (ImGui.Button(appearance)) then
               AMM:ChangeAppearanceTo(target, appearance)
             end
           end
@@ -450,12 +451,10 @@ function Scan:Draw(AMM, target, style)
 
       AMM.UI:Separator()
 
-      local qm = AMM.player:GetQuickSlotsManager()
-		 	handle = qm:GetVehicleObject()
-      if handle then
-        local target = AMM:NewTarget(handle, 'vehicle', AMM:GetScanID(handle), AMM:GetVehicleName(handle),AMM:GetScanAppearance(handle), AMM:GetAppearanceOptions(handle))
+      local mountedVehicle = Util:GetMountedVehicleTarget()
+      if mountedVehicle then
         if ImGui.Button("Target Mounted Vehicle", style.buttonWidth, style.buttonHeight) then
-          Tools:SetCurrentTarget(target)
+          Tools:SetCurrentTarget(mountedVehicle)
           Tools.lockTarget = true
         end
       end

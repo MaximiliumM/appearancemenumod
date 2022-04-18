@@ -26,6 +26,11 @@ function Spawn:NewSpawn(name, id, parameters, companion, path, template)
 		obj.parameters = nil
 	end
 
+	-- Check if model is swappedModels
+	if AMM.Swap.activeSwaps[obj.id] ~= nil then
+		obj.id = AMM.Swap.activeSwaps[obj.id].newID
+	end
+
 	function obj:Despawn()
 		AMM.Spawn:DespawnNPC(obj)
 	end

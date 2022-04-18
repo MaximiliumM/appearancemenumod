@@ -1,7 +1,8 @@
 local Theme = json.decode(io.open('Themes/Default.json', 'r'):read("*a"))
 local UI = {
   currentTheme = '',
-  userThemes = {}
+  userThemes = {},
+  style = nil,
 }
 
 function UI:Preload(theme)
@@ -86,6 +87,11 @@ function UI:PushStyleColor(style, color)
 end
 
 function UI:Start()
+  UI.style = {
+    buttonWidth = ImGui.GetWindowContentRegionWidth(),
+    buttonHeight = ImGui.GetFontSize() * 2,
+    halfButtonWidth = ((ImGui.GetWindowContentRegionWidth() / 2) - 5)
+  }
 
 	UI:PushStyleColor(ImGuiCol.TitleBg,				     Theme.TitleBg)
 	UI:PushStyleColor(ImGuiCol.TitleBgCollapsed,		 Theme.TitleBgCollapsed)

@@ -1,15 +1,16 @@
 Light = {}
 
-function Light:NewLight(handle)
+function Light:NewLight(light)
   local obj = {}
-	obj.handle = handle
-  obj.hash = tostring(handle:GetEntityID().hash)
+	obj.handle = light.handle
+  obj.hash = tostring(light.handle:GetEntityID().hash)
+  obj.spawn = light
 
-  local components = Light:GetLightComponent(handle)
+  local components = Light:GetLightComponent(light.handle)
 
   if components then
     obj.component = components[1]
-    obj.marker = handle:FindComponentByName("Mesh3185")
+    obj.marker = light.handle:FindComponentByName("Mesh3185")
     obj.isOn = obj.component:IsOn()
     obj.intensity = obj.component.intensity
     obj.radius = obj.component.radius
@@ -17,6 +18,7 @@ function Light:NewLight(handle)
     obj.innerAngle = obj.component.innerAngle
     obj.outerAngle = obj.component.outerAngle
     obj.lightType = obj.component.type
+    obj.shadows = obj.component.contactShadows == rendContactShadowReciever.CSR_All
 
     return obj
   else
@@ -44,7 +46,7 @@ function Light:Setup(light)
     ImGui.SetNextWindowPos(x - (sizeX + 200), y - 40)
   end
 
-  Light.activeLight = Light:NewLight(light.handle)
+  Light.activeLight = Light:NewLight(light)
 end
 
 function Light:Draw(AMM)
@@ -52,25 +54,25 @@ function Light:Draw(AMM)
   if Light.open then
     -- Check if Light is still in world
     local despawned = true
-    for _, prop in ipairs(Props.spawnedPropsList) do
-      if prop.hash == Light.activeLight.hash then
-        despawned = false
-      end
-    end
-
-    for _, prop in pairs(Props.activeProps) do
-      if prop.hash == Light.activeLight.hash then
-        despawned = false
+    if Light.activeLight then
+      if Game.FindEntityByID(Light.activeLight.spawn.entityID) then
+          despawned = false
       end
     end
 
     if despawned then Light.open = false end
 
     Light.isEditing = true
-    Light.activeLight.color, colorChanged = ImGui.ColorPicker4("Color", Light.activeLight.color)
+    local color, colorChanged = ImGui.ColorPicker4("Color", Light.activeLight.color)
 
     if colorChanged then
-      Light:UpdateColor()
+      if not(color[1] < 0) and not(color[1] > 1)
+      and not(color[2] < 0) and not(color[2] > 1)
+      and not(color[3] < 0) and not(color[3] > 1)
+      and not(color[4] < 0) and not(color[4] > 1) then
+        Light.activeLight.color = color
+        Light:UpdateColor()
+      end
     end
 
     Light.activeLight.intensity, intensityChanged = ImGui.DragFloat("Intensity", Light.activeLight.intensity, 1.0, 0.0, 10000.0)
@@ -93,6 +95,12 @@ function Light:Draw(AMM)
       if innerUsed or anglesChanged then
         Light.activeLight.component:SetAngles(Light.activeLight.innerAngle, Light.activeLight.outerAngle)
       end
+    end
+
+    AMM.userSettings.contactShadows, shadowsUsed = ImGui.Checkbox("Local Shadows", AMM.userSettings.contactShadows)
+
+    if shadowsUsed then
+      Light:ToggleContactShadows(Light.activeLight)
     end
 
     if Light.activeLight.marker then
@@ -134,6 +142,56 @@ function Light:ToggleLight(light)
   light.isOn = not light.isOn
 end
 
+function Light:ToggleContactShadows(light)
+  local ent = nil
+  if light.spawn.uniqueName then
+    ent = AMM.Props.spawnedProps[light.spawn.uniqueName()]
+  else
+    ent = AMM.Props.activeProps[light.spawn.uid]
+  end
+
+  local lightData = Light:GetLightData(ent)
+
+  Game.FindEntityByID(ent.entityID):GetEntity():Destroy()
+
+  local lockedTarget = AMM.Tools.lockTarget
+
+  local transform = Game.GetPlayer():GetWorldTransform()
+  local pos = ent.handle:GetWorldPosition()
+  local angles = GetSingleton('Quaternion'):ToEulerAngles(ent.handle:GetWorldOrientation())
+  transform:SetPosition(pos)
+  transform:SetOrientationEuler(angles)
+
+  if AMM.userSettings.contactShadows and not string.find(ent.template, "_shadows.ent") then
+    ent.template = ent.template:gsub("%.ent", "_shadows.ent")
+  elseif not AMM.userSettings.contactShadows and string.find(ent.template, "_shadows.ent") then
+    ent.template = ent.template:gsub("_shadows.ent", ".ent")
+  end
+
+  ent.entityID = exEntitySpawner.Spawn(ent.template, transform, '')
+
+  Cron.Every(0.1, {tick = 1}, function(timer)
+    local entity = Game.FindEntityByID(ent.entityID)
+
+    if entity then
+      ent.handle = entity
+      ent.hash = tostring(entity:GetEntityID().hash)
+      ent.spawned = true
+
+      Light:SetLightData(ent, lightData)
+      Light.activeLight = Light:NewLight(ent)
+      Light.activeLight.intensity = lightData.intensity
+
+      if lockedTarget then
+        AMM.Tools.lockTarget = true
+        AMM.Tools:SetCurrentTarget(ent)
+      end
+
+      Cron.Halt(timer)
+    end
+  end)
+end
+
 function Light:UpdateColor()
   local newColor = NewObject('Color')
   local rgbColor = Light:ConvertToRGB(Light.activeLight.color)
@@ -145,15 +203,15 @@ function Light:UpdateColor()
 end
 
 function Light:ConvertToRGB(color)
-  return {math.floor((color[1] * 255) * 100 / 100), math.floor((color[2] * 255) * 100 / 100), math.floor((color[3] * 255) * 100 / 100), color[4]}
+  return {math.floor((color[1] * 255) * 100 / 100), math.floor((color[2] * 255) * 100 / 100), math.floor((color[3] * 255) * 100 / 100), math.floor((color[4] * 255) * 100 / 100)}
 end
 
 function Light:ConvertColor(color)
-  return {color[1] / 255, color[2] / 255, color[3] / 255, color[4]}
+  return {color[1] / 255, color[2] / 255, color[3] / 255, color[4] / 255}
 end
 
 function Light:GetLightData(light)
-  local newLight = Light:NewLight(light.handle)
+  local newLight = Light:NewLight(light)
   if newLight then
     newLight.color = f("{%f, %f, %f, %f}", newLight.color[1], newLight.color[2], newLight.color[3], newLight.color[4])
     newLight.angles = f("{inner = %f, outer = %f}", newLight.innerAngle, newLight.outerAngle)
@@ -189,6 +247,22 @@ function Light:GetLightComponent(handle)
   end
 
   if #components > 0 then return components else return nil end
+end
+
+function Light:IsAMMLight(light)
+  local possibleIDs = {
+    "0xAFCFDCFF, 37",
+    "0xE4351246, 38",
+    "0x670133EB, 37",
+  }
+
+  for _, id in ipairs(possibleIDs) do
+    if light.id == id then
+      return true
+    end
+  end
+
+  return false
 end
 
 return Light:new()
