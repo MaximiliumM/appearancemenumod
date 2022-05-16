@@ -113,6 +113,32 @@ function Director:NewNode(name)
   return obj
 end
 
+function Director:AdjustActiveCameraFOV(value)
+  if Director.activeCamera then
+    local newFOV = Director.activeCamera.fov + value
+    Director.activeCamera:SetFOV(newFOV)
+  end
+end
+
+function Director:AdjustActiveCameraZoom(value)
+  if Director.activeCamera then
+    local newZoom = Director.activeCamera.zoom + value
+    Director.activeCamera:SetZoom(newZoom)
+  end
+end
+
+function Director:DespawnActiveCamera()
+  if Director.activeCamera then
+    Director.activeCamera:Despawn()
+  end
+end
+
+function Director:ToggleActiveCamera()
+  if Director.activeCamera then
+    Director.activeCamera:Toggle()
+  end
+end
+
 function Director:StopAll()
   if Director.selectedScript.isRunning then
     Director:StopScript(Director.selectedScript)
@@ -358,7 +384,7 @@ function Director:DrawCamerasTab()
 
           ImGui.SameLine()
 
-          camera.zoom, zoomUsed = ImGui.DragInt("Zoom##"..i, camera.zoom, 1, 1, 175)
+          camera.zoom, zoomUsed = ImGui.DragFloat("Zoom##"..i, camera.zoom, 0.1, 1, 175, "%.1f")
 
           if zoomUsed then
             camera:SetZoom(camera.zoom)

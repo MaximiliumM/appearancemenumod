@@ -82,6 +82,7 @@ function Props:new()
   Props.showTargetOnly = false
   Props.showNearbyOnly = false
   Props.showCustomizableOnly = false
+  Props.showCustomPropsOnly = false
 
   return Props
 end
@@ -244,10 +245,7 @@ function Props:DrawSpawnedProps()
 
           ImGui.SameLine()
           if ImGui.SmallButton("Duplicate".."##"..spawn.name) then
-            local pos = spawn.handle:GetWorldPosition()
-            local angles = GetSingleton('Quaternion'):ToEulerAngles(spawn.handle:GetWorldOrientation())
-            local newSpawn = AMM.Spawn:NewSpawn(spawn.name, spawn.id, spawn.parameters, spawn.companion, spawn.path, spawn.template)
-            Props:SpawnProp(newSpawn, pos, angles)
+            Props:DuplicateProp(spawn)
           end
         end
       end
@@ -275,17 +273,27 @@ function Props:DrawCategories()
   Props.showCustomizableOnly, used = ImGui.Checkbox("Show Customizable Only", Props.showCustomizableOnly)
   if used then Props.entities = {} end
 
+  if AMM.hasCustomProps then
+    ImGui.SameLine()
+
+    Props.showCustomPropsOnly, used = ImGui.Checkbox("Show Custom Props Only", Props.showCustomPropsOnly)
+    if used then Props.entities = {} end
+  end
+
   ImGui.Spacing()
 
   AMM.UI:TextColored("Select Prop To Spawn:")
 
   local validCatIDs = Util:GetAllCategoryIDs(Props.categories)
-  local customizableIDs = "entity_id IN (SELECT entity_id FROM appearances) AND "
+  local customizableIDs = " AND entity_id IN (SELECT entity_id FROM appearances)"
   if not Props.showCustomizableOnly then customizableIDs = '' end
+  local customProps = ' AND entity_path LIKE "%%Custom_%%"'
+  if not Props.showCustomPropsOnly then customProps = '' end
+
   if Props.searchQuery ~= '' then
     local entities = {}
     local parsedSearch = Util:ParseSearch(Props.searchQuery)
-    local query = 'SELECT * FROM entities WHERE is_spawnable = 1 AND '..customizableIDs..'cat_id IN '..validCatIDs..' AND '..parsedSearch..' ORDER BY entity_name ASC'
+    local query = 'SELECT * FROM entities WHERE is_spawnable = 1'..customizableIDs..customProps..' AND cat_id IN '..validCatIDs..' AND '..parsedSearch..' ORDER BY entity_name ASC'
     for en in db:nrows(query) do
       table.insert(entities, {en.entity_name, en.entity_id, en.can_be_comp, en.parameters, en.entity_path, en.template_path})
     end
@@ -305,7 +313,7 @@ function Props:DrawCategories()
           if category.cat_name == 'Favorites' then
             local query = "SELECT * FROM favorites_props"
             for fav in db:nrows(query) do
-              query = f("SELECT * FROM entities WHERE entity_id = '%s' AND "..customizableIDs.."cat_id IN %s", fav.entity_id, validCatIDs)
+              query = f('SELECT * FROM entities WHERE entity_id = "%s"'..customizableIDs..customProps..' AND cat_id IN %s', fav.entity_id, validCatIDs)              
               for en in db:nrows(query) do
                 table.insert(entities, {fav.entity_name, en.entity_id, en.can_be_comp, en.parameters, en.entity_path, en.template_path})
               end
@@ -316,7 +324,7 @@ function Props:DrawCategories()
               end
             end
           else
-            local query = f("SELECT * FROM entities WHERE is_spawnable = 1 AND "..customizableIDs.."cat_id == '%s' ORDER BY entity_name ASC", category.cat_id)
+            local query = f('SELECT * FROM entities WHERE is_spawnable = 1 '..customizableIDs..customProps..' AND cat_id == "%s" ORDER BY entity_name ASC', category.cat_id)
             for en in db:nrows(query) do
               table.insert(entities, {en.entity_name, en.entity_id, en.can_be_comp, en.parameters, en.entity_path, en.template_path})
             end            
@@ -936,9 +944,9 @@ end
 
 function Props:ToggleHideProp(ent)
   local light = AMM.Light:GetLightData(ent)
-  local entID = tostring(ent.handle:GetEntityID().hash)
+  local hash = tostring(ent.handle:GetEntityID().hash)
   local components = Props:CheckForValidComponents(ent.handle)
-  if Props.hiddenProps[entID] ~= nil then
+  if Props.hiddenProps[hash] ~= nil then
     if light then
       AMM.Light:ToggleLight(light)
     elseif components then
@@ -946,14 +954,14 @@ function Props:ToggleHideProp(ent)
         comp:Toggle(true)
       end
     else
-      local prop = Props.hiddenProps[entID]
+      local prop = Props.hiddenProps[hash]
       local spawn = Props:SpawnPropInPosition(prop.ent, prop.pos, prop.angles)
       if ent.type ~= "Prop" or ent.type ~= "entEntity" then
         Props.spawnedProps[spawn.uniqueName()] = spawn
       end
     end
 
-    Props.hiddenProps[entID] = nil
+    Props.hiddenProps[hash] = nil
   else
     local pos = ent.handle:GetWorldPosition()
     local angles = GetSingleton('Quaternion'):ToEulerAngles(ent.handle:GetWorldOrientation())
@@ -973,7 +981,7 @@ function Props:ToggleHideProp(ent)
       exEntitySpawner.Despawn(ent.handle)
     end
 
-    Props.hiddenProps[entID] = {ent = ent, pos = pos, angles = angles}
+    Props.hiddenProps[hash] = {ent = ent, pos = pos, angles = angles}
   end
 end
 
@@ -1121,6 +1129,14 @@ function Props:ChangePropAppearance(ent, app)
   end)
 end
 
+function Props:DuplicateProp(spawn)
+  local pos = spawn.handle:GetWorldPosition()
+  local angles = GetSingleton('Quaternion'):ToEulerAngles(spawn.handle:GetWorldOrientation())
+  local newSpawn = AMM.Spawn:NewSpawn(spawn.name, spawn.id, spawn.parameters, spawn.companion, spawn.path, spawn.template)
+  newSpawn.handle = spawn.handle
+  Props:SpawnProp(newSpawn, pos, angles)
+end
+
 function Props:SpawnProp(spawn, pos, angles)
   local app = ''
   local record = ''
@@ -1161,8 +1177,13 @@ function Props:SpawnProp(spawn, pos, angles)
     end
 	end
 
-  if Light:IsAMMLight(spawn) and AMM.userSettings.contactShadows then
-    spawn.template = template:gsub("%.ent", "_shadows.ent")
+  if AMM.Light:IsAMMLight(spawn) and AMM.userSettings.contactShadows and not string.find(spawn.template, "_shadows.ent") then
+    spawn.template = spawn.template:gsub("%.ent", "_shadows.ent")
+  end
+
+  local lightData = nil
+  if spawn.handle and spawn.handle ~= '' then
+    lightData = AMM.Light:GetLightData(spawn)
   end
 
 	local heading = AMM.player:GetWorldForward()
@@ -1193,6 +1214,10 @@ function Props:SpawnProp(spawn, pos, angles)
       if workspotMarker then
         workspotMarker:Toggle(true)
       end
+
+      if lightData then
+        Light:SetLightData(spawn, lightData)
+      end
       
       local components = Props:CheckForValidComponents(entity)
       if components then
@@ -1220,6 +1245,10 @@ function Props:SpawnProp(spawn, pos, angles)
       if AMM.userSettings.autoLock then
         AMM.Tools.lockTarget = true
         AMM.Tools:SetCurrentTarget(spawn)
+
+        if AMM.userSettings.floatingTargetTools and AMM.userSettings.autoOpenTargetTools then
+          AMM.Tools.movementWindow.isEditing = true
+				end
       end
 
 			Cron.Halt(timer)
@@ -1385,7 +1414,7 @@ end
 function Props:LoadPresets()
   local files = dir("./User/Decor")
   local presets = {}
-  if #Props.presets ~= #files + 1 then
+  if #Props.presets ~= #files - 2 then
     for _, preset in ipairs(files) do
       if string.find(preset.name, '.json') then
         local name, props, lights = Props:LoadPresetData(preset.name)

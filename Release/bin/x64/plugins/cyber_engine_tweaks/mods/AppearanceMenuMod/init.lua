@@ -44,7 +44,7 @@ function AMM:new()
 	 AMM.TeleportMod = ''
 
 	 -- Main Properties --
-	 AMM.currentVersion = "1.14"
+	 AMM.currentVersion = "1.14.1"
 	 AMM.CETVersion = tonumber(GetVersion():match("1.(%d+)."))
 	 AMM.updateNotes = require('update_notes.lua')
 	 AMM.credits = require("credits.lua")
@@ -68,13 +68,14 @@ function AMM:new()
 	 AMM.SBInWorld = false
 	 AMM.SBLocations = nil
 	 AMM.SBLookAt = false
+	 AMM.SBItems = nil
 	 AMM.playerLastPos = ''
 
 	 -- Hotkeys Properties --
 	 AMM.selectedHotkeys = {}
 
 	 -- Custom Appearance Properties --
-	 AMM.collabs = AMM:SetupCollabAppearances()
+	 AMM.collabs = nil
 	 AMM.setCustomApp = ''
 	 AMM.activeCustomApps = {}
 	 AMM.customAppDefaults = AMM:GetCustomAppearanceDefaults()
@@ -84,6 +85,7 @@ function AMM:new()
 	 -- Custom Entities Properties --
 	 AMM.modders = {}
 	 AMM.customNames = {}
+	 AMM.hasCustomProps = false
 
 	 -- Configs --
 	 AMM.playerAttached = false
@@ -128,8 +130,9 @@ function AMM:new()
 		 AMM:SetupAMMCharacters()
 		 AMM:SetupCustomEntities()
 		 AMM:SetupVehicleData()
+		 AMM.collabs = AMM:SetupCollabAppearances()
 
-		 -- Update after importing user data
+		 -- Initialization
 		 AMM.Spawn.categories = AMM.Spawn:GetCategories()
 		 AMM.Scan:Initialize()
 		 AMM.Tools:Initialize()
@@ -162,6 +165,10 @@ function AMM:new()
 
 			 AMM.Tools:CheckGodModeIsActive()
 
+			 if StatusEffectSystem.ObjectHasStatusEffectWithTag(Game.GetPlayer(), 'NoCameraControl') then
+				Util:RemovePlayerEffects()
+			 end
+
 			 if next(AMM.Spawn.spawnedNPCs) ~= nil then
 				if AMM.userSettings.respawnOnLaunch then
 			 		AMM:RespawnAll()
@@ -173,6 +180,7 @@ function AMM:new()
 			 AMM.Tools:ToggleAnimatedHead(Tools.animatedHead)
 
 			 AMM.Props.activeProps = {}
+			 AMM.playerLastPos = ''
 			 Util.playerLastPos = ''
 
 			 AMM.Scan:ResetSavedDespawns()
@@ -453,6 +461,7 @@ function AMM:new()
 	 end)
 
 	 registerForEvent("onShutdown", function()
+		 AMM.Director:DespawnActiveCamera()
 		 AMM:ExportUserData()
 	 end)
 
@@ -815,6 +824,30 @@ function AMM:new()
 				end
 			end)
 		end
+	 end)
+
+	 registerHotkey("amm_despawn_camera", "Despawn Active Camera", function()
+		AMM.Director:DespawnActiveCamera()
+	 end)
+
+	 registerHotkey("amm_toggle_camera", "Toggle Active Camera", function()
+		AMM.Director:ToggleActiveCamera()
+	 end)
+
+	 registerHotkey("amm_increase_fov_camera", "Increase Active Camera FOV", function()
+		AMM.Director:AdjustActiveCameraFOV(1)
+	 end)
+
+	 registerHotkey("amm_decrease_fov_camera", "Decrease Active Camera FOV", function()
+		AMM.Director:AdjustActiveCameraFOV(-1)
+	 end)
+
+	 registerHotkey("amm_increase_zoom_camera", "Increase Active Camera Zoom", function()
+		AMM.Director:AdjustActiveCameraZoom(1)
+	 end)
+
+	 registerHotkey("amm_decrease_zoom_camera", "Decrease Active Camera Zoom", function()
+		AMM.Director:AdjustActiveCameraZoom(-1)
 	 end)
 
 	 registerForEvent("onUpdate", function(deltaTime)
@@ -1180,6 +1213,11 @@ function AMM:Begin()
 
 						AMM.userSettings.autoLock, clicked = ImGui.Checkbox("Lock Target After Spawn", AMM.userSettings.autoLock)
 						if clicked then settingChanged = true end
+
+						if AMM.userSettings.autoLock then
+							AMM.userSettings.autoOpenTargetTools, clicked = ImGui.Checkbox("Open Target Tools After Spawn", AMM.userSettings.autoOpenTargetTools)
+							if clicked then settingChanged = true end
+						end
 
 						if AMM.CETVersion >= 18 then
 							AMM.userSettings.photoModeEnhancements, clicked = ImGui.Checkbox("Photo Mode Enhancements", AMM.userSettings.photoModeEnhancements)
@@ -1948,7 +1986,7 @@ end
 function AMM:GetCustomAppearanceDefaults()
 	local customs = {}
 
-	if #AMM.collabs > 0 then
+	if AMM.collabs and #AMM.collabs > 0 then
 		for _, collab in ipairs(AMM.collabs) do
 			if collab.disabledByDefault then
 				for _, default in ipairs(collab.disabledByDefault) do
@@ -2108,6 +2146,7 @@ function AMM:SetupAMMCharacters()
 end
 
 function AMM:SetupCustomEntities()
+	db:execute("DELETE FROM appearances WHERE collab_tag IS NOT NULL")
 
 	local files = dir("./Collabs/Custom Entities")
 	if #files > 0 then
@@ -2205,6 +2244,7 @@ function AMM:SetupCustomProps()
 				local props = data.props
 
 				AMM.modders[uid] = modder
+				AMM.hasCustomProps = true
 
 				if archive then table.insert(AMM.collabArchives, {name = archive.name, desc = archive.description, active = true, optional = false}) end
 
@@ -2246,8 +2286,6 @@ function AMM:SetupCustomProps()
 end
 
 function AMM:SetupCollabAppearances()
-	db:execute("DELETE FROM appearances WHERE collab_tag IS NOT NULL")
-
 	-- Check for old files in Collabs root
 	local files = dir("./Collabs")
 	if #files > 0 then
@@ -3242,7 +3280,8 @@ function AMM:SBInitialize()
 			},
 
 			pos = Vector4.new(-733.955, -1007.806, 8.004, 1),
-			time = 18
+			time = {startTime = 18, endTime = 23},
+			chance = 50,
 		},
 		-- Empathy
 		{
@@ -3253,7 +3292,8 @@ function AMM:SBInitialize()
 			},
 
 			pos = Vector4.new(-1630.422, 386.515, 7.697, 1),
-			time = 21
+			time = {startTime = 21, endTime = 28},
+			chance = 30,
 		},
 		-- Charter Hill
 		{
@@ -3263,7 +3303,45 @@ function AMM:SBInitialize()
 			},
 
 			pos = Vector4.new(22.314, -43.276, 14.829, 1),
-			time = 14
+			time = {startTime = 14, endTime = 18},
+			chance = 60,
+		},
+		-- Pond
+		{
+			locs = {
+				{ent = 'songbird_lie_sunbed', pos = Vector4.new(-1555.949, -373.895, -13.022, 1), angles = EulerAngles.new(0, 0, 180), apps = {'sport'}},	
+			},
+
+			pos = Vector4.new(-1555.949, -373.895, -13.022, 1),
+			time = {startTime = 10, endTime = 12},
+			chance = 40,
+		},
+		-- Netrunner
+		{
+			locs = {
+				{ent = 'songbird_lie_netrunner', pos = Vector4.new(-346.525, 1366.207, 42.568, 1), angles = EulerAngles.new(0, 0, 114.000), apps = {'netrunner'}, npcs = {'0x3AC2B288, 41'}},	
+			},
+
+			pos = Vector4.new(-345.980, 1366.422, 42.898, 1),
+			time = {startTime = 23, endTime = 26},
+			chance = 20,
+		},
+		-- Wakako
+		{
+			locs = {
+				{ent = 'songbird_sit_couch_rh_couch', pos = Vector4.new(-670.729, 825.584, 19.522, 1), angles = EulerAngles.new(0, 0, 180), apps = {'casual', 'casual_alt', 'default', 'home'}},
+				{
+					ent = 'songbird_lie_sunbed', pos = Vector4.new(-670.090, 825.754, 19.592, 1), angles = EulerAngles.new(0, 0, -167.277), apps = {'casual', 'casual_alt'}, 
+					chunkMask = {"s1_058_wa_boot__rogue4857"}, items = {
+						{ent = [[base\characters\garment\citizen_casual\feet\s1_058_wa_boot__rogue.ent]], pos = Vector4.new(-670.745, 825.371, 19.420, 1), angles = EulerAngles.new(-88.700, 5.200, 223.270)},
+						{ent = [[base\characters\garment\citizen_casual\feet\s1_058_wa_boot__rogue.ent]], pos = Vector4.new(-670.565, 825.457, 19.426, 1), angles = EulerAngles.new(57.200, 0.600, 189.070)},
+					},
+				},
+			},
+
+			pos = Vector4.new(-670.150, 825.804, 19.592, 1),
+			time = {startTime = 5, endTime = 10},
+			chance = 20,
 		},
 	}
 end
@@ -3280,10 +3358,17 @@ function AMM:SenseSBTriggers()
 
 		if SB then
 			local dist = Util:VectorDistance(Game.GetPlayer():GetWorldPosition(), SB:GetWorldPosition())
-
+			
 			if dist >= 50 then
 				SB:Dispose()
 				AMM.SBInWorld = false
+				
+				for _, itemID in ipairs(AMM.SBItems) do
+					local handle = Game.FindEntityByID(itemID)
+					if handle then handle:Dispose() end
+				end
+				
+				AMM.SBItems = nil
 			else
 				if SB:GetStimReactionComponent().playerProximity then
 					if not AMM.SBLookAt then
@@ -3306,10 +3391,14 @@ function AMM:SenseSBTriggers()
 
 				Util:AMMDebug(chance, true)
 
-				if chance < 50 then
-					local time = Tools:GetCurrentHour()
+				if chance < trigger.chance or (AMM.Debug ~= '' and AMM.Debug.SBTest) then
+					local time = AMM.Tools:GetCurrentHour()
+					
+					if time.hour >= 0 and time.hour <= 4 then
+						time.hour = time.hour + 24
+					end
 
-					if time.hour > trigger.time then
+					if time.hour >= trigger.time.startTime and time.hour <= trigger.time.endTime then
 						local location = trigger.locs[math.random(#trigger.locs)]
 						AMM:SpawnSBInPosition(location)
 					end
@@ -3329,6 +3418,31 @@ function AMM:SpawnSBInPosition(location)
 
 	AMM.SBInWorld = exEntitySpawner.Spawn(ent, spawnTransform, 'songbird_'..randomApp, 'AMM_Character.Songbird')
 
+	if location.items then
+		if not AMM.SBItems then AMM.SBItems = {} end
+
+		for _, item in ipairs(location.items) do
+			spawnTransform:SetPosition(item.pos)
+			spawnTransform:SetOrientationEuler(item.angles)
+
+			local itemID = exEntitySpawner.Spawn(item.ent, spawnTransform, '')
+			table.insert(AMM.SBItems, itemID)
+		end
+	end
+
+	if location.npcs then
+		local entities = Util:GetNPCsInRange(40)
+		for _, ent in ipairs(entities) do
+			for _, npcID in ipairs(location.npcs) do
+				if ent.id == npcID then
+					local pos = ent.handle:GetWorldPosition()
+					local dist = Util:VectorDistance(location.pos, pos)
+					if dist < 2 then ent.handle:Dispose() end
+				end
+			end
+		end
+	end
+
 	Cron.Every(0.1, {tick = 1}, function(timer)
 
 		local entity = Game.FindEntityByID(AMM.SBInWorld)
@@ -3342,6 +3456,15 @@ function AMM:SpawnSBInPosition(location)
 		if entity then
 			local stimComp = entity:GetStimReactionComponent()
 			local role = AIRole.new()
+
+			if location.chunkMask then
+				for _, comp in ipairs(location.chunkMask) do
+					local c = entity:FindComponentByName(comp)
+					if c then
+						c:TemporaryHide(true)
+					end
+				end
+			end
 
 			entity:GetAttitudeAgent():SetAttitudeGroup(CName.new("friendly"))
 

@@ -89,6 +89,25 @@ function Util:GetAnglesFromString(posString)
 end
 
 -- Game Related Helpers
+function Util:AddPlayerEffects()
+  Game.ApplyEffectOnPlayer("GameplayRestriction.NoMovement")
+  Game.ApplyEffectOnPlayer("GameplayRestriction.NoCameraControl")
+  Game.ApplyEffectOnPlayer("GameplayRestriction.NoZooming")
+  Game.ApplyEffectOnPlayer("GameplayRestriction.FastForwardCrouchLock")
+  Game.ApplyEffectOnPlayer("GameplayRestriction.NoCombat")
+  Game.ApplyEffectOnPlayer("GameplayRestriction.VehicleNoSummoning")
+  Game.ApplyEffectOnPlayer("GameplayRestriction.NoPhone")
+end
+
+function Util:RemovePlayerEffects()
+  Game.RemoveEffectPlayer("GameplayRestriction.NoMovement")
+  Game.RemoveEffectPlayer("GameplayRestriction.NoCameraControl")
+  Game.RemoveEffectPlayer("GameplayRestriction.NoZooming")
+  Game.RemoveEffectPlayer("GameplayRestriction.FastForwardCrouchLock")
+  Game.RemoveEffectPlayer("GameplayRestriction.NoCombat")
+  Game.RemoveEffectPlayer("GameplayRestriction.VehicleNoSummoning")
+  Game.RemoveEffectPlayer("GameplayRestriction.NoPhone")
+end
 function Util:GetPlayerGender()
   -- True = Female / False = Male
   if string.find(tostring(Game.GetPlayer():GetResolvedGenderName()), "Female") then

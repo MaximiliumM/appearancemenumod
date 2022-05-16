@@ -9,9 +9,10 @@ function Camera:new()
   obj.component = nil
   obj.fov = 60
   obj.zoom = 1
-  obj.speed = 0.5
+  obj.speed = 0.1
   obj.path = "base\\entities\\cameras\\simple_free_camera.ent"
   obj.mappinID = nil
+  obj.active = false
 
   -- Main Properties
   obj.isMoving = false
@@ -21,7 +22,16 @@ function Camera:new()
     right = false,
     left = false,
     up = false,
-    down = false
+    down = false,
+    rotateLeft = false,
+    rotateRight = false,
+  }
+
+  obj.adjustments = {
+    fovUp = false,
+    fovDown = false,
+    zoomUp = false,
+    zoomDown = false,
   }
 
   obj.lastReload = 0
@@ -40,38 +50,38 @@ function Camera:new()
   return setmetatable(obj, self)
 end
 
+function Camera:Toggle(blendTime)
+  if self.handle then
+    if self.active then
+      self:Deactivate(blendTime)
+    else
+      self:Activate(blendTime)
+    end
+  end
+end
+
 function Camera:Activate(blendTime)
   if self.handle then
-    Game.ApplyEffectOnPlayer("GameplayRestriction.NoMovement")
-    Game.ApplyEffectOnPlayer("GameplayRestriction.NoCameraControl")
-    Game.ApplyEffectOnPlayer("GameplayRestriction.NoZooming")
-    Game.ApplyEffectOnPlayer("GameplayRestriction.FastForwardCrouchLock")
-    Game.ApplyEffectOnPlayer("GameplayRestriction.NoCombat")
-    Game.ApplyEffectOnPlayer("GameplayRestriction.VehicleNoSummoning")
-    Game.ApplyEffectOnPlayer("GameplayRestriction.NoPhone")
+    Util:AddPlayerEffects()
 
     if not AMM.playerInVehicle then
       AMM.Tools:ToggleHead()
     end
 
+    self.active = true
     self.component:Activate(blendTime, false)
   end
 end
 
 function Camera:Deactivate(blendTime)
   if self.handle then
-    Game.RemoveEffectPlayer("GameplayRestriction.NoMovement")
-    Game.RemoveEffectPlayer("GameplayRestriction.NoCameraControl")
-    Game.RemoveEffectPlayer("GameplayRestriction.NoZooming")
-    Game.RemoveEffectPlayer("GameplayRestriction.FastForwardCrouchLock")
-    Game.RemoveEffectPlayer("GameplayRestriction.NoCombat")
-    Game.RemoveEffectPlayer("GameplayRestriction.VehicleNoSummoning")
-    Game.RemoveEffectPlayer("GameplayRestriction.NoPhone")
+    Util:RemovePlayerEffects()
     
     if not AMM.playerInVehicle and AMM.Tools.tppHead then
       AMM.Tools:ToggleHead()
     end
 
+    self.active = false
     self.component:Deactivate(blendTime, false)
   end
 end
@@ -154,18 +164,18 @@ function Camera:HandleInput(actionName, actionType, action)
         self.analogForward = 0
         self.analogBackwards = 0
     end
-  elseif (actionName == "right_trigger" or actionName == "PhotoMode_CraneUp") and actionType == "AXIS_CHANGE" then
+  elseif actionName == 'Jump' or (actionName == "right_trigger" or actionName == "PhotoMode_CraneUp") and actionType == "AXIS_CHANGE" then
     local z = action:GetValue(action)
-    if z == 0 then
+    if z == 0 or actionType == 'BUTTON_RELEASED' then
         self.analogUp = 0
         self.currentDirections.up = false
     else
         self.currentDirections.up = true
         self.analogUp = z
     end
-  elseif (actionName == "left_trigger" or actionName == "PhotoMode_CraneDown") and actionType == "AXIS_CHANGE" then
+  elseif actionName == 'ToggleSprint' or (actionName == "left_trigger" or actionName == "PhotoMode_CraneDown") and actionType == "AXIS_CHANGE" then
     local z = action:GetValue(action)
-    if z == 0 then
+    if z == 0 or actionType == 'BUTTON_RELEASED' then
         self.analogDown = 0
         self.currentDirections.down = false
     else
@@ -206,6 +216,53 @@ function Camera:HandleInput(actionName, actionType, action)
         self.currentDirections.left = false
         self.analogLeft = 0
     end
+  elseif actionName == "character_preview_rotate" and actionType == 'AXIS_CHANGE' then
+    if action:GetValue(action) < 0 then
+        self.currentDirections.rotateRight = true
+    elseif action:GetValue(action) > 0 then
+      self.currentDirections.rotateLeft = true
+    elseif action:GetValue(action) == 0 then
+        self.currentDirections.rotateRight = false
+        self.currentDirections.rotateLeft = false
+    end
+  elseif actionName == 'DescriptionChange' or actionName == "PhotoMode_Next_Menu" then
+    if actionType == 'BUTTON_PRESSED' then
+        self.currentDirections.rotateRight = true
+    elseif actionType == 'BUTTON_RELEASED' then
+        self.currentDirections.rotateRight = false
+    end
+  elseif actionName == 'Ping' or actionName == "PhotoMode_Prior_Menu" then
+    if actionType == 'BUTTON_PRESSED' then
+        self.currentDirections.rotateLeft = true
+    elseif actionType == 'BUTTON_RELEASED' then
+        self.currentDirections.rotateLeft = false
+    end
+  end
+
+  if actionName == "dpad_up" or actionName == "up_button" then
+    if actionType == "BUTTON_PRESSED" then
+        self.adjustments.zoomUp = true
+    elseif actionType == "BUTTON_RELEASED" then
+        self.adjustments.zoomUp = false
+    end
+  elseif actionName == "dpad_down" or actionName == "down_button" then
+    if actionType == "BUTTON_PRESSED" then
+        self.adjustments.zoomDown = true
+    elseif actionType == "BUTTON_RELEASED" then
+        self.adjustments.zoomDown = false
+    end
+  elseif actionName == "dpad_right" or actionName == "PhotoMode_Right_Button" then
+      if actionType == "BUTTON_PRESSED" then
+          self.adjustments.fovUp = true
+      elseif actionType == "BUTTON_RELEASED" then
+          self.adjustments.fovUp = false
+      end
+  elseif actionName == "dpad_left" or actionName == "PhotoMode_Left_Button" then
+      if actionType == "BUTTON_PRESSED" then
+          self.adjustments.fovDown = true
+      elseif actionType == "BUTTON_RELEASED" then
+          self.adjustments.fovDown = false
+      end
   end
 
   local rot = nil
@@ -215,6 +272,10 @@ function Camera:HandleInput(actionName, actionType, action)
     local factor = 0.5
     if actionName == "CameraMouseX" or actionName == "PhotoMode_CameraMouseX" then factor = 45 end
 
+    if self.zoom > 0 then
+      factor = factor * self.zoom
+    end
+
     if self.component then
       rot = self.component:GetLocalOrientation():ToEulerAngles() -- Get the local orientation of the cam
       rot.yaw = rot.yaw - (x / factor) -- Change its yaw
@@ -222,12 +283,17 @@ function Camera:HandleInput(actionName, actionType, action)
   end
   if actionName == "CameraMouseY" or actionName == "CameraY"
   or actionName == "PhotoMode_CameraMouseY" or actionName == "PhotoMode_CameraRotationY" then
-    local y = action:GetValue(action)
+    local y = action:GetValue(action)    
     local factor = 0.5
     if actionName == "CameraMouseY" or actionName == "PhotoMode_CameraMouseY" then factor = 45 end
 
+    if self.zoom > 0 then
+      factor = factor * self.zoom
+    end
+
     if self.component then
-      rot = self.component:GetLocalOrientation():ToEulerAngles()      
+      rot = self.component:GetLocalOrientation():ToEulerAngles()
+      if rot.pitch == 90 then rot.pitch = 86 elseif rot.pitch == -90 then rot.pitch = -86 end
       rot.pitch = rot.pitch + (y / factor)
     end
   end
@@ -249,15 +315,38 @@ function Camera:HandleInput(actionName, actionType, action)
 end
 
 function Camera:Move()
-  local newPos = self.handle:GetWorldPosition()
+  if self.handle then
+    local newPos = self.handle:GetWorldPosition()
 
-  for directionKey, state in pairs(self.currentDirections) do
-    if state == true then
-      self:CalculateNewPos(directionKey, newPos)
+    for directionKey, state in pairs(self.currentDirections) do
+      if state == true then
+        self:CalculateNewPos(directionKey, newPos)
+      end
+    end
+
+    for adjustmentKey, state in pairs(self.adjustments) do
+      if state == true then
+        self:MakeAdjustment(adjustmentKey)
+      end
+    end
+
+    Game.GetTeleportationFacility():Teleport(self.handle, newPos, self.handle:GetWorldOrientation():ToEulerAngles())
+  end
+end
+
+function Camera:MakeAdjustment(adjustment)
+  if adjustment == "fovUp" then
+    self:SetFOV(self.fov + 1)
+  elseif adjustment == "fovDown" then
+    self:SetFOV(self.fov - 1)
+  elseif adjustment == "zoomUp" then
+    self:SetZoom(self.zoom + 0.1)
+  elseif adjustment == "zoomDown" then
+    local newZoom = self.zoom - 0.1
+    if newZoom >= 0 then
+      self:SetZoom(newZoom)
     end
   end
-
-  Game.GetTeleportationFacility():Teleport(self.handle, newPos, self.handle:GetWorldOrientation():ToEulerAngles())
 end
 
 function Camera:CalculateNewPos(direction, newPos)
@@ -296,6 +385,20 @@ function Camera:CalculateNewPos(direction, newPos)
     newPos.z = newPos.z + (0.7 * speed)
   elseif direction == "down" then
     newPos.z = newPos.z - (0.7 * speed)
+  end
+
+  if direction == "rotateLeft" then
+    if self.component then
+      rot = self.component:GetLocalOrientation():ToEulerAngles()
+      rot.roll = rot.roll - (7 * speed)
+      self.component:SetLocalOrientation(rot:ToQuat())
+    end
+  elseif direction == "rotateRight" then
+    if self.component then
+      rot = self.component:GetLocalOrientation():ToEulerAngles()
+      rot.roll = rot.roll + (7 * speed)
+      self.component:SetLocalOrientation(rot:ToQuat())
+    end
   end
 end
 

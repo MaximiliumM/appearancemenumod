@@ -114,16 +114,16 @@ function Tools:Initialize()
 end
 
 function Tools:Draw(AMM, target)
+  Tools.style = {
+    buttonHeight = ImGui.GetFontSize() * 2,
+    buttonWidth = ImGui.GetWindowContentRegionWidth(),
+    halfButtonWidth = ((ImGui.GetWindowContentRegionWidth() / 2) - 5)
+  }
+
+  -- Util Popup Helper --
+  Util:SetupPopup()  
+
   if ImGui.BeginTabItem("Tools") then
-
-    -- Util Popup Helper --
-    Util:SetupPopup()
-
-    Tools.style = {
-      buttonHeight = ImGui.GetFontSize() * 2,
-      buttonWidth = ImGui.GetWindowContentRegionWidth(),
-      halfButtonWidth = ((ImGui.GetWindowContentRegionWidth() / 2) - 5)
-    }
 
     Tools.actionCategories = {
       { name = "Target Actions", actions = Tools.DrawNPCActions },
@@ -1740,7 +1740,10 @@ function Tools:DrawMovementWindow()
         AMM.UI:TextCenter("Light Control", true)
 
         if ImGui.Button("Toggle Light", Tools.style.halfButtonWidth, Tools.style.buttonHeight) then
-          AMM.Light:ToggleLight(Tools.currentNPC)
+          if AMM.Props.hiddenProps[Tools.currentNPC.hash] then
+            AMM.Props.hiddenProps[Tools.currentNPC.hash] = nil
+          end
+          AMM.Light:ToggleLight(AMM.Light:GetLightData(Tools.currentNPC))
         end
 
         ImGui.SameLine()
@@ -1773,9 +1776,37 @@ function Tools:DrawTimeActions()
   local gameTime = Tools:GetCurrentHour()
   Tools.timeValue = Tools:ConvertTime(gameTime)
 
-  ImGui.PushItemWidth(ImGui.GetWindowContentRegionWidth() - ImGui.CalcTextSize("Time of Day "))
+  ImGui.PushItemWidth((ImGui.GetWindowContentRegionWidth() - ImGui.CalcTextSize("Time of Day ")) - 82)
 
-  Tools.timeValue, changeTimeUsed = ImGui.SliderInt("Time of Day", Tools.timeValue, 0, 1440, "")
+  Tools.timeValue, changeTimeUsed = ImGui.SliderInt("##", Tools.timeValue, 0, 1440, "")
+
+  ImGui.PopItemWidth()
+
+  ImGui.SameLine()
+
+  if ImGui.Button("-", 32, 32) then
+    if Tools.timeValue < 0 then
+      Tools.timeValue = 1440
+    end
+
+    Tools.timeValue = Tools.timeValue - 1
+    changeTimeUsed = true
+  end
+
+  ImGui.SameLine()
+
+  if ImGui.Button("+", 32, 32) then
+    if Tools.timeValue > 1440 then
+      Tools.timeValue = 0
+    end
+
+    Tools.timeValue = Tools.timeValue + 2
+    changeTimeUsed = true
+  end
+
+  ImGui.SameLine()
+
+  ImGui.Text("Time of Day")
 
   if changeTimeUsed then
     if Tools.relicEffect then
@@ -1787,6 +1818,8 @@ function Tools:DrawTimeActions()
 
     Tools:SetTime(Tools.timeValue)
   end
+
+  ImGui.PushItemWidth(ImGui.GetWindowContentRegionWidth() - ImGui.CalcTextSize("Time of Day "))
 
   ImGui.SameLine(250)
   ImGui.Text(f("%02d:%02d", gameTime.hour, gameTime.minute))
@@ -1819,7 +1852,7 @@ function Tools:DrawTimeActions()
       Tools:SetRelicEffect(false)
 
       local currentTime = Tools.timeValue
-      Cron.Every(0.1, function(timer)
+      Cron.Every(5, function(timer)
         Tools:SetTime(currentTime)
         if not Tools.pauseTime then
           Cron.After(60.0, function()

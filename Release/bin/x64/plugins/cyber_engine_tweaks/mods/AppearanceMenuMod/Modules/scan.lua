@@ -888,7 +888,7 @@ function Scan:ActivateAppTriggerForType(triggerType)
 
   if next(AMM.Spawn.spawnedNPCs) ~= nil then
     for _, ent in pairs(AMM.Spawn.spawnedNPCs) do
-      if ent.handle:IsNPC() then
+      if ent and ent.handle:IsNPC() then
         local triggers = {}
         for x in db:nrows(f('SELECT * FROM appearance_triggers WHERE entity_id = "%s" AND type = %i', ent.id, currentType)) do
           table.insert(triggers, x)

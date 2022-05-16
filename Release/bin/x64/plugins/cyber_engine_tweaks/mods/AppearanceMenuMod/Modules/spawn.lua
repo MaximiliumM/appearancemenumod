@@ -581,6 +581,10 @@ function Spawn:SpawnNPC(spawn)
 			if AMM.userSettings.autoLock then
 				AMM.Tools.lockTarget = true
 				AMM.Tools:SetCurrentTarget(spawn)
+
+				if AMM.userSettings.floatingTargetTools and AMM.userSettings.autoOpenTargetTools then
+					AMM.Tools.movementWindow.isEditing = true
+				end
 			 end
 
 			AMM:UpdateSettings()

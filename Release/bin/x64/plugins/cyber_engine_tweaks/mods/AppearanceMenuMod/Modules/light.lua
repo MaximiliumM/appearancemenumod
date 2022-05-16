@@ -126,20 +126,25 @@ function Light:ToggleLight(light)
   local components = Light:GetLightComponent(light.handle)
 
   for i, component in ipairs(components) do
-    component:ToggleLight(light.isOn)
-    if AMM.playerInPhoto then component:SetIntensity(0) end
+    local savedIntensity = Light.disabled[light.hash..i]
+    
+    if AMM.playerInPhoto then
+      if not savedIntensity then      
+        Light.disabled[light.hash..i] = component.intensity
+        savedIntensity = 0
+      else
+        if savedIntensity and savedIntensity < 1 then savedIntensity = 100 end
+        Light.disabled[light.hash..i] = nil
+      end      
+    else
+      light.isOn = not light.isOn
+      component:ToggleLight(light.isOn)
+    end
 
-    if not light.isOn then
-      Light.disabled[light.hash..i] = component.intensity
-    elseif light.isOn then
-      local savedIntensity = Light.disabled[light.hash..i]
-      if savedIntensity < 1 then savedIntensity = 100 end
-      if savedIntensity then component:SetIntensity(savedIntensity) end
-      Light.disabled[light.hash..i] = nil
+    if savedIntensity then
+      component:SetIntensity(savedIntensity)
     end
   end
-
-  light.isOn = not light.isOn
 end
 
 function Light:ToggleContactShadows(light)
