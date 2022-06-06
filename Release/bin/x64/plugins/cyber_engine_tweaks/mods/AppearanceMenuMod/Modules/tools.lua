@@ -87,6 +87,7 @@ function Tools:new()
   Tools.lookAtSpeed = 140.0
   Tools.cursorController = nil
   Tools.cursorDisabled = false
+  Tools.cursorStateLock = false
 
   return Tools
 end
@@ -2027,14 +2028,29 @@ function Tools:DrawPhotoModeEnhancements()
   AMM.UI:Spacing(3)
 
   Tools.cursorDisabled, clicked = ImGui.Checkbox("Disable Photo Mode Cursor", Tools.cursorDisabled)
-  if clicked and Tools.cursorController then
+  if clicked then
+    Tools:ToggleCursor()
+  end
+
+  if Tools.cursorDisabled then
+    ImGui.SameLine()
+    Tools.cursorStateLock = ImGui.Checkbox("Lock State", Tools.cursorStateLock)
+  end
+end
+
+-- Utilities
+function Tools:ToggleCursor(systemActivated)
+  if systemActivated then
+    Tools.cursorDisabled = not Tools.cursorDisabled
+  end
+
+  if Tools.cursorController then
     local context = "Show"
     if Tools.cursorDisabled then context = "Hide" end
     Tools.cursorController:ProcessCursorContext(CName.new(context), nil)
   end
 end
 
--- Utilities
 function Tools:ToggleLookAtMarker(active)
   if Tools.lockTargetPinID ~= nil then
     Game.GetMappinSystem():SetMappinActive(Tools.lockTargetPinID, active)
@@ -2102,6 +2118,11 @@ function Tools:EnterPhotoMode()
     if Tools.photoModePuppet then
       AMM.playerInPhoto = true
       Game.SetTimeDilation(0)
+      
+      if Tools.cursorStateLock then
+        Tools:ToggleCursor(true)
+      end
+
       Cron.Halt(timer)
     end
 

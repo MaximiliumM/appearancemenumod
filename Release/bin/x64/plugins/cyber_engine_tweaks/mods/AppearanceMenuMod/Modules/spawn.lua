@@ -32,7 +32,13 @@ function Spawn:NewSpawn(name, id, parameters, companion, path, template)
 	end
 
 	function obj:Despawn()
-		AMM.Spawn:DespawnNPC(obj)
+		if obj.type == "NPCPuppet" then
+			AMM.Spawn:DespawnNPC(obj)
+		elseif obj.type == "Prop" then
+			AMM.Props:DespawnProp(obj)
+		else
+			Util:Despawn(obj.handle)
+		end
 	end
 
 	return obj

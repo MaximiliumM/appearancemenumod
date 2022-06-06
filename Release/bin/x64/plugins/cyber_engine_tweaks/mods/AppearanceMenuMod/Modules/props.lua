@@ -1312,7 +1312,9 @@ function Props:ActivatePreset(preset)
 
   pcall(function() spdlog.info('Before saving '..Props.activePreset.file_name or "no file name") end)
 
-  Props:SavePreset(Props.activePreset)
+  -- Probably don't need to save here
+  -- The preset is already saved if the user made any changes
+  -- Props:SavePreset(Props.activePreset)
   Props:DespawnAllSavedProps()
   Props:DeleteAll()
 
@@ -1445,12 +1447,30 @@ function Props:DeletePreset(preset)
 end
 
 function Props:SavePreset(preset, path)
-  spdlog.info('saving...')
+  spdlog.info('Saving preset...')
+
+  local contents = json.encode(preset)
+  local bouncedPreset = json.decode(contents)
+
+  local invalidOriginalPreset = #preset.props == 0 and #preset.lights == 0
+  local invalidBouncedPreset = #bouncedPreset.props == 0 and #bouncedPreset.lights == 0
+
+  if invalidOriginalPreset or invalidBouncedPreset then
+    local reason = (invalidBouncedPreset and not invalidOriginalPreset) and "preset serialization to JSON failed" or "preset props and lights are both empty"
+
+    local errorTitle = "Preset Saving Failed"
+    local errorMessage = f('Cannot save preset because %s and saving it would result in an invalid JSON file. Preset: %s %s', reason, preset.name or "<no preset name set>", preset.file_name or "<no preset file name set>")
+
+    spdlog.error(errorMessage)
+
+    return false
+  end
+
   local file = io.open(f(path or "User/Decor/%s", preset.file_name or preset.name..".json"), "w")
+
   if file then
-    local contents = json.encode(preset)
-		file:write(contents)
-		file:close()
+        file:write(contents)
+        file:close()
     return true
   end
 end

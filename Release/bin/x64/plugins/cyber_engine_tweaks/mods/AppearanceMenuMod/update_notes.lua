@@ -1,5 +1,21 @@
 return {
 	{
+		'1.14.2',
+		'2022 Jun 06',
+		[[Added new Lock State toggle to Disable Cursor]],
+		[[-- AMM will re-disable the cursor if you lock it before leaving Photo Mode]],
+		[[Added new Decor Preset saving handling that will hopefully help with the 1KB bug]],
+		[[-- Thanks Auska for the help!]],
+		[[Disabled Companion Distance setting for the time being]],
+		[[-- This has been broken since 1.5 and I haven't figured out a way to fix it yet]],
+		[[Made Spawn V compatible with Johnson's Unique V Body Shape Framework]],
+		[[Removed Experimental setting requirement for targeting objects/doors with Scan tab]],
+		[[Fixed issue where despawning a Prop through Scan tab would not remove it from Decor tab]],
+		[[Fixed issue where Scan tab would not be able to target anything during BD scenes]],
+		[[Fixed issue with Yorinobu's hands disappearing in certain conditions (I hope)]],
+		[[-- Make sure you install the new YorinobuPP archive]],
+	},
+	{
 		'1.14.1',
 		'2022 May 16',
 		[[Added new Setting: Open Target Tools After Spawn]],

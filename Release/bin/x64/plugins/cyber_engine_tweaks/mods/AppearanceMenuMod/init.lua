@@ -41,10 +41,11 @@ function AMM:new()
 	 AMM.selectedTheme = 'Default'
 
 	 -- External Mods API --
-	 AMM.TeleportMod = ''
+	 AMM.TeleportMod = nil
+	 AMM.UniqueVRig = false
 
 	 -- Main Properties --
-	 AMM.currentVersion = "1.14.1"
+	 AMM.currentVersion = "1.14.2"
 	 AMM.CETVersion = tonumber(GetVersion():match("1.(%d+)."))
 	 AMM.updateNotes = require('update_notes.lua')
 	 AMM.credits = require("credits.lua")
@@ -124,6 +125,11 @@ function AMM:new()
 
 		 if AMM.Debug ~= '' then
 			AMM.player = Game.GetPlayer()
+		 end
+
+		 -- Setup Unique V Framework --
+		 if ModArchiveExists("zz_johnson_Unique_V_Body_Shape") then
+			AMM.UniqueVRig = true
 		 end
 
 		 AMM:SetupCustomProps()
@@ -346,7 +352,7 @@ function AMM:new()
 				 else
 					AMM.Scan.companionDriver = driver
 
-					if AMM.TeleportMod ~= '' then
+					if AMM.TeleportMod then
 						AMM.TeleportMod.api.modBlocked = true
 					end
 
@@ -384,7 +390,7 @@ function AMM:new()
 					 if next(AMM.Scan.drivers) ~= nil then
 						 AMM.Scan:UnmountDrivers()
 
-						 if AMM.TeleportMod ~= '' then
+						 if AMM.TeleportMod then
 							AMM.TeleportMod.api.modBlocked = false
 						end
 					 end
@@ -853,10 +859,10 @@ function AMM:new()
 	 registerForEvent("onUpdate", function(deltaTime)
 		 -- Setup Travel Mod API --
 		 local mod = GetMod("gtaTravel")
-		 if mod ~= nil and AMM.TeleportMod == '' then
+		 if mod ~= nil and AMM.TeleportMod == nil then
 			 AMM.TeleportMod = mod
 			 AMM.Tools.useTeleportAnimation = AMM.userSettings.teleportAnimation
-		 end
+		 end		 
 
 		 -- This is required for Cron to function
      	Cron.Update(deltaTime)
@@ -1280,18 +1286,18 @@ function AMM:Begin()
 
 						AMM.UI:Spacing(3)
 
-						AMM.UI:TextColored("Companion Distance:")
+						-- AMM.UI:TextColored("Companion Distance:")
 
-						for _, option in ipairs(AMM.followDistanceOptions) do
-							if ImGui.RadioButton(option[1], AMM.followDistance[1] == option[1]) then
-								AMM.followDistance = option
-								AMM:UpdateFollowDistance()
-							end
+						-- for _, option in ipairs(AMM.followDistanceOptions) do
+						-- 	if ImGui.RadioButton(option[1], AMM.followDistance[1] == option[1]) then
+						-- 		AMM.followDistance = option
+						-- 		AMM:UpdateFollowDistance()
+						-- 	end
 
-							ImGui.SameLine()
-						end
+						-- 	ImGui.SameLine()
+						-- end
 
-						AMM.UI:Spacing(3)
+						-- AMM.UI:Spacing(3)
 
 						AMM.UI:TextColored("Companion Damage:")
 
@@ -1491,7 +1497,7 @@ function AMM:NewTarget(handle, targetType, id, name, app, options)
 	-- Check if object is spawnedProp
 	if next(AMM.Props.spawnedProps) ~= nil then
 		for _, prop in pairs(AMM.Props.spawnedProps) do
-			if prop.hash == obj.hash then
+			if prop.hash == obj.hash then				
 				obj = prop
 				break
 			end
@@ -2052,11 +2058,16 @@ function AMM:UpdateOldFavorites()
 end
 
 function AMM:SetupAMMCharacters()
+	local uniqueV = ''
+	if AMM.UniqueVRig then
+		uniqueV = "_unique"
+	end
+
 	local ents = {
-		{og = "Character.TPP_Player_Cutscene_Male", tdbid = "AMM_Character.Player_Male", path = "player_ma_tpp"},
-		{og = "Character.TPP_Player_Cutscene_Female", tdbid = "AMM_Character.Player_Female", path = "player_wa_tpp"},
-		{og = "Character.TPP_Player_Cutscene_Male", tdbid = "AMM_Character.TPP_Player_Male", path = "player_ma_tpp_walking"},
-		{og = "Character.TPP_Player_Cutscene_Female", tdbid = "AMM_Character.TPP_Player_Female", path = "player_wa_tpp_walking"},
+		{og = "Character.TPP_Player_Cutscene_Male", tdbid = "AMM_Character.Player_Male", path = "player_ma_tpp"..uniqueV},
+		{og = "Character.TPP_Player_Cutscene_Female", tdbid = "AMM_Character.Player_Female", path = "player_wa_tpp"..uniqueV},
+		{og = "Character.TPP_Player_Cutscene_Male", tdbid = "AMM_Character.TPP_Player_Male", path = "player_ma_tpp_walking"..uniqueV},
+		{og = "Character.TPP_Player_Cutscene_Female", tdbid = "AMM_Character.TPP_Player_Female", path = "player_wa_tpp_walking"..uniqueV},
 		{og = "Character.Takemura", tdbid = "AMM_Character.Silverhand", path = "silverhand"},
 		{og = "Character.Hanako", tdbid = "AMM_Character.Hanako", path = "hanako"},
 		{og = "Character.generic_netrunner_netrunner_chao_wa_rare_ow_city_scene", tdbid = "AMM_Character.Songbird", path = "songbird"},
@@ -2904,8 +2915,10 @@ function AMM:ChangeAppearanceTo(entity, appearance)
 end
 
 function AMM:GetTarget()
-	if AMM.player then
-		target = Game.GetTargetingSystem():GetLookAtObject(AMM.player, true, false) or Game.GetTargetingSystem():GetLookAtObject(AMM.player, false, false)
+	local player = Game.GetPlayer()
+
+	if player then
+		target = Game.GetTargetingSystem():GetLookAtObject(player, true, false) or Game.GetTargetingSystem():GetLookAtObject(player, false, false)
 
 		if target ~= nil then
 			if target:IsNPC() or target:IsReplacer() then
@@ -2913,9 +2926,7 @@ function AMM:GetTarget()
 			elseif target:IsVehicle() then
 				t = AMM:NewTarget(target, 'vehicle', AMM:GetScanID(target), AMM:GetVehicleName(target),AMM:GetScanAppearance(target), AMM:GetAppearanceOptions(target))
 			else
-				if AMM.userSettings.experimental then
-					t = AMM:NewTarget(target, AMM:GetScanClass(target), "None", AMM:GetObjectName(target),AMM:GetScanAppearance(target), nil)
-				end
+				t = AMM:NewTarget(target, AMM:GetScanClass(target), "None", AMM:GetObjectName(target),AMM:GetScanAppearance(target), nil)				
 			end
 
 			if t ~= nil and t.name ~= "gameuiWorldMapGameObject" and t.name ~= "ScriptedWeakspotObject" then
