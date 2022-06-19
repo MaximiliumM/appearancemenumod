@@ -1,5 +1,17 @@
 return {
 	{
+		'1.14.3',
+		'2022 Jun 19',
+		[[Added new hotkey: Freeze Target]],
+		[[Added new Songbird appearance: Towel]],
+		[[-- Thanks wingdeer for letting me use her towel mesh]],
+		[[Added a bunch of requested NPCs to Swap list]],
+		[[Fixed issue where Saved Appearances would not reload properly in certain conditions]],
+		[[Fixed issue with Custom Appearances not loading correctly]],
+		[[Fixed issue with Yorinobu's appearance on lower LOD levels]],
+		[[-- Make sure you install the new YorinobuPP archive]],
+	},
+	{
 		'1.14.2',
 		'2022 Jun 06',
 		[[Added new Lock State toggle to Disable Cursor]],

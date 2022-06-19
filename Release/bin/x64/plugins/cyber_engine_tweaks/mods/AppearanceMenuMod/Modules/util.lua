@@ -150,8 +150,9 @@ function Util:PlayerPositionChangedSignificantly(playerPos)
 end
 
 function Util:GetBehindPlayerPosition(distance)
-  local pos = AMM.player:GetWorldPosition()
-  local heading = AMM.player:GetWorldForward()
+  local player = Game.GetPlayer()
+  local pos = player:GetWorldPosition()
+  local heading = player:GetWorldForward()
   local behindPlayer = Vector4.new(pos.x - (heading.x * distance), pos.y - (heading.y * distance), pos.z, pos.w)
   return behindPlayer
 end

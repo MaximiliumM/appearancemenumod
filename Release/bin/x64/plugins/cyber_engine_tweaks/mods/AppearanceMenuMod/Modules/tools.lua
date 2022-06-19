@@ -601,7 +601,7 @@ function Tools:DrawTeleportActions()
     end
   end
 
-  if AMM.TeleportMod ~= '' then
+  if AMM.TeleportMod then
     ImGui.Spacing()
     Tools.useTeleportAnimation, clicked = ImGui.Checkbox("Use Teleport Animation", Tools.useTeleportAnimation)
     if clicked then
@@ -1034,8 +1034,10 @@ function Tools:FreezeNPC(handle, freeze)
   if freeze then
     -- (reason: CName, dilation: Float, duration: Float, easeInCurve: CName, easeOutCurve: CName, ignoreGlobalDilation: Bool),
     handle:SetIndividualTimeDilation(CName.new("AMM"), 0.00001, 2.5, CName.new(""), CName.new(""), true)
+    Tools.frozenNPCs[tostring(Tools.currentNPC.handle:GetEntityID().hash)] = true
   else
     handle:SetIndividualTimeDilation(CName.new("AMM"), 1.0, 2.5, CName.new(""), CName.new(""), false)
+    Tools.frozenNPCs[tostring(Tools.currentNPC.handle:GetEntityID().hash)] = nil
   end
 end
 
@@ -1386,7 +1388,7 @@ function Tools:DrawMovementWindow()
 
       if not AMM.playerInPhoto or AMM.userSettings.freezeInPhoto then
         local buttonLabel = " Freeze Target "
-        if Tools.frozenNPCs[tostring(Tools.currentNPC.handle:GetEntityID().hash)] ~= nil then
+        if Tools.frozenNPCs[tostring(Tools.currentNPC.handle:GetEntityID().hash)] then
           buttonLabel = " Unfreeze Target "
         end
 
@@ -1394,13 +1396,8 @@ function Tools:DrawMovementWindow()
         if AMM.playerInPhoto then buttonWidth = Tools.style.buttonWidth end
 
         if ImGui.Button(buttonLabel, buttonWidth, Tools.style.buttonHeight) then
-          if buttonLabel == " Freeze Target " then
-            Tools:FreezeNPC(Tools.currentNPC.handle, true)
-            Tools.frozenNPCs[tostring(Tools.currentNPC.handle:GetEntityID().hash)] = 'active'
-          else
-            Tools:FreezeNPC(Tools.currentNPC.handle, false)
-            Tools.frozenNPCs[tostring(Tools.currentNPC.handle:GetEntityID().hash)] = nil
-          end
+          local frozen = not(Tools.frozenNPCs[tostring(Tools.currentNPC.handle:GetEntityID().hash)] == true)
+          Tools:FreezeNPC(Tools.currentNPC.handle, frozen)
         end
 
         if AMM.playerInPhoto then

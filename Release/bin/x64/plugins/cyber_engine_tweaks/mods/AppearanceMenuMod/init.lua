@@ -45,7 +45,7 @@ function AMM:new()
 	 AMM.UniqueVRig = false
 
 	 -- Main Properties --
-	 AMM.currentVersion = "1.14.2"
+	 AMM.currentVersion = "1.14.3"
 	 AMM.CETVersion = tonumber(GetVersion():match("1.(%d+)."))
 	 AMM.updateNotes = require('update_notes.lua')
 	 AMM.credits = require("credits.lua")
@@ -773,6 +773,14 @@ function AMM:new()
 	 	AMM.Tools:SkipFrame()
 	 end)
 
+	 registerHotkey("amm_freeze_target", "Freeze Target", function()
+		local target = AMM:GetTarget()
+ 		if target ~= nil and target.handle:IsNPC() then
+			local frozen = not(AMM.Tools.frozenNPCs[tostring(target.handle:GetEntityID().hash)] == true)
+			AMM.Tools:FreezeNPC(target.handle, frozen)
+		end
+	end)
+
 	 registerHotkey("amm_toggle_lookAt", "Toggle Look At", function()
 	 	AMM.Tools:ToggleLookAt()
 	 end)
@@ -919,7 +927,7 @@ function AMM:new()
 					end
 
 					-- Travel Animation Done Check --
-					if AMM.TeleportMod ~= '' and AMM.TeleportMod.api.done then
+					if AMM.TeleportMod and AMM.TeleportMod.api.done then
 						if next(AMM.Spawn.spawnedNPCs) ~= nil then
 							AMM:TeleportAll()
 						end
@@ -1862,7 +1870,7 @@ function AMM:IsApproved(modder, path)
 		local possibleIDs = {
 			"0xB12C810A, 20", "0x83384354, 12",
 			"0x86B91A0E, 11", "0xA582326C, 10",
-			"0x61487D07, 14"
+			"0x61487D07, 14", "0x054D87CE, 9"
 		}
 
 		for _, possibleID in ipairs(possibleIDs) do
@@ -2058,6 +2066,8 @@ function AMM:UpdateOldFavorites()
 end
 
 function AMM:SetupAMMCharacters()
+	db:execute("DELETE FROM entities WHERE entity_path LIKE '%Test_Character%'")
+
 	local uniqueV = ''
 	if AMM.UniqueVRig then
 		uniqueV = "_unique"
@@ -2481,7 +2491,7 @@ end
 function AMM:CheckSavedAppearance(target)
 	if target ~= nil and (target.type == "NPCPuppet" or target.type == "vehicle") then
 		if not AMM.savedAppearanceCheckCache[target.hash] then
-			AMM.savedAppearanceCheckCache[target.hash] = true
+			AMM.savedAppearanceCheckCache[target.hash] = target.appearance
 			if AMM:CheckSavedAppearanceForEntity(target) then return end
 		end
 	end
@@ -2497,8 +2507,8 @@ function AMM:CheckSavedAppearance(target)
 			ent = AMM:NewTarget(entity, 'vehicle', AMM:GetScanID(entity), AMM:GetVehicleName(entity), AMM:GetScanAppearance(entity), nil)
 		end
 
-		if ent ~= nil and not AMM.savedAppearanceCheckCache[ent.hash] then
-			AMM.savedAppearanceCheckCache[ent.hash] = true
+		if ent ~= nil and (not AMM.savedAppearanceCheckCache[ent.hash] or AMM.savedAppearanceCheckCache[ent.hash] ~= ent.appearance) then
+			AMM.savedAppearanceCheckCache[ent.hash] = ent.appearance
 			AMM:CheckCustomDefaults(ent)
 			AMM:CheckSavedAppearanceForEntity(ent)
 			AMM:CheckBlacklistAppearance(ent)
@@ -3352,6 +3362,16 @@ function AMM:SBInitialize()
 
 			pos = Vector4.new(-670.150, 825.804, 19.592, 1),
 			time = {startTime = 5, endTime = 10},
+			chance = 20,
+		},
+		-- Afterlife
+		{
+			locs = {
+				{ent = 'songbird_sit_couch_rh_couch', pos = Vector4.new(-1433.596, 1000.027, 16.917, 1), angles = EulerAngles.new(0, 0, -99.168), apps = {'casual', 'casual_alt', 'default'}},	
+			},
+
+			pos = Vector4.new(-345.980, 1366.422, 42.898, 1),
+			time = {startTime = 19, endTime = 22},
 			chance = 20,
 		},
 	}

@@ -35,6 +35,10 @@ return {
 		[[-- Beta Testing]],
 		[[-- E3 V Male & Female]],
 		[[-- Effects and Interactions]],
+		[[Alvarix]],
+		[[-- Songbird's Devil outfit]],
+		[[wingdeer]],
+		[[-- Songbird's Towel]],
 	},
 	{
 		'Community Shout Outs',
