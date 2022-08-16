@@ -683,7 +683,7 @@ function Tools:GetLocations()
     table.insert(locations, {loc_name = '------------------------------'})
   end
 
-  for loc in db:nrows("SELECT * FROM locations ORDER BY loc_name ASC") do
+  for loc in db:nrows([[SELECT * FROM locations ORDER BY loc_name ASC]]) do
     table.insert(locations, loc)
   end
   return locations
@@ -1152,7 +1152,9 @@ function Tools:DrawMovementWindow()
     end
 
     if Tools.currentNPC and Tools.currentNPC ~= '' then
-      ImGui.Text(Tools.currentNPC.name)
+      ImGui.PushTextWrapPos(300)
+      ImGui.TextWrapped(Tools.currentNPC.name)
+      ImGui.PopTextWrapPos()
 
       if AMM.playerInPhoto and AMM.playerInVehicle and Tools.currentNPC.type == "Player" then
         local mountedVehicle = Util:GetMountedVehicleTarget()

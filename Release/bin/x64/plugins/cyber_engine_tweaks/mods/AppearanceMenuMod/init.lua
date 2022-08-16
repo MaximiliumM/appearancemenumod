@@ -45,7 +45,7 @@ function AMM:new()
 	 AMM.UniqueVRig = false
 
 	 -- Main Properties --
-	 AMM.currentVersion = "1.14.3"
+	 AMM.currentVersion = "1.14.4"
 	 AMM.CETVersion = tonumber(GetVersion():match("1.(%d+)."))
 	 AMM.updateNotes = require('update_notes.lua')
 	 AMM.credits = require("credits.lua")
@@ -79,7 +79,7 @@ function AMM:new()
 	 AMM.collabs = nil
 	 AMM.setCustomApp = ''
 	 AMM.activeCustomApps = {}
-	 AMM.customAppDefaults = AMM:GetCustomAppearanceDefaults()
+	 AMM.customAppDefaults = nil
 	 AMM.customAppOptions = {"Top", "Bottom", "Off"}
 	 AMM.customAppPosition = "Top"
 
@@ -137,6 +137,7 @@ function AMM:new()
 		 AMM:SetupCustomEntities()
 		 AMM:SetupVehicleData()
 		 AMM.collabs = AMM:SetupCollabAppearances()
+		 AMM.customAppDefaults = AMM:GetCustomAppearanceDefaults()
 
 		 -- Initialization
 		 AMM.Spawn.categories = AMM.Spawn:GetCategories()
@@ -1865,12 +1866,13 @@ function AMM:IsApproved(modder, path)
 	local path = path:match("%\\(%a+)%\\")
 
 	if path then
-		local id = AMM:GetScanID(modder..path)
+		local id = AMM:GetScanID(modder..path)		
 
 		local possibleIDs = {
 			"0xB12C810A, 20", "0x83384354, 12",
 			"0x86B91A0E, 11", "0xA582326C, 10",
-			"0x61487D07, 14", "0x054D87CE, 9"
+			"0x61487D07, 14", "0x054D87CE, 9",
+			"0x2DD80600, 14"
 		}
 
 		for _, possibleID in ipairs(possibleIDs) do
@@ -2473,7 +2475,7 @@ function AMM:UpdateSettings()
 end
 
 function AMM:CheckCustomDefaults(target)
-	if target ~= nil and target.type == "NPCPuppet" then
+	if target ~= nil and target.handle:IsNPC() then
 		for component, apps in pairs(AMM.customAppDefaults) do
 			local appParam = target.handle:FindComponentByName(CName.new(component))
 			if appParam then

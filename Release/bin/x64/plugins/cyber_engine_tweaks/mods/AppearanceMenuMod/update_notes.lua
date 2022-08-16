@@ -1,5 +1,14 @@
 return {
 	{
+		'1.14.4',
+		'2022 Aug 16',
+		[[Added new Character: Benedict McAdams]],
+		[[Added new Custom Appearances: Queen of the Stoop 13 and Fangirl 1]],
+		[[Added a bunch of requested NPCs to Swap list]],
+		[[Fixed issue where Collab files using disabledByDefault would not trigger properly]],
+		[[Fixed issue where Unlock Target and Close Window buttons would overlap when displaying long named entities]],
+	},
+	{
 		'1.14.3',
 		'2022 Jun 19',
 		[[Added new hotkey: Freeze Target]],
