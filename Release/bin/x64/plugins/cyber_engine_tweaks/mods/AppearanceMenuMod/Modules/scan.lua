@@ -356,21 +356,23 @@ function Scan:Draw(AMM, target, style)
           AMM.Spawn:DrawFavoritesButton(favoritesLabels, target, true)
         end
 
+        local buttonStyle = style.buttonWidth
+        if AMM.userSettings.experimental then buttonStyle = style.halfButtonWidth end
+        local buttonLabel = "  Follower  "
+        if target.handle.isPlayerCompanionCached then buttonLabel = "  Unfollower  " end
+        if ImGui.Button(buttonLabel, buttonStyle, style.buttonHeight - 5) then
+          if target.handle.isPlayerCompanionCached then
+            Util:ToggleCompanion(target.handle)
+          else
+            AMM.Spawn:SetNPCAsCompanion(target.handle)
+          end
+        end
+
         if AMM.userSettings.experimental then
+          ImGui.SameLine()
+
           if ImGui.Button("  Fake Die  ", style.halfButtonWidth, style.buttonHeight - 5) then
             target.handle:SendAIDeathSignal()
-          end
-  
-          ImGui.SameLine()
-  
-          local buttonLabel = "  Follower  "
-          if target.handle.isPlayerCompanionCached then buttonLabel = "  Unfollower  " end
-          if ImGui.Button(buttonLabel, style.halfButtonWidth, style.buttonHeight - 5) then
-            if target.handle.isPlayerCompanionCached then
-              Util:ToggleCompanion(target.handle)
-            else
-              AMM.Spawn:SetNPCAsCompanion(target.handle)
-            end
           end
         end
       end

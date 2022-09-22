@@ -1,5 +1,13 @@
 return {
 	{
+		'1.14.5',
+		'2022 Sep 23',
+		[[Added new hotkeys: Disable Photo Mode Cursor and God Mode]],
+		[[Added requested NPCs to Swap list]],
+		[[Fixed issue where AMM would be locked in 'Player In Menu' screen after trying to read a Vortex-generated file]],
+		[[-- Thanks Auska for fixing this!]],
+	},
+	{
 		'1.14.4',
 		'2022 Aug 16',
 		[[Added new Character: Benedict McAdams]],

@@ -45,7 +45,7 @@ function AMM:new()
 	 AMM.UniqueVRig = false
 
 	 -- Main Properties --
-	 AMM.currentVersion = "1.14.4"
+	 AMM.currentVersion = "1.14.5"
 	 AMM.CETVersion = tonumber(GetVersion():match("1.(%d+)."))
 	 AMM.updateNotes = require('update_notes.lua')
 	 AMM.credits = require("credits.lua")
@@ -782,6 +782,12 @@ function AMM:new()
 		end
 	end)
 
+	registerHotkey("amm_pm_disable_cursor", "Disable Photo Mode Cursor", function()
+		if AMM.playerInPhoto then
+			AMM.Tools:ToggleCursor()
+		end
+	end)
+
 	 registerHotkey("amm_toggle_lookAt", "Toggle Look At", function()
 	 	AMM.Tools:ToggleLookAt()
 	 end)
@@ -793,6 +799,10 @@ function AMM:new()
 	 registerHotkey("amm_toggle_tpp", "Toggle TPP Camera", function()
 		AMM.Tools:ToggleTPPCamera()
 	 end)
+
+	 registerHotkey("amm_toggle_god", "Toggle God Mode", function()
+		AMM.Tools:ToggleGodMode()
+	end)
 
 	 registerHotkey('amm_toggle_hud', 'Toggle HUD', function()
 	    GameSettings.Toggle('/interface/hud/action_buttons')
