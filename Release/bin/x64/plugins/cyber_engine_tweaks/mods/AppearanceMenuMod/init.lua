@@ -2184,7 +2184,7 @@ function AMM:SetupCustomEntities()
 	local files = dir("./Collabs/Custom Entities")
 	if #files > 0 then
 	  	for _, mod in ipairs(files) do
-	    	if string.find(mod.name, '.lua') then
+	    	if string.find(mod.name, '.lua$') then
 				local data = require("Collabs/Custom Entities/"..mod.name)
 				local modder = data.modder
 				local uid = data.unique_identifier
@@ -2269,7 +2269,7 @@ function AMM:SetupCustomProps()
 	local files = dir("./Collabs/Custom Props")
 	if #files > 0 then
 	  	for _, mod in ipairs(files) do
-	    	if string.find(mod.name, '.lua') then
+	    	if string.find(mod.name, '.lua$') then
 				local data = require("Collabs/Custom Props/"..mod.name)
 				local modder = data.modder
 				local uid = data.unique_identifier
@@ -2323,7 +2323,7 @@ function AMM:SetupCollabAppearances()
 	local files = dir("./Collabs")
 	if #files > 0 then
 		for _, mod in ipairs(files) do
-			if string.find(mod.name, '.lua') and mod.name ~= "API.lua" then
+			if string.find(mod.name, '.lua$') and mod.name ~= "API.lua" then
 				os.rename("./Collabs/"..mod.name, "./Collabs/Custom Appearances/"..mod.name)
 			end
 		end
@@ -2333,7 +2333,7 @@ function AMM:SetupCollabAppearances()
 	local collabs = {}
 	if #files > 0 then
 	  	for _, mod in ipairs(files) do
-	    	if string.find(mod.name, '.lua') then
+	    	if string.find(mod.name, '.lua$') then
 				local collab = require("Collabs/Custom Appearances/"..mod.name)
 				local metadata = collab.metadata
 
