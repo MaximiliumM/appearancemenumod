@@ -529,6 +529,18 @@ function Util:OpenPopup(popupInfo)
   ImGui.OpenPopup("Error")
 end
 
+function Util:CheckNibblesByID(id)
+  local possibleIDs = {
+    "0xA1166EF4, 34"
+  }
+
+  for _, possibleID in ipairs(possibleIDs) do
+    if id == possibleID then return true end
+  end
+
+  return false
+end
+
 function Util:CheckVByID(id)
   local possibleIDs = {
     "0x2A16D43E, 34", "0x9EDC71E0, 33",

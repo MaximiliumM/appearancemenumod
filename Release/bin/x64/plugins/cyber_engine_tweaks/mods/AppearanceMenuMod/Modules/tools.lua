@@ -215,8 +215,14 @@ function Tools:DrawVActions()
         buttonLabel = "Unlock Look At Camera"
       end
 
-      if ImGui.Button(buttonLabel, Tools.style.buttonWidth, Tools.style.buttonHeight) then
+      if ImGui.Button(buttonLabel, Tools.style.halfButtonWidth, Tools.style.buttonHeight) then
         Tools:ToggleLookAt()
+      end
+
+      ImGui.SameLine()
+      if ImGui.Button("Target Nibbles", Tools.style.halfButtonWidth, Tools.style.buttonHeight) then
+        Tools:SetCurrentTarget(Tools:GetNibblesTarget())
+        Tools.lockTarget = true
       end
 
       Tools.savePhotoModeToggles = ImGui.Checkbox("Save Toggles State", Tools.savePhotoModeToggles)
@@ -524,6 +530,29 @@ function Tools:ToggleHead(userActivated)
       Game.EquipItemOnPlayer("Items.PlayerFppHead", "TppHead")
     end
   end
+end
+
+function Tools:GetNibblesTarget()
+  local nibbles
+
+  Util:GetAllInRange(30, true, true, function(entity)
+    if entity then
+      local entityID = AMM:GetScanID(entity)
+      if entityID and Util:CheckNibblesByID(entityID) then
+        nibbles = entity
+      end
+    end
+	end)
+
+  if not nibbles then
+    if Util:CheckNibblesByID(Tools.currentNPC.id) then
+      return Tools.currentNPC
+    else
+      return nil
+    end
+  end
+
+  return AMM:NewTarget(nibbles, "NPCPuppet", AMM:GetScanID(nibbles), AMM:GetNPCName(nibbles),AMM:GetScanAppearance(nibbles), nil)
 end
 
 function Tools:GetVTarget()
