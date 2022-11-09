@@ -2709,14 +2709,26 @@ function AMM:GetScanID(t)
 	if type(t) == 'userdata' then
 		hasRecord, tdbid = pcall(function() return t:GetRecordID() end)
 		if not hasRecord then
-			print("[AMM Debug] No Record ID Available For This Target")
+			Util:AMMDebug("No Record ID Available For This Target")
+			return nil
 		end
 	else
 		tdbid = tostring(TweakDBID.new(t))
 	end
-	local hash = tostring(tdbid):match("= (%g+),")
-	local length = tostring(tdbid):match("= (%g+) }")
-	return hash..", "..length
+
+	local hash = tostring(tdbid):match("hash%s*=%s*(%g+),")
+	local length = tostring(tdbid):match("length%s*=%s*(%d+)")
+
+	if hash == nil or length == nil then
+		local msg = f("Target (%s) has strange tweakdbid, this may fail later: %s tostr: %s", t, tdbid, tostring(tdbid))
+		spdlog.error(msg)
+	end
+
+	-- This should actually maybe error
+	local safeHash = hash or ""
+	local safeLength = length or 0
+
+	return safeHash..", "..safeLength
 end
 
 function AMM:GetScanClass(t)
