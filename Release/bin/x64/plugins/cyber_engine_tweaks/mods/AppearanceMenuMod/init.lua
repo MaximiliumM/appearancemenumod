@@ -45,9 +45,9 @@ function AMM:new()
 	 AMM.UniqueVRig = false
 
 	 -- Main Properties --
-	 AMM.currentVersion = "1.14.6"
+	 AMM.currentVersion = "1.16.1"
 	 AMM.CETVersion = tonumber(GetVersion():match("1.(%d+)."))
-	 AMM.updateNotes = require('update_notes.lua')
+	 AMM.updateNotes = require("update_notes.lua")
 	 AMM.credits = require("credits.lua")
 	 AMM.updateLabel = "WHAT'S NEW"
 	 AMM.userSettings = AMM:PrepareSettings()
