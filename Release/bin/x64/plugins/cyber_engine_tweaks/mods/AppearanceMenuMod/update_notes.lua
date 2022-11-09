@@ -1,5 +1,16 @@
 return {
 	{
+		'1.14.6',
+		'2022 Oct 10',
+		[[Added new Photo Mode tools button: Target Nibbles]],
+		[[Added new Characters: Zion Wylde, Diego Ramirez and Militech Soldier]],
+		[[Added new Effect: Tank Water Bubbles]],
+		[[Added new Sound Effects category with SFX including:]],
+		[[-- Female Laugh, Whip Flesh, Cheering Crowd and more]],
+		[[Fixed issue where scanning Nibbles would display V's name instead]],
+		[[Fixed issue where API.lua would be moved incorrectly to Custom Appearances folder]],
+	},
+	{
 		'1.14.5',
 		'2022 Sep 23',
 		[[Added new hotkeys: Disable Photo Mode Cursor and God Mode]],

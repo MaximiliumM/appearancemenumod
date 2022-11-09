@@ -153,7 +153,7 @@ function Spawn:DrawActiveSpawns(style)
           popupDelegate = AMM:OpenPopup(spawn.name.."'s Equipment")
         end
 
-        AMM:BeginPopup(spawn.name.."'s Equipment", spawn.path, false, popupDelegate, style)
+        AMM:BeginPopup(spawn.name.."'s Equipment", spawn.path, false, popupDelegate, style)		  
       end
     end
 

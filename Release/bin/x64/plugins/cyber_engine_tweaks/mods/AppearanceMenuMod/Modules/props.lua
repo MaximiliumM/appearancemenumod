@@ -66,7 +66,7 @@ function Props:new()
   Props.tags = {}
   Props.homes = {}
   Props.homeTags = nil
-  Props.categories = Props:GetCategories()
+  Props.categories = {}
   Props.savingProp = ''
   Props.editingTags = {}
   Props.activeProps = {}
@@ -97,6 +97,7 @@ function Props:Initialize()
   Props.savedProps['all_props'] = Props:GetProps()
   Props.triggers = Props:GetTriggers()
   Props.tags = Props:GetTags()
+  Props.categories = Props:GetCategories()
 
   if Props.homeTags then
     Props:LoadHomes(Props.homeTags)
@@ -1541,7 +1542,11 @@ function Props:GetCategories()
   table.insert(categories, {cat_id = 1, cat_name = "Favorites"})
 
   for category in db:nrows(query) do
-    table.insert(categories, {cat_id = category.cat_id, cat_name = category.cat_name})
+    if category.cat_id == 58 and not AMM.archivesInfo.sounds then
+      -- User doesn't have the Sound Effects archive installed
+    else
+      table.insert(categories, {cat_id = category.cat_id, cat_name = category.cat_name})
+    end
   end
 
   return categories

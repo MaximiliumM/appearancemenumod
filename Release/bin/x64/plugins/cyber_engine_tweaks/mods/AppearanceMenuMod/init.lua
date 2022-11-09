@@ -45,7 +45,7 @@ function AMM:new()
 	 AMM.UniqueVRig = false
 
 	 -- Main Properties --
-	 AMM.currentVersion = "1.14.5"
+	 AMM.currentVersion = "1.14.6"
 	 AMM.CETVersion = tonumber(GetVersion():match("1.(%d+)."))
 	 AMM.updateNotes = require('update_notes.lua')
 	 AMM.credits = require("credits.lua")
@@ -61,7 +61,7 @@ function AMM:new()
 	 AMM.originalVehicles = ''
 	 AMM.displayInteractionPrompt = false
 	 AMM.archives = nil
-	 AMM.archivesInfo = {missing = false, optional = true}
+	 AMM.archivesInfo = {missing = false, optional = true, sounds = true}
 	 AMM.collabArchives = {}
 	 AMM.savedAppearanceCheckCache = {}
 
@@ -140,6 +140,7 @@ function AMM:new()
 		 AMM.customAppDefaults = AMM:GetCustomAppearanceDefaults()
 
 		 -- Initialization
+		 AMM.archivesInfo = AMM:CheckMissingArchives()
 		 AMM.Spawn.categories = AMM.Spawn:GetCategories()
 		 AMM.Scan:Initialize()
 		 AMM.Tools:Initialize()
@@ -1085,7 +1086,7 @@ function AMM:Begin()
 		shouldResize = ImGuiWindowFlags.None
 	end
 
-	local archives = AMM:CheckMissingArchives()
+	local archives = AMM.archivesInfo
 
 	if ImGui.Begin("Appearance Menu Mod", shouldResize) then
 
@@ -1497,6 +1498,12 @@ function AMM:NewTarget(handle, targetType, id, name, app, options)
 		obj.name = AMM.customNames[id]
 	end
 
+	-- Check if target is Nibbles
+	if obj.name == "Nibbles" or Util:CheckNibblesByID(obj.id) then
+		obj.name = "Nibbles"
+		obj.type = "Player"
+	end
+
 	-- Check if target is V
 	if obj.name == "V" or Util:CheckVByID(obj.id) then
 		obj.name = "V"
@@ -1549,26 +1556,13 @@ end
 -- AMM Methods --
 function AMM:CheckMissingArchives()
 
-	if AMM.CETVersion < 18 and AMM.playerAttached and not(bbTested) then
-		bbTested = true
-		local spawnTransform = AMM.player:GetWorldTransform()
-		local entityID = exEntitySpawner.Spawn([[base\amm_props\entity\bbpod_a.ent]], spawnTransform, '')
-
-		Cron.Every(0.1, function(timer)
-			local entity = Game.FindEntityByID(entityID)
-			if entity then
-				exEntitySpawner.Despawn(entity)
-				Cron.Halt(timer)
-			end
-		end)
-	end
-
 	if AMM.CETVersion >= 18 then
 		if AMM.archives == nil then
 			AMM.archives = {
 				{name = "basegame_AMM_Props", desc = "Adds props, characters and vehicles. AMM won't launch without this.", active = true, optional = false},
 				{name = "basegame_AMM_requirement", desc = "Adds and fixes appearances for many characters.\nYou should install this.", active = true, optional = true},
 				{name = "basegame_johnny_companion", desc = "Adds Johnny Silverhand as a spawnable character.", active = true, optional = false},
+				{name = "basegame_AMM_SoundEffects", desc = "Adds spawnable sound effects.", active = true, optional = true},
 				{name = "basegame_AMM_KerryPP", desc = "Adds a new naked appearance.", active = true, optional = true},
 				{name = "basegame_AMM_BenjaminStonePP", desc = "Adds a new naked appearance.", active = true, optional = true},
 				{name = "basegame_AMM_RiverPP", desc = "Adds a new naked appearance.", active = true, optional = true},
@@ -1596,6 +1590,10 @@ function AMM:CheckMissingArchives()
 					archive.active = false
 					AMM.archivesInfo.missing = true
 
+					if archive.name == "basegame_AMM_SoundEffects" then
+						AMM.archivesInfo.sounds = false
+					end
+
 					if not archive.optional then AMM.archivesInfo.optional = false end
 				end
 			end
@@ -1609,7 +1607,7 @@ function AMM:CheckMissingArchives()
 		end
 
 		if ignoreArchives and AMM.archivesInfo.optional then
-			AMM.archivesInfo = {missing = false, optional = true}
+			AMM.archivesInfo = {missing = false, optional = true, sounds = AMM.archivesInfo.sounds}
 		end
 	end
 
@@ -2319,15 +2317,15 @@ function AMM:SetupCustomProps()
 end
 
 function AMM:SetupCollabAppearances()
-	-- Check for old files in Collabs root
-	local files = dir("./Collabs")
-	if #files > 0 then
-		for _, mod in ipairs(files) do
-			if string.find(mod.name, '.lua$') and mod.name ~= "API.lua" then
-				os.rename("./Collabs/"..mod.name, "./Collabs/Custom Appearances/"..mod.name)
-			end
-		end
-	end
+	-- -- Check for old files in Collabs root
+	-- local files = dir("./Collabs")
+	-- if #files > 0 then
+	-- 	for _, mod in ipairs(files) do
+	-- 		if string.find(mod.name, '.lua$') and mod.name ~= "API.lua" then
+	-- 			os.rename("./Collabs/"..mod.name, "./Collabs/Custom Appearances/"..mod.name)
+	-- 		end
+	-- 	end
+	-- end
 
 	local files = dir("./Collabs/Custom Appearances")
 	local collabs = {}
@@ -2709,7 +2707,8 @@ function AMM:GetScanID(t)
 	if type(t) == 'userdata' then
 		hasRecord, tdbid = pcall(function() return t:GetRecordID() end)
 		if not hasRecord then
-			print("[AMM Debug] No Record ID Available For This Target")
+			Util:AMMDebug("No Record ID Available For This Target")
+			return nil
 		end
 	else
 		tdbid = tostring(TweakDBID.new(t))
