@@ -1,5 +1,11 @@
 return {
 	{
+		'1.16.1',
+		'2022 Nov 09',
+		[[Game Version 1.61 Compatibility]],
+		[[Fixed issue where AMM would be locked in 'AMM only functions in game' view due to TweakDBID parsing error trying to load any Collabs Lua file]],
+	},
+	{
 		'1.14.5',
 		'2022 Sep 23',
 		[[Added new hotkeys: Disable Photo Mode Cursor and God Mode]],
