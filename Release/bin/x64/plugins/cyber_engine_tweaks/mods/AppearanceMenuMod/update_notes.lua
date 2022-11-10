@@ -1,5 +1,10 @@
 return {
 	{
+		'1.16.2',
+		'2022 Nov 11',
+		[[Fixed issue where selecting V or a non-NPC gameobject in Target Tools caused the tools window to stretch to fill the entire screen width]],
+	},
+	{
 		'1.16.1',
 		'2022 Nov 09',
 		[[Game Version 1.61 Compatibility]],
