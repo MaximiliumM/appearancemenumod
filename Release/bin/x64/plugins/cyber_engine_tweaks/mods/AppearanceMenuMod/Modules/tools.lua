@@ -1230,8 +1230,9 @@ function Tools:DrawMovementWindow()
     local adjustmentValue = 0.01
     if Tools.precisonMode then adjustmentValue = 0.001 end
 
-    local width = ImGui.GetWindowContentRegionWidth() - ImGui.CalcTextSize("Tilt/Rotation ")
-    ImGui.PushItemWidth(width)
+    local upDownRowWidth = ImGui.GetWindowContentRegionWidth() - ImGui.CalcTextSize("Tilt/Rotation ")
+
+    ImGui.PushItemWidth(upDownRowWidth)
     Tools.npcUpDown, upDownUsed = ImGui.DragFloat("Up/Down", Tools.npcUpDown, adjustmentValue)
     ImGui.PopItemWidth()
 
@@ -1239,7 +1240,9 @@ function Tools:DrawMovementWindow()
       Tools.npcUpDown = 0
     end
 
-    ImGui.PushItemWidth((width / 2) - 4)
+    local surfaceWiseRowWidth = (upDownRowWidth / 2) - 4
+
+    ImGui.PushItemWidth(surfaceWiseRowWidth)
     Tools.npcLeft, leftUsed = ImGui.DragFloat("", Tools.npcLeft, adjustmentValue)
 
     if Tools.relativeMode and ImGui.IsItemDeactivatedAfterEdit() then
@@ -1259,7 +1262,7 @@ function Tools:DrawMovementWindow()
       Tools.npcRight = 0
     end
 
-    ImGui.PopItemWidth()
+    ImGui.PopItemWidth() -- surfaceWiseRowidth
 
     local forward = {x = 0, y = 0, z = 0}
     local right = {x = 0, y = 0, z = 0}
@@ -1333,7 +1336,9 @@ function Tools:DrawMovementWindow()
       end
     end
 
-    ImGui.PushItemWidth(width)
+    local completelyMystifyingAdjustmentToKeepSlidersInBounds = 2
+    local rotationRowWidth = upDownRowWidth - completelyMystifyingAdjustmentToKeepSlidersInBounds
+    ImGui.PushItemWidth(rotationRowWidth)
 
     local rotationValue = 0.1
     if Tools.precisonMode then rotationValue = 0.01 end
@@ -1381,7 +1386,7 @@ function Tools:DrawMovementWindow()
       end
     end
     
-    ImGui.PopItemWidth()
+    ImGui.PopItemWidth() -- rotationRowWidth
 
     if Tools.directMode then
       local speed = Tools.currentTarget.speed * 1000
