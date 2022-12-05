@@ -1,5 +1,10 @@
 local Scan = {
 
+  -- Main properties
+  searchQuery = '',
+  searchBarWidth = 500,
+  minimalUI = false,
+
   -- Companion Drive properties
   possibleSeats = {
     { name = "Front Right", cname = "seat_front_right" },
@@ -70,8 +75,8 @@ function Scan:Draw(AMM, target, style)
     AMM.UI:DrawCrossHair()
 
     if Tools.lockTarget then
-      if Tools.currentNPC.type ~= 'entEntity' and Tools.currentNPC.type ~= 'gameObject' then
-        target = Tools.currentNPC
+      if Tools.currentTarget.type ~= 'entEntity' and Tools.currentTarget.type ~= 'gameObject' then
+        target = Tools.currentTarget
 
         if target.handle and target.handle ~= '' then
           target.options = AMM:GetAppearanceOptions(target.handle, target.id)
@@ -152,6 +157,17 @@ function Scan:Draw(AMM, target, style)
 
         AMM.UI:Separator()
 
+        if target.id ~= nil and target.id ~= "None" then
+          AMM.UI:TextColored("Target ID:")
+          ImGui.InputText("", target.id, 50, ImGuiInputTextFlags.ReadOnly)
+          ImGui.SameLine()
+          if ImGui.SmallButton("Copy") then
+            ImGui.SetClipboardText(target.id)
+          end
+        end
+
+        ImGui.Spacing()
+
         AMM.UI:TextColored(tabConfig[target.type].currentTitle)
         ImGui.Text(target.appearance or "default")
 
@@ -217,7 +233,7 @@ function Scan:Draw(AMM, target, style)
             end
 
             if existingTrigger then
-              if existingTrigger.type == 5 and not AMM.playerCurrentDistrict then 
+              if existingTrigger.type == 5 and not AMM.playerCurrentDistrict then
                 -- Avoid loading Area type if user reloaded all mods
               else
                 Scan.selectedAppTrigger = Scan.appTriggerOptions[existingTrigger.type]
@@ -412,10 +428,24 @@ function Scan:Draw(AMM, target, style)
 
       AMM.UI:Separator()
 
-      if target.options ~= nil then
-        AMM.UI:TextColored("List of Appearances:")
-        ImGui.Spacing()
+      AMM.UI:TextColored("List of Appearances:")
+      ImGui.Spacing()
 
+      ImGui.PushItemWidth(Spawn.searchBarWidth)
+      Scan.searchQuery = ImGui.InputTextWithHint(" ", "Search", Scan.searchQuery, 100)
+      Scan.searchQuery = Scan.searchQuery:gsub('"', '')
+      ImGui.PopItemWidth()
+
+      if Scan.searchQuery ~= '' then
+        ImGui.SameLine()
+        if ImGui.Button("Clear") then
+          Scan.searchQuery = ''
+        end
+      end
+
+      ImGui.Spacing()
+
+      if target.options ~= nil then
         x = 0
         for _, appearance in ipairs(target.options) do
           local len = ImGui.CalcTextSize(appearance)
@@ -441,6 +471,8 @@ function Scan:Draw(AMM, target, style)
           end
         end
         ImGui.EndChild()
+      else
+        ImGui.TextColored(1, 0.16, 0.13, 0.75, "No Appearances")
       end
     else
       ImGui.NewLine()
@@ -464,6 +496,43 @@ function Scan:Draw(AMM, target, style)
 
     ImGui.EndTabItem()
   end
+end
+
+function Scan:OpenMinimalUI()
+
+  AMM.UI.style.minimal = not AMM.UI.style.minimal
+  
+  local sizeX = ImGui.GetWindowSize()
+	local x, y = ImGui.GetWindowPos()
+	ImGui.SetNextWindowPos(x + ((sizeX / 2) - 200), y - 40)
+end
+
+function Scan:DrawMinimalUI()
+  
+  AMM.UI:DrawCrossHair()
+
+  ImGui.SetNextWindowSize(200, 140)
+
+  Scan.minimalUI = ImGui.Begin("Build Mode", ImGuiWindowFlags.NoCollapse)
+
+  if Scan.minimalUI then
+    local target = AMM:GetTarget()
+    if target == nil and (AMM.Tools.currentTarget and AMM.Tools.currentTarget ~= '') then
+      target = AMM.Tools.currentTarget
+    end
+    
+    if target ~= nil then
+      ImGui.Text(target.name)
+      AMM.UI:TextColored(target.type)
+    else
+      ImGui.PushTextWrapPos()
+      ImGui.TextColored(1, 0.16, 0.13, 0.75, "No Target")
+      ImGui.PopTextWrapPos()
+    end
+
+  end
+
+  ImGui.End()
 end
 
 function Scan:DrawSeatsPopup()
@@ -890,7 +959,7 @@ function Scan:ActivateAppTriggerForType(triggerType)
 
   if next(AMM.Spawn.spawnedNPCs) ~= nil then
     for _, ent in pairs(AMM.Spawn.spawnedNPCs) do
-      if ent and ent.handle:IsNPC() then
+      if ent and ent.handle and ent.handle:IsNPC() then
         local triggers = {}
         for x in db:nrows(f('SELECT * FROM appearance_triggers WHERE entity_id = "%s" AND type = %i', ent.id, currentType)) do
           table.insert(triggers, x)

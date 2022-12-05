@@ -222,8 +222,6 @@ function Director:Draw(AMM)
 
   if (ImGui.BeginTabItem("Director")) then
 
-    AMM.UI:Spacing(3)
-
     AMM.UI:TextColored("Director Mode")
     local description = "Create Scripts to add, dress and direct Actors to perform for machinima, screenshots and roleplay."
 
@@ -235,14 +233,14 @@ function Director:Draw(AMM)
 
     ImGui.TextWrapped(description)
 
-    AMM.UI:Spacing(6)
+    AMM.UI:Spacing(2)
 
     if Director.sizeX == 0 then
       Director.sizeX = ImGui.GetWindowContentRegionWidth()
     end
 
     local offSet = Director.sizeX - ImGui.CalcTextSize("Triggers On/Off")
-    ImGui.Dummy(offSet - 50, 10)
+    ImGui.Dummy(offSet - 70, 10)
     ImGui.SameLine()
     AMM.UI:TextColored("Triggers On/Off")
     ImGui.SameLine()
@@ -326,7 +324,7 @@ function Director:DrawCamerasTab()
 
     AMM.UI:Spacing(6)
 
-    if ImGui.Button("New Camera", -1, 30) then
+    if ImGui.Button("New Camera", -1, 40) then
       local camera = AMM.Camera:new()
       camera:Spawn()
       camera:StartListeners()
@@ -424,7 +422,7 @@ function Director:DrawTriggerTab()
 
     AMM.UI:Spacing(6)
 
-    if ImGui.Button("New Trigger", -1, 30) then
+    if ImGui.Button("New Trigger", -1, 40) then
       local newTrigger = Director:NewTrigger("New Trigger")
 
       table.insert(Director.triggers, newTrigger)
@@ -541,7 +539,7 @@ function Director:DrawScriptTab()
 
     AMM.UI:Spacing(6)
 
-    if ImGui.Button("New Script", -1, 30) then
+    if ImGui.Button("New Script", -1, 40) then
       local newScript = Director:NewScript("New Script")
 
       table.insert(Director.scripts, newScript)

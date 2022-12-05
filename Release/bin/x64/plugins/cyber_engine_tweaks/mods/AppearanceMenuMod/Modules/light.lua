@@ -11,7 +11,10 @@ function Light:NewLight(light)
   if components then
     obj.component = components[1]
     obj.marker = light.handle:FindComponentByName("Mesh3185")
-    obj.isOn = obj.component:IsOn()
+    obj.isOn = true
+    if obj.component.IsOn then
+      obj.isOn = obj.component:IsOn()
+    end
     obj.intensity = obj.component.intensity
     obj.radius = obj.component.radius
     obj.color = Light:ConvertColor({obj.component.color.Red, obj.component.color.Green, obj.component.color.Blue, obj.component.color.Alpha})
@@ -125,24 +128,31 @@ end
 function Light:ToggleLight(light)
   local components = Light:GetLightComponent(light.handle)
 
-  for i, component in ipairs(components) do
-    local savedIntensity = Light.disabled[light.hash..i]
-    
-    if AMM.playerInPhoto then
-      if not savedIntensity then      
-        Light.disabled[light.hash..i] = component.intensity
-        savedIntensity = 0
+  if #components > 0 then
+    for i, component in ipairs(components) do
+      local savedIntensity = Light.disabled[light.hash..i]
+      
+      if AMM.playerInPhoto then
+        if not savedIntensity then      
+          Light.disabled[light.hash..i] = component.intensity
+          savedIntensity = 0
+        else
+          if savedIntensity and savedIntensity < 1 then savedIntensity = 100 end
+          Light.disabled[light.hash..i] = nil
+        end      
       else
-        if savedIntensity and savedIntensity < 1 then savedIntensity = 100 end
-        Light.disabled[light.hash..i] = nil
-      end      
-    else
-      light.isOn = not light.isOn
-      component:ToggleLight(light.isOn)
-    end
+        light.isOn = not light.isOn
 
-    if savedIntensity then
-      component:SetIntensity(savedIntensity)
+        if component.ToggleLight then          
+          component:ToggleLight(light.isOn)
+        else
+          component:Toggle(light.isOn)
+        end
+      end
+
+      if savedIntensity then
+        component:SetIntensity(savedIntensity)
+      end
     end
   end
 end
@@ -227,18 +237,23 @@ end
 
 function Light:SetLightData(light, data)
   local components = Light:GetLightComponent(light.handle)
-  local component = components[1]
-  local angles = loadstring('return '..data.angles, '')()
-  local newColor = NewObject('Color')
-  local rgbColor = Light:ConvertToRGB(loadstring('return '..data.color, '')())
-  newColor.Red = rgbColor[1]
-  newColor.Green = rgbColor[2]
-  newColor.Blue = rgbColor[3]
-  newColor.Alpha = rgbColor[4]
-  component:SetColor(newColor)
-  component:SetIntensity(data.intensity)
-  component:SetRadius(data.radius)
-  component:SetAngles(angles.inner, angles.outer)
+
+  if #components > 0 then
+    local component = components[1]
+    local angles = loadstring('return '..data.angles, '')()
+    local newColor = NewObject('Color')
+    local rgbColor = Light:ConvertToRGB(loadstring('return '..data.color, '')())
+    newColor.Red = rgbColor[1]
+    newColor.Green = rgbColor[2]
+    newColor.Blue = rgbColor[3]
+    newColor.Alpha = rgbColor[4]
+    component:SetColor(newColor)
+    component:SetIntensity(data.intensity)
+    component:SetRadius(data.radius)
+    component:SetAngles(angles.inner, angles.outer)
+  else
+    Util:AMMError("Light Data is missing:"..light.spawn.name)
+  end
 end
 
 function Light:GetLightComponent(handle)

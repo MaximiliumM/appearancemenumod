@@ -21,6 +21,7 @@ function Props:NewProp(uid, id, name, template, posString, scale, app, tag)
   obj.angles = EulerAngles.new(pos.roll, pos.pitch, pos.yaw)
   obj.scale = loadstring("return "..scale, '')()
 	obj.type = "Prop"
+  obj.isVehicle = false
 
   return obj
 end
@@ -70,6 +71,7 @@ function Props:new()
   Props.savingProp = ''
   Props.editingTags = {}
   Props.activeProps = {}
+  Props.activeLights = {}
   Props.cachedActivePropsByHash = {}
   Props.activePreset = ''
   Props.selectedPreset = {name = "No Preset Available"}
@@ -83,11 +85,16 @@ function Props:new()
   Props.showNearbyOnly = false
   Props.showCustomizableOnly = false
   Props.showCustomPropsOnly = false
+  Props.buildMode = false
+  Props.modesStatesBeforeBuild = {}
+  Props.sizeX = 0
 
   return Props
 end
 
 function Props:Initialize()
+
+  Props.modesStatesBeforeBuild = {god = AMM.Tools.godMode, passive = AMM.Tools.playerVisibility}
 
   if Props.activePreset ~= '' then
     Props:LoadPreset(Props.activePreset)
@@ -135,6 +142,24 @@ function Props:Draw(AMM)
 
     AMM.UI:TextColored("Decorating")
     ImGui.TextWrapped("Spawn Props to decorate your house or anywhere you want to your heart's content! Save Props to make them persist!")
+
+    AMM.UI:Spacing(2)
+
+    if Props.sizeX == 0 then
+      Props.sizeX = ImGui.GetWindowContentRegionWidth()
+    end
+
+    local offSet = Props.sizeX - ImGui.CalcTextSize("Build Mode")
+    ImGui.Dummy(offSet - 70, 10)
+    ImGui.SameLine()
+    AMM.UI:TextColored("Build Mode")
+    ImGui.SameLine()
+    Props.buildMode, modeChange = ImGui.Checkbox(" ", Props.buildMode)
+
+    if modeChange then
+      AMM.Props:ToggleBuildMode(true)
+    end
+
     AMM.UI:Separator()
 
     if ImGui.BeginTabBar("Decor Tabs") then
@@ -182,11 +207,11 @@ function Props:DrawSpawnedProps()
     AMM.UI:TextColored("Spawned Props")
 
     for i, spawn in ipairs(Props.spawnedPropsList) do
-      -- local spawn = Props.spawnedProps[propName]
+      local spawn = Props.spawnedProps[spawn.uniqueName()]
       local nameLabel = spawn.name
       
-      if Tools.lockTarget and Tools.currentNPC ~= '' and Tools.currentNPC.handle then
-        if nameLabel == Tools.currentNPC.name then
+      if Tools.lockTarget and Tools.currentTarget ~= '' and Tools.currentTarget.handle then
+        if nameLabel == Tools.currentTarget.name then
           AMM.UI:TextColored(nameLabel)
         else
           ImGui.Text(nameLabel)
@@ -219,7 +244,7 @@ function Props:DrawSpawnedProps()
         ImGui.SameLine()
         if ImGui.SmallButton("Despawn##"..spawn.name) then
           if spawn.handle ~= '' then
-            Props:DespawnProp(spawn)
+            spawn:Despawn()
           end
         end
 
@@ -327,6 +352,11 @@ function Props:DrawCategories()
           else
             local query = f('SELECT * FROM entities WHERE is_spawnable = 1 '..customizableIDs..customProps..' AND cat_id == "%s" ORDER BY entity_name ASC', category.cat_id)
             for en in db:nrows(query) do
+              if string.find(tostring(en.entity_path), "Vehicle") then 
+                en.parameters = {veh = true, dist = 6}
+                en.entity_path = en.entity_path:gsub("Vehicle", "Props")
+              end
+
               table.insert(entities, {en.entity_name, en.entity_id, en.can_be_comp, en.parameters, en.entity_path, en.template_path})
             end            
           end
@@ -348,16 +378,18 @@ end
 function Props:DrawProps(props)
   for i, prop in ipairs(props) do
     if Props.showTargetOnly then
-      if Tools.currentNPC.handle and Tools.currentNPC.handle ~= '' and Props.activeProps[prop.uid] ~= nil and Props.activeProps[prop.uid].handle ~= '' 
-      and Props.activeProps[prop.uid].handle:GetEntityID().hash == Tools.currentNPC.handle:GetEntityID().hash then
+      if Tools.currentTarget.handle and Tools.currentTarget.handle ~= '' and Props.activeProps[prop.uid] ~= nil and Props.activeProps[prop.uid].handle ~= '' 
+      and Props.activeProps[prop.uid].handle:GetEntityID().hash == Tools.currentTarget.handle:GetEntityID().hash then
         Props:DrawSavedProp(prop, i)
       end
     elseif Props.showNearbyOnly then
       local playerPos = AMM.player:GetWorldPosition()
-      local propPos = Props.activeProps[prop.uid].handle:GetWorldPosition()
-      local distanceFromPlayer = Util:VectorDistance(playerPos, propPos)
-      if Props.activeProps[prop.uid].handle ~= '' and distanceFromPlayer < 3 then
-        Props:DrawSavedProp(prop, i)
+      if Props.activeProps[prop.uid] and Props.activeProps[prop.uid].handle and Props.activeProps[prop.uid].handle ~= '' then
+        local propPos = Props.activeProps[prop.uid].handle:GetWorldPosition()
+        local distanceFromPlayer = Util:VectorDistance(playerPos, propPos)
+        if Props.activeProps[prop.uid].handle ~= '' and distanceFromPlayer < 3 then
+          Props:DrawSavedProp(prop, i)
+        end
       end
     else
       Props:DrawSavedProp(prop, i)
@@ -366,8 +398,8 @@ function Props:DrawProps(props)
 end
 
 function Props:DrawSavedProp(prop, i)
-  if Tools.currentNPC.handle and Tools.currentNPC.handle ~= '' and Props.activeProps[prop.uid] ~= nil and Props.activeProps[prop.uid].handle ~= '' 
-  and Props.activeProps[prop.uid].handle:GetEntityID().hash == Tools.currentNPC.handle:GetEntityID().hash then
+  if Tools.currentTarget.handle and Tools.currentTarget.handle ~= '' and Props.activeProps[prop.uid] ~= nil and Props.activeProps[prop.uid].handle ~= '' 
+  and Props.activeProps[prop.uid].handle:GetEntityID().hash == Tools.currentTarget.handle:GetEntityID().hash then
     AMM.UI:TextColored(prop.name)
   else
     ImGui.Text(prop.name)
@@ -1041,6 +1073,16 @@ function Props:SavePropPosition(ent)
   end)
 end
 
+function Props:ToggleBuildMode(systemActivated)
+  if not systemActivated then
+    Props.buildMode = not Props.buildMode
+  end
+
+  AMM.Scan:OpenMinimalUI()
+
+  ImGui.End()
+end
+
 function Props:CheckForTriggersNearby(pos)
   local closestTriggerPos = pos
   for _, trigger in ipairs(Props.triggers) do
@@ -1167,6 +1209,7 @@ function Props:SpawnProp(spawn, pos, angles)
     if spawn.parameters.veh then
       local entName = spawn.path:match("Props.(.*)")
       record = 'Vehicle.'..entName
+      spawn.isVehicle = true
     end
 
     if spawn.parameters.rec then
@@ -1185,6 +1228,11 @@ function Props:SpawnProp(spawn, pos, angles)
   local lightData = nil
   if spawn.handle and spawn.handle ~= '' then
     lightData = AMM.Light:GetLightData(spawn)
+  end
+
+  if AMM.Tools.savedPosition ~= '' then
+    pos = AMM.Tools.savedPosition.pos
+    angles = AMM.Tools.savedPosition.angles
   end
 
 	local heading = AMM.player:GetWorldForward()
@@ -1272,15 +1320,12 @@ end
 
 function Props:DespawnProp(ent)
   if ent.uid then
-    exEntitySpawner.Despawn(Props.activeProps[ent.uid].handle)    
+    exEntitySpawner.Despawn(Props.activeProps[ent.uid].handle) 
     Props.activeProps[ent.uid] = nil
   else
-    ent.spawned = false
-    exEntitySpawner.Despawn(ent.handle)
-    Game.FindEntityByID(ent.handle:GetEntityID()):GetEntity():Destroy()
-    ent.handle:Dispose()
+    ent.spawned = false    
     Props.spawnedProps[ent.uniqueName()] = nil
-
+    
     for i, prop in ipairs(Props.spawnedPropsList) do
       if ent.name == prop.name then
         table.remove(Props.spawnedPropsList, i)
@@ -1297,6 +1342,7 @@ function Props:DespawnAllSavedProps()
   end
 
   Props.activeProps = {}
+  Props.activeLights = {}
 end
 
 function Props:DeleteAll()
@@ -1549,20 +1595,27 @@ function Props:GetCategories()
     end
   end
 
+  -- Insert Vehicles category
+  table.insert(categories, {cat_id = 24, cat_name = "Vehicles"})
+
   return categories
 end
 
 function Props:GetAllActiveLights()
-  local lights = {}
-  for _, prop in pairs(Props.activeProps) do
-    local light = AMM.Light:GetLightData(prop)
+  if #Props.activeLights == 0 then
+    local lights = {}
+    for _, prop in pairs(Props.activeProps) do
+      local light = AMM.Light:GetLightData(prop)
 
-    if light then
-      table.insert(lights, prop)
+      if light then
+        table.insert(lights, prop)
+      end
     end
+
+    if #lights > 0 then Props.activeLights = lights else return nil end
   end
 
-  if #lights > 0 then return lights else return nil end
+  return Props.activeLights
 end
 
 function Props:GetParameters(templatePath)

@@ -45,7 +45,7 @@ function AMM:new()
 	 AMM.UniqueVRig = false
 
 	 -- Main Properties --
-	 AMM.currentVersion = "1.14.6"
+	 AMM.currentVersion = "1.15"
 	 AMM.CETVersion = tonumber(GetVersion():match("1.(%d+)."))
 	 AMM.updateNotes = require('update_notes.lua')
 	 AMM.credits = require("credits.lua")
@@ -64,6 +64,7 @@ function AMM:new()
 	 AMM.archivesInfo = {missing = false, optional = true, sounds = true}
 	 AMM.collabArchives = {}
 	 AMM.savedAppearanceCheckCache = {}
+	 AMM.entities = {}
 
 	 -- Songbird Properties --
 	 AMM.SBInWorld = false
@@ -109,8 +110,11 @@ function AMM:new()
 	 AMM.Tools = require('Modules/tools.lua')
 	 AMM.Props = require('Modules/props.lua')
 	 AMM.Director = require('Modules/director.lua')
+
+	 -- Loads Objects --
 	 AMM.Light = require('Modules/light.lua')
 	 AMM.Camera = require('Modules/camera.lua')
+	 AMM.Entity = require('Modules/entity.lua')
 
 	 AMM:ImportUserData()
 
@@ -131,7 +135,7 @@ function AMM:new()
 		 if ModArchiveExists("zz_johnson_Unique_V_Body_Shape") then
 			AMM.UniqueVRig = true
 		 end
-
+		 
 		 AMM:SetupCustomProps()
 		 AMM:SetupAMMCharacters()
 		 AMM:SetupCustomEntities()
@@ -148,6 +152,9 @@ function AMM:new()
 		 AMM.Props:Initialize()
 		 AMM.Props:Update()
 		 AMM:SBInitialize()
+
+		 -- Setup content that requires specific archives
+		 AMM:SetupExtraFromArchives()
 
 		 -- Check if user is in-game using WorldPosition --
 		 -- Only way to set player attached if user reload all mods --
@@ -218,6 +225,12 @@ function AMM:new()
 
 		 node = nil
 		 -- Setup Observers and Overrides --
+		 ObserveBefore("PreventionSpawnSystem", "SpawnCallback", function(self, spawnedObject)
+			if AMM.Spawn.currentSpawnedID == AMM:GetScanID(spawnedObject) then
+				return -- do nothing
+			end
+	  	 end)
+
 		 Override("CursorGameController", "ProcessCursorContext", function(self, context, data, force, wrapped)
 			AMM.Tools.cursorController = self
 
@@ -279,9 +292,7 @@ function AMM:new()
 
 
 		 Observe('DamageSystem', 'ProcessRagdollHit', function(self, hitEvent)
-			if AMM.companionAttackMultiplier ~= 0 then
-				AMM:ProcessCompanionAttack(hitEvent)
-			end
+			AMM:ProcessCompanionAttack(hitEvent)
 		 end)
 
 
@@ -434,6 +445,10 @@ function AMM:new()
 				AMM.Director.activeCamera:HandleInput(actionName, actionType, action)
 			end
 
+			if AMM.Tools.directMode and (AMM.Tools.currentTarget and AMM.Tools.currentTarget ~= '') then
+				AMM.Tools.currentTarget:HandleInput(actionName, actionType, action)
+			end
+
 			if actionName == 'TogglePhotoMode' then
 	        	if actionType == 'BUTTON_RELEASED' then
 					AMM.Tools:EnterPhotoMode()
@@ -446,7 +461,41 @@ function AMM:new()
 				if actionType == 'BUTTON_RELEASED' then
 					AMM:BusPromptAction()
 				end
-       	end
+			elseif actionName == 'DescriptionChange'
+			and (AMM.Props.buildMode or AMM.Tools.directMode) then
+				if actionType == 'BUTTON_RELEASED' then
+					AMM.Tools:ToggleDirectMode(true)
+				end
+			elseif actionName == 'Choice2_Release' and AMM.Props.buildMode then
+				if actionType == 'BUTTON_RELEASED' then
+					local newTarget = AMM:GetTarget()
+					if newTarget then
+						if AMM.Tools.lockTarget and AMM.Tools.currentTarget and AMM.Tools.currentTarget ~= '' then
+							AMM.Tools:ClearTarget()
+							AMM.Tools:ToggleDirectMode(true)
+						else
+							AMM.Tools:SetCurrentTarget(newTarget)
+							AMM.Tools.lockTarget = true
+						end
+					else
+						AMM.Tools:ClearTarget()
+					end
+				end
+			elseif actionName == 'DropCarriedObject' 
+			and AMM.Tools.currentTarget and AMM.Tools.currentTarget ~= '' then
+				if actionType == 'BUTTON_RELEASED' or actionType == "BUTTON_HOLD_COMPLETE" then
+					if AMM.Tools.currentTarget.speed <= 1 then
+						AMM.Tools.currentTarget.speed = AMM.Tools.currentTarget.speed + 0.01
+					end
+				end
+			elseif actionName == 'Jump'
+			and AMM.Tools.currentTarget and AMM.Tools.currentTarget ~= '' then
+				if actionType == 'BUTTON_RELEASED' or actionType == "BUTTON_HOLD_COMPLETE" then
+					if AMM.Tools.currentTarget.speed > 0.01 then
+						AMM.Tools.currentTarget.speed = AMM.Tools.currentTarget.speed - 0.01
+					end
+				end
+			end
 		 end)
 
 		Observe("PlayerPuppet", "OnGameAttached", function(self)
@@ -491,8 +540,8 @@ function AMM:new()
 				TweakDB:SetFlat('photo_mode.camera.min_dist', 0.2)
 				TweakDB:SetFlat('photo_mode.camera.max_dist_up_down', 1000)
 				TweakDB:SetFlat('photo_mode.camera.max_dist_left_right', 1000)
-				TweakDB:SetFlat('photo_mode.character.collision_radius', 0)
 				TweakDB:SetFlat('photo_mode.character.max_position_adjust', 100)
+				TweakDB:SetFlat('photo_mode.general.collisionRadiusForPhotoModePuppet', {0, 0, 0})
 				-- TweakDB:SetFlat('photo_mode.general.force_lod0_characters_dist', 0)
 				-- TweakDB:SetFlat('photo_mode.general.force_lod0_vehicles_dist', 0)
 				TweakDB:SetFlat('photo_mode.general.onlyFPPPhotoModeInPlayerStates', {})
@@ -652,9 +701,9 @@ function AMM:new()
 
 	 registerHotkey("amm_last_expression", "Last Expression Used", function()
 		local target = AMM:GetTarget()
-		if Tools.lockTarget and Tools.currentNPC ~= '' and Tools.currentNPC.handle
-		and Tools.currentNPC.type ~= 'entEntity' and Tools.currentNPC.type ~= 'gameObject' then
-			target = Tools.currentNPC
+		if Tools.lockTarget and Tools.currentTarget ~= '' and Tools.currentTarget.handle
+		and Tools.currentTarget.type ~= 'entEntity' and Tools.currentTarget.type ~= 'gameObject' then
+			target = Tools.currentTarget
 		end
 
 		if Tools.lookAtTarget then
@@ -805,6 +854,14 @@ function AMM:new()
 		AMM.Tools:ToggleGodMode()
 	end)
 
+	registerHotkey("amm_toggle_build", "Toggle Build Mode", function()
+		AMM.Props:ToggleBuildMode()
+	end)
+
+	registerHotkey("amm_toggle_direct", "Toggle Direct Mode", function()
+		AMM.Tools:ToggleDirectMode(true)
+	end)
+
 	 registerHotkey('amm_toggle_hud', 'Toggle HUD', function()
 	    GameSettings.Toggle('/interface/hud/action_buttons')
 	    GameSettings.Toggle('/interface/hud/activity_log')
@@ -938,6 +995,11 @@ function AMM:new()
 						AMM.Director.activeCamera:Move()
 					end
 
+					-- Entity Movement --
+					if AMM.Tools.directMode then
+						AMM.Tools.currentTarget:Move()
+					end
+
 					-- Travel Animation Done Check --
 					if AMM.TeleportMod and AMM.TeleportMod.api.done then
 						if next(AMM.Spawn.spawnedNPCs) ~= nil then
@@ -968,10 +1030,10 @@ function AMM:new()
 
 					-- Check if Locked Target is gone --
 					if Tools.lockTarget then
-						if Tools.currentNPC.handle and Tools.currentNPC.handle ~= '' then
-							local ent = Game.FindEntityByID(Tools.currentNPC.handle:GetEntityID())
-							if not ent or (not Tools.currentNPC.spawned and Tools.currentNPC.type == 'entEntity') 
-							or (Tools.currentNPC.type == 'Player' and not AMM.playerInPhoto) then 
+						if Tools.currentTarget.handle and Tools.currentTarget.handle ~= '' then
+							local ent = Game.FindEntityByID(Tools.currentTarget.handle:GetEntityID())
+							if not ent or (not Tools.currentTarget.spawned and Tools.currentTarget.type == 'entEntity') 
+							or (Tools.currentTarget.type == 'Player' and not AMM.playerInPhoto) then 
 								Tools:ClearTarget()
 							end
 						else
@@ -1060,8 +1122,7 @@ function AMM:new()
 
 	 	ImGui.SetNextWindowPos(500, 500, ImGuiCond.FirstUseEver)
 
-	 	if drawWindow then
-
+		if drawWindow or AMM.Props.buildMode then
 			-- Load Theme --
 			if AMM.UI.currentTheme ~= AMM.selectedTheme then
 				AMM.UI:Load(AMM.selectedTheme)
@@ -1069,11 +1130,19 @@ function AMM:new()
 			end
 
 			AMM.UI:Start()
+		end
 
+	 	if drawWindow then			
 			AMM:Begin()
-
-			AMM.UI:End()
 	 	end
+
+		if AMM.Props.buildMode then			
+			AMM.Scan:DrawMinimalUI()
+		end
+
+		if drawWindow or AMM.Props.buildMode then
+			AMM.UI:End()
+		end
 	end)
 
    return AMM
@@ -1088,7 +1157,7 @@ function AMM:Begin()
 
 	local archives = AMM.archivesInfo
 
-	if ImGui.Begin("Appearance Menu Mod", shouldResize) then
+	if ImGui.Begin("Appearance Menu Mod", shouldResize + ImGuiWindowFlags.NoScrollbar) then
 
 		if archives.missing and not archives.optional then
 			AMM:DrawArchives()
@@ -1129,7 +1198,7 @@ function AMM:Begin()
 					end
 
 					-- UPDATE NOTES
-					AMM.UI:Spacing(8)
+					AMM.UI:Spacing(4)
 					AMM.UI:TextCenter(AMM.updateLabel, true)
 					if AMM.updateLabel == "WHAT'S NEW" then
 						ImGui.Spacing()
@@ -1138,7 +1207,7 @@ function AMM:Begin()
 					AMM.UI:Separator()
 
 					if not(finishedUpdate) then
-						AMM.UI:Spacing(4)
+						AMM.UI:Spacing(2)
 						if ImGui.Button("Cool!", ImGui.GetWindowContentRegionWidth(), 40) then
 							AMM:FinishUpdate()
 						end
@@ -1158,7 +1227,7 @@ function AMM:Begin()
 								if j == 1 or j == 2 then else
 									local color = "ButtonActive"
 									if note:match("%-%-") == nil then
-										AMM.UI:Spacing(4)
+										AMM.UI:Spacing(2)
 										AMM.UI:TextColored("+ ")
 										color = nil
 									else
@@ -1173,11 +1242,11 @@ function AMM:Begin()
 									if color then AMM.UI:TextWrappedWithColor(note, color)
 									else ImGui.TextWrapped(note) end
 									ImGui.PopTextWrapPos()
-									AMM.UI:Spacing(3)
+									ImGui.Spacing()
 								end
 							end
 
-							AMM.UI:Spacing(3)
+							ImGui.Spacing()
 							ImGui.TreePop()
 						end
 					end
@@ -1323,6 +1392,7 @@ function AMM:Begin()
 
 						ImGui.PushItemWidth(200)
 						AMM.companionAttackMultiplier = ImGui.InputFloat("x Damage", AMM.companionAttackMultiplier, 0.5, 50, "%.1f")
+						if AMM.companionAttackMultiplier < 0 then AMM.companionAttackMultiplier = 0 end
 						ImGui.PopItemWidth()
 
 						AMM.UI:Spacing(3)
@@ -1444,7 +1514,7 @@ function AMM:Begin()
 
 					if AMM.Editor.isEditing then
 						AMM.Editor:Draw(AMM)
-					end
+					end					
 
 					-- DEBUG Tab --
 					if AMM.Debug ~= '' then
@@ -1461,7 +1531,7 @@ function AMM:Begin()
 		AMM.Light:Draw(AMM)
 	 end
 
-	 if AMM.userSettings.floatingTargetTools and AMM.Tools.movementWindow.isEditing and (target ~= nil or (AMM.Tools.currentNPC and AMM.Tools.currentNPC ~= '')) then
+	 if AMM.userSettings.floatingTargetTools and AMM.Tools.movementWindow.isEditing and (target ~= nil or (AMM.Tools.currentTarget and AMM.Tools.currentTarget ~= '')) then
 		AMM.Tools:DrawMovementWindow()
 	 end
 end
@@ -1538,15 +1608,7 @@ function AMM:NewTarget(handle, targetType, id, name, app, options)
 		end
 	end
 
-	function obj:Despawn()
-		if obj.type == "NPCPuppet" then
-			AMM.Spawn:DespawnNPC(obj)
-		elseif obj.type == "Prop" then
-			AMM.Props:DespawnProp(obj)
-		else
-			Util:Despawn(obj.handle)
-		end
-	end
+	obj = Entity:new(obj)
 
 	return obj
 end
@@ -1574,6 +1636,7 @@ function AMM:CheckMissingArchives()
 				{name = "basegame_texture_HanakoNoMakeup", desc = "Allows AMM to remove Hanako's makeup when using Custom Appearance.", active = true, optional = true},
 				{name = "basegame_AMM_JudyBodyRevamp", desc = "Replaces Judy's body with a new improved one.", active = true, optional = true},
 				{name = "basegame_AMM_PanamBodyRevamp", desc = "Replaces Panam's body with a new improved one.", active = true, optional = true},
+				{name = "basegame_AMM_MistyBodyRevamp", desc = "Replaces Misty's body with a new improved one.", active = true, optional = true},
 				{name = "_1_Ves_HanakoFixedBodyNaked", desc = "Replaces Hanako's body with a new improved one.", active = true, optional = true},
 				{name = "PinkyDude_ANIM_FacialExpressions_FemaleV", desc = "Enables facial expressions tools on Female V", active = true, optional = true},
 				{name = "PinkyDude_ANIM_FacialExpressions_MaleV", desc = "Enables facial expressions tools on Male V", active = true, optional = true},
@@ -2075,6 +2138,27 @@ function AMM:UpdateOldFavorites()
 	db:execute(f("UPDATE sqlite_sequence SET seq = %i WHERE name = 'favorites_props'", count))
 end
 
+function AMM:SetupExtraFromArchives()
+
+	db:execute("DELETE FROM custom_appearances WHERE collab_tag = 'AMM'")
+
+	-- Setup Misty appearances
+	for _, archive in ipairs(AMM.archives) do
+		if archive.name == "basegame_AMM_MistyBodyRevamp" and archive.active then
+			local appearances = {"misty_dress", "misty_naked", "misty_underwear"}
+			local entity_id = "0xA22A7797, 15"
+			local uid = "AMM"
+			for _, app in ipairs(appearances) do
+				db:execute(f('INSERT INTO appearances (entity_id, app_name, collab_tag) VALUES ("%s", "%s", "%s")', entity_id, app, uid))
+			end
+
+			db:execute([[INSERT INTO custom_appearances (entity_id, app_name, app_base, app_param, app_toggle, mesh_app, mesh_type, mesh_mask, collab_tag) VALUES ('0xA22A7797, 15', 'Custom Misty Naked No Choker', 'misty_naked', 'i1_048_wa_neck__ckoker', '0', NULL, 'item', NULL, 'AMM')]])
+			db:execute([[INSERT INTO custom_appearances (entity_id, app_name, app_base, app_param, app_toggle, mesh_app, mesh_type, mesh_mask, collab_tag) VALUES ('0xA22A7797, 15', 'Custom Misty Naked No Necklace', 'misty_naked', 'i1_001_wa_neck__misty0455', '0', NULL, 'item', NULL, 'AMM')]])
+		end
+	end
+
+end
+
 function AMM:SetupAMMCharacters()
 	db:execute("DELETE FROM entities WHERE entity_path LIKE '%Test_Character%'")
 
@@ -2199,13 +2283,13 @@ function AMM:SetupCustomEntities()
 				local entity_path = "Custom_"..uid.."_"..entity.type.."."..ent
 
 				local check = 0
-				for count in db:urows(f("SELECT COUNT(1) FROM entities WHERE entity_path = '%s'", entity_path)) do
+				for count in db:urows(f([[SELECT COUNT(1) FROM entities WHERE entity_path = "%s"]], entity_path)) do
 					check = count
 				end
 
 				if check == 0 then
 					local check = 0
-					for count in db:urows(f("SELECT COUNT(1) FROM entities WHERE entity_name = '%s'", entity.name)) do
+					for count in db:urows(f([[SELECT COUNT(1) FROM entities WHERE entity_name = "%s"]], entity.name)) do
 						check = count
 					end
 
@@ -2713,9 +2797,19 @@ function AMM:GetScanID(t)
 	else
 		tdbid = tostring(TweakDBID.new(t))
 	end
-	local hash = tostring(tdbid):match("= (%g+),")
-	local length = tostring(tdbid):match("= (%g+) }")
-	return hash..", "..length
+	local hash = tostring(tdbid):match("hash%s*=%s*(%g+),")
+	local length = tostring(tdbid):match("length%s*=%s*(%d+)")
+
+	if hash == nil or length == nil then
+		local msg = f("Target (%s) has strange tweakdbid, this may fail later: %s tostr: %s", t, tdbid, tostring(tdbid))
+		spdlog.error(msg)
+	end
+
+	-- This should actually maybe error
+	local safeHash = hash or ""
+	local safeLength = length or 0
+
+	return safeHash..", "..safeLength
 end
 
 function AMM:GetScanClass(t)
@@ -2759,12 +2853,16 @@ function AMM:GetAppearanceOptionsWithID(id, t)
 				table.insert(options, tostring(app):match("%[ (%g+) -"))
 			end
 		else
-			for app in db:urows(f("SELECT app_name FROM appearances WHERE entity_id = '%s' ORDER BY app_name ASC", id)) do
+			local searchQuery = ""
+			if AMM.Scan.searchQuery ~= "" then
+				searchQuery = "app_name LIKE '%"..AMM.Scan.searchQuery.."%' AND "
+			end
+
+			for app in db:urows(f("SELECT app_name FROM appearances WHERE %sentity_id = '%s' ORDER BY app_name ASC", searchQuery, id)) do
 				table.insert(options, app)
 			end
 		end
 	end
-
 
 	if self.customAppPosition == "Bottom" then
 		options = self:LoadCustomAppearances(options, id)
@@ -2778,22 +2876,27 @@ function AMM:GetAppearanceOptionsWithID(id, t)
 end
 
 function AMM:LoadCustomAppearances(options, id)
+	local searchQuery = ""
+	if AMM.Scan.searchQuery ~= "" then
+		searchQuery = "app_name LIKE '%"..AMM.Scan.searchQuery.."%' AND "
+	end
+
 	if #AMM.collabs ~= 0 then
 		local collabsAppBase = '('
 		for i, collab in ipairs(AMM.collabs) do
 			collabsAppBase = collabsAppBase..f("'%s'", collab.appearance)
 			if i ~= #AMM.collabs then collabsAppBase = collabsAppBase..", " end
-			for app in db:urows(f("SELECT DISTINCT app_name FROM custom_appearances WHERE collab_tag = '%s' AND entity_id = '%s' ORDER BY app_base ASC", collab.tag, id)) do
+			for app in db:urows(f("SELECT DISTINCT app_name FROM custom_appearances WHERE %scollab_tag = '%s' AND entity_id = '%s' ORDER BY app_base ASC", searchQuery, collab.tag, id)) do
 				table.insert(options, app)
 			end
 		end
 		collabsAppBase = collabsAppBase..")"
 
-		for app in db:urows(f("SELECT DISTINCT app_name FROM custom_appearances WHERE collab_tag IS NULL AND app_base NOT IN %s AND entity_id = '%s' ORDER BY app_base ASC", collabsAppBase, id)) do
+		for app in db:urows(f("SELECT DISTINCT app_name FROM custom_appearances WHERE %s(collab_tag IS NULL OR collab_tag = 'AMM') AND app_base NOT IN %s AND entity_id = '%s' ORDER BY app_base ASC", searchQuery, collabsAppBase, id)) do
 			table.insert(options, app)
 		end
 	else
-		for app in db:urows(f("SELECT DISTINCT app_name FROM custom_appearances WHERE collab_tag IS NULL AND entity_id = '%s' ORDER BY app_base ASC", id)) do
+		for app in db:urows(f("SELECT DISTINCT app_name FROM custom_appearances WHERE %s(collab_tag IS NULL OR collab_tag = 'AMM') AND entity_id = '%s' ORDER BY app_base ASC", searchQuery, id)) do
 			table.insert(options, app)
 		end
 	end
@@ -2807,7 +2910,7 @@ function AMM:GetAppearance(t)
 	end
 
 	-- Check if custom appearance is active
-	if self.activeCustomApps[t.hash] ~= nil then
+	if t and t ~= '' and self.activeCustomApps[t.hash] ~= nil then
 		return self.activeCustomApps[t.hash]
 	else
 		return self:GetScanAppearance(t.handle)
@@ -2853,6 +2956,18 @@ function AMM:GetCustomAppearanceParams(target, appearance, reverse)
 				collabTag = collab.tag
 				break
 			end
+		end
+	end
+
+	-- Check for AMM archives Custom Appearances
+	if collabTag == nil then
+		local check = 0
+		for count in db:urows(f("SELECT COUNT(1) FROM custom_appearances WHERE entity_id = '%s' AND app_name = '%s' AND collab_tag = 'AMM'", target.id, appearance)) do
+			check = count
+		end
+
+		if check ~= 0 then
+			collabTag = 'AMM'
 		end
 	end
 
@@ -2905,7 +3020,7 @@ end
 
 function AMM:ChangeAppearanceTo(entity, appearance)
 	-- local appearance, reverse = AMM:CheckForReverseCustomAppearance(appearance, entity)
-	if entity.type == "Prop" and not entity.handle:IsNPC() then
+	if entity.type == "Prop" and not entity.handle:IsNPC() and not entity.isVehicle then
 		AMM.Props:ChangePropAppearance(entity, appearance)
 	else
 		-- Check if custom app is active
@@ -3006,7 +3121,10 @@ function AMM:ProcessCompanionAttack(hitEvent)
 	local dmgType = hitEvent.attackComputed:GetDominatingDamageType()
 
 	if instigatorNPC and instigatorNPC:IsPlayerCompanion() then
-		hitEvent.attackComputed:MultAttackValue(AMM.companionAttackMultiplier, dmgType)
+		if hitEvent.target and hitEvent.target:IsPlayer() then return end
+		if AMM.companionAttackMultiplier ~= 0 then
+			hitEvent.attackComputed:MultAttackValue(AMM.companionAttackMultiplier, dmgType)
+		end
 	end
 end
 
@@ -3271,13 +3389,17 @@ function AMM:DrawArchives()
 		if not archive.active then
 			ImGui.SameLine()
 			AMM.UI:TextError(" MISSING")
+
+			if not archive.optional then
+				ImGui.SameLine()
+				AMM.UI:TextError("REQUIRED")
+				missingRequired = true
+			else
+				ImGui.SameLine()
+				AMM.UI:TextError("OPTIONAL")
+			end
 		end
 
-		if not archive.optional and not archive.active then
-			ImGui.SameLine()
-			AMM.UI:TextError("REQUIRED")
-			missingRequired = true
-		end
 
 		ImGui.TextWrapped(archive.desc)
 
@@ -3297,6 +3419,7 @@ function AMM:DrawArchives()
 
 		if ImGui.Button("Ignore warnings for this version!", ImGui.GetWindowContentRegionWidth(), 40) then
 			db:execute("UPDATE metadata SET ignore_archives = 1")
+			AMM.archivesInfo = AMM:CheckMissingArchives()
 		end
 	end
 end

@@ -34,11 +34,6 @@ function Camera:new()
     zoomDown = false,
   }
 
-  obj.lastReload = 0
-  obj.lastSprint = 0
-  obj.lastToggled = 0
-  obj.time = 0
-
   obj.analogForward = 0
   obj.analogBackwards = 0
   obj.analogRight = 0
@@ -283,7 +278,7 @@ function Camera:HandleInput(actionName, actionType, action)
   end
   if actionName == "CameraMouseY" or actionName == "CameraY"
   or actionName == "PhotoMode_CameraMouseY" or actionName == "PhotoMode_CameraRotationY" then
-    local y = action:GetValue(action)    
+    local y = action:GetValue(action)
     local factor = 0.5
     if actionName == "CameraMouseY" or actionName == "PhotoMode_CameraMouseY" then factor = 45 end
 

@@ -31,15 +31,7 @@ function Spawn:NewSpawn(name, id, parameters, companion, path, template)
 		obj.id = AMM.Swap.activeSwaps[obj.id].newID
 	end
 
-	function obj:Despawn()
-		if obj.type == "NPCPuppet" then
-			AMM.Spawn:DespawnNPC(obj)
-		elseif obj.type == "Prop" then
-			AMM.Props:DespawnProp(obj)
-		else
-			Util:Despawn(obj.handle)
-		end
-	end
+	obj = Entity:new(obj)
 
 	return obj
 end
@@ -52,6 +44,7 @@ function Spawn:new()
   Spawn.spawnedNPCs = {}
   Spawn.searchQuery = ''
   Spawn.searchBarWidth = 500
+  Spawn.currentSpawnedID = nil
 
   -- Modal Popup Properties --
   Spawn.currentFavoriteName = ''
@@ -85,8 +78,8 @@ function Spawn:DrawActiveSpawns(style)
     for _, spawn in pairs(Spawn.spawnedNPCs) do
       local nameLabel = spawn.name
 
-	  if Tools.lockTarget and Tools.currentNPC ~= '' and Tools.currentNPC.handle then
-        if nameLabel == Tools.currentNPC.name then
+	  if Tools.lockTarget and Tools.currentTarget ~= '' and Tools.currentTarget.handle then
+        if nameLabel == Tools.currentTarget.name then
           AMM.UI:TextColored(nameLabel)
         else
           ImGui.Text(nameLabel)
@@ -102,7 +95,7 @@ function Spawn:DrawActiveSpawns(style)
       ImGui.SameLine()
       if spawn.handle ~= '' and not(spawn.handle:IsVehicle()) then
         if ImGui.SmallButton("Respawn##"..spawn.name) then
-          Spawn:DespawnNPC(spawn)
+          spawn:Despawn()
 			 
 			 Cron.After(0.5, function()
 				Spawn:SpawnNPC(spawn)
@@ -120,7 +113,7 @@ function Spawn:DrawActiveSpawns(style)
 					if spawn.handle:IsVehicle() then
 						Spawn:DespawnVehicle(spawn)
 					else
-						Spawn:DespawnNPC(spawn)
+						spawn:Despawn()
 					end
 				end
 			end
@@ -267,7 +260,7 @@ function Spawn:DrawEntitiesButtons(entities, categoryName, style)
 		end
 
 		if categoryName == 'Favorites' then
-			favOffset = 40
+			favOffset = 50
 			Spawn:DrawArrowButton("up", newSpawn, currentIndex)
 			ImGui.SameLine()
 		end
@@ -447,7 +440,7 @@ function Spawn:SpawnVehicle(spawn)
 
 		if spawn.handle then
 
-			Cron.After(0.2, function() 
+			Cron.After(0.2, function()
 				local floatFix = 1
 				if type(spawn.parameters) == "number" then floatFix = 0 end
 				
@@ -487,11 +480,23 @@ function Spawn:SpawnVehicle(spawn)
 	end)
 end
 
-function Spawn:DespawnVehicle(spawn)
+function Spawn:DespawnVehicle(ent)
 	local vehicleGarageId = NewObject('vehicleGarageVehicleID')
-	vehicleGarageId.recordID = TweakDBID.new(spawn.path)
+	vehicleGarageId.recordID = TweakDBID.new(ent.path)
 	Game.GetVehicleSystem():DespawnPlayerVehicle(vehicleGarageId)
-	Spawn.spawnedNPCs[spawn.uniqueName()] = nil
+	Spawn.spawnedNPCs[ent.uniqueName()] = nil
+	-- New system below
+
+	-- local handle = Game.FindEntityByID(ent.entityID)
+	-- if handle then
+	-- 	if handle:IsVehicle() then
+	-- 		Util:TeleportTo(handle, Util:GetBehindPlayerPosition(2))
+	-- 	end
+	-- end
+
+	-- Game.GetPreventionSpawnSystem():RequestDespawn(ent.entityID)
+	-- ent.handle:Dispose()
+	-- AMM:UpdateSettings()
 end
 
 function Spawn:SpawnFavorite()
@@ -522,7 +527,7 @@ function Spawn:SpawnNPC(spawn)
 	local heading = AMM.player:GetWorldForward()
 	local angles = GetSingleton('Quaternion'):ToEulerAngles(AMM.player:GetWorldOrientation())
 	local offset = 1
-	if Tools.TPPCamera then offset = 4 end
+	if AMM.Tools.TPPCamera then offset = 4 end
 	local newPos = Vector4.new(pos.x - (heading.x * offset), pos.y - (heading.y * offset), pos.z - heading.z, pos.w - heading.w)
 	spawnTransform:SetPosition(newPos)
 	spawnTransform:SetOrientationEuler(EulerAngles.new(0, 0, angles.yaw - 180))
@@ -538,6 +543,8 @@ function Spawn:SpawnNPC(spawn)
 		TweakDB:SetFlat(spawn.path..".secondaryEquipment", TweakDB:GetFlat("Character.Judy.secondaryEquipment"))
 		TweakDB:SetFlat(spawn.path..".archetypeData", TweakDB:GetFlat("Character.Judy.archetypeData"))
 	end
+
+	Spawn.currentSpawnedID = spawn.id
 
 	spawn.entityID = Game.GetPreventionSpawnSystem():RequestSpawn(AMM:GetNPCTweakDBID(spawn.path), -99, spawnTransform)
 
@@ -610,7 +617,6 @@ function Spawn:DespawnNPC(ent)
 	end
 
 	Game.GetPreventionSpawnSystem():RequestDespawn(ent.entityID)
-	ent.handle:Dispose()
 	AMM:UpdateSettings()
 end
 

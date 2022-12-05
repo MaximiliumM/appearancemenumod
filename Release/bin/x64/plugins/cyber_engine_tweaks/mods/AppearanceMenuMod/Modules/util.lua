@@ -153,14 +153,16 @@ function Util:GetBehindPlayerPosition(distance)
   local player = Game.GetPlayer()
   local pos = player:GetWorldPosition()
   local heading = player:GetWorldForward()
-  local behindPlayer = Vector4.new(pos.x - (heading.x * distance), pos.y - (heading.y * distance), pos.z, pos.w)
+  local d = distance or 1
+  local behindPlayer = Vector4.new(pos.x - (heading.x * d), pos.y - (heading.y * d), pos.z, pos.w)
   return behindPlayer
 end
 
-function Util:TeleportTo(targetHandle, targetPosition, targetRotation, distanceFromGround)
+function Util:TeleportTo(targetHandle, targetPosition, targetRotation, distanceFromGround, distanceFromPlayer)
   local pos = Game.GetPlayer():GetWorldPosition()
   local heading = Game.GetPlayer():GetWorldForward()
-  local teleportPosition = Vector4.new(pos.x + heading.x, pos.y + heading.y, (pos.z + heading.z) + distanceFromGround, pos.w + heading.w)
+  local d = distanceFromPlayer or 1
+  local teleportPosition = Vector4.new(pos.x + (heading.x * d), pos.y + (heading.y * d), (pos.z + heading.z) + (distanceFromGround or 0), pos.w + heading.w)
 
   Game.GetTeleportationFacility():Teleport(targetHandle, targetPosition or teleportPosition, EulerAngles.new(0, 0, targetRotation or 0))
 end
@@ -488,9 +490,9 @@ function Util:ToggleEngine(handle)
   local state = vehVCPS:GetState()
 
   if state == vehicleEState.Default then
-      vehVCPS:SetState(2)
+      handle:TurnVehicleOn(true)  
   else
-      vehVCPS:SetState(1)
+      handle:TurnVehicleOn(false)
   end
 end
 
