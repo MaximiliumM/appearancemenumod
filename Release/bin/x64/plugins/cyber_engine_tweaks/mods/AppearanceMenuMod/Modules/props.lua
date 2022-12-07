@@ -156,6 +156,10 @@ function Props:Draw(AMM)
     ImGui.SameLine()
     Props.buildMode, modeChange = ImGui.Checkbox(" ", Props.buildMode)
 
+    if ImGui.IsItemHovered() then
+      ImGui.SetTooltip("This allows better integration with Direct mode when using gamepad. It also enables a small information window that sticks around.")
+    end
+
     if modeChange then
       AMM.Props:ToggleBuildMode(true)
     end
@@ -1077,10 +1081,6 @@ function Props:ToggleBuildMode(systemActivated)
   if not systemActivated then
     Props.buildMode = not Props.buildMode
   end
-
-  AMM.Scan:OpenMinimalUI()
-
-  ImGui.End()
 end
 
 function Props:CheckForTriggersNearby(pos)

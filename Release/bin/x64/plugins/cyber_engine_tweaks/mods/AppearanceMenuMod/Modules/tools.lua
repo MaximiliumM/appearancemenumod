@@ -955,7 +955,6 @@ function Tools:SetCurrentTarget(target, systemActivated)
   local pos, angles
   target.appearance = AMM:GetAppearance(target)
   Tools.currentTarget = AMM.Entity:new(target)
-  Tools.currentTarget:StartListeners()
   
   if not systemActivated then
     local light = AMM.Light:GetLightData(target)
@@ -2112,6 +2111,9 @@ function Tools:ToggleDirectMode(systemActivated)
   if systemActivated then
     Tools.directMode = not Tools.directMode
   end
+
+  Tools.lockTarget = true
+  Tools.currentTarget:StartListeners()
 
   if Tools.directMode then
     Util:AddPlayerEffects()

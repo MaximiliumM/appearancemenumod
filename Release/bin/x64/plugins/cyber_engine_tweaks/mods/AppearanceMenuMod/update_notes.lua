@@ -28,6 +28,7 @@ return {
 		[[Fixed issue where Companions would become aggressive after getting police stars]],
 		[[Fixed issue where some Lights would not work with Switches or Buttons properly]],
 		[[Fixed performance issue where Tools tab would query the database too often for locations]],
+		[[Fixed issue where selecting V or a non-NPC gameObject in Target Tools caused the window to stretch to fill the entire screen width]],
 		[[Fixed issue where AMM would be locked in 'AMM only functions in game' view due to TweakDBID parsing error trying to load any Collabs Lua file]],
 	},
 	{

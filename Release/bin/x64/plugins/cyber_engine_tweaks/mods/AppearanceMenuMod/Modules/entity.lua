@@ -35,7 +35,7 @@ function Entity:new(ent)
   obj.isVehicle = ent.isVehicle or false
 
   -- Movement Controller Properties
-  obj.speed = 0.1
+  obj.speed = ent.speed or 0.1
   obj.isMoving = false
   obj.currentDirections = {
     forward = false,
@@ -336,7 +336,7 @@ function Entity:CalculateNewPos(direction, newPos, rot)
       rot.pitch = rot.pitch + (100 * speed)
     else
       newPos.z = newPos.z + (0.7 * speed)
-    end    
+    end
   elseif direction == "down" then
     if self.rollModifier then
       rot.pitch = rot.pitch - (100 * speed)

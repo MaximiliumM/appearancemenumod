@@ -466,7 +466,7 @@ function AMM:new()
 				if actionType == 'BUTTON_RELEASED' then
 					AMM.Tools:ToggleDirectMode(true)
 				end
-			elseif actionName == 'Choice2_Release' and AMM.Props.buildMode then
+			elseif actionName == 'track_quest' and AMM.Props.buildMode then
 				if actionType == 'BUTTON_RELEASED' then
 					local newTarget = AMM:GetTarget()
 					if newTarget then
@@ -481,7 +481,7 @@ function AMM:new()
 						AMM.Tools:ClearTarget()
 					end
 				end
-			elseif actionName == 'DropCarriedObject' 
+			elseif actionName == 'Reload'
 			and AMM.Tools.currentTarget and AMM.Tools.currentTarget ~= '' then
 				if actionType == 'BUTTON_RELEASED' or actionType == "BUTTON_HOLD_COMPLETE" then
 					if AMM.Tools.currentTarget.speed <= 1 then
@@ -996,7 +996,7 @@ function AMM:new()
 					end
 
 					-- Entity Movement --
-					if AMM.Tools.directMode then
+					if AMM.Tools.directMode and AMM.Tools.currentTarget and AMM.Tools.currentTarget ~= '' then
 						AMM.Tools.currentTarget:Move()
 					end
 
@@ -1136,7 +1136,7 @@ function AMM:new()
 			AMM:Begin()
 	 	end
 
-		if AMM.Props.buildMode then			
+		if AMM.Props.buildMode then
 			AMM.Scan:DrawMinimalUI()
 		end
 
@@ -1588,6 +1588,13 @@ function AMM:NewTarget(handle, targetType, id, name, app, options)
 	-- Check if custom appearance is active
 	if self.activeCustomApps[obj.hash] ~= nil then
 		obj.appearance = self.activeCustomApps[obj.hash]
+	end
+
+	-- Check if object is current target
+	if AMM.Tools.currentTarget and AMM.Tools.currentTarget ~= '' then
+		if AMM.Tools.currentTarget.hash == obj.hash then
+			obj = AMM.Tools.currentTarget
+		end
 	end
 
 	-- Check if object is spawnedProp

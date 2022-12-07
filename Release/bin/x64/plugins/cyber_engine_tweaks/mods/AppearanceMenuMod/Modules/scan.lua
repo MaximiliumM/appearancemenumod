@@ -498,22 +498,13 @@ function Scan:Draw(AMM, target, style)
   end
 end
 
-function Scan:OpenMinimalUI()
-
-  AMM.UI.style.minimal = not AMM.UI.style.minimal
-  
-  local sizeX = ImGui.GetWindowSize()
-	local x, y = ImGui.GetWindowPos()
-	ImGui.SetNextWindowPos(x + ((sizeX / 2) - 200), y - 40)
-end
-
 function Scan:DrawMinimalUI()
   
   AMM.UI:DrawCrossHair()
 
-  ImGui.SetNextWindowSize(200, 140)
+  ImGui.SetNextWindowSize(250, 180)
 
-  Scan.minimalUI = ImGui.Begin("Build Mode", ImGuiWindowFlags.NoCollapse)
+  Scan.minimalUI = ImGui.Begin("Build Mode", ImGuiWindowFlags.AlwaysAutoResize + ImGuiWindowFlags.NoCollapse)
 
   if Scan.minimalUI then
     local target = AMM:GetTarget()
@@ -524,6 +515,10 @@ function Scan:DrawMinimalUI()
     if target ~= nil then
       ImGui.Text(target.name)
       AMM.UI:TextColored(target.type)
+      ImGui.Spacing()
+      ImGui.Text("Speed:")
+      ImGui.SameLine()
+      AMM.UI:TextColored(tostring(target.speed * 1000))
     else
       ImGui.PushTextWrapPos()
       ImGui.TextColored(1, 0.16, 0.13, 0.75, "No Target")

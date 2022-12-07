@@ -2,16 +2,25 @@ local Theme = json.decode(io.open('Themes/Default.json', 'r'):read("*a"))
 local UI = {
   currentTheme = '',
   userThemes = {},
-  style = nil,
+  style = {
+    buttonWidth = nil,
+    buttonHeight = nil,
+    halfButtonWidth = nil,
+  },
 }
 
 function UI:Preload(theme)
   local file = io.open('Themes/'..theme, 'r') or io.open('User/Themes/'..theme, 'r')
   if file then
     local contents = file:read( "*a" )
-		local themeData = json.decode(contents)
+		local data = json.decode(contents)
     file:close()
-    return themeData
+    if data.theme then
+      data.theme.ScrollbarSize = data.scrollbarSize
+      return data.theme
+    else
+      return data
+    end
   end
 end
 
@@ -87,11 +96,9 @@ function UI:PushStyleColor(style, color)
 end
 
 function UI:Start()
-  UI.style = {
-    buttonWidth = ImGui.GetWindowContentRegionWidth(),
-    buttonHeight = ImGui.GetFontSize() * 2,
-    halfButtonWidth = ((ImGui.GetWindowContentRegionWidth() / 2) - 5)
-  }
+  UI.style.buttonWidth = ImGui.GetWindowContentRegionWidth()
+  UI.style.buttonHeight = ImGui.GetFontSize() * 2
+  UI.style.halfButtonWidth = ((ImGui.GetWindowContentRegionWidth() / 2) - 5)
 
 	UI:PushStyleColor(ImGuiCol.TitleBg,				     Theme.TitleBg)
 	UI:PushStyleColor(ImGuiCol.TitleBgCollapsed,		 Theme.TitleBgCollapsed)
@@ -116,12 +123,14 @@ function UI:Start()
 	UI:PushStyleColor(ImGuiCol.ButtonHovered,		   Theme.ButtonHovered)
 	UI:PushStyleColor(ImGuiCol.ButtonActive,			   Theme.ButtonActive)
   UI:PushStyleColor(ImGuiCol.CheckMark,			   Theme.CheckMark)
+  UI:PushStyleColor(ImGuiCol.ScrollbarBg,			   Theme.FrameBg)
+  UI:PushStyleColor(ImGuiCol.ScrollbarGrab,			   Theme.ButtonActive)
 
 	ImGui.PushStyleVar(ImGuiStyleVar.WindowPadding, 15, 15)
   ImGui.PushStyleVar(ImGuiStyleVar.WindowRounding, 0)
   ImGui.PushStyleVar(ImGuiStyleVar.FramePadding, 5, 5)
   ImGui.PushStyleVar(ImGuiStyleVar.ItemInnerSpacing, 5, 5)
-  ImGui.PushStyleVar(ImGuiStyleVar.ScrollbarSize, 5)
+  ImGui.PushStyleVar(ImGuiStyleVar.ScrollbarSize, Theme.ScrollbarSize or 0)
   ImGui.PushStyleVar(ImGuiStyleVar.WindowBorderSize, 1)
 
   local x, y = GetDisplayResolution()
@@ -142,7 +151,7 @@ function UI:Spacing(amount)
 end
 
 function UI:Separator()
-	UI:Spacing(8)
+	UI:Spacing(4)
 	ImGui.Separator()
 	UI:Spacing(2)
 end
@@ -152,6 +161,7 @@ function UI:DrawCrossHair()
     local resX, resY = GetDisplayResolution()
     ImGui.SetNextWindowPos((resX / 2) - 20, (resY / 2) - 20)
     ImGui.SetNextWindowSize(40, 40)
+    ImGui.SetNextWindowSizeConstraints(40, 40, 40, 40)
     UI:CrossHairStyling()
     ImGui.Begin("Crosshair", ImGuiWindowFlags.NoMove + ImGuiWindowFlags.NoCollapse + ImGuiWindowFlags.NoTitleBar + ImGuiWindowFlags.NoResize)
     ImGui.End()
