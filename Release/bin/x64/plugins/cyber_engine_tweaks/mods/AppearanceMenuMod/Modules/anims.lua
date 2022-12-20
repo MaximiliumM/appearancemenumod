@@ -75,6 +75,11 @@ function Poses:Draw(AMM, target)
           Poses:ToggleFavorite(not isFavorite, anim)
         end
 
+        ImGui.SameLine()
+        if ImGui.SmallButton("  Copy To Clipboard  ##"..hash) then
+          ImGui.SetClipboardText(name)
+        end
+
         AMM.UI:Separator()
       end
     end
@@ -397,7 +402,7 @@ function Poses:ExportFavorites()
   local query = "SELECT anim_id FROM workspots WHERE anim_fav = 1"
   local favs = {}
 
-  for ws in db:nrows(query) do
+  for ws in db:urows(query) do
     table.insert(favs, ws)
   end
 
@@ -412,7 +417,7 @@ end
 
 function Poses:CheckTargetRig(target)
   if target.rig then
-    return {Poses.rigs[target.rig], Poses.rigs[target.rig].." Scenes"}
+    return {"Favorites", Poses.rigs[target.rig], Poses.rigs[target.rig].." Scenes"}
   else
     local rigs = {
       ["fx_woman_base"] = "Woman",
@@ -424,6 +429,9 @@ function Poses:CheckTargetRig(target)
       if comp then
         local gender = rigs[rig]
         local categories = {}
+        
+        table.insert(categories, "Favorites")
+
         for _, cat in ipairs(Poses.categories) do
           if string.find(cat, gender) then
             if string.find(cat, "Player") and target.type ~= "Player" then
