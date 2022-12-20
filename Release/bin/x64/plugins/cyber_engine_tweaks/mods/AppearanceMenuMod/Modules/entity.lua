@@ -9,10 +9,12 @@ function Entity:new(ent)
   obj.id = ent.id
   obj.hash = ent.hash
   obj.path = ent.path
+  obj.rig = ent.rig
   obj.template = ent.template or nil
   obj.entityID = ent.entityID
   obj.uid = ent.uid or nil
   obj.appearance = ent.appearance
+  obj.options = ent.options or nil
   obj.uniqueName = function()
     if ent.uniqueName then
       return ent.uniqueName()
@@ -33,6 +35,9 @@ function Entity:new(ent)
   obj.scale = ent.scale or nil
 
   obj.isVehicle = ent.isVehicle or false
+
+  -- Poses Properties
+  obj.anim = nil
 
   -- Movement Controller Properties
   obj.speed = ent.speed or 0.1
@@ -82,6 +87,10 @@ function Entity:Despawn()
     AMM.Tools:CheckIfDirectModeShouldBeDisabled(self.hash)
   end
 
+  if AMM.Poses.activeAnims[self.hash] then
+    AMM.Poses:StopAnimation(AMM.Poses.activeAnims[self.hash])
+  end
+
   if self.type == "NPCPuppet" or self.type == "Spawn" then
     AMM.Spawn:DespawnNPC(self)
   elseif self.type == "Prop" or self.type == "entEntity" then
@@ -124,6 +133,16 @@ end
 
 -- Original code by keanuWheeze
 function Entity:HandleInput(actionName, actionType, action)
+  local relevantInputs = {
+    MoveX = true,
+    MoveY = true,
+    UI_MoveUp = true,
+    UI_MoveDown = true,
+    UI_MoveLeft = true,
+    UI_MoveRight = true,
+    CameraX = true,
+  }
+
   if actionName == "MoveX" or actionName == "PhotoMode_CameraMovementX" then -- Controller movement
     local x = action:GetValue(action)
     if x < 0 then
@@ -160,7 +179,7 @@ function Entity:HandleInput(actionName, actionType, action)
         self.currentDirections.backwards = false
         self.currentDirections.forward = false
         self.analogForward = 0
-        self.analogBackwards = 0
+        self.analogBackwards = 0        
     end
   elseif actionName == 'UI_MoveUp' or (actionName == "CameraY" or actionName == "PhotoMode_CraneUp") and actionType == "AXIS_CHANGE" then
     local z = action:GetValue(action)
@@ -263,6 +282,11 @@ function Entity:HandleInput(actionName, actionType, action)
         self.isMoving = true
     end
   end
+
+  if not self.isMoving and relevantInputs[actionName] and AMM.Poses.activeAnims[self.hash] then    
+    local anim = AMM.Poses.activeAnims[self.hash]
+    AMM.Poses:RestartAnimation(anim)
+  end
 end
 
 function Entity:Move()
@@ -285,10 +309,10 @@ function Entity:Move()
       self.angles = EulerAngles.new(0, 0, 0)
     end
   
-    if self.type ~= "Player" and self.handle:IsNPC() then
+    if self.type ~= "Player" and self.handle:IsNPC() and self.isMoving then
       self.pos = newPos
       self.angles = rot
-      Util:TeleportNPCTo(self.handle, self.pos, rot.yaw)
+      Util:TeleportNPCTo(self.handle, self.pos, rot.yaw)  
     else
       Game.GetTeleportationFacility():Teleport(self.handle, newPos, EulerAngles.new(rot.roll, rot.pitch, rot.yaw))
     end

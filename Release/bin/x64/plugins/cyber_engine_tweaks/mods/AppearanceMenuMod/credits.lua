@@ -43,6 +43,8 @@ return {
 	{
 		'Community Shout Outs',
 		'',
+		[[donk & Cyberscript Team]],
+		[[-- For our incredible collaboration that brought triggering animations to life!]],
 		[[Otis_Inf]],
 		[[-- For his awesome camera and lighting tools that makes taking photos in this game so much better!]],
 		[[keanuWheeze]],

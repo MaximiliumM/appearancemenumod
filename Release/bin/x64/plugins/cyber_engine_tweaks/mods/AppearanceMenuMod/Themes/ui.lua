@@ -134,7 +134,7 @@ function UI:Start()
   ImGui.PushStyleVar(ImGuiStyleVar.WindowBorderSize, 1)
 
   local x, y = GetDisplayResolution()
-  ImGui.SetNextWindowSizeConstraints(570, 100, 700, y / 1.2)
+  ImGui.SetNextWindowSizeConstraints(650, 100, 700, y / 1.2)
 end
 
 function UI:End()

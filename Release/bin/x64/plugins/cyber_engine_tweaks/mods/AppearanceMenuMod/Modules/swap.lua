@@ -99,7 +99,7 @@ function Swap:Draw(AMM, target)
       end
     end
 
-    if target ~= nil and (target.type == 'Player' or target.type == 'NPCPuppet' or target.type == 'vehicle' or target.handle:IsReplacer()) then
+    if target ~= nil and (target.type == 'Player' or target.handle:IsNPC() or target.handle:IsVehicle() or target.handle:IsReplacer()) then
       AMM.UI:TextColored("Current Target:")
       ImGui.Text(target.name)
 
@@ -128,7 +128,7 @@ function Swap:Draw(AMM, target)
         local entities = {}
         local query = "SELECT * FROM entities WHERE is_swappable = 1 AND entity_name LIKE '%"..Swap.searchQuery.."%' ORDER BY entity_name ASC"
         for en in db:nrows(query) do
-          table.insert(entities, {en.entity_name, en.entity_id, en.entity_path})
+          table.insert(entities, en)
         end
 
         if #entities ~= 0 then
@@ -147,7 +147,7 @@ function Swap:Draw(AMM, target)
                 for fav in db:nrows(query) do
                   query = f("SELECT * FROM entities WHERE entity_id = '%s'", fav.entity_id)
                   for en in db:nrows(query) do
-                    table.insert(entities, {en.entity_name, en.entity_id, en.entity_path})
+                    table.insert(entities, en)
                   end
                 end
                 if #entities == 0 then
@@ -158,7 +158,7 @@ function Swap:Draw(AMM, target)
               else
                 local query = f("SELECT * FROM entities WHERE is_swappable = 1 AND cat_id == '%s' AND cat_id != 22 ORDER BY entity_name ASC", category.cat_id)
                 for en in db:nrows(query) do
-                  table.insert(entities, {en.entity_name, en.entity_id, en.entity_path})
+                  table.insert(entities, en)
                 end
               end
 
@@ -272,10 +272,10 @@ function Swap:DrawEntitiesButtons(entities, categoryName)
 
   local targetID = AMM:GetScanID(target.handle)
 
-  for i, entity in ipairs(entities) do
-		name = entity[1].."##"..tostring(i)
-		id = entity[2]
-		path = entity[3]
+  for i, en in ipairs(entities) do
+		name = en.entity_name.."##"..tostring(i)
+		id = en.entity_id
+		path = en.entity_path
 
     local favOffset = 0
 		if categoryName == 'Favorites' then

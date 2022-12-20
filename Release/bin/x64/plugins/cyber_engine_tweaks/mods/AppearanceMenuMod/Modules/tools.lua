@@ -578,9 +578,11 @@ function Tools:DrawTeleportActions()
 
   if ImGui.BeginCombo("Locations", Tools.selectedLocation.loc_name, ImGuiComboFlags.HeightLarge) then
     for i, location in ipairs(Tools:GetLocations()) do
-      if ImGui.Selectable(location.loc_name.."##"..i, (location == Tools.selectedLocation.loc_name)) then
-        if location.loc_name:match("%-%-%-%-") == nil then
-          Tools.selectedLocation = location
+      if location.loc_name then
+        if ImGui.Selectable(location.loc_name.."##"..i, (location == Tools.selectedLocation.loc_name)) then
+          if location.loc_name:match("%-%-%-%-") == nil then
+            Tools.selectedLocation = location
+          end
         end
       end
     end
@@ -804,13 +806,17 @@ function Tools:IsFavorite(loc)
 end
 
 function Tools:GetUserLocations()
-  local vortex = io.open('User/Locations/vortex_needs_this.txt', 'r')
   local files = dir("./User/Locations")
   local filesCount = #files
-  if vortex then filesCount = filesCount - 1 end
 
-  local userLocations = {}
+  for _, file in ipairs(files) do
+    if string.find(file.name, '.txt') then
+      filesCount = filesCount - 1
+    end
+  end
+
   if #Tools.userLocations ~= filesCount then
+    local userLocations = {}
     for _, loc in ipairs(files) do
       if string.find(loc.name, '.json') then
         local loc_name, x, y, z, w, yaw = Tools:LoadLocationData(loc.name)
@@ -955,6 +961,12 @@ function Tools:SetCurrentTarget(target, systemActivated)
   local pos, angles
   target.appearance = AMM:GetAppearance(target)
   Tools.currentTarget = AMM.Entity:new(target)
+
+  local hash = Tools.currentTarget.hash
+  if AMM.Poses.activeAnims[hash] then
+    local anim = AMM.Poses.activeAnims[hash]
+    AMM.Poses:RestartAnimation(anim)
+  end
   
   if not systemActivated then
     local light = AMM.Light:GetLightData(target)
@@ -1051,6 +1063,9 @@ function Tools:TeleportPropTo(prop, pos, angles)
     if entity then
       prop.handle = entity
       prop.parameters = {pos, angles}
+      
+      -- Update Spawned Props dict just in case
+      AMM.Props.spawnedProps[prop.uniqueName()] = prop
 
       if lastScale then
         local components = AMM.Props:CheckForValidComponents(entity)
@@ -1066,24 +1081,42 @@ function Tools:TeleportPropTo(prop, pos, angles)
 end
 
 function Tools:TeleportNPCTo(targetPuppet, targetPosition, targetRotation)
-	local teleportCmd = NewObject('handle:AITeleportCommand')
-	teleportCmd.position = targetPosition
-	teleportCmd.rotation = targetRotation or 0.0
-	teleportCmd.doNavTest = false
+  local teleportCmd = NewObject('handle:AITeleportCommand')
+  teleportCmd.position = targetPosition
+  teleportCmd.rotation = targetRotation or 0.0
+  teleportCmd.doNavTest = false
 
-	targetPuppet:GetAIControllerComponent():SendCommand(teleportCmd)
+  targetPuppet:GetAIControllerComponent():SendCommand(teleportCmd)
 
-	return teleportCmd, targetPuppet
+  return teleportCmd, targetPuppet
 end
 
 function Tools:FreezeNPC(handle, freeze)
   if freeze then
+    if AMM.Poses.activeAnims[tostring(handle:GetEntityID().hash)] then
+      local anim = AMM.Poses.activeAnims[tostring(handle:GetEntityID().hash)]
+      Game.GetWorkspotSystem():StopInDevice(handle)
+    end
+  
     -- (reason: CName, dilation: Float, duration: Float, easeInCurve: CName, easeOutCurve: CName, ignoreGlobalDilation: Bool),
     handle:SetIndividualTimeDilation(CName.new("AMM"), 0.00001, 2.5, CName.new(""), CName.new(""), true)
     Tools.frozenNPCs[tostring(Tools.currentTarget.handle:GetEntityID().hash)] = true
   else
     handle:SetIndividualTimeDilation(CName.new("AMM"), 1.0, 2.5, CName.new(""), CName.new(""), false)
     Tools.frozenNPCs[tostring(Tools.currentTarget.handle:GetEntityID().hash)] = nil
+
+    if AMM.Poses.activeAnims[tostring(handle:GetEntityID().hash)] then
+      local anim = AMM.Poses.activeAnims[tostring(handle:GetEntityID().hash)]
+      
+      Cron.Every(0.1, {tick = 1}, function(timer)
+        if not Game.GetWorkspotSystem():IsActorInWorkspot(handle) then
+          Game.GetWorkspotSystem():PlayInDeviceSimple(anim.handle, handle, false, anim.comp)
+          Game.GetWorkspotSystem():SendJumpToAnimEnt(handle, anim.name, true)
+        end
+        
+        Cron.Halt(timer)
+      end)
+    end
   end
 end
 
@@ -1235,6 +1268,14 @@ function Tools:DrawMovementWindow()
     Tools.npcUpDown, upDownUsed = ImGui.DragFloat("Up/Down", Tools.npcUpDown, adjustmentValue)
     ImGui.PopItemWidth()
 
+    if ImGui.IsItemDeactivatedAfterEdit() then
+      local hash = Tools.currentTarget.hash
+      if AMM.Poses.activeAnims[hash] then
+        local anim = AMM.Poses.activeAnims[hash]
+        AMM.Poses:RestartAnimation(anim)
+      end
+    end
+
     if Tools.relativeMode and ImGui.IsItemDeactivatedAfterEdit() then
       Tools.npcUpDown = 0
     end
@@ -1243,6 +1284,14 @@ function Tools:DrawMovementWindow()
 
     ImGui.PushItemWidth(surfaceWiseRowWidth)
     Tools.npcLeft, leftUsed = ImGui.DragFloat("", Tools.npcLeft, adjustmentValue)
+
+    if ImGui.IsItemDeactivatedAfterEdit() then
+      local hash = Tools.currentTarget.hash
+      if AMM.Poses.activeAnims[hash] then
+        local anim = AMM.Poses.activeAnims[hash]
+        AMM.Poses:RestartAnimation(anim)
+      end
+    end
 
     if Tools.relativeMode and ImGui.IsItemDeactivatedAfterEdit() then
       Tools.npcLeft = 0
@@ -1256,6 +1305,14 @@ function Tools:DrawMovementWindow()
 
     ImGui.SameLine()
     Tools.npcRight, rightUsed = ImGui.DragFloat(sliderLabel, Tools.npcRight, adjustmentValue)
+
+    if ImGui.IsItemDeactivatedAfterEdit() then
+      local hash = Tools.currentTarget.hash
+      if AMM.Poses.activeAnims[hash] then
+        local anim = AMM.Poses.activeAnims[hash]
+        AMM.Poses:RestartAnimation(anim)
+      end
+    end
 
     if Tools.relativeMode and ImGui.IsItemDeactivatedAfterEdit() then
       Tools.npcRight = 0
@@ -1313,7 +1370,7 @@ function Tools:DrawMovementWindow()
 
     if upDownUsed and Tools.currentTarget ~= '' then
       if Tools.currentTarget.type == 'entEntity' then
-        if not Tools.movingProp then
+        if not Tools.movingProp then          
           Tools:TeleportPropTo(Tools.currentTarget, pos, EulerAngles.new(Tools.npcRotation[1], Tools.npcRotation[2], Tools.npcRotation[3]))
         end
       elseif Tools.currentTarget.type ~= 'Player' and Tools.currentTarget.handle:IsNPC() then
@@ -1346,6 +1403,14 @@ function Tools:DrawMovementWindow()
       Tools.npcRotation[3], rotationUsed = ImGui.SliderFloat("Rotation", Tools.npcRotation[3], -180, 180)
     elseif Tools.currentTarget ~= '' then
       Tools.npcRotation, rotationUsed = ImGui.DragFloat3("Tilt/Rotation", Tools.npcRotation, 0.1)
+    end
+
+    if ImGui.IsItemDeactivatedAfterEdit() then
+      local hash = Tools.currentTarget.hash
+      if AMM.Poses.activeAnims[hash] then
+        local anim = AMM.Poses.activeAnims[hash]
+        AMM.Poses:RestartAnimation(anim)
+      end
     end
 
     if rotationUsed and Tools.currentTarget ~= '' then

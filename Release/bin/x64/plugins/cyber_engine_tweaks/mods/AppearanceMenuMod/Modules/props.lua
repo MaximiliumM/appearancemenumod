@@ -322,10 +322,10 @@ function Props:DrawCategories()
 
   if Props.searchQuery ~= '' then
     local entities = {}
-    local parsedSearch = Util:ParseSearch(Props.searchQuery)
+    local parsedSearch = Util:ParseSearch(Props.searchQuery, "entity_name")
     local query = 'SELECT * FROM entities WHERE is_spawnable = 1'..customizableIDs..customProps..' AND cat_id IN '..validCatIDs..' AND '..parsedSearch..' ORDER BY entity_name ASC'
     for en in db:nrows(query) do
-      table.insert(entities, {en.entity_name, en.entity_id, en.can_be_comp, en.parameters, en.entity_path, en.template_path})
+      table.insert(entities, en)
     end
 
     if #entities ~= 0 then
@@ -343,9 +343,11 @@ function Props:DrawCategories()
           if category.cat_name == 'Favorites' then
             local query = "SELECT * FROM favorites_props"
             for fav in db:nrows(query) do
-              query = f('SELECT * FROM entities WHERE entity_id = "%s"'..customizableIDs..customProps..' AND cat_id IN %s', fav.entity_id, validCatIDs)              
+              query = f("SELECT * FROM entities WHERE entity_id = '%s' AND cat_id IN %s", fav.entity_id, validCatIDs)
               for en in db:nrows(query) do
-                table.insert(entities, {fav.entity_name, en.entity_id, en.can_be_comp, en.parameters, en.entity_path, en.template_path})
+                if fav.parameters ~= nil then en.parameters = fav.parameters end
+                en.entity_name = fav.entity_name
+                table.insert(entities, en)
               end
             end
             if #entities == 0 then
@@ -361,7 +363,7 @@ function Props:DrawCategories()
                 en.entity_path = en.entity_path:gsub("Vehicle", "Props")
               end
 
-              table.insert(entities, {en.entity_name, en.entity_id, en.can_be_comp, en.parameters, en.entity_path, en.template_path})
+              table.insert(entities, en)
             end            
           end
 
@@ -1175,7 +1177,7 @@ end
 function Props:DuplicateProp(spawn)
   local pos = spawn.handle:GetWorldPosition()
   local angles = GetSingleton('Quaternion'):ToEulerAngles(spawn.handle:GetWorldOrientation())
-  local newSpawn = AMM.Spawn:NewSpawn(spawn.name, spawn.id, spawn.parameters, spawn.companion, spawn.path, spawn.template)
+  local newSpawn = AMM.Spawn:NewSpawn(spawn.name, spawn.id, spawn.parameters, spawn.companion, spawn.path, spawn.template, spawn.rig)
   newSpawn.handle = spawn.handle
   Props:SpawnProp(newSpawn, pos, angles)
 end

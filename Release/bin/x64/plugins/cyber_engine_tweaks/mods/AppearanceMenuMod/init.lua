@@ -45,7 +45,7 @@ function AMM:new()
 	 AMM.UniqueVRig = false
 
 	 -- Main Properties --
-	 AMM.currentVersion = "1.15"
+	 AMM.currentVersion = "2.0"
 	 AMM.CETVersion = tonumber(GetVersion():match("1.(%d+)."))
 	 AMM.updateNotes = require('update_notes.lua')
 	 AMM.credits = require("credits.lua")
@@ -110,6 +110,7 @@ function AMM:new()
 	 AMM.Tools = require('Modules/tools.lua')
 	 AMM.Props = require('Modules/props.lua')
 	 AMM.Director = require('Modules/director.lua')
+	 AMM.Poses = require('Modules/anims.lua')
 
 	 -- Loads Objects --
 	 AMM.Light = require('Modules/light.lua')
@@ -148,13 +149,16 @@ function AMM:new()
 		 AMM.Spawn.categories = AMM.Spawn:GetCategories()
 		 AMM.Scan:Initialize()
 		 AMM.Tools:Initialize()
-		 AMM.Swap:Initialize()
+		 AMM.Swap:Initialize() 
 		 AMM.Props:Initialize()
 		 AMM.Props:Update()
 		 AMM:SBInitialize()
 
 		 -- Setup content that requires specific archives
 		 AMM:SetupExtraFromArchives()
+
+		 -- Poses should be initialized after extra archives
+		 AMM.Poses:Initialize()
 
 		 -- Check if user is in-game using WorldPosition --
 		 -- Only way to set player attached if user reload all mods --
@@ -446,7 +450,7 @@ function AMM:new()
 			end
 
 			if AMM.Tools.directMode and (AMM.Tools.currentTarget and AMM.Tools.currentTarget ~= '') then
-				AMM.Tools.currentTarget:HandleInput(actionName, actionType, action)
+				AMM.Tools.currentTarget:HandleInput(actionName, actionType, action)						
 			end
 
 			if actionName == 'TogglePhotoMode' then
@@ -542,6 +546,7 @@ function AMM:new()
 				TweakDB:SetFlat('photo_mode.camera.max_dist_left_right', 1000)
 				TweakDB:SetFlat('photo_mode.character.max_position_adjust', 100)
 				TweakDB:SetFlat('photo_mode.general.collisionRadiusForPhotoModePuppet', {0, 0, 0})
+				TweakDB:SetFlat('photo_mode.general.collisionRadiusForNpcs', 0)
 				-- TweakDB:SetFlat('photo_mode.general.force_lod0_characters_dist', 0)
 				-- TweakDB:SetFlat('photo_mode.general.force_lod0_vehicles_dist', 0)
 				TweakDB:SetFlat('photo_mode.general.onlyFPPPhotoModeInPlayerStates', {})
@@ -611,7 +616,7 @@ function AMM:new()
 
 				local spawn = nil
 				for ent in db:nrows(f("SELECT * FROM entities WHERE entity_id = '%s'", spawnableID)) do
-					spawn = AMM.Spawn:NewSpawn(ent.entity_name, ent.entity_id, ent.entity_parameters, ent.can_be_comp, ent.entity_path, ent.template_path)
+					spawn = AMM.Spawn:NewSpawn(ent.entity_name, ent.entity_id, ent.entity_parameters, ent.can_be_comp, ent.entity_path, ent.template_path, ent.entity_rig)
 				end
 
 				if spawn ~= nil then
@@ -1275,6 +1280,9 @@ function AMM:Begin()
 					-- Props Tab --
 					AMM.Props:Draw(AMM)
 
+					-- Poses Tab --
+					AMM.Poses:Draw(AMM, target)
+
 					-- Tools Tab --
 					AMM.Tools:Draw(AMM, target)
 
@@ -1353,6 +1361,13 @@ function AMM:Begin()
 
 							if ImGui.IsItemHovered() then
 								ImGui.SetTooltip("This will give weapons and combat abilities to all NPCs. T-posing and weird animations are expected.")
+							end
+
+							AMM.userSettings.animPlayerSelfTarget, clicked = ImGui.Checkbox("Allow Player Animations on NPCs", AMM.userSettings.animPlayerSelfTarget)
+							if clicked then settingChanged = true end
+
+							if ImGui.IsItemHovered() then
+								ImGui.SetTooltip("Disable this if you are using a mod that allows Player Animations to be used on NPCs.")
 							end
 						end
 
@@ -1631,6 +1646,7 @@ function AMM:CheckMissingArchives()
 				{name = "basegame_AMM_Props", desc = "Adds props, characters and vehicles. AMM won't launch without this.", active = true, optional = false},
 				{name = "basegame_AMM_requirement", desc = "Adds and fixes appearances for many characters.\nYou should install this.", active = true, optional = true},
 				{name = "basegame_johnny_companion", desc = "Adds Johnny Silverhand as a spawnable character.", active = true, optional = false},
+				{name = "basegame_AMM_ScenesPack", desc = "Adds 9358 scene animations to Poses system.\nDownload it on AMM's Nexus page.", active = true, optional = true, extra = true},
 				{name = "basegame_AMM_SoundEffects", desc = "Adds spawnable sound effects.", active = true, optional = true},
 				{name = "basegame_AMM_KerryPP", desc = "Adds a new naked appearance.", active = true, optional = true},
 				{name = "basegame_AMM_BenjaminStonePP", desc = "Adds a new naked appearance.", active = true, optional = true},
@@ -1643,8 +1659,9 @@ function AMM:CheckMissingArchives()
 				{name = "basegame_texture_HanakoNoMakeup", desc = "Allows AMM to remove Hanako's makeup when using Custom Appearance.", active = true, optional = true},
 				{name = "basegame_AMM_JudyBodyRevamp", desc = "Replaces Judy's body with a new improved one.", active = true, optional = true},
 				{name = "basegame_AMM_PanamBodyRevamp", desc = "Replaces Panam's body with a new improved one.", active = true, optional = true},
-				{name = "basegame_AMM_MistyBodyRevamp", desc = "Replaces Misty's body with a new improved one.", active = true, optional = true},
+				{name = "basegame_AMM_MistyBodyRevamp", desc = "Replaces Misty's body with a new improved one.\nDownload it on AMM's Nexus page.", active = true, optional = true, extra = true},
 				{name = "_1_Ves_HanakoFixedBodyNaked", desc = "Replaces Hanako's body with a new improved one.", active = true, optional = true},
+				{name = "AMM_Cheri_Appearances", desc = "Adds new appearances. Download it on AMM's Nexus page.", active = true, optional = true, extra = true},
 				{name = "PinkyDude_ANIM_FacialExpressions_FemaleV", desc = "Enables facial expressions tools on Female V", active = true, optional = true},
 				{name = "PinkyDude_ANIM_FacialExpressions_MaleV", desc = "Enables facial expressions tools on Male V", active = true, optional = true},
 			}
@@ -1656,7 +1673,7 @@ function AMM:CheckMissingArchives()
 			end
 
 			for _, archive in ipairs(AMM.archives) do
-				if not ModArchiveExists(archive.name..".archive") then
+				if not ModArchiveExists(archive.name..".archive") and not archive.extra then
 					archive.active = false
 					AMM.archivesInfo.missing = true
 
@@ -1735,6 +1752,9 @@ function AMM:ImportUserData()
 				if userData['favoriteLocations'] ~= nil then
 					self.Tools.favoriteLocations = userData['favoriteLocations']
 				end
+				if userData['favoriteAnims'] ~= nil then
+					self.Poses:ImportFavorites(userData['favoriteAnims'])
+				end
 				if userData['spawnedNPCs'] ~= nil then
 					self.Spawn.spawnedNPCs = self:PrepareImportSpawnedData(userData['spawnedNPCs'])
 				end
@@ -1759,6 +1779,7 @@ function AMM:ImportUserData()
 				self.Tools.defaultFOV = userData['defaultFOV'] or 60
 				self.Tools.defaultAperture = userData['defaultAperture'] or 4
 				self.companionAttackMultiplier = userData['companionDamageMultiplier'] or 0
+				self.Poses.history = userData['posesHistory'] or {}
 
 				if userData['settings'] ~= nil then
 					for _, obj in ipairs(userData['settings']) do
@@ -1876,9 +1897,10 @@ function AMM:ExportUserData()
 			userData['spawnedNPCs'] = self:PrepareExportSpawnedData()
 		end
 
+		userData['favoriteLocations'] = self.Tools:GetFavoriteLocations()
+		userData['favoriteAnims'] = self.Poses:ExportFavorites()
 		userData['selectedTheme'] = self.selectedTheme
 		userData['savedSwaps'] = self.Swap:GetSavedSwaps()
-		userData['favoriteLocations'] = self.Tools:GetFavoriteLocations()
 		userData['followDistance'] = self.followDistance
 		userData['customAppPosition'] = self.customAppPosition
 		userData['selectedHotkeys'] = self:ExportSelectedHotkeys()
@@ -1888,7 +1910,7 @@ function AMM:ExportUserData()
 		userData['defaultFOV'] = self.Tools.defaultFOV
 		userData['defaultAperture'] = self.Tools.defaultAperture
 		userData['companionDamageMultiplier'] = self.companionAttackMultiplier
-		-- userData['appTriggers'] = self.Scan:PrepareAppTriggersForExport()
+		userData['posesHistory'] = self.Poses.history
 
 		local validJson, contents = pcall(function() return json.encode(userData) end)
 		if validJson and contents ~= nil then
@@ -1908,7 +1930,7 @@ function AMM:PrepareImportSpawnedData(savedIDs)
 
 	for _, id in ipairs(savedIDs) do
 		for ent in db:nrows(f("SELECT * FROM entities WHERE entity_id = '%s'", id)) do
-			spawn = AMM.Spawn:NewSpawn(ent.entity_name, ent.entity_id, ent.entity_parameters, ent.can_be_comp, ent.entity_path, ent.template_path)
+			spawn = AMM.Spawn:NewSpawn(ent.entity_name, ent.entity_id, ent.entity_parameters, ent.can_be_comp, ent.entity_path, ent.template_path, ent.entity_rig)
 			table.insert(savedEntities, spawn)
 		end
 	end
@@ -1950,7 +1972,7 @@ function AMM:IsApproved(modder, path)
 			"0xB12C810A, 20", "0x83384354, 12",
 			"0x86B91A0E, 11", "0xA582326C, 10",
 			"0x61487D07, 14", "0x054D87CE, 9",
-			"0x2DD80600, 14"
+			"0x2DD80600, 14", "0x969CF416, 10"
 		}
 
 		for _, possibleID in ipairs(possibleIDs) do
@@ -2149,8 +2171,8 @@ function AMM:SetupExtraFromArchives()
 
 	db:execute("DELETE FROM custom_appearances WHERE collab_tag = 'AMM'")
 
-	-- Setup Misty appearances
 	for _, archive in ipairs(AMM.archives) do
+		-- Setup Misty appearances
 		if archive.name == "basegame_AMM_MistyBodyRevamp" and archive.active then
 			local appearances = {"misty_dress", "misty_naked", "misty_underwear"}
 			local entity_id = "0xA22A7797, 15"
@@ -2161,6 +2183,17 @@ function AMM:SetupExtraFromArchives()
 
 			db:execute([[INSERT INTO custom_appearances (entity_id, app_name, app_base, app_param, app_toggle, mesh_app, mesh_type, mesh_mask, collab_tag) VALUES ('0xA22A7797, 15', 'Custom Misty Naked No Choker', 'misty_naked', 'i1_048_wa_neck__ckoker', '0', NULL, 'item', NULL, 'AMM')]])
 			db:execute([[INSERT INTO custom_appearances (entity_id, app_name, app_base, app_param, app_toggle, mesh_app, mesh_type, mesh_mask, collab_tag) VALUES ('0xA22A7797, 15', 'Custom Misty Naked No Necklace', 'misty_naked', 'i1_001_wa_neck__misty0455', '0', NULL, 'item', NULL, 'AMM')]])
+
+		-- Setup Cheri appearances
+		elseif archive.name == "AMM_Cheri_Appearances" and archive.active then			
+			local appearances = {"service__sexworker_wa_cheri_casual", "service__sexworker_wa_cheri_home", "service__sexworker_wa_cheri_panties", "service__sexworker_wa_cheri_date", "service__sexworker_wa_cheri_party"}
+			local entity_id = "0xBF76C44D, 29"
+			local uid = "AMM"
+			for _, app in ipairs(appearances) do
+				db:execute(f('INSERT INTO appearances (entity_id, app_name, collab_tag) VALUES ("%s", "%s", "%s")', entity_id, app, uid))
+			end
+		elseif archive.name == "basegame_AMM_ScenesPack" and archive.active then
+			AMM.Poses.sceneAnimsInstalled = true
 		end
 	end
 
@@ -3390,6 +3423,22 @@ function AMM:DrawArchives()
 
 	local missingRequired = false
 
+	AMM.UI:TextColored("WARNING")
+
+	if missingRequired then
+		ImGui.TextWrapped("AMM is missing one or more required archives. Please install any missing required archive in your archive/pc/mod folder.")
+	else
+		ImGui.TextWrapped("AMM is missing one or more archives. These are optional but add functionality to AMM. You may ignore these warnings, but AMM might not work properly.")
+
+		AMM.UI:Spacing(4)
+
+		if ImGui.Button("Ignore warnings for this version!", ImGui.GetWindowContentRegionWidth(), 40) then
+			db:execute("UPDATE metadata SET ignore_archives = 1")
+		end
+	end
+
+	AMM.UI:Separator()
+
 	for _, archive in ipairs(AMM.archives) do
 		AMM.UI:TextColored(archive.name)
 
@@ -3407,28 +3456,10 @@ function AMM:DrawArchives()
 			end
 		end
 
-
 		ImGui.TextWrapped(archive.desc)
 
 		AMM.UI:Spacing(4)
-	end
-
-	AMM.UI:Separator()
-
-	AMM.UI:TextColored("WARNING")
-
-	if missingRequired then
-		ImGui.TextWrapped("AMM is missing one or more required archives. Please install any missing required archive in your archive/pc/mod folder.")
-	else
-		ImGui.TextWrapped("AMM is missing one or more archives. These are optional but add functionality to AMM. You may ignore these warnings, but AMM might not work properly.")
-
-		AMM.UI:Spacing(4)
-
-		if ImGui.Button("Ignore warnings for this version!", ImGui.GetWindowContentRegionWidth(), 40) then
-			db:execute("UPDATE metadata SET ignore_archives = 1")
-			AMM.archivesInfo = AMM:CheckMissingArchives()
-		end
-	end
+	end	
 end
 
 -- Songbird Immersion Methods

@@ -1545,7 +1545,7 @@ function Director:DrawActorsPopup()
       local entities = {}
       local query = "SELECT * FROM entities WHERE is_spawnable = 1 AND entity_name LIKE '%"..Director.searchQuery.."%' ORDER BY entity_name ASC"
       for en in db:nrows(query) do
-        table.insert(entities, {en.entity_name, en.entity_id, en.entity_path})
+        table.insert(entities, en)
       end
 
       if #entities ~= 0 then
@@ -1561,14 +1561,14 @@ function Director:DrawActorsPopup()
           for fav in db:nrows(query) do
             query = f("SELECT * FROM entities WHERE entity_id = '%s' AND cat_id != 22", fav.entity_id)
             for en in db:nrows(query) do
-              table.insert(entities, {en.entity_name, en.entity_id, en.entity_path})
+              table.insert(entities, en)
             end
           end
         end
 
         local query = f("SELECT * FROM entities WHERE is_spawnable = 1 AND cat_id != 22 AND cat_id == '%s' ORDER BY entity_name ASC", category.cat_id)
         for en in db:nrows(query) do
-          table.insert(entities, {en.entity_name, en.entity_id, en.entity_path})
+          table.insert(entities, en)
         end
 
         if #entities ~= 0 or category.cat_name == 'Favorites' then
@@ -1592,10 +1592,10 @@ function Director:DrawEntitiesButtons(entities, categoryName)
     buttonHeight = ImGui.GetFontSize() * 2
   }
 
-  for i, entity in ipairs(entities) do
-		name = entity[1]
-		id = entity[2]
-		path = entity[3]
+  for i, en in ipairs(entities) do
+		name = en.entity_name
+		id = en.entity_id
+		path = en.entity_path
 
     local favOffset = 0
 		if categoryName == 'Favorites' then

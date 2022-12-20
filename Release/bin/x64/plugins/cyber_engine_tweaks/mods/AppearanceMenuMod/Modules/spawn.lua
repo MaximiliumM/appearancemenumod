@@ -1,6 +1,6 @@
 Spawn = {}
 
-function Spawn:NewSpawn(name, id, parameters, companion, path, template)
+function Spawn:NewSpawn(name, id, parameters, companion, path, template, rig)
   local obj = {}
 	if type(id) == 'userdata' then id = tostring(id) end
 	obj.handle = ''
@@ -12,6 +12,7 @@ function Spawn:NewSpawn(name, id, parameters, companion, path, template)
 	obj.parameters = parameters
 	obj.canBeCompanion = intToBool(companion or 0)
 	obj.path = path
+	obj.rig = rig or nil
 	obj.template = template or ''
 	obj.type = 'Spawn'
 	obj.archetype = ''
@@ -178,10 +179,10 @@ function Spawn:DrawCategories(style)
   local validCatIDs = Util:GetAllCategoryIDs(Spawn.categories)
   if Spawn.searchQuery ~= '' then
     local entities = {}
-	 local parsedSearch = Util:ParseSearch(Spawn.searchQuery)
+	 local parsedSearch = Util:ParseSearch(Spawn.searchQuery, "entity_name")
     local query = 'SELECT * FROM entities WHERE is_spawnable = 1 AND cat_id IN '..validCatIDs..' AND '..parsedSearch..' ORDER BY entity_name ASC'
     for en in db:nrows(query) do
-      table.insert(entities, {en.entity_name, en.entity_id, en.can_be_comp, en.parameters, en.entity_path, en.template_path})
+      table.insert(entities, en)
     end
 
     if #entities ~= 0 then
@@ -202,7 +203,8 @@ function Spawn:DrawCategories(style)
 						query = f("SELECT * FROM entities WHERE entity_id = '%s' AND cat_id IN %s", fav.entity_id, validCatIDs)
 						for en in db:nrows(query) do
 							if fav.parameters ~= nil then en.parameters = fav.parameters end
-							table.insert(entities, {fav.entity_name, en.entity_id, en.can_be_comp, en.parameters, en.entity_path, en.template_path})
+							en.entity_name = fav.entity_name
+							table.insert(entities, en)
 						end
 					end
 					if #entities == 0 then
@@ -213,7 +215,7 @@ function Spawn:DrawCategories(style)
 				else
 					local query = f("SELECT * FROM entities WHERE is_spawnable = 1 AND cat_id == '%s' ORDER BY entity_name ASC", category.cat_id)
 					for en in db:nrows(query) do
-						table.insert(entities, {en.entity_name, en.entity_id, en.can_be_comp, en.parameters, en.entity_path, en.template_path})
+						table.insert(entities, en)
 					end
 				end
 
@@ -234,15 +236,16 @@ end
 
 function Spawn:DrawEntitiesButtons(entities, categoryName, style)
 
-	for i, entity in ipairs(entities) do
-		name = entity[1]
-		id = entity[2]
-		path = entity[5]
-		companion = entity[3]
-		parameters = entity[4]
-		template = entity[6]
+	for i, en in ipairs(entities) do
+		local name = en.entity_name
+		local id = en.entity_id
+		local path = en.entity_path
+		local rig = en.entity_rig
+		local companion = en.can_be_comp
+		local parameters = en.parameters
+		local template = en.template_path
 
-		local newSpawn = Spawn:NewSpawn(name, id, parameters, companion, path, template)
+		local newSpawn = Spawn:NewSpawn(name, id, parameters, companion, path, template, rig)
 		local uniqueName = newSpawn.uniqueName()
 		local buttonLabel = uniqueName..tostring(i)
 
@@ -502,7 +505,7 @@ end
 function Spawn:SpawnFavorite()
   local favorites = {}
   for ent in db:nrows("SELECT * FROM entities WHERE entity_id IN (SELECT entity_id FROM favorites)") do
-    table.insert(favorites, Spawn:NewSpawn(ent.entity_name, ent.entity_id, ent.entity_parameters, ent.can_be_comp, ent.entity_path, ent.template_path))
+    table.insert(favorites, Spawn:NewSpawn(ent.entity_name, ent.entity_id, ent.entity_parameters, ent.can_be_comp, ent.entity_path, ent.template_path, ent.entity_rig))
   end
 
   for _, spawn in ipairs(favorites) do
@@ -580,8 +583,24 @@ function Spawn:SpawnNPC(spawn)
 
 			Cron.After(0.2, function()
 				if not(string.find(spawn.name, "Drone")) then
-					Util:TeleportNPCTo(spawn.handle)
+					local cmd = Util:TeleportNPCTo(spawn.handle)
+					
+					Cron.Every(0.1, {timer = 1}, function(timer)
+						if not Util:CheckIfCommandIsActive(spawn.handle, cmd) then
+							AMM.Tools:SetCurrentTarget(spawn)	
+							Cron.Halt(timer)
+						end
+					end)
 				end
+
+				if AMM.userSettings.autoLock then
+					AMM.Tools.lockTarget = true
+					AMM.Tools:SetCurrentTarget(spawn)
+	
+					if AMM.userSettings.floatingTargetTools and AMM.userSettings.autoOpenTargetTools then
+						AMM.Tools.movementWindow.isEditing = true
+					end
+				end				
 			end)
 
 			if AMM.userSettings.spawnAsCompanion and spawn.canBeCompanion then
@@ -589,16 +608,7 @@ function Spawn:SpawnNPC(spawn)
 				Spawn:SetNPCAsCompanion(spawn.handle)
 			else
 				AMM.Tools:SetNPCAttitude(spawn, "friendly")
-			end
-
-			if AMM.userSettings.autoLock then
-				AMM.Tools.lockTarget = true
-				AMM.Tools:SetCurrentTarget(spawn)
-
-				if AMM.userSettings.floatingTargetTools and AMM.userSettings.autoOpenTargetTools then
-					AMM.Tools.movementWindow.isEditing = true
-				end
-			 end
+			end			
 
 			AMM:UpdateSettings()
 			Cron.Halt(timer)

@@ -43,6 +43,30 @@ function Util:ShallowCopy(copy, orig)
   return copy
 end
 
+function Util:CheckIfTableHasValue(tbl, value)
+  for k, v in ipairs(tbl) do -- iterate table (for sequential tables only)
+    if v == value or (type(v) == "table" and hasValue(v, value)) then -- Compare value from the table directly with the value we are looking for, otherwise if the value is table, check its content for this value.
+        return true -- Found in this or nested table
+    end
+  end
+  return false -- Not found
+end
+
+function Util:ReverseTable(tab)
+  local n, m = #tab, #tab/2
+  for i=1, m do
+    tab[i], tab[n-i+1] = tab[n-i+1], tab[i]
+  end
+  return tab
+end
+
+function Util:ConcatTables(t1, t2)
+  for i=1,#t2 do
+      t1[#t1+1] = t2[i]
+  end  
+  return t1
+end
+
 function Util:GetTableKeys(tab)
   local keyset = {}
   for k,v in pairs(tab) do
@@ -59,11 +83,11 @@ function Util:Split(s, delimiter)
   return result
 end
 
-function Util:ParseSearch(query)
+function Util:ParseSearch(query, column)
   local words = Util:Split(query, " ")
   local r = ""
   for i, word in ipairs(words) do
-      r = r..string.format('entity_name LIKE "%%%s%%"', word)
+      r = r..string.format('%s LIKE "%%%s%%"', column, word)
       if i ~= #words then r = r..' AND ' end
   end
   return r
