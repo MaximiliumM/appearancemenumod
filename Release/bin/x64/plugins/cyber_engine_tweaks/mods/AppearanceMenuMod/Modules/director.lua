@@ -402,6 +402,9 @@ function Director:DrawCamerasTab()
           local speed = camera.speed * 100
           speed = ImGui.DragFloat("Speed##"..i, speed, 1, 1, 100, "%.0f")
           camera.speed = speed / 100
+
+          camera.lock = ImGui.Checkbox("Lock Frame", camera.lock)
+          camera:SetLock(camera.lock)
         end
       end
 

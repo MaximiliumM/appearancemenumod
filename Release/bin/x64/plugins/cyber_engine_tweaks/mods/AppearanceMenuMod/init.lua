@@ -45,7 +45,7 @@ function AMM:new()
 	 AMM.UniqueVRig = false
 
 	 -- Main Properties --
-	 AMM.currentVersion = "2.0"
+	 AMM.currentVersion = "2.0.1"
 	 AMM.CETVersion = tonumber(GetVersion():match("1.(%d+)."))
 	 AMM.updateNotes = require('update_notes.lua')
 	 AMM.credits = require("credits.lua")
@@ -1962,27 +1962,6 @@ function AMM:ExportSelectedHotkeys()
 	return selectedHotkeys
 end
 
-function AMM:IsApproved(modder, path)
-	local path = path:match("%\\(%a+)%\\")
-
-	if path then
-		local id = AMM:GetScanID(modder..path)		
-
-		local possibleIDs = {
-			"0xB12C810A, 20", "0x83384354, 12",
-			"0x86B91A0E, 11", "0xA582326C, 10",
-			"0x61487D07, 14", "0x054D87CE, 9",
-			"0x2DD80600, 14", "0x969CF416, 10"
-		}
-
-		for _, possibleID in ipairs(possibleIDs) do
-			if id == possibleID then return 1 end
-		end
-	end
-
-	return 0
-end
-
 function AMM:GetSaveables()
 	local defaults = {
 		'0xB1B50FFA, 14', '0xC67F0E01, 15', '0x73C44EBA, 15', '0xA1C78C30, 16', '0x7F65F7F7, 16',
@@ -2338,17 +2317,15 @@ function AMM:SetupCustomEntities()
 					end
 
 					local entity_id = AMM:GetScanID(entity_path)
-					local swappable = AMM:IsApproved(modder, entity.path)
 					local canBeComp = 1
 					local category = 55
 					if entity.type == "Vehicle" then
 						canBeComp = 0
-						swappable = 1
 						category = 56
 					end
 
 					local tables = '(entity_id, entity_name, cat_id, parameters, can_be_comp, entity_path, is_spawnable, is_swappable, template_path)'
-					local values = f('("%s", "%s", %i, %s, "%s", "%s", "%s", "%s", "%s")', entity_id, entity.name, category, nil, canBeComp, entity_path, 1, swappable, entity.path)
+					local values = f('("%s", "%s", %i, %s, "%s", "%s", "%s", "%s", "%s")', entity_id, entity.name, category, nil, canBeComp, entity_path, 1, 1, entity.path)
 					values = values:gsub('nil', "NULL")
 					db:execute(f('INSERT INTO entities %s VALUES %s', tables, values))
 

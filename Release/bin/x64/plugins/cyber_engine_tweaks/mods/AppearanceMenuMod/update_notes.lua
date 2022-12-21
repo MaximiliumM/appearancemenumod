@@ -1,5 +1,16 @@
 return {
 	{
+		'2.0.1',
+		'2022 Dec 21',
+		[[Updated Scenes Pack]],
+		[[-- Adjusted rig used for some animations]],
+		[[-- Removed a lot of not working animations]],
+		[[-- Pack contains 7919 animations now]],
+		[[Added a new Lock Frame button to Director Cameras]],
+		[[Allowed Custom Entities added through Collabs to be swappable]],
+		[[Fixed issue where using Search in Poses tab would break AMM if you had Favorites category open]],
+	},
+	{
 		'2.0',
 		'2022 Dec 20',
 		[[Introducing Poses:]],

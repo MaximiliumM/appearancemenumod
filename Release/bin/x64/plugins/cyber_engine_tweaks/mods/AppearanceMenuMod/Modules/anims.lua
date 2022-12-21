@@ -147,16 +147,11 @@ function Poses:Draw(AMM, target)
 
             if target.type == "Player" and AMM.userSettings.animPlayerSelfTarget then
               if gender == "_Female" then gender = "Player Woman" else gender = "Player Man" end
-              if category == gender then gender = true else gender = false end       
+              if category == gender then gender = true else gender = false end
             end
 
             if category == 'Favorites' then
-              local query = "SELECT * FROM workspots WHERE anim_fav = 1 ORDER BY anim_name ASC"
-              Poses.anims['Favorites'] = {}
-
-              for ws in db:nrows(query) do
-                table.insert(Poses.anims['Favorites'], {name = ws.anim_name, rig = ws.anim_rig, comp = ws.anim_comp, ent = ws.anim_ent, fav = intToBool(ws.anim_fav)})       
-              end              
+              Poses.anims['Favorites'] = Poses:GetFavorites()
             end
 
             if next(anims) == nil then
@@ -167,12 +162,12 @@ function Poses:Draw(AMM, target)
             if (category == "Player Woman" or category == "Player Man")
             and AMM.userSettings.animPlayerSelfTarget and target.type ~= "Player" then goto skip end
             
-            if anims[category] ~= nil and next(anims[category]) ~= nil or category == 'Favorites' then
+            if anims[category] ~= nil and next(anims[category]) ~= nil or (category == 'Favorites' and Poses.searchQuery == '') then
               if(ImGui.CollapsingHeader(category)) then
                 if ImGui.BeginChild(category, ImGui.GetWindowContentRegionWidth(), ImGui.GetWindowHeight() / 1.5) then
                   if category == 'Favorites' and #Poses.anims['Favorites'] == 0 then
                     ImGui.Text("It's empty :(")
-                  else                
+                  else
                     Poses:DrawAnimsButton(target, anims[category])
                   end
                 end
@@ -319,6 +314,18 @@ function Poses:AddAnimationToHistory(anim)
   Poses.historyAnims, Poses.historyCategories = Poses:GetAnimationsForListOfIDs(Poses.history)
 end
 
+function Poses:GetFavorites(search)
+  local query = "SELECT * FROM workspots WHERE anim_fav = 1 ORDER BY anim_name ASC"
+  if search then query = "SELECT * FROM workspots WHERE "..search.." AND anim_fav = 1 ORDER BY anim_name ASC" end
+  local anims = {}
+
+  for ws in db:nrows(query) do
+    table.insert(anims, {name = ws.anim_name, rig = ws.anim_rig, comp = ws.anim_comp, ent = ws.anim_ent, fav = intToBool(ws.anim_fav)})
+  end
+
+  return anims
+end
+
 function Poses:GetAnimationsForListOfIDs(ids)
   local parsedIDs = "("..table.concat(ids, ", ")..")"
   local orderCase = " ORDER BY CASE anim_id"
@@ -346,6 +353,11 @@ function Poses:GetAnimationsForSearch(parsedSearch)
   local query = 'SELECT * FROM workspots WHERE '..parsedSearch..' ORDER BY anim_name ASC'
 
 	local anims = {}
+
+  local favs = Poses:GetFavorites(parsedSearch)
+  if #favs == 0 then favs = nil end
+  anims['Favorites'] = favs
+
 	for workspot in db:nrows(query) do
     if anims[workspot.anim_rig] == nil then
       anims[workspot.anim_rig] = {}

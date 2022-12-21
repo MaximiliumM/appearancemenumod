@@ -13,6 +13,7 @@ function Camera:new()
   obj.path = "base\\entities\\cameras\\simple_free_camera.ent"
   obj.mappinID = nil
   obj.active = false
+  obj.lock = false
 
   -- Main Properties
   obj.isMoving = false
@@ -81,6 +82,10 @@ function Camera:Deactivate(blendTime)
   end
 end
 
+function Camera:SetLock(value)
+  self.lock = value
+end
+
 function Camera:SetFOV(value)
   self.component:SetFOV(value)
   self.fov = value
@@ -121,190 +126,192 @@ end
 
 -- Original code by keanuWheeze
 function Camera:HandleInput(actionName, actionType, action)
-  if actionName == "MoveX" or actionName == "PhotoMode_CameraMovementX" then -- Controller movement
-    local x = action:GetValue(action)
-    if x < 0 then
-        self.currentDirections.left = true
-        self.currentDirections.right = false
-        self.analogRight = 0
-        self.analogLeft = -x
-    else
-        self.currentDirections.right = true
-        self.currentDirections.left = false
-        self.analogRight = x
-        self.analogLeft = 0
+  if not self.lock then
+    if actionName == "MoveX" or actionName == "PhotoMode_CameraMovementX" then -- Controller movement
+      local x = action:GetValue(action)
+      if x < 0 then
+          self.currentDirections.left = true
+          self.currentDirections.right = false
+          self.analogRight = 0
+          self.analogLeft = -x
+      else
+          self.currentDirections.right = true
+          self.currentDirections.left = false
+          self.analogRight = x
+          self.analogLeft = 0
+      end
+      if x == 0 then
+          self.currentDirections.right = false
+          self.currentDirections.left = false
+          self.analogRight = 0
+          self.analogLeft = 0
+      end
+    elseif actionName == "MoveY" or actionName == "PhotoMode_CameraMovementY" then
+      local x = action:GetValue(action)
+      if x < 0 then
+          self.currentDirections.backwards = true
+          self.currentDirections.forward = false
+          self.analogForward = 0
+          self.analogBackwards = -x
+      else
+          self.currentDirections.backwards = false
+          self.currentDirections.forward = true
+          self.analogForward = x
+          self.analogBackwards = 0
+      end
+      if x == 0 then
+          self.currentDirections.backwards = false
+          self.currentDirections.forward = false
+          self.analogForward = 0
+          self.analogBackwards = 0
+      end
+    elseif actionName == 'Jump' or (actionName == "right_trigger" or actionName == "PhotoMode_CraneUp") and actionType == "AXIS_CHANGE" then
+      local z = action:GetValue(action)
+      if z == 0 or actionType == 'BUTTON_RELEASED' then
+          self.analogUp = 0
+          self.currentDirections.up = false
+      else
+          self.currentDirections.up = true
+          self.analogUp = z
+      end
+    elseif actionName == 'ToggleSprint' or (actionName == "left_trigger" or actionName == "PhotoMode_CraneDown") and actionType == "AXIS_CHANGE" then
+      local z = action:GetValue(action)
+      if z == 0 or actionType == 'BUTTON_RELEASED' then
+          self.analogDown = 0
+          self.currentDirections.down = false
+      else
+          self.currentDirections.down = true
+          self.analogDown = z
+      end
     end
-    if x == 0 then
-        self.currentDirections.right = false
-        self.currentDirections.left = false
-        self.analogRight = 0
-        self.analogLeft = 0
-    end
-  elseif actionName == "MoveY" or actionName == "PhotoMode_CameraMovementY" then
-    local x = action:GetValue(action)
-    if x < 0 then
-        self.currentDirections.backwards = true
-        self.currentDirections.forward = false
-        self.analogForward = 0
-        self.analogBackwards = -x
-    else
-        self.currentDirections.backwards = false
-        self.currentDirections.forward = true
-        self.analogForward = x
-        self.analogBackwards = 0
-    end
-    if x == 0 then
-        self.currentDirections.backwards = false
-        self.currentDirections.forward = false
-        self.analogForward = 0
-        self.analogBackwards = 0
-    end
-  elseif actionName == 'Jump' or (actionName == "right_trigger" or actionName == "PhotoMode_CraneUp") and actionType == "AXIS_CHANGE" then
-    local z = action:GetValue(action)
-    if z == 0 or actionType == 'BUTTON_RELEASED' then
-        self.analogUp = 0
-        self.currentDirections.up = false
-    else
-        self.currentDirections.up = true
-        self.analogUp = z
-    end
-  elseif actionName == 'ToggleSprint' or (actionName == "left_trigger" or actionName == "PhotoMode_CraneDown") and actionType == "AXIS_CHANGE" then
-    local z = action:GetValue(action)
-    if z == 0 or actionType == 'BUTTON_RELEASED' then
-        self.analogDown = 0
-        self.currentDirections.down = false
-    else
-        self.currentDirections.down = true
-        self.analogDown = z
-    end
-  end
 
-  if actionName == 'Forward' then
-    if actionType == 'BUTTON_PRESSED' then
-        self.currentDirections.forward = true
-        self.analogForward = 1
-    elseif actionType == 'BUTTON_RELEASED' then
-        self.currentDirections.forward = false
-        self.analogForward = 0
-    end
-  elseif actionName == 'Back' then
-    if actionType == 'BUTTON_PRESSED' then
-        self.currentDirections.backwards = true
-        self.analogBackwards = 1
-    elseif actionType == 'BUTTON_RELEASED' then
-        self.currentDirections.backwards = false
-        self.analogBackwards = 0
-    end
-  elseif actionName == 'Right' then
-    if actionType == 'BUTTON_PRESSED' then
-        self.currentDirections.right = true
-        self.analogRight = 1
-    elseif actionType == 'BUTTON_RELEASED' then
-        self.currentDirections.right = false
-        self.analogRight = 0
-    end
-  elseif actionName == 'Left' then
-    if actionType == 'BUTTON_PRESSED' then
-        self.currentDirections.left = true
-        self.analogLeft = 1
-    elseif actionType == 'BUTTON_RELEASED' then
-        self.currentDirections.left = false
-        self.analogLeft = 0
-    end
-  elseif actionName == "character_preview_rotate" and actionType == 'AXIS_CHANGE' then
-    if action:GetValue(action) < 0 then
-        self.currentDirections.rotateRight = true
-    elseif action:GetValue(action) > 0 then
-      self.currentDirections.rotateLeft = true
-    elseif action:GetValue(action) == 0 then
-        self.currentDirections.rotateRight = false
-        self.currentDirections.rotateLeft = false
-    end
-  elseif actionName == 'DescriptionChange' or actionName == "PhotoMode_Next_Menu" then
-    if actionType == 'BUTTON_PRESSED' then
-        self.currentDirections.rotateRight = true
-    elseif actionType == 'BUTTON_RELEASED' then
-        self.currentDirections.rotateRight = false
-    end
-  elseif actionName == 'Ping' or actionName == "PhotoMode_Prior_Menu" then
-    if actionType == 'BUTTON_PRESSED' then
+    if actionName == 'Forward' then
+      if actionType == 'BUTTON_PRESSED' then
+          self.currentDirections.forward = true
+          self.analogForward = 1
+      elseif actionType == 'BUTTON_RELEASED' then
+          self.currentDirections.forward = false
+          self.analogForward = 0
+      end
+    elseif actionName == 'Back' then
+      if actionType == 'BUTTON_PRESSED' then
+          self.currentDirections.backwards = true
+          self.analogBackwards = 1
+      elseif actionType == 'BUTTON_RELEASED' then
+          self.currentDirections.backwards = false
+          self.analogBackwards = 0
+      end
+    elseif actionName == 'Right' then
+      if actionType == 'BUTTON_PRESSED' then
+          self.currentDirections.right = true
+          self.analogRight = 1
+      elseif actionType == 'BUTTON_RELEASED' then
+          self.currentDirections.right = false
+          self.analogRight = 0
+      end
+    elseif actionName == 'Left' then
+      if actionType == 'BUTTON_PRESSED' then
+          self.currentDirections.left = true
+          self.analogLeft = 1
+      elseif actionType == 'BUTTON_RELEASED' then
+          self.currentDirections.left = false
+          self.analogLeft = 0
+      end
+    elseif actionName == "character_preview_rotate" and actionType == 'AXIS_CHANGE' then
+      if action:GetValue(action) < 0 then
+          self.currentDirections.rotateRight = true
+      elseif action:GetValue(action) > 0 then
         self.currentDirections.rotateLeft = true
-    elseif actionType == 'BUTTON_RELEASED' then
-        self.currentDirections.rotateLeft = false
-    end
-  end
-
-  if actionName == "dpad_up" or actionName == "up_button" then
-    if actionType == "BUTTON_PRESSED" then
-        self.adjustments.zoomUp = true
-    elseif actionType == "BUTTON_RELEASED" then
-        self.adjustments.zoomUp = false
-    end
-  elseif actionName == "dpad_down" or actionName == "down_button" then
-    if actionType == "BUTTON_PRESSED" then
-        self.adjustments.zoomDown = true
-    elseif actionType == "BUTTON_RELEASED" then
-        self.adjustments.zoomDown = false
-    end
-  elseif actionName == "dpad_right" or actionName == "PhotoMode_Right_Button" then
-      if actionType == "BUTTON_PRESSED" then
-          self.adjustments.fovUp = true
-      elseif actionType == "BUTTON_RELEASED" then
-          self.adjustments.fovUp = false
+      elseif action:GetValue(action) == 0 then
+          self.currentDirections.rotateRight = false
+          self.currentDirections.rotateLeft = false
       end
-  elseif actionName == "dpad_left" or actionName == "PhotoMode_Left_Button" then
-      if actionType == "BUTTON_PRESSED" then
-          self.adjustments.fovDown = true
-      elseif actionType == "BUTTON_RELEASED" then
-          self.adjustments.fovDown = false
+    elseif actionName == 'DescriptionChange' or actionName == "PhotoMode_Next_Menu" then
+      if actionType == 'BUTTON_PRESSED' then
+          self.currentDirections.rotateRight = true
+      elseif actionType == 'BUTTON_RELEASED' then
+          self.currentDirections.rotateRight = false
       end
-  end
-
-  local rot = nil
-  if actionName == "CameraMouseX" or actionName == "CameraX"
-  or actionName == "PhotoMode_CameraMouseX" or actionName == "PhotoMode_CameraRotationX" then
-    local x = action:GetValue(action)
-    local factor = 0.5
-    if actionName == "CameraMouseX" or actionName == "PhotoMode_CameraMouseX" then factor = 45 end
-
-    if self.zoom > 0 then
-      factor = factor * self.zoom
+    elseif actionName == 'Ping' or actionName == "PhotoMode_Prior_Menu" then
+      if actionType == 'BUTTON_PRESSED' then
+          self.currentDirections.rotateLeft = true
+      elseif actionType == 'BUTTON_RELEASED' then
+          self.currentDirections.rotateLeft = false
+      end
     end
 
-    if self.component then
-      rot = self.component:GetLocalOrientation():ToEulerAngles() -- Get the local orientation of the cam
-      rot.yaw = rot.yaw - (x / factor) -- Change its yaw
+    if actionName == "dpad_up" or actionName == "up_button" then
+      if actionType == "BUTTON_PRESSED" then
+          self.adjustments.zoomUp = true
+      elseif actionType == "BUTTON_RELEASED" then
+          self.adjustments.zoomUp = false
+      end
+    elseif actionName == "dpad_down" or actionName == "down_button" then
+      if actionType == "BUTTON_PRESSED" then
+          self.adjustments.zoomDown = true
+      elseif actionType == "BUTTON_RELEASED" then
+          self.adjustments.zoomDown = false
+      end
+    elseif actionName == "dpad_right" or actionName == "PhotoMode_Right_Button" then
+        if actionType == "BUTTON_PRESSED" then
+            self.adjustments.fovUp = true
+        elseif actionType == "BUTTON_RELEASED" then
+            self.adjustments.fovUp = false
+        end
+    elseif actionName == "dpad_left" or actionName == "PhotoMode_Left_Button" then
+        if actionType == "BUTTON_PRESSED" then
+            self.adjustments.fovDown = true
+        elseif actionType == "BUTTON_RELEASED" then
+            self.adjustments.fovDown = false
+        end
     end
-  end
-  if actionName == "CameraMouseY" or actionName == "CameraY"
-  or actionName == "PhotoMode_CameraMouseY" or actionName == "PhotoMode_CameraRotationY" then
-    local y = action:GetValue(action)
-    local factor = 0.5
-    if actionName == "CameraMouseY" or actionName == "PhotoMode_CameraMouseY" then factor = 45 end
 
-    if self.zoom > 0 then
-      factor = factor * self.zoom
+    local rot = nil
+    if actionName == "CameraMouseX" or actionName == "CameraX"
+    or actionName == "PhotoMode_CameraMouseX" or actionName == "PhotoMode_CameraRotationX" then
+      local x = action:GetValue(action)
+      local factor = 0.5
+      if actionName == "CameraMouseX" or actionName == "PhotoMode_CameraMouseX" then factor = 45 end
+
+      if self.zoom > 0 then
+        factor = factor * self.zoom
+      end
+
+      if self.component then
+        rot = self.component:GetLocalOrientation():ToEulerAngles() -- Get the local orientation of the cam
+        rot.yaw = rot.yaw - (x / factor) -- Change its yaw
+      end
+    end
+    if actionName == "CameraMouseY" or actionName == "CameraY"
+    or actionName == "PhotoMode_CameraMouseY" or actionName == "PhotoMode_CameraRotationY" then
+      local y = action:GetValue(action)
+      local factor = 0.5
+      if actionName == "CameraMouseY" or actionName == "PhotoMode_CameraMouseY" then factor = 45 end
+
+      if self.zoom > 0 then
+        factor = factor * self.zoom
+      end
+
+      if self.component then
+        rot = self.component:GetLocalOrientation():ToEulerAngles()
+        if rot.pitch == 90 then rot.pitch = 86 elseif rot.pitch == -90 then rot.pitch = -86 end
+        rot.pitch = rot.pitch + (y / factor)
+      end
+    end
+    if actionName == "CameraMouseX" or actionName == "CameraMouseY"
+    or actionName == "CameraY" or actionName == "CameraX" 
+    or actionName == "PhotoMode_CameraMouseY" or actionName == "PhotoMode_CameraMouseX" 
+    or actionName == "PhotoMode_CameraRotationX" or actionName == "PhotoMode_CameraRotationY" then
+      if self.component then
+        self.component:SetLocalOrientation(rot:ToQuat()) -- Set the local orientation
+      end
     end
 
-    if self.component then
-      rot = self.component:GetLocalOrientation():ToEulerAngles()
-      if rot.pitch == 90 then rot.pitch = 86 elseif rot.pitch == -90 then rot.pitch = -86 end
-      rot.pitch = rot.pitch + (y / factor)
-    end
-  end
-  if actionName == "CameraMouseX" or actionName == "CameraMouseY"
-  or actionName == "CameraY" or actionName == "CameraX" 
-  or actionName == "PhotoMode_CameraMouseY" or actionName == "PhotoMode_CameraMouseX" 
-  or actionName == "PhotoMode_CameraRotationX" or actionName == "PhotoMode_CameraRotationY" then
-    if self.component then
-      self.component:SetLocalOrientation(rot:ToQuat()) -- Set the local orientation
-    end
-  end
-
-  self.isMoving = false
-  for _, v in pairs(self.currentDirections) do
-    if v == true then
-        self.isMoving = true
+    self.isMoving = false
+    for _, v in pairs(self.currentDirections) do
+      if v == true then
+          self.isMoving = true
+      end
     end
   end
 end

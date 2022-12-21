@@ -312,7 +312,7 @@ function Entity:Move()
     if self.type ~= "Player" and self.handle:IsNPC() and self.isMoving then
       self.pos = newPos
       self.angles = rot
-      Util:TeleportNPCTo(self.handle, self.pos, rot.yaw)  
+      Util:TeleportNPCTo(self.handle, self.pos, rot.yaw)
     else
       Game.GetTeleportationFacility():Teleport(self.handle, newPos, EulerAngles.new(rot.roll, rot.pitch, rot.yaw))
     end
