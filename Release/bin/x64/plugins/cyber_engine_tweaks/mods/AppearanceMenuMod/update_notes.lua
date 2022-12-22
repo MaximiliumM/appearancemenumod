@@ -1,5 +1,17 @@
 return {
 	{
+		'2.0.2',
+		'2022 Dec 22',
+		[[Updated Scenes Pack]],
+		[[-- Removed dupes and broken animations]],
+		[[-- Pack contains 1590 animations now]],
+		[[Added new Save button to Presets tab]],
+		[[-- This is a reliable way to save your preset and avoid potential data loss]],
+		[[Fixed issue where Saving Prop would not despawn it]],
+		[[Fixed issue when loading Lights data in certain conditions]],
+		[[Fixed issue where pressing Target would disrupt the current frozen animation]],
+	},
+	{
 		'2.0.1',
 		'2022 Dec 21',
 		[[Updated Scenes Pack]],

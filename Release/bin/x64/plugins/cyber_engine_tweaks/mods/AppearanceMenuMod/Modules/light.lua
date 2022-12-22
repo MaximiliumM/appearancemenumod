@@ -238,7 +238,7 @@ end
 function Light:SetLightData(light, data)
   local components = Light:GetLightComponent(light.handle)
 
-  if #components > 0 then
+  if components and #components > 0 then
     local component = components[1]
     local angles = loadstring('return '..data.angles, '')()
     local newColor = NewObject('Color')

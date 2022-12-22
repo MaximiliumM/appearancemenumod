@@ -550,6 +550,10 @@ function Props:DrawPresetConfig()
 
   if Props.activePreset ~= '' then
 
+    if ImGui.Button("Save", Props.style.buttonWidth, Props.style.buttonHeight) then        
+      Props:SavePreset(Props.activePreset, nil, true)
+    end
+
     if ImGui.Button("Rename", Props.style.buttonWidth, Props.style.buttonHeight) then        
       Props.rename = ''
       ImGui.OpenPopup("Rename Preset")
@@ -1064,7 +1068,7 @@ function Props:SavePropPosition(ent)
 
   Cron.After(2.0, function()
     if not ent.uid then
-      Props:DespawnProp(ent)
+      ent:Despawn()
     end
 
     local preset = Props.activePreset
@@ -1322,7 +1326,8 @@ end
 
 function Props:DespawnProp(ent)
   if ent.uid then
-    exEntitySpawner.Despawn(Props.activeProps[ent.uid].handle) 
+    exEntitySpawner.Despawn(Props.activeProps[ent.uid].handle)
+    Props.activeProps[ent.uid].handle:Dispose()
     Props.activeProps[ent.uid] = nil
   else
     ent.spawned = false    
@@ -1495,8 +1500,27 @@ function Props:DeletePreset(preset)
   end
 end
 
-function Props:SavePreset(preset, path)
+function Props:SavePreset(preset, path, fromDB)
   spdlog.info('Saving preset...')
+
+  if fromDB then
+    local props = {}
+    for prop in db:nrows('SELECT * FROM saved_props') do
+      table.insert(props, prop)
+    end
+
+    local lights = {}
+    for light in db:nrows('SELECT * FROM saved_lights') do
+      table.insert(lights, light)
+    end
+
+    local presetFromDB = Props:NewPreset(preset.name or 'Preset')
+    presetFromDB.props = props
+    presetFromDB.lights = lights
+    presetFromDB.file_name = preset.name..".json"
+
+    preset = presetFromDB
+  end
 
   local contents = json.encode(preset)
   local bouncedPreset = json.decode(contents)

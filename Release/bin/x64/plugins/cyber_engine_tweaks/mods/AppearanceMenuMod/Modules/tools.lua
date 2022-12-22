@@ -944,6 +944,12 @@ function Tools:SetTargetPosition(pos, angles)
   end
 
   Cron.After(0.2, function()
+    local hash = Tools.currentTarget.hash
+    if AMM.Poses.activeAnims[hash] then
+      local anim = AMM.Poses.activeAnims[hash]
+      AMM.Poses:RestartAnimation(anim)
+    end
+
     Tools:SetCurrentTarget(Tools.currentTarget)
   end)
 end
@@ -960,13 +966,7 @@ end
 function Tools:SetCurrentTarget(target, systemActivated)
   local pos, angles
   target.appearance = AMM:GetAppearance(target)
-  Tools.currentTarget = AMM.Entity:new(target)
-
-  local hash = Tools.currentTarget.hash
-  if AMM.Poses.activeAnims[hash] then
-    local anim = AMM.Poses.activeAnims[hash]
-    AMM.Poses:RestartAnimation(anim)
-  end
+  Tools.currentTarget = AMM.Entity:new(target)  
   
   if not systemActivated then
     local light = AMM.Light:GetLightData(target)
