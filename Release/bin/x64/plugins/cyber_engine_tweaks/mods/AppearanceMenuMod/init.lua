@@ -45,7 +45,7 @@ function AMM:new()
 	 AMM.UniqueVRig = false
 
 	 -- Main Properties --
-	 AMM.currentVersion = "2.0.2"
+	 AMM.currentVersion = "2.1-beta"
 	 AMM.CETVersion = tonumber(GetVersion():match("1.(%d+)."))
 	 AMM.updateNotes = require('update_notes.lua')
 	 AMM.credits = require("credits.lua")
@@ -450,7 +450,12 @@ function AMM:new()
 			end
 
 			if AMM.Tools.directMode and (AMM.Tools.currentTarget and AMM.Tools.currentTarget ~= '') then
-				AMM.Tools.currentTarget:HandleInput(actionName, actionType, action)						
+				AMM.Tools.currentTarget:HandleInput(actionName, actionType, action)
+			end
+
+			if AMM.Light.stickyMode and AMM.Light.activeLight and AMM.Light.activeLight.isAMMLight then
+				AMM.Light.activeLight:HandleInput(actionName, actionType, action)
+				AMM.Light.camera:HandleInput(actionName, actionType, action)
 			end
 
 			if actionName == 'TogglePhotoMode' then
@@ -1000,6 +1005,12 @@ function AMM:new()
 						AMM.Director.activeCamera:Move()
 					end
 
+					-- Light Movement --
+					if AMM.Light.stickyMode and AMM.Light.activeLight and AMM.Light.activeLight.isAMMLight then
+						AMM.Light.activeLight:Move()
+						AMM.Light.camera:Move()
+					end
+
 					-- Entity Movement --
 					if AMM.Tools.directMode and AMM.Tools.currentTarget and AMM.Tools.currentTarget ~= '' then
 						AMM.Tools.currentTarget:Move()
@@ -1546,7 +1557,7 @@ function AMM:Begin()
 		AMM.Light:Draw(AMM)
 	 end
 
-	 if AMM.userSettings.floatingTargetTools and AMM.Tools.movementWindow.isEditing and (target ~= nil or (AMM.Tools.currentTarget and AMM.Tools.currentTarget ~= '')) then
+	 if AMM.userSettings.floatingTargetTools and AMM.Tools.movementWindow.open and (target ~= nil or (AMM.Tools.currentTarget and AMM.Tools.currentTarget ~= '')) then
 		AMM.Tools:DrawMovementWindow()
 	 end
 end

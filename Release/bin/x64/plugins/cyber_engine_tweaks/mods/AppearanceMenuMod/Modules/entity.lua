@@ -91,6 +91,19 @@ function Entity:Despawn()
     AMM.Poses:StopAnimation(AMM.Poses.activeAnims[self.hash])
   end
 
+  if AMM.Light:IsAMMLight(self) then
+    if Light.stickyMode and self.id == Light.activeLight.id then
+      Light.stickyMode = false
+      Light.camera = nil
+    end
+
+    if Light.activeCameras[self.hash] then
+      local camera = Light.activeCameras[self.hash]
+      camera:Despawn()
+      Light.activeCameras[self.hash] = nil
+    end
+  end
+
   if self.type == "NPCPuppet" or self.type == "Spawn" then
     AMM.Spawn:DespawnNPC(self)
   elseif self.type == "Prop" or self.type == "entEntity" then

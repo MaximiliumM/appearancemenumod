@@ -124,7 +124,6 @@ function Spawn:DrawActiveSpawns(style)
       if spawn.handle ~= '' then
         ImGui.SameLine()
         if ImGui.SmallButton("Target".."##"..spawn.name) then
-
           AMM.Tools:SetCurrentTarget(spawn)
           AMM.Tools.lockTarget = true
         end
@@ -549,7 +548,11 @@ function Spawn:SpawnNPC(spawn)
 
 	Spawn.currentSpawnedID = spawn.id
 
-	spawn.entityID = Game.GetPreventionSpawnSystem():RequestSpawn(AMM:GetNPCTweakDBID(spawn.path), -99, spawnTransform)
+	if AMM.userSettings.spawnAsCompanion then
+		spawn.entityID = Game.GetPreventionSpawnSystem():RequestSpawn(AMM:GetNPCTweakDBID(spawn.path), -99, spawnTransform)
+	else
+		spawn.entityID = exEntitySpawner.SpawnRecord(spawn.path, spawnTransform)
+	end
 
 	while Spawn.spawnedNPCs[spawn.uniqueName()] ~= nil do
 		local num = spawn.name:match("|([^|]+)")
@@ -587,7 +590,7 @@ function Spawn:SpawnNPC(spawn)
 					
 					Cron.Every(0.1, {timer = 1}, function(timer)
 						if not Util:CheckIfCommandIsActive(spawn.handle, cmd) then
-							AMM.Tools:SetCurrentTarget(spawn)	
+							AMM.Tools:SetCurrentTarget(spawn)
 							Cron.Halt(timer)
 						end
 					end)

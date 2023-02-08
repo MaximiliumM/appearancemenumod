@@ -54,7 +54,17 @@ function Poses:Draw(AMM, target)
 
       for hash, anim in pairs(Poses.activeAnims) do
 
-        ImGui.Text(anim.target.name)
+        local nameLabel = anim.target.name
+        if Tools.lockTarget and Tools.currentTarget ~= '' and Tools.currentTarget.handle then
+          if nameLabel == Tools.currentTarget.name then
+            AMM.UI:TextColored(nameLabel)
+          else
+            ImGui.Text(nameLabel)
+          end
+        else
+          ImGui.Text(nameLabel)
+        end
+        
         local name = anim.name:gsub("_", " ")
         name = name:gsub("__", " ")
         ImGui.Text(name)
@@ -73,6 +83,14 @@ function Poses:Draw(AMM, target)
         ImGui.SameLine()
         if ImGui.SmallButton(f("  %s ##", buttonLabel)..hash) then
           Poses:ToggleFavorite(not isFavorite, anim)
+        end
+
+        if anim.target.handle ~= '' then
+          ImGui.SameLine()
+          if ImGui.SmallButton("Target".."##"..anim.target.name) then
+            AMM.Tools:SetCurrentTarget(anim.target)
+            AMM.Tools.lockTarget = true
+          end
         end
 
         ImGui.SameLine()
@@ -429,7 +447,11 @@ end
 
 function Poses:CheckTargetRig(target)
   if target.rig then
-    return {"Favorites", Poses.rigs[target.rig], Poses.rigs[target.rig].." Scenes"}
+    if Poses.sceneAnimsInstalled then
+      return {"Favorites", Poses.rigs[target.rig], Poses.rigs[target.rig].." Scenes"}
+    end
+
+    return {"Favorites", Poses.rigs[target.rig]}
   else
     local rigs = {
       ["fx_woman_base"] = "Woman",

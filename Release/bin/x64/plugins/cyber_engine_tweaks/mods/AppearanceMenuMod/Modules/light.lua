@@ -5,6 +5,8 @@ function Light:NewLight(light)
 	obj.handle = light.handle
   obj.hash = tostring(light.handle:GetEntityID().hash)
   obj.spawn = light
+  obj.isAMMLight = Light:IsAMMLight(light)
+  obj.id = light.id
 
   local components = Light:GetLightComponent(light.handle)
 
@@ -23,6 +25,220 @@ function Light:NewLight(light)
     obj.lightType = obj.component.type
     obj.shadows = obj.component.contactShadows == rendContactShadowReciever.CSR_All
 
+    -- Movement Properties
+    obj.isMoving = false
+    obj.currentDirections = {
+      forward = false,
+      backwards = false,
+      right = false,
+      left = false,
+      up = false,
+      down = false,
+      rotateLeft = false,
+      rotateRight = false,
+    }
+
+    obj.analogForward = 0
+    obj.analogBackwards = 0
+    obj.analogRight = 0
+    obj.analogLeft = 0
+    obj.analogUp = 0
+    obj.analogDown = 0
+
+    -- Original code by keanuWheeze
+    function obj:HandleInput(actionName, actionType, action)
+      if actionName == "MoveX" or actionName == "PhotoMode_CameraMovementX" then -- Controller movement
+        local x = action:GetValue(action)
+        if x < 0 then
+            obj.currentDirections.left = true
+            obj.currentDirections.right = false
+            obj.analogRight = 0
+            obj.analogLeft = -x
+        else
+            obj.currentDirections.right = true
+            obj.currentDirections.left = false
+            obj.analogRight = x
+            obj.analogLeft = 0
+        end
+        if x == 0 then
+            obj.currentDirections.right = false
+            obj.currentDirections.left = false
+            obj.analogRight = 0
+            obj.analogLeft = 0
+        end
+      elseif actionName == "MoveY" or actionName == "PhotoMode_CameraMovementY" then
+        local x = action:GetValue(action)
+        if x < 0 then
+            obj.currentDirections.backwards = true
+            obj.currentDirections.forward = false
+            obj.analogForward = 0
+            obj.analogBackwards = -x
+        else
+            obj.currentDirections.backwards = false
+            obj.currentDirections.forward = true
+            obj.analogForward = x
+            obj.analogBackwards = 0
+        end
+        if x == 0 then
+            obj.currentDirections.backwards = false
+            obj.currentDirections.forward = false
+            obj.analogForward = 0
+            obj.analogBackwards = 0
+        end
+      elseif actionName == 'Jump' or (actionName == "right_trigger" or actionName == "PhotoMode_CraneUp") and actionType == "AXIS_CHANGE" then
+        local z = action:GetValue(action)
+        if z == 0 or actionType == 'BUTTON_RELEASED' then
+            obj.analogUp = 0
+            obj.currentDirections.up = false
+        else
+            obj.currentDirections.up = true
+            obj.analogUp = z
+        end
+      elseif actionName == 'ToggleSprint' or (actionName == "left_trigger" or actionName == "PhotoMode_CraneDown") and actionType == "AXIS_CHANGE" then
+        local z = action:GetValue(action)
+        if z == 0 or actionType == 'BUTTON_RELEASED' then
+            obj.analogDown = 0
+            obj.currentDirections.down = false
+        else
+            obj.currentDirections.down = true
+            obj.analogDown = z
+        end
+      end
+
+      if actionName == 'Forward' then
+        if actionType == 'BUTTON_PRESSED' then
+            obj.currentDirections.forward = true
+            obj.analogForward = 1
+        elseif actionType == 'BUTTON_RELEASED' then
+            obj.currentDirections.forward = false
+            obj.analogForward = 0
+        end
+      elseif actionName == 'Back' then
+        if actionType == 'BUTTON_PRESSED' then
+            obj.currentDirections.backwards = true
+            obj.analogBackwards = 1
+        elseif actionType == 'BUTTON_RELEASED' then
+            obj.currentDirections.backwards = false
+            obj.analogBackwards = 0
+        end
+      elseif actionName == 'Right' then
+        if actionType == 'BUTTON_PRESSED' then
+            obj.currentDirections.right = true
+            obj.analogRight = 1
+        elseif actionType == 'BUTTON_RELEASED' then
+            obj.currentDirections.right = false
+            obj.analogRight = 0
+        end
+      elseif actionName == 'Left' then
+        if actionType == 'BUTTON_PRESSED' then
+            obj.currentDirections.left = true
+            obj.analogLeft = 1
+        elseif actionType == 'BUTTON_RELEASED' then
+            obj.currentDirections.left = false
+            obj.analogLeft = 0
+        end
+      elseif actionName == "character_preview_rotate" and actionType == 'AXIS_CHANGE' then
+        if action:GetValue(action) < 0 then
+            obj.currentDirections.rotateRight = true
+        elseif action:GetValue(action) > 0 then
+          obj.currentDirections.rotateLeft = true
+        elseif action:GetValue(action) == 0 then
+            obj.currentDirections.rotateRight = false
+            obj.currentDirections.rotateLeft = false
+        end
+      elseif actionName == 'DescriptionChange' or actionName == "PhotoMode_Next_Menu" then
+        if actionType == 'BUTTON_PRESSED' then
+            obj.currentDirections.rotateRight = true
+        elseif actionType == 'BUTTON_RELEASED' then
+            obj.currentDirections.rotateRight = false
+        end
+      elseif actionName == 'Ping' or actionName == "PhotoMode_Prior_Menu" then
+        if actionType == 'BUTTON_PRESSED' then
+            obj.currentDirections.rotateLeft = true
+        elseif actionType == 'BUTTON_RELEASED' then
+            obj.currentDirections.rotateLeft = false
+        end
+      end
+
+      obj.isMoving = false
+      for _, v in pairs(obj.currentDirections) do
+        if v == true then
+            obj.isMoving = true
+        end
+      end
+    end
+
+    function obj:Move()
+      if obj.handle and Light.camera.handle then
+        local newPos = Light.camera.handle:GetWorldPosition()
+        local newAngles = Game.GetCameraSystem():GetActiveCameraForward():ToRotation()
+        
+        newAngles.roll = -newAngles.pitch + 90
+        newAngles.pitch = 0
+        newAngles.yaw = newAngles.yaw - 90
+
+        for directionKey, state in pairs(obj.currentDirections) do
+          if state == true then
+            self:CalculateNewPos(directionKey, newPos)
+          end
+        end
+
+        Game.GetTeleportationFacility():Teleport(obj.handle, newPos, newAngles)
+      end
+    end
+
+    function obj:CalculateNewPos(direction, newPos)
+      local speed = 0.1
+      local dir
+
+      if direction == "forward" then
+        speed = speed * obj.analogForward
+      elseif direction == "backwards" then
+        speed = speed * obj.analogBackwards
+      elseif direction == "right" then
+        speed = speed * obj.analogRight
+      elseif direction == "left" then
+        speed = speed * obj.analogLeft
+      elseif direction == "up" then
+        speed = speed * obj.analogUp
+      elseif direction == "down" then
+        speed = speed * obj.analogDown
+      end
+
+      if direction == "forward" or direction == "backwards" then
+        dir = Game.GetCameraSystem():GetActiveCameraForward()
+      elseif direction == "right" or direction == "left" or direction == "upleft" then
+        dir = Game.GetCameraSystem():GetActiveCameraRight()
+      end
+
+      if direction == "forward" or direction == "right" then
+        newPos.x = newPos.x + (dir.x * speed)
+        newPos.y = newPos.y + (dir.y * speed)
+        newPos.z = newPos.z + (dir.z * speed)
+      elseif direction == "backwards" or direction == "left" then
+        newPos.x = newPos.x - (dir.x * speed)
+        newPos.y = newPos.y - (dir.y * speed)
+        newPos.z = newPos.z - (dir.z * speed)
+      elseif direction == "up" then
+        newPos.z = newPos.z + (0.7 * speed)
+      elseif direction == "down" then
+        newPos.z = newPos.z - (0.7 * speed)
+      end
+    end
+
+    function obj:StartListeners()
+      local player = Game.GetPlayer()
+      player:UnregisterInputListener(player, 'Forward')
+      player:UnregisterInputListener(player, 'Back')
+      player:UnregisterInputListener(player, 'Right')
+      player:UnregisterInputListener(player, 'Left')
+
+      player:RegisterInputListener(player, 'Forward')
+      player:RegisterInputListener(player, 'Back')
+      player:RegisterInputListener(player, 'Right')
+      player:RegisterInputListener(player, 'Left')
+    end
+
     return obj
   else
     return false
@@ -36,6 +252,9 @@ function Light:new()
   Light.isEditing = false
   Light.activeLight = nil
   Light.disabled = {}
+  Light.stickyMode = false
+  Light.camera = nil
+  Light.activeCameras = {}
 
   return Light
 end
@@ -49,7 +268,15 @@ function Light:Setup(light)
     ImGui.SetNextWindowPos(x - (sizeX + 200), y - 40)
   end
 
+  if Light.stickyMode and Light.camera then    
+    Light.camera = nil
+  end
+
   Light.activeLight = Light:NewLight(light)
+
+  if Light.stickyMode then
+    Light:MoveCameraToLight()
+  end
 end
 
 function Light:Draw(AMM)
@@ -104,6 +331,23 @@ function Light:Draw(AMM)
 
     if shadowsUsed then
       Light:ToggleContactShadows(Light.activeLight)
+    end
+
+    if Light.activeLight.isAMMLight then
+      ImGui.SameLine()
+      Light.stickyMode, stickyUsed = ImGui.Checkbox("Stick To Camera", Light.stickyMode)
+
+      if stickyUsed then
+        Light:ToggleStickyMode()
+      end
+
+      if not Light.stickyMode then
+        if ImGui.Button(" Move Camera To Light ") then
+          Light:MoveCameraToLight()
+          Light.stickyMode = true
+        end
+        ImGui.SameLine()
+      end
     end
 
     if Light.activeLight.marker then
@@ -201,6 +445,55 @@ function Light:ToggleContactShadows(light)
         AMM.Tools.lockTarget = true
         AMM.Tools:SetCurrentTarget(ent)
       end
+
+      Cron.Halt(timer)
+    end
+  end)
+end
+
+function Light:ToggleStickyMode(systemActivated)
+  if systemActivated then
+    Light.stickyMode = not Light.stickyMode
+  end
+
+  if Light.stickyMode then
+    Light:StartCamera()
+  else
+    Light.camera:Deactivate()
+    Light.camera = nil
+  end
+end
+
+function Light:MoveCameraToLight()
+  if not Light.camera then    
+    if Light.activeCameras[Light.activeLight.hash] then
+      local camera = Light.activeCameras[Light.activeLight.hash]
+      Light.camera = camera
+      camera:Activate(1)
+    else
+      local pos = Light.activeLight.handle:GetWorldPosition()
+      local lightAngles = Light.activeLight.handle:GetWorldOrientation():ToEulerAngles()
+      local angles = EulerAngles.new(0, 0, lightAngles.yaw)
+      Light:StartCamera(pos, angles)
+    end
+  end
+end
+
+function Light:StartCamera(pos, angles)
+  Light.camera = AMM.Camera:new()
+
+  Light.camera:Spawn(pos, angles)
+  Light.camera:StartListeners()
+
+  Cron.Every(0.1, function(timer)
+    if Light.camera.handle then
+      Light.camera:Activate(1)
+      Light.activeCameras[Light.activeLight.hash] = Light.camera
+
+      local cameraPos = Light.camera.handle:GetWorldPosition()
+      local cameraAngles = Light.camera.component:GetLocalOrientation():ToEulerAngles()
+
+      Game.GetTeleportationFacility():Teleport(Light.activeLight.handle, cameraPos, cameraAngles)
 
       Cron.Halt(timer)
     end

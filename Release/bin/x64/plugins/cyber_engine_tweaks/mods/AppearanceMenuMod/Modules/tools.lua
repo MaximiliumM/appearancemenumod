@@ -9,7 +9,7 @@ function Tools:new()
   -- Layout Properties
   Tools.style = {}
   Tools.actionCategories = {}
-  Tools.movementWindow = {open = false, isEditing = false}
+  Tools.movementWindow = {open = false, isEditing = false, shouldDraw = false}
   Tools.scaleWidth = nil
 
   -- Time Properties
@@ -26,11 +26,12 @@ function Tools:new()
   Tools.lastLocation = nil
   Tools.selectedLocation = {loc_name = "Select Location"}
   Tools.shareLocationName = ''
+  Tools.locations = {}
   Tools.userLocations = {}
   Tools.favoriteLocations = {}
   Tools.useTeleportAnimation = false
   Tools.isTeleporting = false
-  Tools.defaultLocations = {}
+  Tools.userLocationsHasChanged = true
 
   -- V Properties --
   Tools.playerVisibility = true
@@ -120,7 +121,7 @@ function Tools:Draw(AMM, target)
   Tools.style = {
     buttonHeight = ImGui.GetFontSize() * 2,
     buttonWidth = ImGui.GetWindowContentRegionWidth(),
-    halfButtonWidth = ((ImGui.GetWindowContentRegionWidth() / 2) - 5)
+    halfButtonWidth = ((ImGui.GetWindowContentRegionWidth() / 2) - 8)
   }
 
   -- Util Popup Helper --
@@ -572,10 +573,7 @@ end
 
 -- Teleport actions
 function Tools:DrawTeleportActions()
-  Tools.userLocations = Tools:GetUserLocations()
-
-  -- AMM.UI:TextColored("Teleport Actions:")
-
+  
   if ImGui.BeginCombo("Locations", Tools.selectedLocation.loc_name, ImGuiComboFlags.HeightLarge) then
     for i, location in ipairs(Tools:GetLocations()) do
       if location.loc_name then
@@ -689,44 +687,45 @@ function Tools:DrawTeleportActions()
 end
 
 function Tools:GetLocations()
-  local separator = false
-  local locations = {}
 
-  if next(Tools.favoriteLocations) ~= nil then
-    table.insert(locations, {loc_name = '--------- Favorites ----------'})
+  if Tools.userLocationsHasChanged then
+    Tools.userLocations = Tools:GetUserLocations()
 
-    for _, loc in ipairs(Tools.favoriteLocations) do
-      table.insert(locations, loc)
+    local separator = false
+    local locations = {}
+
+    if next(Tools.favoriteLocations) ~= nil then
+      table.insert(locations, {loc_name = '--------- Favorites ----------'})
+
+      for _, loc in ipairs(Tools.favoriteLocations) do
+        table.insert(locations, loc)
+      end
+
+      separator = true
     end
 
-    separator = true
-  end
+    if next(Tools.userLocations) ~= nil then
+      table.insert(locations, {loc_name = '------- User Locations -------'})
 
-  if next(Tools.userLocations) ~= nil then
-    table.insert(locations, {loc_name = '------- User Locations -------'})
+      for _, loc in ipairs(Tools.userLocations) do
+        table.insert(locations, loc)
+      end
 
-    for _, loc in ipairs(Tools.userLocations) do
-      table.insert(locations, loc)
+      separator = true
     end
 
-    separator = true
-  end
+    if separator then
+      table.insert(locations, {loc_name = '------------------------------'})
+    end
 
-  if separator then
-    table.insert(locations, {loc_name = '------------------------------'})
-  end
-
-  if #Tools.defaultLocations == 0 then
     for loc in db:nrows([[SELECT * FROM locations ORDER BY loc_name ASC]]) do
-      table.insert(Tools.defaultLocations, loc)
-    end
-  else
-    for _, loc in ipairs(Tools.defaultLocations) do
       table.insert(locations, loc)
     end
+
+    Tools.locations = locations
   end
 
-  return locations
+  return Tools.locations
 end
 
 function Tools:TeleportToLocation(loc)
@@ -805,7 +804,7 @@ function Tools:IsFavorite(loc)
   return false
 end
 
-function Tools:GetUserLocations()
+function Tools:GetUserLocations()  
   local files = dir("./User/Locations")
   local filesCount = #files
 
@@ -816,6 +815,7 @@ function Tools:GetUserLocations()
   end
 
   if #Tools.userLocations ~= filesCount then
+    Tools.userLocationsHasChanged = true
     local userLocations = {}
     for _, loc in ipairs(files) do
       if string.find(loc.name, '.json') then
@@ -825,6 +825,12 @@ function Tools:GetUserLocations()
     end
     return userLocations
   else
+    Cron.Every(5.0, function(timer)
+      Tools.userLocationsHasChanged = true
+      Cron.Halt(timer)
+    end)
+
+    Tools.userLocationsHasChanged = false
     return Tools.userLocations
   end
 end
@@ -863,20 +869,20 @@ function Tools:DrawNPCActions()
 
     if AMM.userSettings.floatingTargetTools then
       local buttonLabel = "Open Target Tools"
-      if Tools.movementWindow.open then
+      if Tools.movementWindow.shouldDraw then
         buttonLabel = "Close Target Tools"
       end
 
       if ImGui.Button(buttonLabel, Tools.style.buttonWidth, Tools.style.buttonHeight) then
-        if Tools.movementWindow.open then
+        if Tools.movementWindow.shouldDraw then
+          Tools.movementWindow.shouldDraw = false
           Tools.movementWindow.open = false
-          Tools.movementWindow.isEditing = false
         else
           Tools:OpenMovementWindow()
         end
       end
     else
-      Tools.movementWindow.open = true
+      Tools.movementWindow.shouldDraw = true
       Tools:DrawMovementWindow()
     end
   else
@@ -1208,16 +1214,15 @@ function Tools:OpenMovementWindow()
     ImGui.SetNextWindowPos(x - (sizeX + 200), y - 40)
   end
 
-  Tools.movementWindow.isEditing = true
+  Tools.movementWindow.open = true
 end
 
 function Tools:DrawMovementWindow()
   if AMM.userSettings.floatingTargetTools then
-    Tools.movementWindow.open = ImGui.Begin("Target Tools", ImGuiWindowFlags.AlwaysAutoResize + ImGuiWindowFlags.NoCollapse)
+    Tools.movementWindow.open, Tools.movementWindow.shouldDraw = ImGui.Begin("Target Tools", Tools.movementWindow.open, ImGuiWindowFlags.AlwaysAutoResize + ImGuiWindowFlags.NoCollapse)
   end
 
-  if Tools.movementWindow.open then
-    Tools.movementWindow.isEditing = true
+  if Tools.movementWindow.shouldDraw then
 
     if not Tools.lockTarget or Tools.currentTarget == '' then
       Tools.lockTarget = false
@@ -1252,10 +1257,10 @@ function Tools:DrawMovementWindow()
       Tools:SetCurrentTarget(Tools.currentTarget)
     end
 
-    if AMM.userSettings.floatingTargetTools then
-      ImGui.SameLine(500)
-      if ImGui.Button(" Close Window ") then
-        Tools.movementWindow.open = false
+    if AMM.userSettings.experimental then
+      ImGui.SameLine()
+      if ImGui.SmallButton(" Despawn ") then
+        Tools.currentTarget:Despawn()
       end
     end
 
@@ -1460,28 +1465,24 @@ function Tools:DrawMovementWindow()
 
     AMM.UI:Spacing(3)
 
-    local buttonLabel = "Save Position"
+    AMM.UI:TextCenter("Position", true)
+
+    local buttonLabel = "Save"
     if Tools.savedPosition ~= '' then
-      buttonLabel = "Restore Position"
+      buttonLabel = "Restore"
     end
 
-    if ImGui.Button(buttonLabel, Tools.style.buttonWidth, Tools.style.buttonHeight) then
+    if ImGui.Button(buttonLabel, Tools.style.halfButtonWidth, Tools.style.buttonHeight) then
       if Tools.savedPosition ~= '' then
         Tools:SetTargetPosition(Tools.savedPosition.pos, Tools.savedPosition.angles)
       else
         Tools.savedPosition = {pos = Tools.currentTarget.handle:GetWorldPosition(), angles = GetSingleton('Quaternion'):ToEulerAngles(Tools.currentTarget.handle:GetWorldOrientation())}
       end
-    end
+    end    
 
-    if Tools.savedPosition ~= '' then
-      if ImGui.Button("Clear Saved Position", Tools.style.buttonWidth, Tools.style.buttonHeight) then
-        Tools.savedPosition = ''
-      end
-    end
+    ImGui.SameLine()
 
-    ImGui.Spacing()
-
-    if ImGui.Button("Reset Position", Tools.style.buttonWidth, Tools.style.buttonHeight) then
+    if ImGui.Button("Reset To Player", Tools.style.halfButtonWidth, Tools.style.buttonHeight) then
       local pos = AMM.player:GetWorldPosition()
 
       if Tools.currentTarget.type == "vehicle" then
@@ -1490,6 +1491,12 @@ function Tools:DrawMovementWindow()
       end
 
       Tools:SetTargetPosition(pos)
+    end
+
+    if Tools.savedPosition ~= '' then
+      if ImGui.Button("Clear Saved", Tools.style.buttonWidth, Tools.style.buttonHeight) then
+        Tools.savedPosition = ''
+      end
     end
 
     AMM.UI:Spacing(3)
@@ -1630,7 +1637,7 @@ function Tools:DrawMovementWindow()
           ImGui.SameLine()
 
           local reset = false
-          if ImGui.SmallButton("Reset") then
+          if ImGui.SmallButton("  Reset  ") then
             Tools:ResetLookAt()
             reset = true
           end
@@ -1655,17 +1662,14 @@ function Tools:DrawMovementWindow()
 
           AMM.UI:Spacing(4)
 
-          ImGui.Text("Current Target:")
+          AMM.UI:TextColored("Look At Target")
 
-          ImGui.SameLine()
+          -- Start with V selected
+          -- This should come before the combo box
           local lookAtTargetName = "V"
           if Tools.lookAtTarget ~= nil then
             lookAtTargetName = Tools.lookAtTarget.name
           end
-
-          AMM.UI:TextColored(lookAtTargetName)
-
-          AMM.UI:Spacing(3)
 
           local availableTargets = {}
 
@@ -1683,7 +1687,7 @@ function Tools:DrawMovementWindow()
             table.insert(availableTargets, Tools.currentTarget)
           end
 
-          if ImGui.BeginCombo("Look At Target", lookAtTargetName) then
+          if ImGui.BeginCombo(" ", lookAtTargetName) then
             for i, t in ipairs(availableTargets) do
               if ImGui.Selectable(t.name.."##"..i, (t.name == lookAtTargetName)) then
                 lookAtTargetName = t.name
@@ -1693,12 +1697,13 @@ function Tools:DrawMovementWindow()
             ImGui.EndCombo()
           end
 
-          local buttonLabel = "Activate Look At"
+          ImGui.SameLine()
+          local buttonLabel = "   Activate   "
           if Tools.lookAtActiveNPCs[npcHash] then
-            buttonLabel = "Deactivate Look At"
+            buttonLabel = "  Deactivate  "
           end
 
-          if ImGui.Button(buttonLabel, Tools.style.buttonWidth, Tools.style.buttonHeight) then
+          if ImGui.SmallButton(buttonLabel) then
 
             if Tools.lookAtActiveNPCs[npcHash] == nil then
               Tools:ActivateLookAt()
@@ -1709,11 +1714,18 @@ function Tools:DrawMovementWindow()
             end
           end
 
-          if ImGui.Button("Reset Target", Tools.style.buttonWidth, Tools.style.buttonHeight) then
+          ImGui.SameLine()
+
+          if ImGui.SmallButton("   Reset   ") then
             if target ~= nil then
               Tools.lookAtTarget = nil
             end
           end
+
+          ImGui.Text("Current Target:")
+
+          ImGui.SameLine()          
+          AMM.UI:TextColored(lookAtTargetName)       
         end
       end
 
@@ -1892,8 +1904,8 @@ function Tools:DrawMovementWindow()
     ImGui.End()
   end
 
-  if not(Tools.movementWindow.open) and Tools.movementWindow.isEditing then
-    Tools.movementWindow.isEditing = false
+  if not(Tools.movementWindow.open) then
+    Tools.movementWindow.open = false
   end
 end
 

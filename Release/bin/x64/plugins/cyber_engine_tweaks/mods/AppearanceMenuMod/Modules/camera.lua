@@ -58,27 +58,31 @@ end
 
 function Camera:Activate(blendTime)
   if self.handle then
-    Util:AddPlayerEffects()
-
-    if not AMM.playerInVehicle then
+    
+    if not AMM.playerInPhoto and (not AMM.playerInVehicle and not AMM.Light.stickyMode) or not AMM.Tools.tppHead then
+      Util:AddPlayerEffects()
       AMM.Tools:ToggleHead()
     end
 
     self.active = true
-    self.component:Activate(blendTime, false)
+    self.component:Activate(blendTime or 0, false)
   end
 end
 
 function Camera:Deactivate(blendTime)
   if self.handle then
-    Util:RemovePlayerEffects()
     
-    if not AMM.playerInVehicle and AMM.Tools.tppHead then
+    if not AMM.playerInPhoto and not AMM.playerInVehicle and AMM.Tools.tppHead then
+      Util:RemovePlayerEffects()
       AMM.Tools:ToggleHead()
     end
 
     self.active = false
-    self.component:Deactivate(blendTime, false)
+    self.component:Deactivate(blendTime or 0, false)
+    
+    if not AMM.playerInPhoto then
+      Game.GetPlayer():GetFPPCameraComponent():Activate()
+    end
   end
 end
 
@@ -101,12 +105,17 @@ function Camera:Despawn()
   self.handle:Dispose()
 end
 
-function Camera:Spawn()
+function Camera:Spawn(position, angles)
   local spawnTransform = AMM.player:GetWorldTransform()
-  local pos = AMM.player:GetWorldPosition()
-  local heading = AMM.player:GetWorldForward()
-  local frontPlayer = Vector4.new(pos.x + heading.x, pos.y + heading.y, pos.z + 1.5, pos.w)
-  spawnTransform:SetPosition(frontPlayer)
+  local pos = position
+
+  if not pos then
+    local heading = AMM.player:GetWorldForward()
+    pos = AMM.player:GetWorldPosition()
+    pos = Vector4.new(pos.x + heading.x, pos.y + heading.y, pos.z + 1.5, pos.w) -- in front of the player
+  end
+
+  spawnTransform:SetPosition(pos)
 
   self.entityID = exEntitySpawner.Spawn(self.path, spawnTransform, '')
 
@@ -117,6 +126,11 @@ function Camera:Spawn()
 			self.handle = entity
       self.hash = tostring(entity:GetEntityID().hash)
       self.component = entity:FindComponentByName("camera")
+
+      if angles then
+        self.component:SetLocalOrientation(angles:ToQuat())
+      end
+
       Cron.Halt(timer)
 		elseif timer.tick > 20 then
 			Cron.Halt(timer)
@@ -294,8 +308,11 @@ function Camera:HandleInput(actionName, actionType, action)
 
       if self.component then
         rot = self.component:GetLocalOrientation():ToEulerAngles()
-        if rot.pitch == 90 then rot.pitch = 86 elseif rot.pitch == -90 then rot.pitch = -86 end
-        rot.pitch = rot.pitch + (y / factor)
+        if not(rot.pitch + 3 > 90) and not(rot.pitch - 3 < -90) then
+          rot.pitch = rot.pitch + (y / factor)
+        else
+          rot.pitch = rot.pitch + ((y * 2) / factor)
+        end
       end
     end
     if actionName == "CameraMouseX" or actionName == "CameraMouseY"
