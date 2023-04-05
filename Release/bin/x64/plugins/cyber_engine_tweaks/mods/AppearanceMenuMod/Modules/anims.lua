@@ -43,8 +43,8 @@ function Poses:Draw(AMM, target)
 
     AMM.UI:DrawCrossHair()
 
-    if AMM.Tools.lockTarget then
-      if AMM.Tools.currentTarget.handle:IsNPC() then
+    if AMM.Tools.lockTarget and AMM.Tools.currentTarget and AMM.Tools.currentTarget ~= '' then
+      if AMM.Tools.currentTarget.handle.IsNPC and AMM.Tools.currentTarget.handle:IsNPC() then
         target = AMM.Tools.currentTarget
       end
     end
@@ -107,7 +107,7 @@ function Poses:Draw(AMM, target)
       target = AMM:NewTarget(entity, "Player", AMM:GetScanID(entity), "V", nil, nil)
     end
 
-    if target ~= nil and (target.type == 'Player' or target.handle:IsNPC() or target.handle:IsReplacer()) then
+    if target ~= nil and (target.type == 'Player' or (target.handle.IsNPC and target.handle:IsNPC()) or (target.handle.IsReplacer and target.handle:IsReplacer())) then
       AMM.UI:TextColored("Current Target:")
       ImGui.Text(target.name)
 

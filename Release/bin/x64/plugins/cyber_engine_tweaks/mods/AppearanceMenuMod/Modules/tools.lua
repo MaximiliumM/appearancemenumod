@@ -68,6 +68,9 @@ function Tools:new()
   Tools.npcLeft = 0
   Tools.npcRight = 0
   Tools.npcRotation = 0
+  Tools.advRotationX = 90
+  Tools.advRotationY = 90
+  Tools.advRotationZ = 90
   Tools.movingProp = false
   Tools.savedPosition = ''
   Tools.selectedFace = {name = 'Select Expression'}
@@ -77,6 +80,7 @@ function Tools:new()
   Tools.expressions = AMM:GetPersonalityOptions()
   Tools.photoModePuppet = nil
   Tools.currentTargetComponents = nil
+  Tools.enablePropsInLookAtTarget = false
 
   -- PME Properties --
   Tools.selectedLookAt = nil
@@ -115,6 +119,14 @@ function Tools:Initialize()
   }
 
   Tools.selectedLookAt = Tools.lookAtOptions[1]
+
+  -- Get Locations Once
+  Tools.locations = Tools:GetLocations()
+
+  -- Set Target Tools to Open on Launch
+  if AMM.userSettings.floatingTargetTools and AMM.userSettings.autoOpenTargetTools then
+    Tools.movementWindow.open = true
+  end
 end
 
 function Tools:Draw(AMM, target)
@@ -575,7 +587,7 @@ end
 function Tools:DrawTeleportActions()
   
   if ImGui.BeginCombo("Locations", Tools.selectedLocation.loc_name, ImGuiComboFlags.HeightLarge) then
-    for i, location in ipairs(Tools:GetLocations()) do
+    for i, location in ipairs(Tools.locations) do
       if location.loc_name then
         if ImGui.Selectable(location.loc_name.."##"..i, (location == Tools.selectedLocation.loc_name)) then
           if location.loc_name:match("%-%-%-%-") == nil then
@@ -1071,7 +1083,9 @@ function Tools:TeleportPropTo(prop, pos, angles)
       prop.parameters = {pos, angles}
       
       -- Update Spawned Props dict just in case
-      AMM.Props.spawnedProps[prop.uniqueName()] = prop
+      if prop.uniqueName then
+        AMM.Props.spawnedProps[prop.uniqueName()] = prop
+      end
 
       if lastScale then
         local components = AMM.Props:CheckForValidComponents(entity)
@@ -1219,7 +1233,7 @@ end
 
 function Tools:DrawMovementWindow()
   if AMM.userSettings.floatingTargetTools then
-    Tools.movementWindow.open, Tools.movementWindow.shouldDraw = ImGui.Begin("Target Tools", Tools.movementWindow.open, ImGuiWindowFlags.AlwaysAutoResize + ImGuiWindowFlags.NoCollapse)
+    Tools.movementWindow.open, Tools.movementWindow.shouldDraw = ImGui.Begin("Target Tools", Tools.movementWindow.open, ImGuiWindowFlags.AlwaysAutoResize)
   end
 
   if Tools.movementWindow.shouldDraw then
@@ -1404,11 +1418,15 @@ function Tools:DrawMovementWindow()
     local rotationValue = 0.1
     if Tools.precisonMode then rotationValue = 0.01 end
 
+    local isNPC = false
     if Tools.currentTarget ~= '' and (Tools.currentTarget.type ~= 'Prop' and Tools.currentTarget.type ~= 'entEntity' and Tools.currentTarget.type ~= 'Player' and Tools.currentTarget.handle:IsNPC()) then
       Tools.npcRotation[3], rotationUsed = ImGui.SliderFloat("Rotation", Tools.npcRotation[3], -180, 180)
+      isNPC = true
     elseif Tools.currentTarget ~= '' then
       Tools.npcRotation, rotationUsed = ImGui.DragFloat3("Tilt/Rotation", Tools.npcRotation, 0.1)
     end
+
+    ImGui.PopItemWidth() -- rotationRowWidth
 
     if ImGui.IsItemDeactivatedAfterEdit() then
       local hash = Tools.currentTarget.hash
@@ -1418,7 +1436,67 @@ function Tools:DrawMovementWindow()
       end
     end
 
-    if rotationUsed and Tools.currentTarget ~= '' then
+    if AMM.userSettings.advancedRotation then
+      ImGui.PushItemWidth((rotationRowWidth / 3) - 4)
+
+      if not isNPC then
+        local lastX = Tools.advRotationX
+        Tools.advRotationX, usedX = ImGui.InputInt("##X", Tools.advRotationX, 1, 360, ImGuiInputTextFlags.EnterReturnsTrue)
+        if usedX then
+          if Tools.advRotationX > lastX + 1 or Tools.advRotationX < lastX - 1 then
+            lastX = Tools.advRotationX
+          end
+
+          if Tools.advRotationX == lastX + 1 then
+            Tools.advRotationX = lastX
+            Tools.npcRotation[1] = Tools.npcRotation[1] + Tools.advRotationX
+          else
+            Tools.advRotationX = lastX
+            Tools.npcRotation[1] = Tools.npcRotation[1] - Tools.advRotationX
+          end
+        end
+
+        ImGui.SameLine()
+
+        local lastY = Tools.advRotationY
+        Tools.advRotationY, usedY = ImGui.InputInt("##Y", Tools.advRotationY)
+        if usedY then
+          if Tools.advRotationY > lastY + 1 or Tools.advRotationY < lastY - 1 then
+            lastY = Tools.advRotationY
+          end
+
+          if Tools.advRotationY == lastY + 1 then
+            Tools.advRotationY = lastY
+            Tools.npcRotation[2] = Tools.npcRotation[2] + Tools.advRotationY
+          else
+            Tools.advRotationY = lastY
+            Tools.npcRotation[2] = Tools.npcRotation[2] - Tools.advRotationY
+          end
+        end
+
+        ImGui.SameLine()
+      end
+
+      local lastZ = Tools.advRotationZ
+      Tools.advRotationZ, usedZ = ImGui.InputInt("##Z", Tools.advRotationZ)
+      if usedZ then
+        if Tools.advRotationZ > lastZ + 1 or Tools.advRotationZ < lastZ - 1 then
+          lastZ = Tools.advRotationZ
+        end
+
+        if Tools.advRotationZ == lastZ + 1 then
+          Tools.advRotationZ = lastZ
+          Tools.npcRotation[3] = Tools.npcRotation[3] + Tools.advRotationZ
+        else
+          Tools.advRotationZ = lastZ
+          Tools.npcRotation[3] = Tools.npcRotation[3] - Tools.advRotationZ
+        end
+      end
+      ImGui.PopItemWidth() -- rotationRowWidth / 3
+    end
+
+    if (usedX or usedY or usedZ or rotationUsed)
+    and Tools.currentTarget ~= '' then
       local pos = Tools.currentTarget.handle:GetWorldPosition()
       if Tools.currentTarget.type == 'entEntity' then
         if not Tools.movingProp then
@@ -1432,15 +1510,18 @@ function Tools:DrawMovementWindow()
     end
 
     ImGui.Spacing()
-    Tools.precisonMode = ImGui.Checkbox("Precision Mode", Tools.precisonMode)
+    Tools.precisonMode = AMM.UI:SmallCheckbox(Tools.precisonMode, "Precision Mode")
 
     ImGui.SameLine()
-    Tools.relativeMode, modeChange = ImGui.Checkbox("Relative Mode", Tools.relativeMode)
+    Tools.relativeMode, modeChange = AMM.UI:SmallCheckbox(Tools.relativeMode, "Relative Mode")
 
     ImGui.SameLine()
-    Tools.directMode, modeChange = ImGui.Checkbox("Direct Mode", Tools.directMode)
+    Tools.directMode, modeChange = AMM.UI:SmallCheckbox(Tools.directMode, "Direct Mode")
 
-    if modeChange then  
+    ImGui.SameLine()
+    AMM.userSettings.advancedRotation = AMM.UI:SmallCheckbox(AMM.userSettings.advancedRotation, "Adv. Rotation")
+
+    if modeChange then
       if Tools.directMode or not Tools.directMode then
         Tools:ToggleDirectMode()
       elseif Tools.relativeMode then
@@ -1453,9 +1534,7 @@ function Tools:DrawMovementWindow()
         Tools.npcRight = pos.y
         Tools.npcUpDown = pos.z
       end
-    end
-    
-    ImGui.PopItemWidth() -- rotationRowWidth
+    end   
 
     if Tools.directMode then
       local speed = Tools.currentTarget.speed * 1000
@@ -1475,8 +1554,17 @@ function Tools:DrawMovementWindow()
     if ImGui.Button(buttonLabel, Tools.style.halfButtonWidth, Tools.style.buttonHeight) then
       if Tools.savedPosition ~= '' then
         Tools:SetTargetPosition(Tools.savedPosition.pos, Tools.savedPosition.angles)
+        local components = AMM.Props:CheckForValidComponents(Tools.currentTarget.handle)
+        if components then
+          Tools:SetScale(components, Tools.savedPosition.scale, Tools.proportionalMode)
+          Tools.currentTarget.scale = Util:ShallowCopy({}, Tools.savedPosition.scale)
+        end
       else
-        Tools.savedPosition = {pos = Tools.currentTarget.handle:GetWorldPosition(), angles = GetSingleton('Quaternion'):ToEulerAngles(Tools.currentTarget.handle:GetWorldOrientation())}
+        Tools.savedPosition = { 
+          pos = Tools.currentTarget.handle:GetWorldPosition(), 
+          angles = GetSingleton('Quaternion'):ToEulerAngles(Tools.currentTarget.handle:GetWorldOrientation()),
+          scale = Util:ShallowCopy({}, Tools.currentTarget.scale)
+        }
       end
     end    
 
@@ -1499,7 +1587,7 @@ function Tools:DrawMovementWindow()
       end
     end
 
-    AMM.UI:Spacing(3)
+    ImGui.Spacing()
 
     if not AMM.playerInPhoto and Tools.currentTarget ~= '' and Tools.currentTarget.type ~= 'entEntity' then
 
@@ -1662,32 +1750,42 @@ function Tools:DrawMovementWindow()
 
           AMM.UI:Spacing(4)
 
-          AMM.UI:TextColored("Look At Target")
+          -- AMM.UI:TextColored("Look At Target")
 
           -- Start with V selected
           -- This should come before the combo box
-          local lookAtTargetName = "V"
+          local lookAtTargetName = "Player V"
           if Tools.lookAtTarget ~= nil then
             lookAtTargetName = Tools.lookAtTarget.name
           end
 
           local availableTargets = {}
 
-          table.insert(availableTargets, {name = "V", handle = Game.GetPlayer()})
+          table.insert(availableTargets, {name = "Player V", handle = Game.GetPlayer()})
+
+          if Tools.currentTarget ~= '' then
+            table.insert(availableTargets, Tools.currentTarget)
+          end          
 
           for _, spawned in pairs(AMM.Spawn.spawnedNPCs) do
             if Tools.currentTarget.hash ~= spawned.hash then
               table.insert(availableTargets, spawned)
-            -- elseif Tools.currentTarget.hash == spawned.hash then
-            --   Tools:SetCurrentTarget(spawned)
+            end
+          end
+          
+          -- Enable this to have spawned props
+          -- in Look At Target dropdown menu
+          if Tools.enablePropsInLookAtTarget then
+            for _, spawned in pairs(AMM.Props.spawnedProps) do
+              if Tools.currentTarget.hash ~= spawned.hash then
+                table.insert(availableTargets, spawned)
+              end
             end
           end
 
-          if Tools.currentTarget ~= '' then
-            table.insert(availableTargets, Tools.currentTarget)
-          end
+          ImGui.Text("Current Target:")
 
-          if ImGui.BeginCombo(" ", lookAtTargetName) then
+          if ImGui.BeginCombo("##LookAt", lookAtTargetName) then
             for i, t in ipairs(availableTargets) do
               if ImGui.Selectable(t.name.."##"..i, (t.name == lookAtTargetName)) then
                 lookAtTargetName = t.name
@@ -1721,11 +1819,8 @@ function Tools:DrawMovementWindow()
               Tools.lookAtTarget = nil
             end
           end
-
-          ImGui.Text("Current Target:")
-
-          ImGui.SameLine()          
-          AMM.UI:TextColored(lookAtTargetName)       
+          
+          Tools.enablePropsInLookAtTarget = ImGui.Checkbox("Enable Spawned Props", Tools.enablePropsInLookAtTarget)
         end
       end
 
@@ -1736,7 +1831,7 @@ function Tools:DrawMovementWindow()
         local npcHasWeapon = Tools.currentTarget.handle:HasPrimaryOrSecondaryEquipment()
 
         if npcHasWeapon or weapon then
-          AMM.UI:Spacing(8)
+          AMM.UI:Spacing(4)
           AMM.UI:TextCenter("Equipment", true)
           ImGui.Spacing()
         end
@@ -1791,12 +1886,12 @@ function Tools:DrawMovementWindow()
       end
 
       local components = Tools.currentTargetComponents
+            
+      if components and Tools.currentTarget.scale then
+        AMM.UI:Spacing(4)
+        AMM.UI:TextCenter("Scale", true)
 
-      AMM.UI:Spacing(8)
-
-      AMM.UI:TextCenter("Scale", true)
-
-      if components then
+        Tools.currentTarget.scale = Tools.currentTarget.scale or { x = 1, y = 1, z = 1 }
 
         local scaleChanged = false
         if Tools.scaleWidth == nil or Tools.scaleWidth < 50 then
@@ -1843,23 +1938,20 @@ function Tools:DrawMovementWindow()
             z = Tools.currentTarget.defaultScale.z,
           }
         end
-      else
-        AMM.UI:Spacing(3)
-        AMM.UI:TextCenter("Scaling Not Available")
       end
 
-      AMM.UI:Spacing(8)
+      AMM.UI:Spacing(4)
 
       local lookAtTargetName = "V"
       if Tools.lookAtTarget ~= nil then
         lookAtTargetName = Tools.lookAtTarget.name
       end
 
-      ImGui.Text("Current Look At Target:")
+      ImGui.Text("Current Target:")
       ImGui.SameLine()
       AMM.UI:TextColored(lookAtTargetName)
 
-      if ImGui.Button("Change Look At Target", Tools.style.halfButtonWidth, Tools.style.buttonHeight) then
+      if ImGui.Button("Show As Look At Target", Tools.style.halfButtonWidth, Tools.style.buttonHeight) then
         if Tools.currentTarget ~= '' then
           Tools.lookAtTarget = Tools.currentTarget
         end
@@ -1873,9 +1965,31 @@ function Tools:DrawMovementWindow()
       end
     end
 
-    if Tools.currentTarget and Tools.currentTarget ~= '' then
+    if Tools.currentTarget and Tools.currentTarget ~= '' then      
+      local appOptions = Tools.currentTarget.options or AMM:GetAppearanceOptions(Tools.currentTarget.handle, Tools.currentTarget.id)
+
+      if appOptions then
+        AMM.UI:Spacing(4)
+
+        AMM.UI:TextCenter("List of Appearances", true)
+
+        local selectedApp = Tools.currentTarget.appearance
+        if ImGui.BeginCombo("##Appearances", selectedApp, ImGuiComboFlags.HeightLarge) then
+          for i, app in ipairs(appOptions) do
+            if ImGui.Selectable(app, (app == selectedApp)) then
+              if Tools.currentTarget.appearance ~= app then
+                AMM:ChangeAppearanceTo(Tools.currentTarget, app)
+              end
+            end
+          end
+          ImGui.EndCombo()
+        end
+      end
+
+      ImGui.Spacing()
+
       if AMM.Light:GetLightComponent(Tools.currentTarget.handle) then
-        AMM.UI:Spacing(8)
+        AMM.UI:Spacing(4)
 
         AMM.UI:TextCenter("Light Control", true)
 

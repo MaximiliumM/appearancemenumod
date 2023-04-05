@@ -545,7 +545,7 @@ function Light:SetLightData(light, data)
     component:SetRadius(data.radius)
     component:SetAngles(angles.inner, angles.outer)
   else
-    Util:AMMError("Light Data is missing:"..light.spawn.name)
+    Util:AMMError("Light Data is missing")
   end
 end
 
@@ -554,7 +554,7 @@ function Light:GetLightComponent(handle)
 
   for comp in db:urows("SELECT cname FROM components WHERE type = 'Lights'") do
     component = handle:FindComponentByName(comp)
-    if component then
+    if component then      
       table.insert(components, component)
     end
   end
@@ -562,20 +562,14 @@ function Light:GetLightComponent(handle)
   if #components > 0 then return components else return nil end
 end
 
+local listOfLights = {
+	["0xAFCFDCFF, 37"] = true,
+	["0xE4351246, 38"] = true,
+	["0x670133EB, 37"] = true,
+}
+
 function Light:IsAMMLight(light)
-  local possibleIDs = {
-    "0xAFCFDCFF, 37",
-    "0xE4351246, 38",
-    "0x670133EB, 37",
-  }
-
-  for _, id in ipairs(possibleIDs) do
-    if light.id == id then
-      return true
-    end
-  end
-
-  return false
+  return listOfLights[light.id]
 end
 
 return Light:new()

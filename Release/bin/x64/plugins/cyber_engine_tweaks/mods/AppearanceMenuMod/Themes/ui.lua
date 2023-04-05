@@ -6,6 +6,7 @@ local UI = {
     buttonWidth = nil,
     buttonHeight = nil,
     halfButtonWidth = nil,
+    scrollBarSize = 0,
   },
 }
 
@@ -128,9 +129,10 @@ function UI:Start()
 
 	ImGui.PushStyleVar(ImGuiStyleVar.WindowPadding, 15, 15)
   ImGui.PushStyleVar(ImGuiStyleVar.WindowRounding, 0)
-  ImGui.PushStyleVar(ImGuiStyleVar.FramePadding, 5, 5)
+  ImGui.PushStyleVar(ImGuiStyleVar.FramePadding, 6, 8)
+  ImGui.PushStyleVar(ImGuiStyleVar.ItemSpacing, 8, 8)
   ImGui.PushStyleVar(ImGuiStyleVar.ItemInnerSpacing, 5, 5)
-  ImGui.PushStyleVar(ImGuiStyleVar.ScrollbarSize, Theme.ScrollbarSize or 0)
+  ImGui.PushStyleVar(ImGuiStyleVar.ScrollbarSize, Theme.ScrollbarSize or UI.style.scrollBarSize)
   ImGui.PushStyleVar(ImGuiStyleVar.WindowBorderSize, 1)
 
   local x, y = GetDisplayResolution()
@@ -154,6 +156,35 @@ function UI:Separator()
 	UI:Spacing(4)
 	ImGui.Separator()
 	UI:Spacing(2)
+end
+
+function UI:SmallCheckbox(state, label)
+  local modeChange = nil
+  ImGui.PushStyleVar(ImGuiStyleVar.ItemInnerSpacing, 4, 4)
+  ImGui.PushStyleVar(ImGuiStyleVar.FramePadding, 0, 4)
+  state, modeChange = ImGui.Checkbox(label or " ", state)
+  ImGui.PopStyleVar(2)
+  return state, modeChange
+end
+
+function UI:SmallButton(buttonLabel, padding)
+  local paddingString = "##"
+  if padding then
+    if padding == 0 then
+      paddingString = ""
+    else      
+      for i = 1, padding do 
+        paddingString = paddingString .. " "
+      end
+    end
+  end
+
+  local label = string.gsub(buttonLabel, "##.*", paddingString)
+  local x = ImGui.CalcTextSize(label)
+  ImGui.PushStyleVar(ImGuiStyleVar.FramePadding, 0, 0)
+  local button = ImGui.Button(buttonLabel, x, 33)
+  ImGui.PopStyleVar()
+  return button
 end
 
 function UI:DrawCrossHair()

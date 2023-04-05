@@ -10,18 +10,14 @@ function Entity:new(ent)
   obj.hash = ent.hash
   obj.path = ent.path
   obj.rig = ent.rig
+  obj.category = ent.category or nil
   obj.template = ent.template or nil
   obj.entityID = ent.entityID
   obj.uid = ent.uid or nil
   obj.appearance = ent.appearance
   obj.options = ent.options or nil
-  obj.uniqueName = function()
-    if ent.uniqueName then
-      return ent.uniqueName()
-    end
-
-    return nil
-  end
+  obj.uniqueName = type(ent.uniqueName) == 'function' and ent.uniqueName
+    
   obj.type = ent.type
   obj.archetype = ent.archetype
   obj.parameters = ent.parameters
@@ -33,6 +29,7 @@ function Entity:new(ent)
   obj.pos = ent.pos or Entity:GetPosition()
   obj.angles = ent.angles or Entity:GetAngles()
   obj.scale = ent.scale or nil
+  obj.defaultScale = ent.defaultScale or nil
 
   obj.isVehicle = ent.isVehicle or false
 

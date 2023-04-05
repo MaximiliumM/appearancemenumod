@@ -113,6 +113,14 @@ function Util:GetAnglesFromString(posString)
 end
 
 -- Game Related Helpers
+function Util:FreezePlayer()
+  local player = Game.GetPlayer()
+  local pos = player:GetWorldPosition()
+  local angles = player:GetWorldOrientation():ToEulerAngles()
+
+  Game.GetTeleportationFacility():Teleport(player, pos, angles)
+end
+
 function Util:AddPlayerEffects()
   Game.ApplyEffectOnPlayer("GameplayRestriction.NoMovement")
   Game.ApplyEffectOnPlayer("GameplayRestriction.NoCameraControl")

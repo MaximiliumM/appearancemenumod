@@ -67,6 +67,13 @@ local function raiseError(msg)
 	error(msg, 2)
 end
 
+-- Keep those as local variables to save processing cycles
+local typeString = 'string'
+local typeTable = 'table'
+local typeUserdata = 'userdata'
+local typeFunction = 'function'
+local typeThread = 'thread'
+
 -- Event Dispatching --
 
 local function addEventListener(event, callback)
@@ -314,25 +321,25 @@ local function exportSessionData(t, max, depth, result)
 		local vtype = type(v)
 
 		local kstr = ''
-		if ktype == 'string' then
+		if ktype == typeString then
 			kstr = string.format('[%q] = ', k)
 		end
 
 		local vstr = ''
-		if vtype == 'string' then
+		if vtype == typeString then
 			vstr = string.format('%q', v)
-		elseif vtype == 'table' then
+		elseif vtype == typeTable then
 			if depth < max then
 				table.insert(output, string.format('\t%s%s', indent, kstr))
 				exportSessionData(v, max, depth + 1, output)
 				table.insert(output, ',\n')
 			end
-		elseif vtype == 'userdata' then
+		elseif vtype == typeUserdata then
 			vstr = tostring(v)
 			if vstr:find('^userdata:') or vstr:find('^sol%.') then
 				if not sessionDataRelaxed then
 					--vtype = vstr:match('^sol%.(.+):')
-					if ktype == 'string' then
+					if ktype == typeString then
 						raiseError(('Cannot store userdata in the %q field.'):format(k))
 						--raiseError(('Cannot store userdata of type %q in the %q field.'):format(vtype, k))
 					else
@@ -343,9 +350,9 @@ local function exportSessionData(t, max, depth, result)
 					vstr = ''
 				end
 			end
-		elseif vtype == 'function' or vtype == 'thread' then
+		elseif vtype == typeFunction or vtype == typeThread then
 			if not sessionDataRelaxed then
-				if ktype == 'string' then
+				if ktype == typeString then
 					raiseError(('Cannot store %s in the %q field.'):format(vtype, k))
 				else
 					raiseError(('Cannot store %s.'):format(vtype))
@@ -450,11 +457,11 @@ local function readSessionFile(sessionTimestamp, sessionKey, isTemporary)
 	local sessionPath = sessionDataDir .. '/' .. (isTemporary and '!' or '') .. sessionTimestamp .. '.lua'
 	local sessionChunk = loadfile(sessionPath)
 
-	if type(sessionChunk) ~= 'function' then
+	if type(sessionChunk) ~= typeFunction then
 		sessionPath = sessionDataDir .. '/' .. (sessionTimestamp + 1) .. '.lua'
 		sessionChunk = loadfile(sessionPath)
 
-		if type(sessionChunk) ~= 'function' then
+		if type(sessionChunk) ~= typeFunction then
 			return nil
 		end
 	end
@@ -894,15 +901,15 @@ end
 -- Public Interface --
 
 function GameSession.Observe(event, callback)
-	if type(event) == 'string' then
+	if type(event) == typeString then
 		initialize(event)
-	elseif type(event) == 'function' then
+	elseif type(event) == typeFunction then
 		callback, event = event, GameSession.Event.Update
 		initialize(event)
 	else
 		if not event then
 			initialize(GameSession.Event.Update)
-		elseif type(event) == 'table' then
+		elseif type(event) == typeTable then
 			for _, evt in ipairs(event) do
 				GameSession.Observe(evt, callback)
 			end
@@ -910,13 +917,13 @@ function GameSession.Observe(event, callback)
 		return
 	end
 
-	if type(callback) == 'function' then
+	if type(callback) == typeFunction then
 		addEventListener(event, callback)
 	end
 end
 
 function GameSession.Listen(event, callback)
-	if type(event) == 'function' then
+	if type(event) == typeFunction then
 		callback = event
 		for _, evt in pairs(GameSession.Event) do
 			if evt ~= GameSession.Event.Update and not eventScopes[evt][GameSession.Scope.Persistence] then
@@ -982,7 +989,7 @@ function GameSession.GetState()
 end
 
 local function exportValue(value)
-	if type(value) == 'userdata' then
+	if type(value) == typeUserdata then
 		value = string.format('%q', value.value)
 	elseif type(value) == 'string' then
 		value = string.format('%q', value)
@@ -1039,7 +1046,7 @@ function GameSession.StoreInDir(sessionDir)
 end
 
 function GameSession.Persist(sessionData, relaxedMode)
-	if type(sessionData) ~= 'table' then
+	if type(sessionData) ~= typeTable then
 		raiseError(('Session data must be a table, received %s.'):format(type(sessionData)))
 	end
 

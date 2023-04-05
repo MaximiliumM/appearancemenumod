@@ -95,7 +95,7 @@ function Spawn:DrawActiveSpawns(style)
 
       ImGui.SameLine()
       if spawn.handle ~= '' and not(spawn.handle:IsVehicle()) then
-        if ImGui.SmallButton("Respawn##"..spawn.name) then
+        if AMM.UI:SmallButton("Respawn##"..spawn.name) then
           spawn:Despawn()
 			 
 			 Cron.After(0.5, function()
@@ -110,7 +110,7 @@ function Spawn:DrawActiveSpawns(style)
 
 		if spawn.handle ~= '' then
 			if not(mountedVehicle and mountedVehicle:GetEntityID().hash == spawn.handle:GetEntityID().hash) then
-				if ImGui.SmallButton("Despawn##"..spawn.name) then
+				if AMM.UI:SmallButton("Despawn##"..spawn.name) then
 					if spawn.handle:IsVehicle() then
 						Spawn:DespawnVehicle(spawn)
 					else
@@ -123,7 +123,7 @@ function Spawn:DrawActiveSpawns(style)
 
       if spawn.handle ~= '' then
         ImGui.SameLine()
-        if ImGui.SmallButton("Target".."##"..spawn.name) then
+        if AMM.UI:SmallButton("Target".."##"..spawn.name) then
           AMM.Tools:SetCurrentTarget(spawn)
           AMM.Tools.lockTarget = true
         end
@@ -137,12 +137,12 @@ function Spawn:DrawActiveSpawns(style)
 			end
 
 			ImGui.SameLine()
-			if ImGui.SmallButton(hostileButtonLabel.."##"..spawn.name) then
+			if AMM.UI:SmallButton(hostileButtonLabel.."##"..spawn.name) then
 				Spawn:ToggleHostile(spawn.handle)
 			end
 
         ImGui.SameLine()
-        if ImGui.SmallButton("Equipment".."##"..spawn.name) then
+        if AMM.UI:SmallButton("Equipment".."##"..spawn.name) then
           popupDelegate = AMM:OpenPopup(spawn.name.."'s Equipment")
         end
 
@@ -337,7 +337,7 @@ function Spawn:DrawFavoritesButton(buttonLabels, entity, fullButton)
 	if fullButton then
 		button = ImGui.Button(favoriteButtonLabel, style.buttonWidth, style.buttonHeight)
 	else
-		button = ImGui.SmallButton(favoriteButtonLabel)
+		button = AMM.UI:SmallButton(favoriteButtonLabel)
 	end
 
 	if button then
@@ -548,11 +548,11 @@ function Spawn:SpawnNPC(spawn)
 
 	Spawn.currentSpawnedID = spawn.id
 
-	if AMM.userSettings.spawnAsCompanion then
+	-- if AMM.userSettings.spawnAsCompanion then
 		spawn.entityID = Game.GetPreventionSpawnSystem():RequestSpawn(AMM:GetNPCTweakDBID(spawn.path), -99, spawnTransform)
-	else
-		spawn.entityID = exEntitySpawner.SpawnRecord(spawn.path, spawnTransform)
-	end
+	-- else
+		-- spawn.entityID = exEntitySpawner.SpawnRecord(spawn.path, spawnTransform)
+	-- end
 
 	while Spawn.spawnedNPCs[spawn.uniqueName()] ~= nil do
 		local num = spawn.name:match("|([^|]+)")
@@ -611,7 +611,7 @@ function Spawn:SpawnNPC(spawn)
 				Spawn:SetNPCAsCompanion(spawn.handle)
 			else
 				AMM.Tools:SetNPCAttitude(spawn, "friendly")
-			end			
+			end
 
 			AMM:UpdateSettings()
 			Cron.Halt(timer)
