@@ -396,7 +396,7 @@ function Props:DrawCategories()
           else
             local query = f('SELECT * FROM entities WHERE is_spawnable = 1 '..customizableIDs..customProps..' AND cat_id == "%s" ORDER BY entity_name ASC', category.cat_id)
             for en in db:nrows(query) do
-              if string.find(tostring(en.entity_path), "Vehicle") then 
+              if string.find(tostring(en.entity_path), "Vehicle") then
                 en.parameters = {veh = true, dist = 6}
                 en.entity_path = en.entity_path:gsub("Vehicle", "Props")
               end
@@ -409,7 +409,9 @@ function Props:DrawCategories()
         end
 
         if Props.entities[category] ~= nil and #Props.entities[category] ~= 0 then
-          if ImGui.CollapsingHeader((IconGlyphs[category.cat_icon] or " ").." "..category.cat_name) then
+          local headerFlag = ImGuiTreeNodeFlags.None
+				  if AMM.userSettings.favoritesDefaultOpen and category == 'Favorites' then headerFlag = ImGuiTreeNodeFlags.DefaultOpen end
+          if ImGui.CollapsingHeader((IconGlyphs[category.cat_icon] or " ").." "..category.cat_name, headerFlag) then
             AMM.Spawn:DrawEntitiesButtons(Props.entities[category], category.cat_name, Props.style)
           end
         end

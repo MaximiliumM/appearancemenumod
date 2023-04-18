@@ -10,6 +10,19 @@ log = spdlog.error
 -- ALIAS for string.format --
 f = string.format
 
+-- Helper global function --
+function printTable(t)
+	if #t == 0 then
+		for k,v in pairs(t) do
+			 print(k .. " : " .. tostring(v))
+		end
+  else
+		for i,v in ipairs(t) do
+			 print(i .. " : " .. tostring(v))
+		end
+  end
+end
+
 -- Load Util Module Globally --
 Util = require('Modules/util.lua')
 
@@ -46,7 +59,7 @@ function AMM:new()
 	 AMM.nibblesReplacer = false
 
 	 -- Main Properties --
-	 AMM.currentVersion = "2.2"
+	 AMM.currentVersion = "2.2.1"
 	 AMM.CETVersion = tonumber(GetVersion():match("1.(%d+)."))
 	 AMM.updateNotes = require('update_notes.lua')
 	 AMM.credits = require("credits.lua")
@@ -1563,6 +1576,13 @@ function AMM:DrawUISettingsTab(style)
 
 		AMM.userSettings.tabDescriptions, clicked = ImGui.Checkbox("Tab Header Descriptions", AMM.userSettings.tabDescriptions)
 		if clicked then settingChanged = true end
+
+		AMM.userSettings.favoritesDefaultOpen, clicked = ImGui.Checkbox("Expand Favorites By Default", AMM.userSettings.favoritesDefaultOpen)
+		if clicked then settingChanged = true end
+
+		if ImGui.IsItemHovered() then
+			ImGui.SetTooltip("This setting will expand Favorites in Spawn, Swap and Decor tabs by default when AMM first launches.")
+		end
 
 		AMM.userSettings.scrollBarEnabled, scrollBarClicked = ImGui.Checkbox("Enable Scroll Bars", AMM.userSettings.scrollBarEnabled)
 
@@ -3400,7 +3420,7 @@ function AMM:ChangeAppearanceTo(entity, appearance)
 			Cron.After(0.2, function()
 				entity.appearance = AMM:GetAppearance(entity)
 
-				if AMM:CheckAppearanceForBannedWords(entity.appearance) then
+				if AMM.userSettings.streamerMode and AMM:CheckAppearanceForBannedWords(entity.appearance) then
 					AMM:ChangeAppearanceTo(entity, 'Cycle')
 				end
 			end)

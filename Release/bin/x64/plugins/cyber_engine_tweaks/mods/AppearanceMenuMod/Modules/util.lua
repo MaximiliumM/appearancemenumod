@@ -101,6 +101,14 @@ function Util:GetTableKeys(tab)
   return keyset
 end
 
+function Util:GetKeysCount(t)
+  local count = 0
+  for k, v in pairs(t) do
+      count = count + 1
+  end
+  return count
+end
+
 function Util:Split(s, delimiter)
   result = {}
   for match in (s..delimiter):gmatch("(.-)"..delimiter) do

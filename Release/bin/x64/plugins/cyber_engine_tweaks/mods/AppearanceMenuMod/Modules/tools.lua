@@ -995,7 +995,7 @@ function Tools:SetTargetPosition(pos, angles)
       Tools:TeleportPropTo(Tools.currentTarget, pos, angles or EulerAngles.new(Tools.npcRotation[1], Tools.npcRotation[2], Tools.npcRotation[3]))
     end
   elseif Tools.currentTarget.type ~= 'Player' and Tools.currentTarget.handle:IsNPC() then
-    Tools:TeleportNPCTo(Tools.currentTarget.handle, pos, angles or Tools.npcRotation[3])
+    Tools:TeleportNPCTo(Tools.currentTarget.handle, pos, angles.yaw or Tools.npcRotation[3])
   else
     Game.GetTeleportationFacility():Teleport(Tools.currentTarget.handle, pos, angles or EulerAngles.new(Tools.npcRotation[1], Tools.npcRotation[2], Tools.npcRotation[3]))
   end
@@ -1242,7 +1242,7 @@ end
 
 function Tools:ProtectTarget(t)
   local newMappinID = Util:SetMarkerOverObject(t.handle, gamemappinVariant.QuestGiverVariant)
-  Tools.protectedNPCs[target.handle:GetEntityID().hash] = newMappinID
+  Tools.protectedNPCs[t.handle:GetEntityID().hash] = newMappinID
 end
 
 function Tools:UseGeneralAction(action, range)
@@ -1722,7 +1722,7 @@ function Tools:DrawMovementWindow()
         end
       else
         Tools.savedPosition = { 
-          pos = Tools.currentTarget.handle:GetWorldPosition(), 
+          pos = Tools.currentTarget.handle:GetWorldPosition(),
           angles = GetSingleton('Quaternion'):ToEulerAngles(Tools.currentTarget.handle:GetWorldOrientation()),
           scale = Util:ShallowCopy({}, Tools.currentTarget.scale)
         }

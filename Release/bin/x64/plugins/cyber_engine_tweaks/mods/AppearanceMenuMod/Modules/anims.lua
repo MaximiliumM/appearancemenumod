@@ -178,45 +178,25 @@ function Poses:Draw(AMM, target)
           local specials = Poses.specialCategories[target.name]
           local collabs = Poses.collabCategories
 
-          local rig = Poses:CheckTargetRig(target)
+          local rigs = Poses:CheckTargetRig(target)
 
-          if rig then
-            categories = Poses:GetCategoriesForRig(rig)
+          if rigs then
+            categories = Poses:GetCategoriesForRig(rigs)
           end
 
           if specials and not Util:CheckIfTableHasValue(categories, target.name) then
             table.insert(categories, target.name)
           end
 
-          if next(anims) == nil then
-            anims = Util:ShallowCopy({}, Poses.anims)
+          if collabs then
+            for _, collab in ipairs(collabs) do
+              table.insert(categories, collab)
+            end
+            
           end
 
-          if collabs then
-            local newCategories = Util:ShallowCopy({}, categories)
-            for _, cat in ipairs(collabs) do
-              local addedAnim = false
-              
-              for _, r in pairs(Poses.rigs) do
-                if r == Poses.rigs[rig] or rig == false then
-                  local collabAnims = Poses.collabAnims[cat][r]
-                  if collabAnims then
-                    for _, workspot in ipairs(collabAnims) do
-                      if anims[cat] == nil then
-                        anims[cat] = {}
-                      end
-
-                      addedAnim = true
-                      table.insert(anims[cat], workspot)
-                    end
-                  end
-                end
-              end
-
-              if addedAnim then table.insert(newCategories, cat) end
-            end
-
-            categories = newCategories
+          if next(anims) == nil then
+            anims = Util:ShallowCopy({}, Poses.anims)
           end
 
           for _, category in ipairs(categories) do
@@ -232,11 +212,35 @@ function Poses:Draw(AMM, target)
             and AMM.userSettings.animPlayerSelfTarget and target.type ~= "Player" then goto skip end
             
             if anims[category] ~= nil and next(anims[category]) ~= nil or (category == 'Favorites' and Poses.searchQuery == '') then
-              if(ImGui.CollapsingHeader(category)) then                
-                if category == 'Favorites' and #Poses.anims['Favorites'] == 0 then
-                  ImGui.Text("It's empty :(")
-                else
-                  Poses:DrawAnimsButton(target, category, anims[category])
+              if anims[category][1] == nil and category ~= 'Favorites' then -- This means it's a Collab category
+                if (ImGui.CollapsingHeader(category)) then
+                  local count = 0
+                  local usableRig = nil
+                  for _, rig in ipairs(categories) do
+                    if anims[category][rig] then
+                      count = count + 1
+                      usableRig = rig
+                    end
+                  end
+                  if count > 1 then
+                    for _, rig in ipairs(categories) do
+                      if anims[category][rig] then
+                        if (ImGui.CollapsingHeader(rig.."##"..category)) then
+                          Poses:DrawAnimsButton(target, category, anims[category][rig])
+                        end
+                      end
+                    end
+                  else
+                    Poses:DrawAnimsButton(target, category, anims[category][usableRig])
+                  end
+                end
+              else
+                if (ImGui.CollapsingHeader(category)) then
+                  if category == 'Favorites' and #Poses.anims['Favorites'] == 0 then
+                    ImGui.Text("It's empty :(")
+                  else
+                    Poses:DrawAnimsButton(target, category, anims[category])
+                  end
                 end
               end
             end
@@ -267,7 +271,7 @@ function Poses:Draw(AMM, target)
             end
           end
           ImGui.End()
-        end        
+        end   
       end
     else
       ImGui.NewLine()
@@ -409,12 +413,15 @@ function Poses:GetAnimationsForListOfIDs(ids)
 	local anims = {}
   local categories = {}
 	for workspot in db:nrows(query) do
-    if anims[workspot.anim_rig] == nil then
-      anims[workspot.anim_rig] = {}
-      table.insert(categories, workspot.anim_rig)
+    local category = workspot.anim_rig
+    -- if workspot.anim_cat then category = workspot.anim_cat end
+
+    if anims[category] == nil then
+      anims[category] = {}
+      table.insert(categories, category)
     end
 
-		table.insert(anims[workspot.anim_rig], {id = workspot.anim_id, name = workspot.anim_name, rig = workspot.anim_rig, comp = workspot.anim_comp, ent = workspot.anim_ent, fav = intToBool(workspot.anim_fav or 0)})
+		table.insert(anims[category], {id = workspot.anim_id, name = workspot.anim_name, rig = workspot.anim_rig, comp = workspot.anim_comp, ent = workspot.anim_ent, fav = intToBool(workspot.anim_fav or 0)})
 	end
 	return anims, categories
 end
@@ -429,27 +436,49 @@ function Poses:GetAnimationsForSearch(parsedSearch)
   anims['Favorites'] = favs
 
 	for workspot in db:nrows(query) do
-    if anims[workspot.anim_rig] == nil then
-      anims[workspot.anim_rig] = {}
-    end
-
-		table.insert(anims[workspot.anim_rig], {id = workspot.anim_id, name = workspot.anim_name, rig = workspot.anim_rig, comp = workspot.anim_comp, ent = workspot.anim_ent, fav = intToBool(workspot.anim_fav or 0)})
-	end
-	return anims
-end
-
-function Poses:GetAllAnimations()
-  local query = "SELECT * FROM workspots WHERE anim_cat IS NULL"
-
-	local anims = {}
-	for workspot in db:nrows(query) do
     local category = workspot.anim_rig
+    if workspot.anim_cat then category = workspot.anim_cat end
+
     if anims[category] == nil then
       anims[category] = {}
     end
 
-		table.insert(anims[category], {id = workspot.anim_id, name = workspot.anim_name, rig = workspot.anim_rig, comp = workspot.anim_comp, ent = workspot.anim_ent, fav = intToBool(workspot.anim_fav or 0)})
-	end
+    if workspot.anim_cat and anims[category][workspot.anim_rig] == nil then
+      anims[category][workspot.anim_rig] = {}
+    end
+
+    if workspot.anim_cat then
+      table.insert(anims[category][workspot.anim_rig], {id = workspot.anim_id, name = workspot.anim_name, rig = workspot.anim_rig, comp = workspot.anim_comp, ent = workspot.anim_ent, fav = intToBool(workspot.anim_fav or 0)})
+    else
+      table.insert(anims[category], {id = workspot.anim_id, name = workspot.anim_name, rig = workspot.anim_rig, comp = workspot.anim_comp, ent = workspot.anim_ent, fav = intToBool(workspot.anim_fav or 0)})
+	  end
+  end
+
+	return anims
+end
+
+function Poses:GetAllAnimations()
+  local query = "SELECT * FROM workspots"
+
+	local anims = {}
+	for workspot in db:nrows(query) do
+    local category = workspot.anim_rig
+    if workspot.anim_cat then category = workspot.anim_cat end
+
+    if anims[category] == nil then
+      anims[category] = {}
+    end
+
+    if workspot.anim_cat and anims[category][workspot.anim_rig] == nil then
+      anims[category][workspot.anim_rig] = {}
+    end
+
+    if workspot.anim_cat then
+      table.insert(anims[category][workspot.anim_rig], {id = workspot.anim_id, name = workspot.anim_name, rig = workspot.anim_rig, comp = workspot.anim_comp, ent = workspot.anim_ent, fav = intToBool(workspot.anim_fav or 0)})
+    else
+      table.insert(anims[category], {id = workspot.anim_id, name = workspot.anim_name, rig = workspot.anim_rig, comp = workspot.anim_comp, ent = workspot.anim_ent, fav = intToBool(workspot.anim_fav or 0)})
+	  end
+  end
 
   anims['Favorites'] = Poses:GetFavorites()
 
@@ -534,25 +563,15 @@ function Poses:ImportFavorites(favs)
   end
 end
 
-function Poses:GetCategoriesForRig(rig)
-  if Poses.rigs[rig] then
-    if Poses.sceneAnimsInstalled then
-      return {"Favorites", Poses.rigs[rig], Poses.rigs[rig].." Scenes"}
-    end
-
-    return {"Favorites", Poses.rigs[rig]}
-  end
-
+function Poses:GetCategoriesForRig(rigs)
   local categories = {}
-  
+
   table.insert(categories, "Favorites")
 
-  for _, cat in ipairs(Poses.categories) do
-    if string.find(cat, rig) then
-      if string.find(cat, "Player") then
-      else
-        table.insert(categories, cat)
-      end
+  for _, r in ipairs(rigs) do
+    table.insert(categories, Poses.rigs[r])
+    if Poses.sceneAnimsInstalled then
+      table.insert(categories, Poses.rigs[r].." Scenes")
     end
   end
 
@@ -561,18 +580,35 @@ end
 
 function Poses:CheckTargetRig(target)
   if target.rig then
-    return target.rig
+    return {target.rig}
   else
     local rigs = {
-      ["fx_woman_base"] = "Woman",
-      ["fx_man_base"] = "Man"
+      ["fx_woman_base"] = "woman",
+      ["fx_man_base"] = "man"
     }
+
+    local compRig = nil
+    local possibleRigs = {}
 
     for _, rig in ipairs(Util:GetTableKeys(rigs)) do
       local comp = target.handle:FindComponentByName(rig)
       if comp then
-        return rigs[rig]
+        compRig = rigs[rig]
+        break
       end
+    end
+
+    if compRig then
+      for _, cat in ipairs(Util:GetTableKeys(Poses.rigs)) do
+        if string.find(cat, compRig) then
+          if string.find(cat, "player") then
+          else
+            table.insert(possibleRigs, cat)
+          end
+        end
+      end
+
+      return possibleRigs
     end
   end
 

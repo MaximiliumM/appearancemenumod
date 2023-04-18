@@ -170,7 +170,9 @@ function Swap:Draw(AMM, t)
             end
 
             if Swap.entities[category] ~= nil and #Swap.entities[category] ~= 0 then
-              if(ImGui.CollapsingHeader(category.cat_name)) then
+              local headerFlag = ImGuiTreeNodeFlags.None
+				      if AMM.userSettings.favoritesDefaultOpen and category == 'Favorites' then headerFlag = ImGuiTreeNodeFlags.DefaultOpen end
+              if(ImGui.CollapsingHeader(category.cat_name, headerFlag)) then
                   Swap:DrawEntitiesButtons(Swap.entities[category], category.cat_name)
               end
             end

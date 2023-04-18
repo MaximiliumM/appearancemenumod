@@ -229,7 +229,9 @@ function Spawn:DrawCategories(style)
 			end
 
 			if Spawn.entities[category] ~= nil and #Spawn.entities[category] ~= 0 then
-        		if ImGui.CollapsingHeader(category.cat_name) then
+				local headerFlag = ImGuiTreeNodeFlags.None
+				if AMM.userSettings.favoritesDefaultOpen and category == 'Favorites' then headerFlag = ImGuiTreeNodeFlags.DefaultOpen end
+        		if ImGui.CollapsingHeader(category.cat_name, headerFlag) then
 					Spawn:DrawEntitiesButtons(Spawn.entities[category], category.cat_name, style)
 				end
       	end
