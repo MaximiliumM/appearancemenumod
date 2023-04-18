@@ -43,9 +43,10 @@ function AMM:new()
 	 -- External Mods API --
 	 AMM.TeleportMod = nil
 	 AMM.UniqueVRig = false
+	 AMM.nibblesReplacer = false
 
 	 -- Main Properties --
-	 AMM.currentVersion = "2.1-beta"
+	 AMM.currentVersion = "2.2"
 	 AMM.CETVersion = tonumber(GetVersion():match("1.(%d+)."))
 	 AMM.updateNotes = require('update_notes.lua')
 	 AMM.credits = require("credits.lua")
@@ -53,7 +54,6 @@ function AMM:new()
 	 AMM.userSettings = AMM:PrepareSettings()
 	 AMM.player = nil
 	 AMM.currentTarget = ''
-	 AMM.entitiesForRespawn = ''
 	 AMM.allowedNPCs = AMM:GetSaveables()
 	 AMM.equipmentOptions = AMM:GetEquipmentOptions()
 	 AMM.followDistanceOptions = AMM:GetFollowDistanceOptions()
@@ -65,6 +65,7 @@ function AMM:new()
 	 AMM.collabArchives = {}
 	 AMM.savedAppearanceCheckCache = {}
 	 AMM.entities = {}
+	 AMM.bannedWords = {"naked", "nude", "pp", "xxx", "penis", "birthday_suit", "shower"}
 
 	 -- Songbird Properties --
 	 AMM.SBInWorld = false
@@ -133,12 +134,18 @@ function AMM:new()
 		 end
 
 		 -- Setup Unique V Framework --
-		 if ModArchiveExists("zz_johnson_Unique_V_Body_Shape") then
+		 if ModArchiveExists("zz_johnson_Framework_Unique_V_Body_Shape.archive") then
 			AMM.UniqueVRig = true
+		 end
+
+		 -- Setup Nibbles Replacer --
+		 if ModArchiveExists("Photomode_NPCs_AMM.archive") then
+			AMM.nibblesReplacer = true
 		 end
 		 
 		 AMM:SetupCustomProps()
 		 AMM:SetupCustomEntities()
+		 AMM:SetupCustomPoses()
 		 AMM:SetupAMMCharacters()
 		 AMM:SetupVehicleData()
 		 AMM.collabs = AMM:SetupCollabAppearances()
@@ -146,7 +153,7 @@ function AMM:new()
 
 		 -- Initialization
 		 AMM.archivesInfo = AMM:CheckMissingArchives()
-		 AMM.Spawn.categories = AMM.Spawn:GetCategories()
+		 AMM.Spawn:Initialize()
 		 AMM.Scan:Initialize()
 		 AMM.Tools:Initialize()
 		 AMM.Swap:Initialize() 
@@ -198,6 +205,7 @@ function AMM:new()
 
 			 AMM.Tools:ToggleAnimatedHead(Tools.animatedHead)
 
+			 AMM.Poses.activeAnims = {}
 			 AMM.Props.activeProps = {}
 			 AMM.playerLastPos = ''
 			 Util.playerLastPos = ''
@@ -224,7 +232,9 @@ function AMM:new()
 		 -- Setup Cron to Export User data every 10 minutes --
 		 Cron.Every(600, function()
 			 AMM:ExportUserData()
-			 Props:BackupPreset(Props.activePreset)
+			 if Props.activePreset and Props.activePreset ~= '' then
+			 	Props:BackupPreset(Props.activePreset)
+			 end
 		 end)
 
 		 node = nil
@@ -538,6 +548,12 @@ function AMM:new()
 			-- Adjust Prevention System Total Entities Limit --
 			TweakDB:SetFlat('PreventionSystem.setup.totalEntitiesLimit', 30)
 
+			-- Nibbles Replacer LocKey Update --
+			if AMM.Tools.replacer then
+				TweakDB:SetFlat('photo_mode.general.localizedNameForPhotoModePuppet', {"LocKey#48683", "LocKey#34414", 'Replacer'})
+				TweakDB:SetFlat('photo_mode.character.quadrupedPoses', AMM.Tools.replacer.poses)
+			end
+
 			if AMM.userSettings.photoModeEnhancements then
 				-- Adjust Photomode Defaults
 				TweakDB:SetFlat('photo_mode.attributes.dof_aperture_default', AMM.Tools.defaultAperture)
@@ -669,7 +685,7 @@ function AMM:new()
 	 registerHotkey("amm_toggle_companions", "Toggle Companions", function()
 		if next(AMM.Spawn.spawnedNPCs) ~= nil then
 			for _, spawn in pairs(AMM.Spawn.spawnedNPCs) do
-				Util:ToggleCompanion(spawn.handle)
+				Util:ToggleCompanion(spawn)
 			end
 		end
 	 end)
@@ -780,18 +796,16 @@ function AMM:new()
 		end
 	 end)
 
-	-- Probably needs to change to hostile state to be able to trigger combat
-	-- If player isn't in combat, companions won't attack
-	--  registerHotkey("amm_npc_attack", "NPC Attack Target", function()
-	-- 	if next(AMM.Spawn.spawnedNPCs) ~= nil then
-	-- 		local target = AMM:GetTarget()
-	-- 		if target ~= nil and target.handle:IsNPC() then
-	-- 			for _, ent in pairs(AMM.Spawn.spawnedNPCs) do
-	-- 				Util:TriggerCombatAgainst(ent.handle, target.handle)
-	-- 			end
-	-- 		end
-	-- 	end
-	--  end)
+	 registerHotkey("amm_npc_attack", "NPC Attack Target", function()
+		if next(AMM.Spawn.spawnedNPCs) ~= nil then
+			local target = AMM:GetTarget()
+			if target ~= nil and target.handle:IsNPC() then
+				for _, ent in pairs(AMM.Spawn.spawnedNPCs) do
+					Util:TriggerCombatAgainst(ent.handle, target.handle)
+				end
+			end
+		end
+	 end)
 
 	 registerHotkey("amm_npc_hold", "NPC Hold Position", function()
 		local target = AMM:GetTarget()
@@ -852,7 +866,7 @@ function AMM:new()
 		end
 	end)
 
-	 registerHotkey("amm_toggle_lookAt", "Toggle Look At", function()
+	 registerHotkey("amm_toggle_lookAt", "Toggle Look At Camera", function()
 	 	AMM.Tools:ToggleLookAt()
 	 end)
 
@@ -1067,7 +1081,7 @@ function AMM:new()
 						if Tools.currentTarget.handle and Tools.currentTarget.handle ~= '' then
 							local ent = Game.FindEntityByID(Tools.currentTarget.handle:GetEntityID())
 							if not ent or (not Tools.currentTarget.spawned and Tools.currentTarget.type == 'entEntity') 
-							or (Tools.currentTarget.type == 'Player' and not AMM.playerInPhoto) then 
+							or (Tools.currentTarget.type == 'Player' and not AMM.playerInPhoto) then
 								Tools:ClearTarget()
 							end
 						else
@@ -1144,6 +1158,12 @@ function AMM:new()
 		 -- Toggle Marker With AMM Window --
 		 AMM.Tools:ToggleLookAtMarker(drawWindow)
 
+		 -- Toggle Axis Indicator --
+		 if not AMM.Tools.axisIndicator and AMM.Tools.axisIndicatorToggle 
+		 and AMM.Tools.currentTarget ~= '' and AMM.Tools.currentTarget.handle then
+			AMM.Tools:ToggleAxisIndicator()
+		end
+
 		 -- Update Tools Locations --
 		 AMM.Tools.locations = AMM.Tools:GetLocations()
 
@@ -1156,6 +1176,11 @@ function AMM:new()
 
 		 -- Toggle Marker With AMM Window --
 		 AMM.Tools:ToggleLookAtMarker(drawWindow)
+
+		 -- Toggle Axis Indicator --
+		 if AMM.Tools.axisIndicator and AMM.Tools.axisIndicatorToggle then
+		 	AMM.Tools:ToggleAxisIndicator()
+		 end
 
 		 -- Backup Decor Preset if active --
 		 if AMM.Props.activePreset ~= '' then
@@ -1298,7 +1323,7 @@ function AMM:Begin()
 				end
 			else
 				-- Target Setup --
-				target = AMM:GetTarget()
+				local target = AMM:GetTarget()
 
 				if ImGui.BeginTabBar("TABS") then
 
@@ -1436,6 +1461,9 @@ function AMM:DrawGeneralSettingsTab(style)
 			if clicked then settingChanged = true end
 		end
 
+		AMM.userSettings.axisIndicatorByDefault, clicked = ImGui.Checkbox("Display Axis Indicator By Default", AMM.userSettings.axisIndicatorByDefault)
+		if clicked then settingChanged = true end
+
 		if AMM.CETVersion >= 18 then
 			AMM.userSettings.photoModeEnhancements, clicked = ImGui.Checkbox("Photo Mode Enhancements", AMM.userSettings.photoModeEnhancements)
 			if clicked then settingChanged = true end
@@ -1443,6 +1471,13 @@ function AMM:DrawGeneralSettingsTab(style)
 
 		AMM.userSettings.godModeOnLaunch, clicked = ImGui.Checkbox("God Mode On Launch", AMM.userSettings.godModeOnLaunch)
 		if clicked then settingChanged = true end
+
+		AMM.userSettings.streamerMode, clicked = ImGui.Checkbox("Streamer Mode", AMM.userSettings.streamerMode)
+		if clicked then settingChanged = true end
+
+		if ImGui.IsItemHovered() then
+			ImGui.SetTooltip("This setting will enable/disable NPC appearances that contain the words: naked, nude, xxx, shower, birthday_suit, pp and penis.")
+		end
 
 		if settingChanged then AMM:UpdateSettings() end
 
@@ -1616,6 +1651,13 @@ function AMM:DrawExperimentalSettingsTab(style)
 			if ImGui.IsItemHovered() then
 				ImGui.SetTooltip("Disable this if you are using a mod that allows Player Animations to be used on NPCs.")
 			end
+
+			AMM.userSettings.allowLookAtForNPCs, clicked = ImGui.Checkbox("Allow Expressions and Look At for NPCs in Photo Mode", AMM.userSettings.allowLookAtForNPCs)
+			if clicked then settingChanged = true end
+
+			if ImGui.IsItemHovered() then
+				ImGui.SetTooltip("This setting requires IGCS to unpause time.")
+			end
 		end
 
 		if expClicked then
@@ -1674,8 +1716,15 @@ function AMM:NewTarget(handle, targetType, id, name, app, options)
 
 	-- Check if target is Nibbles
 	if obj.name == "Nibbles" or Util:CheckNibblesByID(obj.id) then
-		obj.name = "Nibbles"
-		obj.type = "Player"
+		if AMM.nibblesReplacer and AMM.Tools.selectedNibblesEntity.ent then
+			obj.name = "Replacer"
+			obj.id = AMM:GetScanID(AMM.Tools.selectedNibblesEntity.ent)
+			obj.options = AMM:GetAppearanceOptions(handle, obj.id)
+			obj.type = "NPCPuppet"
+		else
+			obj.name = "Nibbles"
+			obj.type = "Player"
+		end
 	end
 
 	-- Check if target is V
@@ -1697,6 +1746,7 @@ function AMM:NewTarget(handle, targetType, id, name, app, options)
 	-- Check if object is current target
 	if AMM.Tools.currentTarget and AMM.Tools.currentTarget ~= '' then
 		if AMM.Tools.currentTarget.hash == obj.hash then
+			AMM.Tools.currentTarget.options = options
 			obj = AMM.Tools.currentTarget
 		end
 	end
@@ -1704,7 +1754,7 @@ function AMM:NewTarget(handle, targetType, id, name, app, options)
 	-- Check if object is spawnedProp
 	if next(AMM.Props.spawnedProps) ~= nil then
 		for _, prop in pairs(AMM.Props.spawnedProps) do
-			if prop.hash == obj.hash then				
+			if prop.hash == obj.hash then	
 				obj = prop
 				break
 			end
@@ -1845,7 +1895,7 @@ function AMM:ImportUserData()
 					self.Poses:ImportFavorites(userData['favoriteAnims'])
 				end
 				if userData['spawnedNPCs'] ~= nil then
-					self.Spawn.spawnedNPCs = self:PrepareImportSpawnedData(userData['spawnedNPCs'])
+					self.Spawn.entitiesForRespawn = userData['spawnedNPCs']
 				end
 				if userData['savedSwaps'] ~= nil then
 					self.Swap.savedSwaps = userData['savedSwaps']
@@ -1896,6 +1946,13 @@ function AMM:ImportUserData()
 				if userData['favorites_props'] ~= nil then
 					for _, obj in ipairs(userData['favorites_props']) do
 						local command = f("INSERT INTO favorites_props (position, entity_id, entity_name, parameters) VALUES (%i, '%s', '%s', '%s')", obj.position, obj.entity_id, obj.entity_name, obj.parameters)
+						command = command:gsub("'nil'", "NULL")
+						db:execute(command)
+					end
+				end
+				if userData['favorites_apps'] ~= nil then
+					for _, obj in ipairs(userData['favorites_apps']) do
+						local command = f("INSERT INTO favorites_apps (entity_id, app_name) VALUES ('%s', '%s')", obj.entity_id, obj.app_name)
 						command = command:gsub("'nil'", "NULL")
 						db:execute(command)
 					end
@@ -1968,6 +2025,10 @@ function AMM:ExportUserData()
 		for r in db:nrows("SELECT * FROM favorites_props") do
 			table.insert(userData['favorites_props'], {position = r.position, entity_id = r.entity_id, entity_name = r.entity_name, parameters = r.parameters})
 		end
+		userData['favorites_apps'] = {}
+		for r in db:nrows("SELECT * FROM favorites_apps") do
+			table.insert(userData['favorites_apps'], {entity_id = r.entity_id, app_name = r.app_name})
+		end
 		userData['saved_appearances'] = {}
 		for r in db:nrows("SELECT * FROM saved_appearances") do
 			table.insert(userData['saved_appearances'], {entity_id = r.entity_id, app_name = r.app_name})
@@ -2024,7 +2085,7 @@ function AMM:PrepareImportSpawnedData(savedIDs)
 
 	for _, id in ipairs(savedIDs) do
 		for ent in db:nrows(f("SELECT * FROM entities WHERE entity_id = '%s'", id)) do
-			spawn = AMM.Spawn:NewSpawn(ent.entity_name, ent.entity_id, ent.entity_parameters, ent.can_be_comp, ent.entity_path, ent.template_path, ent.entity_rig)
+			spawn = AMM.Spawn:NewSpawn(ent.entity_name, ent.entity_id, ent.parameters, ent.can_be_comp, ent.entity_path, ent.template_path, ent.entity_rig)
 			table.insert(savedEntities, spawn)
 		end
 	end
@@ -2036,6 +2097,10 @@ function AMM:PrepareExportSpawnedData()
 	local spawnedEntities = {}
 
 	for _, ent in pairs(AMM.Spawn.spawnedNPCs) do
+		if Util:CheckVByID(ent.id) then
+			ent.id = "0x451222BE, 24"
+		end
+
 		table.insert(spawnedEntities, ent.id)
 	end
 
@@ -2111,24 +2176,24 @@ end
 function AMM:GetPersonalityOptions()
 	local personalities = {
 		{name = "Neutral", idle = 2, category = 2},
-        {name = "Joy", idle = 5, category = 3},
-        {name = "Smile", idle = 6, category = 3},
-        {name = "Sad", idle = 3, category = 3},
-        {name = "Surprise", idle = 8, category = 3},
-        {name = "Aggressive", idle = 2, category = 3},
-        {name = "Anger", idle = 1, category = 3},
-        {name = "Interested", idle = 3, category = 1},
-        {name = "Disinterested", idle = 6, category = 1},
-        {name = "Disappointed", idle = 4, category = 3},
-        {name = "Disgust", idle = 7, category = 3},
-        {name = "Exertion", idle = 1, category = 1},
-        {name = "Nervous", idle = 10, category = 3},
-        {name = "Fear", idle = 11, category = 3},
-        {name = "Terrified", idle = 9, category = 3},
-        {name = "Pain", idle = 2, category = 1},
-        {name = "Sleepy", idle = 5, category = 1},
-        {name = "Unconscious", idle = 4, category = 1},
-        {name = "Dead", idle = 1, category = 2},
+		{name = "Joy", idle = 5, category = 3},
+		{name = "Smile", idle = 6, category = 3},
+		{name = "Sad", idle = 3, category = 3},
+		{name = "Surprise", idle = 8, category = 3},
+		{name = "Aggressive", idle = 2, category = 3},
+		{name = "Anger", idle = 1, category = 3},
+		{name = "Interested", idle = 3, category = 1},
+		{name = "Disinterested", idle = 6, category = 1},
+		{name = "Disappointed", idle = 4, category = 3},
+		{name = "Disgust", idle = 7, category = 3},
+		{name = "Exertion", idle = 1, category = 1},
+		{name = "Nervous", idle = 10, category = 3},
+		{name = "Fear", idle = 11, category = 3},
+		{name = "Terrified", idle = 9, category = 3},
+		{name = "Pain", idle = 2, category = 1},
+		{name = "Sleepy", idle = 5, category = 1},
+		{name = "Unconscious", idle = 4, category = 1},
+		{name = "Dead", idle = 1, category = 2},
 	}
 
 	return personalities
@@ -2403,87 +2468,86 @@ end
 
 function AMM:SetupCustomEntities()
 
-  local files = getFilesRecursively("./Collabs/Custom Entities", {})
-      
+	local files = getFilesRecursively("./Collabs/Custom Entities", {})
+
 	if #files == 0 then return end
   
-  for _, mod in ipairs(files) do
-    local data = require(mod)
-    local modder = data.modder
-    local uid = data.unique_identifier
-    local archive = data.archive or nil
-    local entity = data.entity_info
-    local appearances = data.appearances
-    local attributes = data.attributes
+  	for _, mod in ipairs(files) do
+		local data = require(mod)
+		local modder = data.modder
+		local uid = data.unique_identifier
+		local archive = data.archive or nil
+		local entity = data.entity_info
+		local appearances = data.appearances
+		local attributes = data.attributes
 
-    AMM.modders[uid] = modder
+		AMM.modders[uid] = modder
 
-    if archive then table.insert(AMM.collabArchives, {name = archive.name, desc = archive.description, active = true, optional = false}) end
+		if archive then table.insert(AMM.collabArchives, {name = archive.name, desc = archive.description, active = true, optional = false}) end
 
-    local ent = entity.path:match("[^\\]*.ent$"):gsub(".ent", "")
-    local entity_path = "Custom_"..uid.."_"..entity.type.."."..ent
+		local ent = entity.path:match("[^\\]*.ent$"):gsub(".ent", "")
+		local entity_path = "Custom_"..uid.."_"..entity.type.."."..ent
 
-    local check = 0
-    for count in db:urows(f([[SELECT COUNT(1) FROM entities WHERE entity_path = "%s"]], entity_path)) do
-      check = count
-    end
+		local check = 0
+		for count in db:urows(f([[SELECT COUNT(1) FROM entities WHERE entity_path = "%s"]], entity_path)) do
+			check = count
+		end
 
-    if check == 0 then
-      local check = 0
-      for count in db:urows(f([[SELECT COUNT(1) FROM entities WHERE entity_name = "%s"]], entity.name)) do
-        check = count
-      end
+		if check == 0 then
+			local check = 0
+			for count in db:urows(f([[SELECT COUNT(1) FROM entities WHERE entity_name = "%s"]], entity.name)) do
+			check = count
+			end
 
-      if check ~= 0 then
-        entity.name = uid.." "..entity.name
-      end
+			if check ~= 0 then
+			entity.name = uid.." "..entity.name
+			end
 
-      local entity_id = AMM:GetScanID(entity_path)
-      local canBeComp = 1
-      local category = 55
-      if entity.type == "Vehicle" then
-        canBeComp = 0
-        category = 56
-      end
+			local entity_id = AMM:GetScanID(entity_path)
+			local canBeComp = 1
+			local category = 55
+			if entity.type == "Vehicle" then
+			canBeComp = 0
+			category = 56
+			end
 
-      local tables = '(entity_id, entity_name, cat_id, parameters, can_be_comp, entity_path, is_spawnable, is_swappable, template_path)'
-      local values = f('("%s", "%s", %i, %s, "%s", "%s", "%s", "%s", "%s")', entity_id, entity.name, category, nil, canBeComp, entity_path, 1, 1, entity.path)
-      values = values:gsub('nil', "NULL")
-      db:execute(f('INSERT INTO entities %s VALUES %s', tables, values))
+			local tables = '(entity_id, entity_name, cat_id, parameters, can_be_comp, entity_path, is_spawnable, is_swappable, template_path, entity_rig)'
+			local values = f('("%s", "%s", %i, "%s", "%s", "%s", "%s", "%s", "%s", "%s")', entity_id, entity.name, category, nil, canBeComp, entity_path, 1, 1, entity.path, entity.rig)
+			values = values:gsub('"nil"', "NULL")
+			db:execute(f('INSERT INTO entities %s VALUES %s', tables, values))
 
-      if entity.customName then
-        AMM.customNames[entity_id] = entity.name
-      end
+			if entity.customName then
+				AMM.customNames[entity_id] = entity.name
+			end
 
-      -- Setup Appearances
-      if appearances ~= nil then
-        for _, app in ipairs(appearances) do
-          db:execute(f('INSERT INTO appearances (entity_id, app_name, collab_tag) VALUES ("%s", "%s", "%s")', entity_id, app, uid))
-        end
-      end
+			-- Setup Appearances
+			if appearances ~= nil then
+				for _, app in ipairs(appearances) do
+					db:execute(f('INSERT INTO appearances (entity_id, app_name, collab_tag) VALUES ("%s", "%s", "%s")', entity_id, app, uid))
+				end
+			end
 
-      -- Check if TweakDB record exists
-      if not TweakDB:GetRecord(entity_path) then
-      -- Setup TweakDB Records
-        if entity.record ~= nil then
-          TweakDB:CloneRecord(entity_path, entity.record)
-        else
-          TweakDB:CloneRecord(entity_path, "Character.CitizenRichFemaleCasual")
-        end
-      end
+			-- Check if TweakDB record exists
+			if not TweakDB:GetRecord(entity_path) then
+				-- Setup TweakDB Records
+				if entity.record ~= nil then
+					TweakDB:CloneRecord(entity_path, entity.record)
+				else
+					TweakDB:CloneRecord(entity_path, "Character.CitizenRichFemaleCasual")
+				end
+			end
 
-        TweakDB:SetFlat(entity_path..".entityTemplatePath", entity.path)
+   		TweakDB:SetFlat(entity_path..".entityTemplatePath", entity.path)
 
-      if attributes ~= nil then
-        local newAttributes = {}
-        for attr, value in pairs(attributes) do
-          newAttributes[attr] = TweakDB:GetFlat(value)
-        end
-        TweakDB:SetFlats(entity_path, newAttributes)
-      end
-    end
-  end
-		
+			if attributes ~= nil then
+				local newAttributes = {}
+				for attr, value in pairs(attributes) do
+					newAttributes[attr] = TweakDB:GetFlat(value)
+				end
+				TweakDB:SetFlats(entity_path, newAttributes)
+			end
+    	end
+	end
 end
 
 local propHandleFormat = "Custom_%s_Props.%s"
@@ -2647,6 +2711,74 @@ function AMM:SetupCollabAppearances()
   return collabs
 end
 
+local animCompType = "amm_workspot_collab"
+local columnNames = '(anim_name, anim_rig, anim_comp, anim_ent, anim_cat)'
+local insertPoseFormat = '("%s", "%s", "%s", "%s", "%s")'
+local insertPoseValuesFormat = 'INSERT INTO workspots %s VALUES %s'
+
+function AMM:SetupCustomPoses()
+	
+	local files = getFilesRecursively("./Collabs/Custom Poses", {})
+
+	if #files == 0 then return {} end
+  
+  -- return table
+	local collabs = {}
+  
+  -- lookup table: tracks pose names to boolean for simple checking while adding custom poses
+	local alreadyRegisteredPoses = {}
+  
+	db:execute(f("DELETE FROM workspots WHERE anim_comp LIKE '%s'", animCompType))
+	db:execute('UPDATE sqlite_sequence SET seq = (SELECT MAX(anim_id) FROM workspots) WHERE name="workspots"')
+  
+	for _, mod in ipairs(files) do
+		local data = require(mod)
+		
+		if not data then
+			spdlog.error(f("%s: invalid file!", mod))
+		else
+			local category = data.category or 'INVALID'
+			local entityPath = data.entity_path or 'INVALID'
+			local anims = data.anims or {}    
+			local modder = data.modder or 'INVALID'
+
+			-- Check if category already exists
+			local check = 0
+			for count in db:urows(f("SELECT COUNT(1) FROM workspots WHERE anim_cat = '%s'", category)) do
+				check = count
+			end
+
+			if check ~= 0 then
+				category = "["..modder.."] "..category
+			end
+				
+			for rig, animsForRig in pairs(anims) do
+				-- track duplicates for warnings
+				alreadyRegisteredPoses[modder]      = alreadyRegisteredPoses[modder] or {}
+				alreadyRegisteredPoses[modder][rig] = alreadyRegisteredPoses[modder][rig] or {}
+				
+				collabs[modder]                     = collabs[modder] or {}
+				collabs[modder][rig]                = collabs[modder][rig] or {}
+				
+				table.insert(collabs[modder][rig], entityPath)
+				
+				for _, animName in ipairs(animsForRig) do
+					if alreadyRegisteredPoses[modder][rig][animName] then
+						spdlog.error(f("%s: custom animation %s for rig %s is already registered!", modder, animName, rig))
+					else
+						local values = f(insertPoseFormat, animName, rig, animCompType, entityPath, category) -- '("%s", "%s", "%s", "%s")'
+						db:execute(f(insertPoseValuesFormat, columnNames, values))                  -- 'INSERT INTO workspots %s VALUES %s'
+						
+						alreadyRegisteredPoses[modder][rig][animName] = true
+					end
+				end
+			end
+    	end
+  	end
+	
+	return collabs
+end
+
 function AMM:SetupVehicleData()
 	local unlockableVehicles = TweakDB:GetFlat(TweakDBID.new('Vehicle.vehicle_list.list'))
 	AMM.originalVehicles = unlockableVehicles
@@ -2680,37 +2812,34 @@ function AMM:TeleportAll()
 end
 
 function AMM:RespawnAll()
-	if AMM.entitiesForRespawn == '' then
-		AMM.entitiesForRespawn = {}
-		for _, ent in pairs(AMM.Spawn.spawnedNPCs) do
-			if not(string.find(ent.path, "Vehicle")) then
-				if ent.handle and ent.handle ~= '' then
-					if ent.handle:IsNPC() then
-						Util:TeleportNPCTo(ent.handle, Util:GetBehindPlayerPosition(2))
-					end
+	local entitiesForRespawn = {}
+	for _, ent in pairs(AMM.Spawn.spawnedNPCs) do
+		if not(string.find(ent.path, "Vehicle")) then
+			if ent.handle and ent.handle ~= '' then
+				if ent.handle:IsNPC() then
+					Util:TeleportNPCTo(ent.handle, Util:GetBehindPlayerPosition(2))
 				end
-				table.insert(AMM.entitiesForRespawn, ent)
 			end
+			table.insert(entitiesForRespawn, ent)
 		end
-
-		AMM:DespawnAll(buttonPressed)
-		if buttonPressed then buttonPressed = false end
 	end
 
+	AMM:DespawnAll(buttonPressed)
+	if buttonPressed then buttonPressed = false end
+
 	Cron.Every(0.5, function(timer)
-		local ent = AMM.entitiesForRespawn[1]
+		local ent = entitiesForRespawn[1]
 		local entity = nil
 
 		if ent then
 			if ent.entityID ~= '' then entity = Game.FindEntityByID(ent.entityID) end
 			if entity == nil then
-				table.remove(AMM.entitiesForRespawn, 1)
+				table.remove(entitiesForRespawn, 1)
 				AMM.Spawn:SpawnNPC(ent)
 			end
 		end
 
-		if #AMM.entitiesForRespawn == 0 or AMM.entitiesForRespawn == '' then
-			AMM.entitiesForRespawn = ''
+		if #entitiesForRespawn == 0 then
 			Cron.Halt(timer)
 		end
 	end)
@@ -2732,8 +2861,18 @@ function AMM:UpdateSettings()
 	AMM:ExportUserData()
 end
 
+function AMM:CheckAppearanceForBannedWords(appearance)
+	for _, word in ipairs(AMM.bannedWords) do
+		if string.find(appearance, word) then
+			return true
+		end
+	end
+
+	return false
+end
+
 function AMM:CheckCustomDefaults(target)
-	if target ~= nil and target.handle:IsNPC() then
+	if target ~= nil and target.handle.IsNPC and target.handle:IsNPC() then
 		for component, apps in pairs(AMM.customAppDefaults) do
 			local appParam = target.handle:FindComponentByName(CName.new(component))
 			if appParam then
@@ -2898,26 +3037,37 @@ end
 
 function AMM:ClearAllSavedAppearances()
 	db:execute("DELETE FROM saved_appearances")
+	AMM:UpdateSettings()
+end
+
+function AMM:ClearAllFavoriteAppearances()
+	db:execute("DELETE FROM favorites_apps")
+	AMM:UpdateSettings()
 end
 
 function AMM:ClearAllBlacklistedAppearances()
 	db:execute("DELETE FROM blacklist_appearances")
+	AMM:UpdateSettings()
 end
 
 function AMM:ClearAllSavedDespawns()
 	db:execute("DELETE FROM saved_despawns")
+	AMM:UpdateSettings()
 end
 
 function AMM:ClearAllAppearanceTriggers()
 	db:execute("DELETE FROM appearance_triggers")
+	AMM:UpdateSettings()
 end
 
 function AMM:ClearAllFavorites()
 	db:execute("DELETE FROM favorites; UPDATE sqlite_sequence SET seq = 0")
+	AMM:UpdateSettings()
 end
 
 function AMM:ClearAllSwapFavorites()
 	db:execute("DELETE FROM favorites_swap; UPDATE sqlite_sequence SET seq = 0")
+	AMM:UpdateSettings()
 end
 
 function AMM:SaveAppearance(t)
@@ -2996,15 +3146,26 @@ function AMM:GetScanClass(t)
 end
 
 function AMM:SetCurrentTarget(t)
-	if t ~= nil then
-		if self.currentTarget ~= '' then
-			if t.id ~= self.currentTarget.id then
-				self.currentTarget = t
-			end
-		else
+	if not t then return end
+
+	if self.currentTarget ~= '' then
+		if t.id ~= self.currentTarget.id then
 			self.currentTarget = t
 		end
+	else
+		self.currentTarget = t
 	end
+end
+
+function AMM:GetFavoritesAppearances(id)
+	local favorites = {}
+
+	local query = f("SELECT app_name FROM favorites_apps WHERE entity_id = '%s' ORDER BY app_name ASC", id)
+	for app in db:urows(query) do
+		table.insert(favorites, app)
+	end
+
+	return favorites
 end
 
 function AMM:GetAppearanceOptions(t, id)
@@ -3021,6 +3182,8 @@ function AMM:GetAppearanceOptionsWithID(id, t)
 	 	id = self.Swap.activeSwaps[id].newID
 	end
 
+	options = AMM:GetFavoritesAppearances(id)
+
 	if self.customAppPosition == "Top" then
 		options = self:LoadCustomAppearances(options, id)
 	end
@@ -3036,9 +3199,22 @@ function AMM:GetAppearanceOptionsWithID(id, t)
 				searchQuery = "app_name LIKE '%"..AMM.Scan.searchQuery.."%' AND "
 			end
 
-			for app in db:urows(f("SELECT app_name FROM appearances WHERE %sentity_id = '%s' ORDER BY app_name ASC", searchQuery, id)) do
-				table.insert(options, app)
+			local query = f("SELECT app_name FROM appearances WHERE %sentity_id = '%s' AND app_name NOT IN (SELECT app_name FROM favorites_apps WHERE entity_id = '%s') ORDER BY app_name ASC", searchQuery, id, id)
+
+			if AMM.userSettings.streamerMode then
+				local sql = "SELECT app_name FROM appearances WHERE "
+				local tb = {}
+				for _, word in ipairs(AMM.bannedWords) do
+				    table.insert(tb, f("app_name NOT LIKE '%%%s%%'", word))
+				end
+				
+				local concatBannedWords = table.concat(tb, " AND ")
+				query = sql..concatBannedWords..f(" AND %sentity_id = '%s' ORDER BY app_name ASC", searchQuery, id)
 			end
+
+			for app in db:urows(query) do
+				table.insert(options, app)
+			end			
 		end
 	end
 
@@ -3090,7 +3266,7 @@ function AMM:GetAppearance(t)
 	-- Check if custom appearance is active
 	if t and t ~= '' and self.activeCustomApps[t.hash] ~= nil then
 		return self.activeCustomApps[t.hash]
-	else
+	elseif t and t ~= '' then
 		return self:GetScanAppearance(t.handle)
 	end
 end
@@ -3223,6 +3399,10 @@ function AMM:ChangeAppearanceTo(entity, appearance)
 
 			Cron.After(0.2, function()
 				entity.appearance = AMM:GetAppearance(entity)
+
+				if AMM:CheckAppearanceForBannedWords(entity.appearance) then
+					AMM:ChangeAppearanceTo(entity, 'Cycle')
+				end
 			end)
 		end)
 	end
@@ -3232,7 +3412,8 @@ function AMM:GetTarget()
 	local player = Game.GetPlayer()
 
 	if player then
-		target = Game.GetTargetingSystem():GetLookAtObject(player, true, false) or Game.GetTargetingSystem():GetLookAtObject(player, false, false)
+		local target = Game.GetTargetingSystem():GetLookAtObject(player, true, false) or Game.GetTargetingSystem():GetLookAtObject(player, false, false)
+		local t = nil
 
 		if target ~= nil then
 			if target:IsNPC() or target:IsReplacer() then
@@ -3298,7 +3479,7 @@ function AMM:ProcessCompanionAttack(hitEvent)
 	local instigatorNPC = hitEvent.attackData:GetInstigator()
 	local dmgType = hitEvent.attackComputed:GetDominatingDamageType()
 
-	if instigatorNPC and instigatorNPC:IsPlayerCompanion() then
+	if instigatorNPC and instigatorNPC.IsPlayerCompanion and instigatorNPC:IsPlayerCompanion() then
 		if hitEvent.target and hitEvent.target:IsPlayer() then return end
 		if AMM.companionAttackMultiplier ~= 0 then
 			hitEvent.attackComputed:MultAttackValue(AMM.companionAttackMultiplier, dmgType)
@@ -3438,6 +3619,7 @@ function AMM:OpenPopup(name)
 		popupDelegate.message = "If you are sure you want to delete all your favorites, select which one below:"
 		table.insert(popupDelegate.buttons, {label = "Spawn Favorites", action = function() AMM:ClearAllFavorites() end})
 		table.insert(popupDelegate.buttons, {label = "Swap Favorites", action = function() AMM:ClearAllSwapFavorites() end})
+		table.insert(popupDelegate.buttons, {label = "Favorite Appearances", action = function() AMM:ClearAllFavoriteAppearances() end})
 		table.insert(popupDelegate.buttons, {label = "Cancel", action = ''})
 		name = "WARNING"
 	elseif name == "Appearances" then
@@ -3504,7 +3686,7 @@ end
 function AMM:DrawButton(title, width, height, action, target)
 	if (ImGui.Button(title, width, height)) then
 		if action == "Cycle" then
-			AMM:ChangeScanAppearanceTo(target, 'Cycle')
+			AMM:ChangeAppearanceTo(target, 'Cycle')
 		elseif action == "Save" then
 			AMM:SaveAppearance(target)
 		elseif action == "Clear" then
@@ -3521,6 +3703,8 @@ function AMM:DrawButton(title, width, height, action, target)
 			buttonPressed = true
 		elseif action == "SpawnProp" then
 			AMM.Props:SpawnProp(target)
+		elseif action == "Favorite" then
+			AMM.Scan:ToggleAppearanceAsFavorite(target)
 		end
 	end
 end

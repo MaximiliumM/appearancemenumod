@@ -36,6 +36,9 @@ local Scan = {
   shouldSenseOnce = false,
 }
 
+-- Hack to fix dumb stuff as well
+local style = nil
+
 function Scan:Initialize()
   Scan.TPPCameraOptions = {
     { name = "Close", vec = Vector4.new(0, -8, 0.5, 0)},
@@ -56,9 +59,10 @@ function Scan:Initialize()
   Scan.savedDespawns = Scan:LoadSavedDespawns()
 end
 
-function Scan:Draw(AMM, target, style)
+function Scan:Draw(AMM, target, s)
   if ImGui.BeginTabItem("Scan") then
-    
+    style = s
+
     -- Util Popup Helper --
     Util:SetupPopup()
 
@@ -86,7 +90,7 @@ function Scan:Draw(AMM, target, style)
           end
         end
       end
-    end
+    end    
 
     local tabConfig = {
       ['NPCPuppet'] = {
@@ -103,8 +107,13 @@ function Scan:Draw(AMM, target, style)
             action = "Save"
           },
           {
+            title = "Favorite Appearance",
+            width = style.halfButtonWidth,
+            action = "Favorite"
+          },
+          {
             title = "Blacklist Appearance",
-            width = style.buttonWidth,
+            width = style.halfButtonWidth,
             action = "Blacklist"
           },
         },
@@ -122,6 +131,11 @@ function Scan:Draw(AMM, target, style)
             width = style.halfButtonWidth,
             action = "Save"
           },
+          {
+            title = "Favorite Appearance",
+            width = style.buttonWidth,
+            action = "Favorite"
+          },
         },
       }
     }
@@ -137,14 +151,11 @@ function Scan:Draw(AMM, target, style)
         }
       end
 
-      AMM.UI:Spacing(3)
+      ImGui.Spacing()
 
       ImGui.Text(target.name)
 
-      -- Check if target is V
-      if target.appearance ~= nil and target.appearance ~= "None" then
-
-        local buttonLabel = " Lock Target "
+      local buttonLabel = " Lock Target "
         if Tools.lockTarget then
           buttonLabel = " Unlock Target "
         end
@@ -155,324 +166,46 @@ function Scan:Draw(AMM, target, style)
           Tools:SetCurrentTarget(target)
         end
 
-        AMM.UI:Separator()
-
-        if target.id ~= nil and target.id ~= "None" then
-          AMM.UI:TextColored("Target ID:")
-          ImGui.InputText("", target.id, 50, ImGuiInputTextFlags.ReadOnly)
-          ImGui.SameLine()
-          if ImGui.SmallButton("Copy") then
-            ImGui.SetClipboardText(target.id)
-          end
-        end
-
-        ImGui.Spacing()
-
-        AMM.UI:TextColored(tabConfig[target.type].currentTitle)
-        ImGui.Text(target.appearance or "default")
-
-        ImGui.Spacing()
-
-        local buttons = tabConfig[target.type].buttons
-
-        if tabConfig[target.type] ~= nil and #buttons > 0 then
-          
-          -- Check if Save button should be drawn
-          local drawSaveButton = AMM:ShouldDrawSaveButton(target)
-
-          for _, button in ipairs(buttons) do
-            repeat
-            if button.action ~= "Blacklist" and button.action ~= "Cycle" then
-              ImGui.SameLine()
-            end
-
-            if button.action == "Cycle" and target.id == "0x903E76AF, 43" then -- Extra Handling for Johnny
-              do break end
-            end
-
-            if not drawSaveButton and button.action == "Save" then
-              do break end
-            end
-
-            AMM:DrawButton(button.title, button.width, style.buttonHeight, button.action, target)
-
-            until true
-          end
-
-          local check = nil
-          local query = f("SELECT COUNT(1) FROM blacklist_appearances WHERE app_name = '%s'", target.appearance)
-          for count in db:urows(query) do
-            check = count
-          end
-
-          if check ~= 0 then
-            AMM:DrawButton("Remove Appearance From Blacklist", style.buttonWidth, style.buttonHeight, "Unblack", target)
-          end
-
-          local savedApp = nil
-          local query = f("SELECT app_name FROM saved_appearances WHERE entity_id = '%s'", target.id)
-          for app in db:urows(query) do
-            savedApp = app
-          end
-
-          if savedApp ~= nil then
-            AMM.UI:Spacing(3)
-            AMM.UI:TextColored("Saved Appearance:")
-            ImGui.Text(savedApp)
-            AMM:DrawButton("Clear Saved Appearance", style.buttonWidth, style.buttonHeight, "Clear", target)
-          end
-
-          AMM.UI:Spacing(3)
-
-          if Scan:TargetIsSpawn(target) then
-            AMM.UI:TextColored("Appearance Trigger:")
-
-            local existingTrigger = nil
-            for x in db:nrows(f("SELECT * FROM appearance_triggers WHERE appearance = '%s'", target.appearance)) do
-              existingTrigger = x
-            end
-
-            if existingTrigger then
-              if existingTrigger.type == 5 and not AMM.playerCurrentDistrict then
-                -- Avoid loading Area type if user reloaded all mods
-              else
-                Scan.selectedAppTrigger = Scan.appTriggerOptions[existingTrigger.type]
-              end
-            else
-              Scan.selectedAppTrigger = Scan.appTriggerOptions[1]
-            end
-
-            for _, option in ipairs(Scan.appTriggerOptions) do
-
-              if option.name == "Area" and AMM.playerCurrentDistrict == nil then
-                Util:AMMError("Don't use Reload All Mods.\nPlease reload your save game or move to a different area.")
-              else
-                if ImGui.RadioButton(option.name, Scan.selectedAppTrigger.name == option.name) then
-                  Scan.selectedAppTrigger = option
-
-                  if option.type == 1 then
-                    Scan:RemoveTrigger(target)
-                  else
-                    Scan:AddTrigger(target, option.type)
-                  end
-                end
-              end
-  
-              if option.name ~= "None" then ImGui.SameLine() end
-            end
-
-            ImGui.Spacing()
-
-            local currentTrigger = Scan.selectedAppTrigger.name
-            if currentTrigger == "Area" or currentTrigger == "Zone" then
-              ImGui.Text("Current "..Scan.selectedAppTrigger.name..": ")
-
-              local currentArea = AMM.playerCurrentDistrict
-              if currentTrigger == "Zone" then currentArea = AMM.player:GetCurrentSecurityZoneType(AMM.player).value end
-              ImGui.SameLine()
-              AMM.UI:TextColored(currentArea)
-
-              local shouldDrawSavedArea = existingTrigger ~= nil and (existingTrigger.type == 4 or existingTrigger.type == 5)
-              if shouldDrawSavedArea then
-                local area = existingTrigger.args        
-                if area ~= currentArea then
-                  ImGui.Text("Saved "..Scan.selectedAppTrigger.name..": ")
-                  ImGui.SameLine()
-                  AMM.UI:TextColored(area)
-                end
-              end
-            end
-          end
-        end
-      end
-
-      AMM.UI:Separator()
-
-      AMM.UI:TextColored("Possible Actions:")
-
-      ImGui.Spacing()
-
-      if target.name == "Door" then
-        if ImGui.Button("  Unlock Door  ", style.buttonWidth, style.buttonHeight - 5) then
-          Util:UnlockDoor(target.handle)
-        end
-      elseif target.name == "ElevatorFloorTerminal" then
-        if ImGui.Button("  Restore Access  ", style.buttonWidth, style.buttonHeight - 5) then
-          Util:RestoreElevator(target.handle)
-        end
-      elseif target.handle:IsVehicle() then
-        if ImGui.Button("  Unlock Vehicle  ", style.halfButtonWidth, style.buttonHeight - 5) then
-          Util:UnlockVehicle(target.handle)
-        end
-
-        ImGui.SameLine()
-        if ImGui.Button("  Repair Vehicle  ", style.halfButtonWidth, style.buttonHeight - 5) then
-          Util:RepairVehicle(target.handle)
-        end
-
-        if ImGui.Button("  Open/Close Doors  ", style.halfButtonWidth, style.buttonHeight - 5) then
-          Util:ToggleDoors(target.handle)
-        end
-
-        ImGui.SameLine()
-        if ImGui.Button("  Open/Close Windows  ", style.halfButtonWidth, style.buttonHeight - 5) then
-          Util:ToggleWindows(target.handle)
-        end
-
-        local qm = AMM.player:GetQuickSlotsManager()
-		 	  mountedVehicle = qm:GetVehicleObject()
-        local shouldAssignSeats = Scan:ShouldDisplayAssignSeatsButton()
-        local width = style.buttonWidth
-        if (GetVersion() == "v1.15.0" or shouldAssignSeats) then width = style.halfButtonWidth end
-        if ImGui.Button("  Toggle Engine  ", width, style.buttonHeight - 5) then
-          Util:ToggleEngine(target.handle)
-        end
-
-        if Scan.companionDriver ~= '' and mountedVehicle then
-          ImGui.SameLine()
-          if ImGui.Button("  Toggle Camera  ", style.halfButtonWidth, style.buttonHeight - 5) then
-            Scan:ToggleVehicleCamera()
-          end
-
-          if ImGui.Button("  Toggle Radio  ", style.halfButtonWidth, style.buttonHeight - 5) then
-            mountedVehicle:ToggleRadioReceiver(not mountedVehicle:IsRadioReceiverActive())
-          end
-
-          ImGui.SameLine()
-          if mountedVehicle:IsRadioReceiverActive() then
-            if ImGui.Button("  Next Radio Station  ", style.halfButtonWidth, style.buttonHeight - 5) then
-              mountedVehicle:NextRadioReceiverStation()
-            end
-          end
-        end
-
-        if (GetVersion() == "v1.15.0" or shouldAssignSeats) and not mountedVehicle then
-          ImGui.SameLine()
-          if ImGui.Button("  Assign Seats  ", style.halfButtonWidth, style.buttonHeight - 5) then
-            if Scan.vehicle == '' or Scan.vehicle.hash ~= target.handle:GetEntityID().hash then
-              Scan:GetVehicleSeats(target.handle)
-              Scan.vehicle = {handle = target.handle, hash = tostring(target.handle:GetEntityID().hash)}
-            end
-
-            ImGui.OpenPopup("Seats")
-          end
-        else
-          Scan.vehicleSeats = ''
-        end
-      end
-
-      Scan:DrawSeatsPopup()
-
-      if target.handle:IsNPC() then
-        local spawnID = AMM:IsSpawnable(target)
-        if spawnID ~= nil then
-          local favoritesLabels = {"  Add to Spawnable Favorites  ", "  Remove from Spawnable Favorites  "}
-          local newTarget = Util:ShallowCopy({}, target)
-          newTarget.id = spawnID
-          AMM.Spawn:DrawFavoritesButton(favoritesLabels, target, true)
-        end
-
-        local buttonStyle = style.buttonWidth
-        if AMM.userSettings.experimental then buttonStyle = style.halfButtonWidth end
-        local buttonLabel = "  Follower  "
-        if target.handle.isPlayerCompanionCached then buttonLabel = "  Unfollower  " end
-        if ImGui.Button(buttonLabel, buttonStyle, style.buttonHeight - 5) then
-          if target.handle.isPlayerCompanionCached then
-            Util:ToggleCompanion(target.handle)
-          else
-            AMM.Spawn:SetNPCAsCompanion(target.handle)
-          end
-        end
-
         if AMM.userSettings.experimental then
           ImGui.SameLine()
-
-          if ImGui.Button("  Fake Die  ", style.halfButtonWidth, style.buttonHeight - 5) then
-            target.handle:SendAIDeathSignal()
+          if ImGui.SmallButton(" Despawn ") then
+            target:Despawn()
           end
         end
-      end
 
-      if AMM.userSettings.experimental and not mountedVehicle then
-        local buttonWidth = style.buttonWidth
-        local shouldAllowSaveDespawn = not(target.handle:IsNPC() or target.handle:IsVehicle())
+      -- Check if target is V
+      if target.appearance ~= nil and target.appearance ~= "None" then
 
-        if shouldAllowSaveDespawn then buttonWidth = style.halfButtonWidth end
-
-        if ImGui.Button("  Despawn  ", buttonWidth, style.buttonHeight - 5) then
-          target:Despawn()
+        local categories = {
+          { name = "List of Appearances", actions = function(target) return Scan:DrawListOfAppearances(target) end },
+          { name = "Target Info", actions = function(target, tabConfig) return Scan:DrawTargetInfo(target, tabConfig) end },
+          { name = "Target Actions", actions = function(target) return Scan:DrawTargetActions(target) end },
+        }
+    
+        if Scan:TargetIsSpawn(target) then
+          table.insert(categories, { name = "Appearance Trigger", actions = function(target) return Scan:DrawAppearanceTrigger(target) end })
         end
 
-        if shouldAllowSaveDespawn then
-          ImGui.SameLine()
-          local hash = tostring(target.handle:GetEntityID().hash)
-          local buttonLabel = "  Save Despawn  "
-          if Scan.savedDespawns[hash] then buttonLabel = "Clear Saved Despawn" end
-          if ImGui.Button(buttonLabel, style.halfButtonWidth, style.buttonHeight - 5) then
-            if buttonLabel == "  Save Despawn  " then
-              Scan:SaveDespawn(target)
+        AMM.UI:Spacing(3)
+    
+        for _, category in ipairs(categories) do
+          AMM.UI:PushStyleColor(ImGuiCol.Text, "TextColored")
+          local treeNode = ImGui.TreeNodeEx(category.name, ImGuiTreeNodeFlags.DefaultOpen + ImGuiTreeNodeFlags.NoTreePushOnOpen)
+          ImGui.PopStyleColor(1)
+    
+          if treeNode then
+            ImGui.Separator()
+    
+            if category.name == "Target Info" then
+              category.actions(target, tabConfig)
             else
-              Scan:ClearSavedDespawn(hash)
+              category.actions(target)
             end
+    
+            AMM.UI:Spacing(3)
           end
+          if not treeNode then ImGui.Separator() end
         end
-
-        if next(Scan.savedDespawns) ~= nil then
-          Scan.savedDespawnsActive = ImGui.Checkbox("Saved Despawns Active", Scan.savedDespawnsActive)
-
-          if ImGui.IsItemHovered() then
-            ImGui.SetTooltip("Disable this checkbox and reload your save to be able to target and Clear Saved Despawns")
-          end
-        end
-      end
-
-      AMM.UI:Separator()
-
-      AMM.UI:TextColored("List of Appearances:")
-      ImGui.Spacing()
-
-      ImGui.PushItemWidth(Spawn.searchBarWidth)
-      Scan.searchQuery = ImGui.InputTextWithHint(" ", "Search", Scan.searchQuery, 100)
-      Scan.searchQuery = Scan.searchQuery:gsub('"', '')
-      ImGui.PopItemWidth()
-
-      if Scan.searchQuery ~= '' then
-        ImGui.SameLine()
-        if ImGui.Button("Clear") then
-          Scan.searchQuery = ''
-        end
-      end
-
-      ImGui.Spacing()
-
-      if target.options ~= nil then
-        x = 0
-        for _, appearance in ipairs(target.options) do
-          local len = ImGui.CalcTextSize(appearance)
-          if len > x then x = len end
-        end
-
-        x = x + 50
-        if x < ImGui.GetWindowContentRegionWidth() then
-          x = ImGui.GetWindowContentRegionWidth()
-        end
-
-        resX, resY = GetDisplayResolution()
-        y = #target.options * 60
-        if y > resY - (resY / 2) then
-          y = resY / 3
-        end
-
-        if ImGui.BeginChild("Scrolling", x, y) then
-          for i, appearance in ipairs(target.options) do
-            if (ImGui.Button(appearance)) then
-              AMM:ChangeAppearanceTo(target, appearance)
-            end
-          end
-        end
-        ImGui.EndChild()
-      else
-        ImGui.TextColored(1, 0.16, 0.13, 0.75, "No Appearances")
       end
     else
       ImGui.NewLine()
@@ -496,6 +229,313 @@ function Scan:Draw(AMM, target, style)
 
     ImGui.EndTabItem()
   end
+end
+
+function Scan:DrawTargetInfo(target, tabConfig)
+  if target.id ~= nil and target.id ~= "None" then
+    AMM.UI:TextColored("ID:")
+    ImGui.InputText("", target.id, 50, ImGuiInputTextFlags.ReadOnly)
+    ImGui.SameLine()
+    if ImGui.SmallButton("Copy") then
+      ImGui.SetClipboardText(target.id)
+    end
+  end
+
+  ImGui.Spacing()
+
+  AMM.UI:TextColored(tabConfig[target.type].currentTitle)
+  ImGui.Text(target.appearance or "default")
+
+  ImGui.Spacing()
+
+  local buttons = tabConfig[target.type].buttons
+
+  if tabConfig[target.type] ~= nil and #buttons > 0 then
+    
+    -- Check if Save button should be drawn
+    local drawSaveButton = AMM:ShouldDrawSaveButton(target)
+
+    for _, button in ipairs(buttons) do
+      repeat
+      if button.action ~= "Favorite" and button.action ~= "Cycle" then
+        ImGui.SameLine()
+      end
+
+      if button.action == "Cycle" and target.id == "0x903E76AF, 43" then -- Extra Handling for Johnny
+        do break end
+      end
+
+      if button.action == "Favorite" then
+        local query = f("SELECT COUNT(1) FROM favorites_apps WHERE entity_id = '%s' AND app_name = '%s'", target.id, target.appearance)
+        local check = 0
+        for count in db:urows(query) do
+          check = count
+        end
+
+        if check ~= 0 then
+          button.title = "Unfavorite Appearance"
+        end
+      end
+
+      if not drawSaveButton and button.action == "Save" then
+        do break end
+      end
+
+      AMM:DrawButton(button.title, button.width, style.buttonHeight, button.action, target)
+
+      until true
+    end
+
+    local check = nil
+    local query = f("SELECT COUNT(1) FROM blacklist_appearances WHERE app_name = '%s'", target.appearance)
+    for count in db:urows(query) do
+      check = count
+    end
+
+    if check ~= 0 then
+      AMM:DrawButton("Unblacklist Appearance", style.buttonWidth, style.buttonHeight, "Unblack", target)
+    end
+
+    local savedApp = nil
+    local query = f("SELECT app_name FROM saved_appearances WHERE entity_id = '%s'", target.id)
+    for app in db:urows(query) do
+      savedApp = app
+    end
+
+    if savedApp ~= nil then
+      AMM.UI:Spacing(3)
+      AMM.UI:TextColored("Saved Appearance:")
+      ImGui.Text(savedApp)
+      AMM:DrawButton("Clear Saved Appearance", style.buttonWidth, style.buttonHeight, "Clear", target)
+    end
+  end
+end
+
+function Scan:DrawAppearanceTrigger(target)
+  local existingTrigger = nil
+  for x in db:nrows(f("SELECT * FROM appearance_triggers WHERE appearance = '%s'", target.appearance)) do
+    existingTrigger = x
+  end
+
+  if existingTrigger then
+    if existingTrigger.type == 5 and not AMM.playerCurrentDistrict then
+      -- Avoid loading Area type if user reloaded all mods
+    else
+      Scan.selectedAppTrigger = Scan.appTriggerOptions[existingTrigger.type]
+    end
+  else
+    Scan.selectedAppTrigger = Scan.appTriggerOptions[1]
+  end
+
+  for _, option in ipairs(Scan.appTriggerOptions) do
+
+    if option.name == "Area" and AMM.playerCurrentDistrict == nil then
+      Util:AMMError("Don't use Reload All Mods.\nPlease reload your save game or move to a different area.")
+    else
+      if ImGui.RadioButton(option.name, Scan.selectedAppTrigger.name == option.name) then
+        Scan.selectedAppTrigger = option
+
+        if option.type == 1 then
+          Scan:RemoveTrigger(target)
+        else
+          Scan:AddTrigger(target, option.type)
+        end
+      end
+    end
+
+    if option.name ~= "None" then ImGui.SameLine() end
+  end
+
+  ImGui.Spacing()
+
+  local currentTrigger = Scan.selectedAppTrigger.name
+  if currentTrigger == "Area" or currentTrigger == "Zone" then
+    ImGui.Text("Current "..Scan.selectedAppTrigger.name..": ")
+
+    local currentArea = AMM.playerCurrentDistrict
+    if currentTrigger == "Zone" then currentArea = AMM.player:GetCurrentSecurityZoneType(AMM.player).value end
+    ImGui.SameLine()
+    AMM.UI:TextColored(currentArea)
+
+    local shouldDrawSavedArea = existingTrigger ~= nil and (existingTrigger.type == 4 or existingTrigger.type == 5)
+    if shouldDrawSavedArea then
+      local area = existingTrigger.args        
+      if area ~= currentArea then
+        ImGui.Text("Saved "..Scan.selectedAppTrigger.name..": ")
+        ImGui.SameLine()
+        AMM.UI:TextColored(area)
+      end
+    end
+  end
+end
+
+function Scan:DrawTargetActions(target)
+  if target.name == "Door" then
+    if ImGui.Button("  Unlock Door  ", style.buttonWidth, style.buttonHeight - 5) then
+      Util:UnlockDoor(target.handle)
+    end
+  elseif target.name == "ElevatorFloorTerminal" then
+    if ImGui.Button("  Restore Access  ", style.buttonWidth, style.buttonHeight - 5) then
+      Util:RestoreElevator(target.handle)
+    end
+  elseif target.handle:IsVehicle() then
+    if ImGui.Button("  Unlock Vehicle  ", style.halfButtonWidth, style.buttonHeight - 5) then
+      Util:UnlockVehicle(target.handle)
+    end
+
+    ImGui.SameLine()
+    if ImGui.Button("  Repair Vehicle  ", style.halfButtonWidth, style.buttonHeight - 5) then
+      Util:RepairVehicle(target.handle)
+    end
+
+    if ImGui.Button("  Open/Close Doors  ", style.halfButtonWidth, style.buttonHeight - 5) then
+      Util:ToggleDoors(target.handle)
+    end
+
+    ImGui.SameLine()
+    if ImGui.Button("  Open/Close Windows  ", style.halfButtonWidth, style.buttonHeight - 5) then
+      Util:ToggleWindows(target.handle)
+    end
+
+    local qm = AMM.player:GetQuickSlotsManager()
+    mountedVehicle = qm:GetVehicleObject()
+    local shouldAssignSeats = Scan:ShouldDisplayAssignSeatsButton()
+    local width = style.buttonWidth
+    if (GetVersion() == "v1.15.0" or shouldAssignSeats) then width = style.halfButtonWidth end
+    if ImGui.Button("  Toggle Engine  ", width, style.buttonHeight - 5) then
+      Util:ToggleEngine(target.handle)
+    end
+
+    if Scan.companionDriver ~= '' and mountedVehicle then
+      ImGui.SameLine()
+      if ImGui.Button("  Toggle Camera  ", style.halfButtonWidth, style.buttonHeight - 5) then
+        Scan:ToggleVehicleCamera()
+      end
+
+      if ImGui.Button("  Toggle Radio  ", style.halfButtonWidth, style.buttonHeight - 5) then
+        mountedVehicle:ToggleRadioReceiver(not mountedVehicle:IsRadioReceiverActive())
+      end
+
+      ImGui.SameLine()
+      if mountedVehicle:IsRadioReceiverActive() then
+        if ImGui.Button("  Next Radio Station  ", style.halfButtonWidth, style.buttonHeight - 5) then
+          mountedVehicle:NextRadioReceiverStation()
+        end
+      end
+    end
+
+    if (GetVersion() == "v1.15.0" or shouldAssignSeats) and not mountedVehicle then
+      ImGui.SameLine()
+      if ImGui.Button("  Assign Seats  ", style.halfButtonWidth, style.buttonHeight - 5) then
+        if Scan.vehicle == '' or Scan.vehicle.hash ~= target.handle:GetEntityID().hash then
+          Scan:GetVehicleSeats(target.handle)
+          Scan.vehicle = {handle = target.handle, hash = tostring(target.handle:GetEntityID().hash)}
+        end
+
+        ImGui.OpenPopup("Seats")
+      end
+    else
+      Scan.vehicleSeats = ''
+    end
+  end
+
+  Scan:DrawSeatsPopup()
+
+  if target.handle:IsNPC() then
+    local spawnID = AMM:IsSpawnable(target)
+    if spawnID ~= nil then
+      local favoritesLabels = {"  Add to Spawnable Favorites  ", "  Remove from Spawnable Favorites  "}
+      local newTarget = Util:ShallowCopy({}, target)
+      newTarget.id = spawnID
+      AMM.Spawn:DrawFavoritesButton(favoritesLabels, target, true)
+    end
+
+    local buttonStyle = style.buttonWidth
+    if AMM.userSettings.experimental then buttonStyle = style.halfButtonWidth end
+    local buttonLabel = "  Follower  "
+    if target.handle.isPlayerCompanionCached then buttonLabel = "  Unfollower  " end
+    if ImGui.Button(buttonLabel, buttonStyle, style.buttonHeight - 5) then
+      Util:ToggleCompanion(target)
+    end
+
+    if AMM.userSettings.experimental then
+      ImGui.SameLine()
+
+      if ImGui.Button("  Fake Die  ", style.halfButtonWidth, style.buttonHeight - 5) then
+        target.handle:SendAIDeathSignal()
+      end
+    end
+  end
+
+  if AMM.userSettings.experimental and not mountedVehicle then
+    local buttonWidth = style.buttonWidth
+    local shouldAllowSaveDespawn = not(target.handle:IsNPC() or target.handle:IsVehicle())
+
+    if shouldAllowSaveDespawn then buttonWidth = style.halfButtonWidth end
+
+    if shouldAllowSaveDespawn then
+      local hash = tostring(target.handle:GetEntityID().hash)
+      local buttonLabel = "  Save Despawn  "
+      if Scan.savedDespawns[hash] then buttonLabel = "Clear Saved Despawn" end
+      if ImGui.Button(buttonLabel, style.buttonWidth, style.buttonHeight - 5) then
+        if buttonLabel == "  Save Despawn  " then
+          Scan:SaveDespawn(target)
+        else
+          Scan:ClearSavedDespawn(hash)
+        end
+      end
+    end
+
+    if next(Scan.savedDespawns) ~= nil then
+      Scan.savedDespawnsActive = ImGui.Checkbox("Saved Despawns Active", Scan.savedDespawnsActive)
+
+      if ImGui.IsItemHovered() then
+        ImGui.SetTooltip("Disable this checkbox and reload your save to be able to target and Clear Saved Despawns")
+      end
+    end
+  end
+end
+
+function Scan:DrawListOfAppearances(target)
+  ImGui.PushItemWidth(Spawn.searchBarWidth)
+  Scan.searchQuery = ImGui.InputTextWithHint(" ", "Search", Scan.searchQuery, 100)
+  Scan.searchQuery = Scan.searchQuery:gsub('"', '')
+  ImGui.PopItemWidth()
+
+  if Scan.searchQuery ~= '' then
+    ImGui.SameLine()
+    if ImGui.Button("Clear") then
+      Scan.searchQuery = ''
+    end
+  end
+
+  ImGui.Spacing()
+
+  if target.options ~= nil then
+    if AMM.nibblesReplacer and AMM.Tools.selectedNibblesEntity.ent and target.id == AMM:GetScanID(AMM.Tools.selectedNibblesEntity.ent) then
+      local categories = AMM.Tools:PrepareCategoryHeadersForNibblesReplacer(target.options)
+      for i, category in ipairs(categories) do
+        local categoryHeader = ImGui.CollapsingHeader(category.name.."##"..i)
+  
+        if categoryHeader then
+          Scan:DrawAppearanceOptions(target, category.options)
+        end
+      end
+    else
+      Scan:DrawAppearanceOptions(target, target.options)
+    end
+  else
+    ImGui.TextColored(1, 0.16, 0.13, 0.75, "No Appearances")
+  end
+end
+
+function Scan:DrawAppearanceOptions(target, options)
+  AMM.UI:List('', #options, ImGui.GetFontSize() * 2, function(i)
+    local appearance = options[i]
+    if (ImGui.Button(appearance)) then
+      AMM:ChangeAppearanceTo(target, appearance)
+    end
+  end)
 end
 
 function Scan:DrawMinimalUI()
@@ -569,7 +609,7 @@ function Scan:DrawSeatsPopup()
 
     AMM.UI:Separator()
 
-    if ImGui.Button("Assign", -1, 30) then
+    if ImGui.Button("Assign", -1, style.buttonHeight) then
       Scan.assignedVehicles[Scan.vehicle.hash] = 'active'
 
       local nonCompanions = {}
@@ -592,7 +632,7 @@ function Scan:DrawSeatsPopup()
       ImGui.CloseCurrentPopup()
     end
 
-    if ImGui.Button("Reset", -1, 30) then
+    if ImGui.Button("Reset", -1, style.buttonHeight) then
       Scan.selectedSeats = {}
     end
 
@@ -835,6 +875,22 @@ function Scan:TargetIsSpawn(target)
 
     return false
 	end
+end
+
+function Scan:ToggleAppearanceAsFavorite(target)
+  local query = f("SELECT COUNT(1) FROM favorites_apps WHERE entity_id = '%s' AND app_name = '%s'", target.id, target.appearance)
+  local count = 0
+  for check in db:urows(query) do
+    count = check
+  end
+
+  if count ~= 0 then
+    db:execute(f("DELETE FROM favorites_apps WHERE entity_id = '%s' AND app_name = '%s'", target.id, target.appearance))
+  else
+    db:execute(f("INSERT INTO favorites_apps (entity_id, app_name) VALUES ('%s', '%s')", target.id, target.appearance))
+  end
+
+  target.options = AMM:GetAppearanceOptionsWithID(target.id)
 end
 
 -- Save Despawn methods

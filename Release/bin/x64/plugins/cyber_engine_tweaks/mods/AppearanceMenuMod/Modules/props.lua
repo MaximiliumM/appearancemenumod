@@ -409,7 +409,7 @@ function Props:DrawCategories()
         end
 
         if Props.entities[category] ~= nil and #Props.entities[category] ~= 0 then
-          if ImGui.CollapsingHeader(category.cat_name) then
+          if ImGui.CollapsingHeader((IconGlyphs[category.cat_icon] or " ").." "..category.cat_name) then
             AMM.Spawn:DrawEntitiesButtons(Props.entities[category], category.cat_name, Props.style)
           end
         end
@@ -481,20 +481,20 @@ function Props:DrawCategoryHeaders(props, tag)
   local categories, props = Props:FilterByCategory(props, tag)
 
   if #categories > 0 then
-    for _, category in ipairs(categories) do            
+    for _, category in ipairs(categories) do
       local categoryHeader = ImGui.CollapsingHeader(category.."##"..(tag or ''))
 
       if categoryHeader then
-        Props:DrawProps(props[category])
+        Props:DrawProps(props[category], category)
       end
     end
   end
 end
 
-function Props:DrawProps(props)
-  for _, prop in ipairs(props) do
-    Props:DrawSavedProp(prop)
-  end
+function Props:DrawProps(props, category)
+  AMM.UI:List(category or '', #props, Props.style.buttonHeight + 15, function(i)
+    Props:DrawSavedProp(props[i])
+  end)
 end
 
 function Props:DrawSavedProp(prop)
@@ -719,8 +719,9 @@ function Props:DrawHeaders()
     ImGui.PopItemWidth()
 
     if Props.savedPropsSearchQuery ~= '' and Props.savedPropsSearchQuery ~= Props.lastSearchQuery then
+      local parsedSearch, originalQuery = Util:ParseSearch(Props.savedPropsSearchQuery, "name")
       Props.lastSearchQuery = Props.savedPropsSearchQuery
-      Props.currentSavedProps = Props:GetProps(Props.savedPropsSearchQuery)      
+      Props.currentSavedProps = Props:GetProps({parsedSearch, originalQuery})
     elseif Props.savedPropsSearchQuery ~= Props.lastSearchQuery then
       Props.currentSavedProps = {}
     end
@@ -766,6 +767,8 @@ function Props:DrawHeaders()
       ImGui.Spacing()
       Props.showTargetOnly, clicked = ImGui.Checkbox("Show Locked Target Only", Props.showTargetOnly)      
       if clicked then filtersChanged = true end
+    else
+      Props.showTargetOnly = false
     end
 
     if filtersChanged then
@@ -853,7 +856,7 @@ function Props:DrawHeaders()
                 Props:DrawCategoryHeaders(propsForTag, tag)
                 AMM.UI:Separator()
               else -- Tags only
-                Props:DrawProps(propsForTag)
+                Props:DrawProps(propsForTag, tag)
               end
             end
           end
@@ -2010,7 +2013,7 @@ end
 function Props:GetProps(query, tag)
   local dbQuery = 'SELECT * FROM saved_props ORDER BY name ASC'
   if tag then dbQuery = 'SELECT * FROM saved_props WHERE tag = "'..tag..'" ORDER BY name ASC' end
-  if query then dbQuery = 'SELECT * FROM saved_props WHERE name LIKE "%'..query..'%" OR tag LIKE "%'..query..'%" ORDER BY name ASC' end
+  if query then dbQuery = 'SELECT * FROM saved_props WHERE '..query[1]..' OR tag LIKE "%'..query[2]..'%" ORDER BY name ASC' end
   local props = {}
   for prop in db:nrows(dbQuery) do
     for path in db:urows(f("SELECT entity_path FROM entities WHERE entity_id = '%s'", prop.entity_id)) do
@@ -2056,7 +2059,7 @@ function Props:GetCategories()
   local categoriesNames = {}
 
   -- Insert Favorites first
-  table.insert(categories, {cat_id = 1, cat_name = "Favorites"})
+  table.insert(categories, {cat_id = 1, cat_name = "Favorites", cat_icon = "Star"})
   categoriesNames[1] = "Favorites"
 
   for category in db:nrows(query) do
@@ -2064,12 +2067,12 @@ function Props:GetCategories()
       -- User doesn't have the Sound Effects archive installed
     else
       categoriesNames[category.cat_id] = category.cat_name
-      table.insert(categories, {cat_id = category.cat_id, cat_name = category.cat_name})
+      table.insert(categories, {cat_id = category.cat_id, cat_name = category.cat_name, cat_icon = category.cat_icon})
     end
   end
 
   -- Insert Vehicles category
-  table.insert(categories, {cat_id = 24, cat_name = "Vehicles"})
+  table.insert(categories, {cat_id = 24, cat_name = "Vehicles", cat_icon = "CarConvertible"})
 
   return categories, categoriesNames
 end

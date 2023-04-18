@@ -7,6 +7,8 @@ local Swap = {
   specialSwap = false,
 }
 
+local target = nil
+
 function Swap:Initialize()
   self:LoadSavedSwaps(self.savedSwaps)
 end
@@ -48,8 +50,10 @@ function Swap:NewSwap(name, id, template, newID)
   return obj
 end
 
-function Swap:Draw(AMM, target)
+function Swap:Draw(AMM, t)
   if (ImGui.BeginTabItem("Swap")) then
+    -- Same dumb fix from Tools tab
+    target = t
 
     AMM.UI:DrawCrossHair()
 

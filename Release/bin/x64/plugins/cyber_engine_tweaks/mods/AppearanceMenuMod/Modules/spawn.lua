@@ -21,9 +21,11 @@ function Spawn:NewSpawn(name, id, parameters, companion, path, template, rig)
 	if string.find(obj.path, "Props") then
 		obj.type = 'Prop'
 	end
-
+	
 	if obj.parameters == "Player" then
-		obj.path = path..Util:GetPlayerGender()
+		local gender = Util:GetPlayerGender()
+		if gender == "_Female" then obj.rig = 'woman_base' else obj.rig = 'man_base' end
+		obj.path = path..gender
 		obj.parameters = nil
 	end
 
@@ -46,12 +48,21 @@ function Spawn:new()
   Spawn.searchQuery = ''
   Spawn.searchBarWidth = 500
   Spawn.currentSpawnedID = nil
+  Spawn.entitiesForRespawn = {}
 
   -- Modal Popup Properties --
   Spawn.currentFavoriteName = ''
   Spawn.popupEntity = ''
 
   return Spawn
+end
+
+function Spawn:Initialize()
+	Spawn.categories = Spawn:GetCategories()
+
+	if #Spawn.entitiesForRespawn ~= 0 then
+		Spawn.spawnedNPCs = AMM:PrepareImportSpawnedData(Spawn.entitiesForRespawn)
+	end
 end
 
 function Spawn:Draw(AMM, style)
@@ -96,11 +107,7 @@ function Spawn:DrawActiveSpawns(style)
       ImGui.SameLine()
       if spawn.handle ~= '' and not(spawn.handle:IsVehicle()) then
         if AMM.UI:SmallButton("Respawn##"..spawn.name) then
-          spawn:Despawn()
-			 
-			 Cron.After(0.5, function()
-				Spawn:SpawnNPC(spawn)
-			 end)
+          Spawn:Respawn(spawn)
         end
       end
 
@@ -138,7 +145,7 @@ function Spawn:DrawActiveSpawns(style)
 
 			ImGui.SameLine()
 			if AMM.UI:SmallButton(hostileButtonLabel.."##"..spawn.name) then
-				Spawn:ToggleHostile(spawn.handle)
+				Spawn:ToggleHostile(spawn)
 			end
 
         ImGui.SameLine()
@@ -235,7 +242,8 @@ end
 
 function Spawn:DrawEntitiesButtons(entities, categoryName, style)
 
-	for i, en in ipairs(entities) do
+	AMM.UI:List(categoryName, #entities, style.buttonHeight, function(i)
+		local en = entities[i]	
 		local name = en.entity_name
 		local id = en.entity_id
 		local path = en.entity_path
@@ -289,7 +297,7 @@ function Spawn:DrawEntitiesButtons(entities, categoryName, style)
 			ImGui.SameLine()
 			Spawn:DrawArrowButton("down", newSpawn, currentIndex)
 		end
-	end
+	end)
 end
 
 function Spawn:SetFavoriteNamePopup(entity)
@@ -501,6 +509,14 @@ function Spawn:DespawnVehicle(ent)
 	-- AMM:UpdateSettings()
 end
 
+function Spawn:Respawn(spawn, notCompanionOverride)
+	spawn:Despawn()
+			 
+	Cron.After(0.5, function()
+		Spawn:SpawnNPC(spawn)
+	end)
+end
+
 function Spawn:SpawnFavorite()
   local favorites = {}
   for ent in db:nrows("SELECT * FROM entities WHERE entity_id IN (SELECT entity_id FROM favorites)") do
@@ -523,7 +539,7 @@ function Spawn:SpawnFavorite()
   end
 end
 
-function Spawn:SpawnNPC(spawn)
+function Spawn:SpawnNPC(spawn, notCompanionOverride)
 	local spawnTransform = AMM.player:GetWorldTransform()
 	local pos = AMM.player:GetWorldPosition()
 	local heading = AMM.player:GetWorldForward()
@@ -547,12 +563,8 @@ function Spawn:SpawnNPC(spawn)
 	end
 
 	Spawn.currentSpawnedID = spawn.id
-
-	-- if AMM.userSettings.spawnAsCompanion then
-		spawn.entityID = Game.GetPreventionSpawnSystem():RequestSpawn(AMM:GetNPCTweakDBID(spawn.path), -99, spawnTransform)
-	-- else
-		-- spawn.entityID = exEntitySpawner.SpawnRecord(spawn.path, spawnTransform)
-	-- end
+	print(spawn.path)
+	spawn.entityID = Game.GetPreventionSpawnSystem():RequestSpawn(AMM:GetNPCTweakDBID(spawn.path), -99, spawnTransform)
 
 	while Spawn.spawnedNPCs[spawn.uniqueName()] ~= nil do
 		local num = spawn.name:match("|([^|]+)")
@@ -578,7 +590,9 @@ function Spawn:SpawnNPC(spawn)
 
 			Spawn.spawnedNPCs[spawn.uniqueName()] = spawn
 
-			if (#custom > 0 or spawn.parameters ~= nil) and not Util:CheckVByID(spawn.id) then
+			if AMM.userSettings.streamerMode and AMM:CheckAppearanceForBannedWords(spawn.appearance) then
+				AMM:ChangeScanAppearanceTo(spawn, 'Cycle')
+			elseif (#custom > 0 or spawn.parameters ~= nil) and not Util:CheckVByID(spawn.id) then
 				AMM:ChangeAppearanceTo(spawn, spawn.parameters)
 			elseif not Util:CheckVByID(spawn.id) then
 				AMM:ChangeScanAppearanceTo(spawn, 'Cycle')
@@ -606,11 +620,10 @@ function Spawn:SpawnNPC(spawn)
 				end				
 			end)
 
-			if AMM.userSettings.spawnAsCompanion and spawn.canBeCompanion then
-				AMM.Tools:SetNPCAttitude(spawn, "friendly")
+			if AMM.userSettings.spawnAsCompanion and spawn.canBeCompanion and not notCompanionOverride then
 				Spawn:SetNPCAsCompanion(spawn.handle)
 			else
-				AMM.Tools:SetNPCAttitude(spawn, "friendly")
+				AMM.Tools:SetNPCAttitude(spawn, EAIAttitude.AIA_Friendly)
 			end
 
 			AMM:UpdateSettings()
@@ -654,6 +667,10 @@ function Spawn:SetNPCAsCompanion(targetPuppet)
 	local currentRole = targetPuppet:GetAIControllerComponent():GetAIRole()
 
 	if currentRole then
+		if targetPuppet:IsCrowd() and currentRole:IsA('AIFollowerRole') then
+			return true
+		end
+		
 		currentRole:OnRoleCleared(targetPuppet)
 	end
 
@@ -661,45 +678,46 @@ function Spawn:SetNPCAsCompanion(targetPuppet)
 		local followerRole = AIFollowerRole.new()
 		followerRole.followerRef = Game.CreateEntityReference("#player", {})
 
-		targetPuppet:GetAttitudeAgent():SetAttitudeGroup(CName.new("player"))
-		followerRole.attitudeGroupName = CName.new("player")
-
-		targetPuppet.isPlayerCompanionCached = true
-		targetPuppet.isPlayerCompanionCachedTimeStamp = 0
-
 		targetPuppet:GetAIControllerComponent():SetAIRole(followerRole)
 		targetPuppet:GetAIControllerComponent():OnAttach()
 
-		targetPuppet.movePolicies:Toggle(true)
+		local player = Game.GetPlayer()
+		targetPuppet:GetAttitudeAgent():SetAttitudeGroup(player:GetAttitudeAgent():GetAttitudeGroup())
+		targetPuppet:GetAttitudeAgent():SetAttitudeTowards(player:GetAttitudeAgent(), EAIAttitude.AIA_Friendly)
+
+		for _, ent in pairs(Spawn.spawnedNPCs) do
+			if ent.handle.IsNPC and ent.handle:IsNPC() then
+				ent.handle:GetAttitudeAgent():SetAttitudeTowards(targetPuppet:GetAttitudeAgent(), EAIAttitude.AIA_Friendly)
+			end
+		end
+
+		targetPuppet.isPlayerCompanionCached = true
+		targetPuppet.isPlayerCompanionCachedTimeStamp = 0
 
 		AMM:UpdateFollowDistance()
 	end
 end
 
 
-function Spawn:ToggleHostile(handle)
-	Util:SetGodMode(handle, false)
+function Spawn:ToggleHostile(ent)
+	local targetPuppet = ent.handle
+	local currentRole = targetPuppet:GetAIControllerComponent():GetAIRole()
 
-	if handle.isPlayerCompanionCached then
-		local AIC = handle:GetAIControllerComponent()
-		local targetAttAgent = handle:GetAttitudeAgent()
-		local reactionComp = handle.reactionComponent
+	Util:SetGodMode(targetPuppet, false)
 
-		local aiRole = NewObject('handle:AIRole')
-		aiRole:OnRoleSet(handle)
+	if targetPuppet.isPlayerCompanionCached then
+		if targetPuppet:IsCrowd() then
+			Spawn:Respawn(ent, true) -- Crowd NPCs can't change roles more than once; Respawn as non companion instead.
 
-		handle.isPlayerCompanionCached = false
-		handle.isPlayerCompanionCachedTimeStamp = 0
-
-		Game['senseComponent::RequestMainPresetChange;GameObjectString'](handle, "Combat")
-		AIC:GetCurrentRole():OnRoleCleared(handle)
-		AIC:SetAIRole(aiRole)
-		handle.movePolicies:Toggle(true)
-		targetAttAgent:SetAttitudeGroup(CName.new("hostile"))
-		reactionComp:SetReactionPreset(GetSingleton("gamedataTweakDBInterface"):GetReactionPresetRecord(TweakDBID.new("ReactionPresets.Ganger_Aggressive")))
-		reactionComp:TriggerCombat(AMM.player)
+			Cron.After(2.0, function()
+				Util:SetHostileRole(ent.handle)
+			end)
+		else
+			currentRole:OnRoleCleared(targetPuppet)
+			Util:SetHostileRole(targetPuppet)
+		end
 	else
-		Spawn:SetNPCAsCompanion(handle)
+		Spawn:SetNPCAsCompanion(targetPuppet)
 	end
 end
 

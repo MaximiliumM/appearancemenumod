@@ -6,6 +6,7 @@ function Poses:new()
   Poses.specialCategories = nil
   Poses.sceneAnimsInstalled = false
   Poses.searchQuery = ''
+  Poses.lastSearchQuery = ''
   Poses.searchBarWidth = 500
   Poses.historyEnabled = false
   
@@ -14,11 +15,13 @@ function Poses:new()
   Poses.history = {}
   Poses.historyCategories = {}
 
+  Poses.currentAnims = {}
+
   Poses.rigs = {
     ["man_base"] = "Man Average",
-    ["man_big"] = "Man Big",
-    ["man_child"] = "Man Child",
-    ["man_fat"] = "Man Fat",
+    ["man_big"] = "Big",
+    ["man_child"] = "Child",
+    ["man_fat"] = "Fat",
     ["man_massive"] = "Man Massive",
     ["woman_base"] = "Woman Average",
     ["player_man_skeleton"] =  "Player Man",
@@ -32,6 +35,7 @@ function Poses:Initialize()
   Poses.anims = Poses:GetAllAnimations()
   Poses.categories = Poses:GetCategories()
   Poses.specialCategories = Poses:GetSpecialCategories()
+  Poses.collabAnims, Poses.collabCategories = Poses:GetCollabAnimations()
 
   if #Poses.history > 0 then
     Poses.historyAnims, Poses.historyCategories = Poses:GetAnimationsForListOfIDs(Poses.history)
@@ -69,11 +73,26 @@ function Poses:Draw(AMM, target)
         name = name:gsub("__", " ")
         ImGui.Text(name)
 
-        if ImGui.SmallButton("  Stop  ##"..hash) then
-          Poses:StopAnimation(anim)
+        local buttonLabel = IconGlyphs.Pause or "  Pause  "
+        if Tools.currentTarget ~= '' and Tools.currentTarget.handle and 
+        (Tools.frozenNPCs[tostring(Tools.currentTarget.handle:GetEntityID().hash)] or not Game.GetWorkspotSystem():IsActorInWorkspot(Tools.currentTarget.handle)) then
+          buttonLabel = IconGlyphs.Play or "  Play  "
+        end
+
+        if AMM.UI:SmallButton(buttonLabel.."##"..hash) then
+          local frozen = Tools.frozenNPCs[tostring(Tools.currentTarget.handle:GetEntityID().hash)] == true
+          if not Game.GetWorkspotSystem():IsActorInWorkspot(Tools.currentTarget.handle) and not frozen then
+            Poses:RestartAnimation(anim)
+          else
+            Tools:FreezeNPC(Tools.currentTarget.handle, not(frozen))
+          end
         end
 
         ImGui.SameLine()
+        if AMM.UI:SmallButton((IconGlyphs.Stop or "  Stop  ").."##"..hash) then
+          Poses:StopAnimation(anim, true)
+        end
+
         local isFavorite = anim.fav
         local buttonLabel = 'Favorite'
         if isFavorite then
@@ -81,21 +100,26 @@ function Poses:Draw(AMM, target)
         end
 
         ImGui.SameLine()
-        if ImGui.SmallButton(f("  %s ##", buttonLabel)..hash) then
+        if AMM.UI:SmallButton(f("%s##", buttonLabel)..hash) then
           Poses:ToggleFavorite(not isFavorite, anim)
         end
 
         if anim.target.handle ~= '' then
           ImGui.SameLine()
-          if ImGui.SmallButton("Target".."##"..anim.target.name) then
+          if AMM.UI:SmallButton("Target".."##"..anim.target.name) then
             AMM.Tools:SetCurrentTarget(anim.target)
             AMM.Tools.lockTarget = true
           end
         end
 
         ImGui.SameLine()
-        if ImGui.SmallButton("  Copy To Clipboard  ##"..hash) then
+        if AMM.UI:SmallButton("  Copy To Clipboard  ##"..hash) then
           ImGui.SetClipboardText(name)
+        end
+
+        ImGui.SameLine()
+        if AMM.UI:SmallButton((IconGlyphs.CloseThick or "  Remove  ").."##"..hash) then
+          Poses:StopAnimation(anim)
         end
 
         AMM.UI:Separator()
@@ -133,11 +157,14 @@ function Poses:Draw(AMM, target)
 
       AMM.UI:TextColored("Select Pose For Current Target:")
       
-      local anims = {}
+      local anims = Poses.currentAnims
 
-      if Poses.searchQuery ~= '' then
+      if Poses.searchQuery ~= '' and Poses.searchQuery ~= Poses.lastSearchQuery then
         local parsedSearch = Util:ParseSearch(Poses.searchQuery, "anim_name")
-        anims = Poses:GetAnimationsForSearch(parsedSearch)
+        Poses.currentAnims = Poses:GetAnimationsForSearch(parsedSearch)
+        Poses.lastSearchQuery = Poses.searchQuery
+      elseif Poses.searchQuery ~= Poses.lastSearchQuery then
+        Poses.currentAnims = {}
       end
 
       if Poses.searchQuery ~= '' and next(anims) == nil then
@@ -149,16 +176,48 @@ function Poses:Draw(AMM, target)
         if ImGui.BeginChild("Categories", ImGui.GetWindowContentRegionWidth(), y) then
           local categories = Poses.categories
           local specials = Poses.specialCategories[target.name]
+          local collabs = Poses.collabCategories
 
           local rig = Poses:CheckTargetRig(target)
 
-          if rig and target.type ~= 'Player' then
-            categories = rig
+          if rig then
+            categories = Poses:GetCategoriesForRig(rig)
           end
 
           if specials and not Util:CheckIfTableHasValue(categories, target.name) then
             table.insert(categories, target.name)
-          end          
+          end
+
+          if next(anims) == nil then
+            anims = Util:ShallowCopy({}, Poses.anims)
+          end
+
+          if collabs then
+            local newCategories = Util:ShallowCopy({}, categories)
+            for _, cat in ipairs(collabs) do
+              local addedAnim = false
+              
+              for _, r in pairs(Poses.rigs) do
+                if r == Poses.rigs[rig] or rig == false then
+                  local collabAnims = Poses.collabAnims[cat][r]
+                  if collabAnims then
+                    for _, workspot in ipairs(collabAnims) do
+                      if anims[cat] == nil then
+                        anims[cat] = {}
+                      end
+
+                      addedAnim = true
+                      table.insert(anims[cat], workspot)
+                    end
+                  end
+                end
+              end
+
+              if addedAnim then table.insert(newCategories, cat) end
+            end
+
+            categories = newCategories
+          end
 
           for _, category in ipairs(categories) do
             local gender = Util:GetPlayerGender()
@@ -167,34 +226,23 @@ function Poses:Draw(AMM, target)
               if gender == "_Female" then gender = "Player Woman" else gender = "Player Man" end
               if category == gender then gender = true else gender = false end
             end
-
-            if category == 'Favorites' then
-              Poses.anims['Favorites'] = Poses:GetFavorites()
-            end
-
-            if next(anims) == nil then
-              anims = Poses.anims
-            end
             
             if not gender and category ~= 'Favorites' then goto skip end
             if (category == "Player Woman" or category == "Player Man")
             and AMM.userSettings.animPlayerSelfTarget and target.type ~= "Player" then goto skip end
             
             if anims[category] ~= nil and next(anims[category]) ~= nil or (category == 'Favorites' and Poses.searchQuery == '') then
-              if(ImGui.CollapsingHeader(category)) then
-                if ImGui.BeginChild(category, ImGui.GetWindowContentRegionWidth(), ImGui.GetWindowHeight() / 1.5) then
-                  if category == 'Favorites' and #Poses.anims['Favorites'] == 0 then
-                    ImGui.Text("It's empty :(")
-                  else
-                    Poses:DrawAnimsButton(target, anims[category])
-                  end
+              if(ImGui.CollapsingHeader(category)) then                
+                if category == 'Favorites' and #Poses.anims['Favorites'] == 0 then
+                  ImGui.Text("It's empty :(")
+                else
+                  Poses:DrawAnimsButton(target, category, anims[category])
                 end
-                ImGui.EndChild()
               end
             end
 
             ::skip::
-          end          
+          end
         end
         ImGui.EndChild()
 
@@ -205,7 +253,7 @@ function Poses:Draw(AMM, target)
               for _, category in ipairs(Poses.historyCategories) do
                 if Poses.historyAnims[category] ~= nil and next(Poses.historyAnims[category]) ~= nil and category ~= 'Favorites' then
                   if(ImGui.CollapsingHeader(category.."##History")) then        
-                    Poses:DrawAnimsButton(target, Poses.historyAnims[category])
+                    Poses:DrawAnimsButton(target, category, Poses.historyAnims[category])
                   end
                 end                
               end
@@ -237,24 +285,25 @@ end
 function Poses:ToggleFavorite(isFavorite, anim)
 	db:execute(f("UPDATE workspots SET anim_fav = %i WHERE anim_name = '%s' AND anim_rig = '%s'", boolToInt(isFavorite), anim.name, anim.rig))
   anim.fav = isFavorite
+  Poses.anims['Favorites'] = Poses:GetFavorites()
 end
 
-function Poses:DrawAnimsButton(target, anims)
+function Poses:DrawAnimsButton(target, category, anims)
   local style = {
     buttonWidth = ImGui.GetWindowContentRegionWidth(),
     buttonHeight = ImGui.GetFontSize() * 2
   }
 
-  for i, anim in ipairs(anims) do
-    local name = anim.name:gsub("_", " ")
-    name = name:gsub("__", " ")
-		name = name.."##"..tostring(i)
+  AMM.UI:List(category, #anims, style.buttonHeight, function(i)
+    local name = anims[i].name:gsub("_", " ")
+      name = name:gsub("__", " ")
+      name = name.."##"..tostring(i)
 
-		if ImGui.Button(name, style.buttonWidth, style.buttonHeight) then
-      Poses:PlayAnimationOnTarget(target, anim)
-      Poses:AddAnimationToHistory(anim)
-    end
-	end
+      if ImGui.Button(name, style.buttonWidth, style.buttonHeight) then
+        Poses:PlayAnimationOnTarget(target, anims[i])
+        Poses:AddAnimationToHistory(anims[i])
+      end
+  end)
 end
 
 function Poses:PlayAnimationOnTarget(target, anim, instant)
@@ -278,6 +327,7 @@ function Poses:PlayAnimationOnTarget(target, anim, instant)
   local angles = target.handle:GetWorldOrientation():ToEulerAngles()
   angles.yaw = angles.yaw + 180
   spawnTransform:SetOrientationEuler(EulerAngles.new(0, 0, angles.yaw))
+
   local entityID = exEntitySpawner.Spawn(anim.ent, spawnTransform, '')
 
   Cron.Every(0.1, {tick = 1}, function(timer)
@@ -312,15 +362,17 @@ function Poses:RestartAnimation(anim)
   end)
 end
 
-function Poses:StopAnimation(anim)
+function Poses:StopAnimation(anim, shouldKeep)
   Game.GetWorkspotSystem():StopInDevice(anim.target.handle)
 
-  if anim.handle then
-    exEntitySpawner.Despawn(anim.handle)
-    anim.handle:Dispose()
-  end
+  if not shouldKeep then
+    if anim.handle then
+      exEntitySpawner.Despawn(anim.handle)
+      anim.handle:Dispose()
+    end
 
-  Poses.activeAnims[anim.hash] = nil
+    Poses.activeAnims[anim.hash] = nil
+  end
 end
 
 function Poses:AddAnimationToHistory(anim)
@@ -387,17 +439,53 @@ function Poses:GetAnimationsForSearch(parsedSearch)
 end
 
 function Poses:GetAllAnimations()
-  local query = "SELECT * FROM workspots"
+  local query = "SELECT * FROM workspots WHERE anim_cat IS NULL"
 
 	local anims = {}
 	for workspot in db:nrows(query) do
-    if anims[workspot.anim_rig] == nil then
-      anims[workspot.anim_rig] = {}
+    local category = workspot.anim_rig
+    if anims[category] == nil then
+      anims[category] = {}
     end
 
-		table.insert(anims[workspot.anim_rig], {id = workspot.anim_id, name = workspot.anim_name, rig = workspot.anim_rig, comp = workspot.anim_comp, ent = workspot.anim_ent, fav = intToBool(workspot.anim_fav or 0)})
+		table.insert(anims[category], {id = workspot.anim_id, name = workspot.anim_name, rig = workspot.anim_rig, comp = workspot.anim_comp, ent = workspot.anim_ent, fav = intToBool(workspot.anim_fav or 0)})
 	end
+
+  anims['Favorites'] = Poses:GetFavorites()
+
 	return anims
+end
+
+function Poses:GetCollabAnimations()
+  local query = "SELECT * FROM workspots WHERE anim_cat IS NOT NULL"
+
+	local anims = {}
+  local categories = {}
+  local alreadyAdded = {}
+
+	for workspot in db:nrows(query) do
+    local rig = workspot.anim_rig
+    local category = workspot.anim_cat
+
+    if alreadyAdded[category] == nil then
+      alreadyAdded[category] = true
+      table.insert(categories, category)
+    end
+
+    if anims[category] == nil then
+      anims[category] = {}
+    end
+
+    if anims[category][rig] == nil then
+      anims[category][rig] = {}
+    end
+
+		table.insert(anims[category][rig], {id = workspot.anim_id, name = workspot.anim_name, rig = workspot.anim_rig, comp = workspot.anim_comp, ent = workspot.anim_ent, fav = intToBool(workspot.anim_fav or 0)})
+	end
+
+	if next(anims) ~= nil and #categories > 0 then return anims, categories end
+
+  return nil, nil
 end
 
 function Poses:GetSpecialCategories()
@@ -422,10 +510,11 @@ function Poses:GetCategories()
 
   table.insert(categories, "Favorites")
 
-	for workspot in db:nrows(query) do
-		table.insert(categories, workspot.anim_rig)
+	for anim_rig in db:urows(query) do
+		table.insert(categories, anim_rig)
 	end
-	return categories
+
+  return categories
 end
 
 function Poses:ExportFavorites()
@@ -445,13 +534,34 @@ function Poses:ImportFavorites(favs)
   end
 end
 
-function Poses:CheckTargetRig(target)
-  if target.rig then
+function Poses:GetCategoriesForRig(rig)
+  if Poses.rigs[rig] then
     if Poses.sceneAnimsInstalled then
-      return {"Favorites", Poses.rigs[target.rig], Poses.rigs[target.rig].." Scenes"}
+      return {"Favorites", Poses.rigs[rig], Poses.rigs[rig].." Scenes"}
     end
 
-    return {"Favorites", Poses.rigs[target.rig]}
+    return {"Favorites", Poses.rigs[rig]}
+  end
+
+  local categories = {}
+  
+  table.insert(categories, "Favorites")
+
+  for _, cat in ipairs(Poses.categories) do
+    if string.find(cat, rig) then
+      if string.find(cat, "Player") then
+      else
+        table.insert(categories, cat)
+      end
+    end
+  end
+
+  return categories
+end
+
+function Poses:CheckTargetRig(target)
+  if target.rig then
+    return target.rig
   else
     local rigs = {
       ["fx_woman_base"] = "Woman",
@@ -461,21 +571,7 @@ function Poses:CheckTargetRig(target)
     for _, rig in ipairs(Util:GetTableKeys(rigs)) do
       local comp = target.handle:FindComponentByName(rig)
       if comp then
-        local gender = rigs[rig]
-        local categories = {}
-        
-        table.insert(categories, "Favorites")
-
-        for _, cat in ipairs(Poses.categories) do
-          if string.find(cat, gender) then
-            if string.find(cat, "Player") and target.type ~= "Player" then
-            else
-              table.insert(categories, cat)
-            end
-          end
-        end
-  
-        return categories
+        return rigs[rig]
       end
     end
   end

@@ -80,6 +80,14 @@ end
 
 function Entity:Despawn()
   -- Handle AMM Object
+  if AMM.Tools.currentTarget.hash == self.hash then
+    AMM.Tools.currentTarget = ''
+
+    if AMM.Tools.axisIndicator then
+      AMM.Tools:ToggleAxisIndicator()
+    end
+  end
+
   if AMM.Tools.directMode then
     AMM.Tools:CheckIfDirectModeShouldBeDisabled(self.hash)
   end
@@ -115,6 +123,7 @@ function Entity:Despawn()
     entity:GetEntity():Destroy()
   end
 
+  self.spawned = false
   self = nil
 end
 

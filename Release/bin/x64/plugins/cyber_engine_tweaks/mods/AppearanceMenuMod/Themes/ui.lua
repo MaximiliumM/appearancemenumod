@@ -10,6 +10,18 @@ local UI = {
   },
 }
 
+local childViews = {}
+
+local function calculateChildViewHeight(itemCount, itemHeight)
+  local windowHeight = ImGui.GetWindowHeight()
+  if itemCount >= 9 then itemCount = 9 end
+  local childViewHeight = itemCount * itemHeight
+  if childViewHeight > windowHeight then
+      childViewHeight = windowHeight
+  end
+  return childViewHeight + 10
+end
+
 function UI:Preload(theme)
   local file = io.open('Themes/'..theme, 'r') or io.open('User/Themes/'..theme, 'r')
   if file then
@@ -158,6 +170,29 @@ function UI:Separator()
 	UI:Spacing(2)
 end
 
+function UI:GlyphButton(label, transparent)
+  if not IconGlyphs then
+    return ImGui.Button(label, 30, 40)
+  end
+
+  if transparent then
+    UI:PushStyleColor(ImGuiCol.ButtonHovered, Theme.Text)
+    UI:PushStyleColor(ImGuiCol.Text, Theme.ButtonHovered)
+    ImGui.PushStyleColor(ImGuiCol.Button, 0, 0, 0, 0)
+  end
+
+  ImGui.PushStyleVar(ImGuiStyleVar.FramePadding, 0, 0)
+  ImGui.PushStyleVar(ImGuiStyleVar.ItemInnerSpacing, 0, 0)
+  local button = ImGui.Button(label, 30, 40)
+  ImGui.PopStyleVar(2)
+
+  if transparent then
+    ImGui.PopStyleColor(3)
+  end
+
+  return button
+end
+
 function UI:SmallCheckbox(state, label)
   local modeChange = nil
   ImGui.PushStyleVar(ImGuiStyleVar.ItemInnerSpacing, 4, 4)
@@ -185,6 +220,19 @@ function UI:SmallButton(buttonLabel, padding)
   local button = ImGui.Button(buttonLabel, x, 33)
   ImGui.PopStyleVar()
   return button
+end
+
+function UI:List(id, itemCount, height, func)
+  if ImGui.BeginChild("List##"..id, ImGui.GetWindowContentRegionWidth(), calculateChildViewHeight(itemCount, height)) then
+    local clipper = ImGuiListClipper.new()
+    clipper:Begin(itemCount, height + 1)
+    while(clipper:Step()) do
+      for i = clipper.DisplayStart + 1, clipper.DisplayEnd do
+        func(i)
+      end
+    end
+  end
+  ImGui.EndChild()
 end
 
 function UI:DrawCrossHair()

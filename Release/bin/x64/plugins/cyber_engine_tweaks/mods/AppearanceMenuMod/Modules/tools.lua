@@ -4,6 +4,14 @@ Tools = {}
 local f = string.format
 local Util = require('Modules/util.lua')
 
+-- Hacky Fix cause I'm dumb --
+-- I was using it as global from int.lua when I first built this
+-- Now that I properly made it as local, it broke everything
+local target = nil
+
+-- Constant --
+local PLAYER_TRIGGER_DIST = 5
+
 function Tools:new()
 
   -- Layout Properties
@@ -59,7 +67,7 @@ function Tools:new()
   Tools.currentTarget = ''
   Tools.lockTarget = false
   Tools.lockTargetPinID = nil
-  Tools.precisonMode = false
+  Tools.precisionMode = false
   Tools.relativeMode = false
   Tools.directMode = false
   Tools.proportionalMode = true
@@ -68,9 +76,9 @@ function Tools:new()
   Tools.npcLeft = 0
   Tools.npcRight = 0
   Tools.npcRotation = 0
-  Tools.advRotationX = 90
-  Tools.advRotationY = 90
-  Tools.advRotationZ = 90
+  Tools.advRotationRoll = 90
+  Tools.advRotationPitch = 90
+  Tools.advRotationYaw = 90
   Tools.movingProp = false
   Tools.savedPosition = ''
   Tools.selectedFace = {name = 'Select Expression'}
@@ -81,6 +89,17 @@ function Tools:new()
   Tools.photoModePuppet = nil
   Tools.currentTargetComponents = nil
   Tools.enablePropsInLookAtTarget = false
+
+  -- Axis Indicator Properties --
+  Tools.axisIndicator = nil
+  Tools.axisIndicatorToggle = false
+
+  -- Nibbles Replacer Properties --
+  Tools.cachedReplacerOptions = nil
+  Tools.nibblesOG = nil
+  Tools.selectedNibblesEntity = {name = "None", ent = nil}
+  Tools.replacer = require("Collabs/Photomode_NPCs_AMM.lua")
+  Tools.nibblesEntityOptions = {}
 
   -- PME Properties --
   Tools.selectedLookAt = nil
@@ -127,9 +146,23 @@ function Tools:Initialize()
   if AMM.userSettings.floatingTargetTools and AMM.userSettings.autoOpenTargetTools then
     Tools.movementWindow.open = true
   end
+
+  -- Set Default for Axis Indicator --
+  if AMM.userSettings.axisIndicatorByDefault then
+    Tools.axisIndicatorToggle = true
+  end
+
+  -- Setup Nibbles Replacer --
+  if Tools.replacer then
+    Tools.nibblesEntityOptions = Tools.replacer.entityOptions
+    Tools:SetupReplacerAppearances()
+  end
 end
 
-function Tools:Draw(AMM, target)
+function Tools:Draw(AMM, t)
+  -- Setting target to local variable
+  target = t
+
   Tools.style = {
     buttonHeight = ImGui.GetFontSize() * 2,
     buttonWidth = ImGui.GetWindowContentRegionWidth(),
@@ -141,12 +174,22 @@ function Tools:Draw(AMM, target)
 
   if ImGui.BeginTabItem("Tools") then
 
-    Tools.actionCategories = {
-      { name = "Target Actions", actions = Tools.DrawNPCActions },
-      { name = "Teleport Actions", actions = Tools.DrawTeleportActions },
-      { name = "Time Actions", actions = Tools.DrawTimeActions },
-      { name = "V Actions", actions = Tools.DrawVActions },
-    }
+    if AMM.nibblesReplacer then
+      Tools.actionCategories = {
+        { name = "Photo Mode Nibbles Replacer", actions = Tools.DrawNibblesReplacer },
+        { name = "Target Actions", actions = Tools.DrawNPCActions },
+        { name = "Teleport Actions", actions = Tools.DrawTeleportActions },
+        { name = "Time Actions", actions = Tools.DrawTimeActions },
+        { name = "V Actions", actions = Tools.DrawVActions },
+      }
+    else
+      Tools.actionCategories = {
+        { name = "Target Actions", actions = Tools.DrawNPCActions },
+        { name = "Teleport Actions", actions = Tools.DrawTeleportActions },
+        { name = "Time Actions", actions = Tools.DrawTimeActions },
+        { name = "V Actions", actions = Tools.DrawVActions },
+      }
+    end
 
     if AMM.playerInMenu and not AMM.playerInPhoto then
       AMM.UI:TextColored("Player In Menu")
@@ -170,11 +213,7 @@ function Tools:Draw(AMM, target)
           ImGui.Separator()
           AMM.UI:Spacing(3)
 
-          if category.name ~= "Target Actions" then
-            category.actions()
-          elseif category.name == "Target Actions" then
-            category.actions()
-          end
+          category.actions()
 
           AMM.UI:Spacing(6)
         end
@@ -922,7 +961,7 @@ function Tools:DrawNPCActions()
     end
 
     if ImGui.Button("All Friendly", Tools.style.halfButtonWidth, Tools.style.buttonHeight) then
-      Tools:UseGeneralAction(function(ent) Tools:SetNPCAttitude(ent, "friendly") end, 10)
+      Tools:UseGeneralAction(function(ent) Tools:SetNPCAttitude(ent, EAIAttitude.AIA_Friendly) end, 10)
     end
 
     ImGui.SameLine()
@@ -984,7 +1023,29 @@ end
 function Tools:SetCurrentTarget(target, systemActivated)
   local pos, angles
   target.appearance = AMM:GetAppearance(target)
-  Tools.currentTarget = AMM.Entity:new(target)  
+  Tools.currentTarget = AMM.Entity:new(target)
+
+  if Tools.axisIndicatorToggle and not systemActivated then
+    local timerFunc = function(timer)
+      if Tools.currentTarget and Tools.currentTarget.handle then
+        local entity = Game.FindEntityByID(Tools.currentTarget.entityID)
+        timer.tick = timer.tick + 1
+        if entity then
+          if Tools.axisIndicator then
+            Tools:UpdateAxisIndicatorPosition()
+          elseif not Tools.axisIndicator then
+            Tools:ToggleAxisIndicator()
+          end
+    
+          Cron.Halt(timer)
+        elseif timer.tick > 20 then
+          Cron.Halt(timer)
+        end
+      end
+    end
+  
+    Cron.Every(0.1, {tick = 1}, timerFunc)
+  end
   
   if not systemActivated then
     local light = AMM.Light:GetLightData(target)
@@ -1120,10 +1181,10 @@ function Tools:FreezeNPC(handle, freeze)
   
     -- (reason: CName, dilation: Float, duration: Float, easeInCurve: CName, easeOutCurve: CName, ignoreGlobalDilation: Bool),
     handle:SetIndividualTimeDilation(CName.new("AMM"), 0.00001, 2.5, CName.new(""), CName.new(""), true)
-    Tools.frozenNPCs[tostring(Tools.currentTarget.handle:GetEntityID().hash)] = true
+    Tools.frozenNPCs[tostring(handle:GetEntityID().hash)] = true
   else
     handle:SetIndividualTimeDilation(CName.new("AMM"), 1.0, 2.5, CName.new(""), CName.new(""), false)
-    Tools.frozenNPCs[tostring(Tools.currentTarget.handle:GetEntityID().hash)] = nil
+    Tools.frozenNPCs[tostring(handle:GetEntityID().hash)] = nil
 
     if AMM.Poses.activeAnims[tostring(handle:GetEntityID().hash)] then
       local anim = AMM.Poses.activeAnims[tostring(handle:GetEntityID().hash)]
@@ -1204,8 +1265,8 @@ function Tools:ClearProtected()
 end
 
 function Tools:SetNPCAttitude(entity, attitude)
-	local entAttAgent = entity.handle:GetAttitudeAgent()
-	entAttAgent:SetAttitudeGroup(CName.new(attitude))
+  entity.handle:GetAttitudeAgent():SetAttitudeGroup(Game.GetPlayer():GetAttitudeAgent():GetAttitudeGroup())
+	entity.handle:GetAttitudeAgent():SetAttitudeTowards(Game.GetPlayer():GetAttitudeAgent(), attitude)
 end
 
 function Tools:SetScale(components, values, proportional)
@@ -1242,7 +1303,7 @@ function Tools:DrawMovementWindow()
       Tools.lockTarget = false
       if target == nil and Tools.currentTarget ~= '' and Tools.currentTarget.type ~= "Player" then
         Tools.currentTarget = ''
-      elseif Tools.currentTarget == '' or (not(Tools.holdingNPC) and (target ~= nil and Tools.currentTarget.handle:GetEntityID().hash ~= target.handle:GetEntityID().hash)) then
+      elseif Tools.currentTarget == '' or (not(Tools.holdingNPC) and ((target.handle ~= nil and Tools.currentTarget.handle) and Tools.currentTarget.handle:GetEntityID().hash ~= target.handle:GetEntityID().hash)) then
         Tools:SetCurrentTarget(target, true)
       end
 
@@ -1278,14 +1339,32 @@ function Tools:DrawMovementWindow()
       end
     end
 
+    ImGui.Spacing()
+
     local adjustmentValue = 0.01
-    if Tools.precisonMode then adjustmentValue = 0.001 end
+    if Tools.relativeMode then adjustmentValue = 0.005 end
+    if Tools.precisionMode then adjustmentValue = 0.001 end
 
     local upDownRowWidth = ImGui.GetWindowContentRegionWidth() - ImGui.CalcTextSize("Tilt/Rotation ")
 
-    ImGui.PushItemWidth(upDownRowWidth)
-    Tools.npcUpDown, upDownUsed = ImGui.DragFloat("Up/Down", Tools.npcUpDown, adjustmentValue)
-    ImGui.PopItemWidth()
+    if Tools.axisIndicator then
+      if Tools.relativeMode then
+        AMM.UI:PushStyleColor(ImGuiCol.FrameBg, {217, 212, 122, 1})
+      else
+        AMM.UI:PushStyleColor(ImGuiCol.FrameBg, {227, 42, 21, 1})
+      end
+
+      AMM.UI:PushStyleColor(ImGuiCol.Text, {0, 0, 0, 1})
+    end
+
+    local surfaceWiseRowWidth = (upDownRowWidth / 3) - 6
+
+    ImGui.PushItemWidth(surfaceWiseRowWidth)
+    Tools.npcLeft, leftUsed = ImGui.DragFloat("", Tools.npcLeft, adjustmentValue)
+
+    if Tools.axisIndicator then
+      ImGui.PopStyleColor(2)
+    end
 
     if ImGui.IsItemDeactivatedAfterEdit() then
       local hash = Tools.currentTarget.hash
@@ -1293,22 +1372,9 @@ function Tools:DrawMovementWindow()
         local anim = AMM.Poses.activeAnims[hash]
         AMM.Poses:RestartAnimation(anim)
       end
-    end
 
-    if Tools.relativeMode and ImGui.IsItemDeactivatedAfterEdit() then
-      Tools.npcUpDown = 0
-    end
-
-    local surfaceWiseRowWidth = (upDownRowWidth / 2) - 4
-
-    ImGui.PushItemWidth(surfaceWiseRowWidth)
-    Tools.npcLeft, leftUsed = ImGui.DragFloat("", Tools.npcLeft, adjustmentValue)
-
-    if ImGui.IsItemDeactivatedAfterEdit() then
-      local hash = Tools.currentTarget.hash
-      if AMM.Poses.activeAnims[hash] then
-        local anim = AMM.Poses.activeAnims[hash]
-        AMM.Poses:RestartAnimation(anim)
+      if Tools.axisIndicator then
+        Tools:UpdateAxisIndicatorPosition()
       end
     end
 
@@ -1316,14 +1382,22 @@ function Tools:DrawMovementWindow()
       Tools.npcLeft = 0
     end
 
-    local sliderLabel = "X/Y"
+    if Tools.axisIndicator then
+      if Tools.relativeMode then
+        AMM.UI:PushStyleColor(ImGuiCol.FrameBg, {227, 42, 21, 1})
+      else
+        AMM.UI:PushStyleColor(ImGuiCol.FrameBg, {217, 212, 122, 1})
+      end
 
-    if Tools.relativeMode then
-      sliderLabel = "F-B/L-R"
+      AMM.UI:PushStyleColor(ImGuiCol.Text, {0, 0, 0, 1})
     end
 
     ImGui.SameLine()
-    Tools.npcRight, rightUsed = ImGui.DragFloat(sliderLabel, Tools.npcRight, adjustmentValue)
+    Tools.npcRight, rightUsed = ImGui.DragFloat("##Y", Tools.npcRight, adjustmentValue)
+
+    if Tools.axisIndicator then
+      ImGui.PopStyleColor(2)
+    end
 
     if ImGui.IsItemDeactivatedAfterEdit() then
       local hash = Tools.currentTarget.hash
@@ -1331,10 +1405,54 @@ function Tools:DrawMovementWindow()
         local anim = AMM.Poses.activeAnims[hash]
         AMM.Poses:RestartAnimation(anim)
       end
+
+      if Tools.axisIndicator then
+        Tools:UpdateAxisIndicatorPosition()
+      end
     end
 
     if Tools.relativeMode and ImGui.IsItemDeactivatedAfterEdit() then
       Tools.npcRight = 0
+    end
+
+    local sliderLabel = "X / Y / Z"
+    if Tools.relativeMode then
+      sliderLabel = "U-D/F-B/L-R"
+    end
+
+    if Tools.axisIndicator then
+      AMM.UI:PushStyleColor(ImGuiCol.FrameBg, {79, 169, 195, 1})
+      AMM.UI:PushStyleColor(ImGuiCol.Text, {0, 0, 0, 1})
+
+      sliderLabel = "##Z"
+    end
+
+    ImGui.SameLine()    
+
+    Tools.npcUpDown, upDownUsed = ImGui.DragFloat(sliderLabel, Tools.npcUpDown, adjustmentValue)
+
+    if Tools.axisIndicator then
+      ImGui.PopStyleColor(2)
+    end
+
+    if ImGui.IsItemDeactivatedAfterEdit() then
+      local hash = Tools.currentTarget.hash
+      if AMM.Poses.activeAnims[hash] then
+        local anim = AMM.Poses.activeAnims[hash]
+        AMM.Poses:RestartAnimation(anim)
+      end
+
+      if Tools.axisIndicator then
+        Tools:UpdateAxisIndicatorPosition()
+      end
+
+      if Tools.axisIndicator then
+        Tools:UpdateAxisIndicatorPosition()
+      end
+    end
+
+    if Tools.relativeMode and ImGui.IsItemDeactivatedAfterEdit() then
+      Tools.npcUpDown = 0
     end
 
     ImGui.PopItemWidth() -- surfaceWiseRowidth
@@ -1416,7 +1534,7 @@ function Tools:DrawMovementWindow()
     ImGui.PushItemWidth(rotationRowWidth)
 
     local rotationValue = 0.1
-    if Tools.precisonMode then rotationValue = 0.01 end
+    if Tools.precisionMode then rotationValue = 0.01 end
 
     local isNPC = false
     if Tools.currentTarget ~= '' and (Tools.currentTarget.type ~= 'Prop' and Tools.currentTarget.type ~= 'entEntity' and Tools.currentTarget.type ~= 'Player' and Tools.currentTarget.handle:IsNPC()) then
@@ -1436,66 +1554,74 @@ function Tools:DrawMovementWindow()
       end
     end
 
+    local usedRoll, usedPitch, usedYaw = false, false, false
+
     if AMM.userSettings.advancedRotation then
-      ImGui.PushItemWidth((rotationRowWidth / 3) - 4)
 
       if not isNPC then
-        local lastX = Tools.advRotationX
-        Tools.advRotationX, usedX = ImGui.InputInt("##X", Tools.advRotationX, 1, 360, ImGuiInputTextFlags.EnterReturnsTrue)
-        if usedX then
-          if Tools.advRotationX > lastX + 1 or Tools.advRotationX < lastX - 1 then
-            lastX = Tools.advRotationX
-          end
+        ImGui.PushItemWidth((rotationRowWidth / 3) - 82)
+      else
+        ImGui.PushItemWidth((rotationRowWidth) - 78)
+      end
 
-          if Tools.advRotationX == lastX + 1 then
-            Tools.advRotationX = lastX
-            Tools.npcRotation[1] = Tools.npcRotation[1] + Tools.advRotationX
-          else
-            Tools.advRotationX = lastX
-            Tools.npcRotation[1] = Tools.npcRotation[1] - Tools.advRotationX
-          end
+      if not isNPC then
+        if AMM.UI:GlyphButton(IconGlyphs.Restore) then
+          Tools.npcRotation[1] = Tools.npcRotation[1] - Tools.advRotationRoll
+          usedRoll = true
         end
 
         ImGui.SameLine()
 
-        local lastY = Tools.advRotationY
-        Tools.advRotationY, usedY = ImGui.InputInt("##Y", Tools.advRotationY)
-        if usedY then
-          if Tools.advRotationY > lastY + 1 or Tools.advRotationY < lastY - 1 then
-            lastY = Tools.advRotationY
-          end
+        Tools.advRotationRoll = ImGui.DragInt("##Roll", Tools.advRotationRoll, 1, 0, 360)
+        
+        ImGui.SameLine()
 
-          if Tools.advRotationY == lastY + 1 then
-            Tools.advRotationY = lastY
-            Tools.npcRotation[2] = Tools.npcRotation[2] + Tools.advRotationY
-          else
-            Tools.advRotationY = lastY
-            Tools.npcRotation[2] = Tools.npcRotation[2] - Tools.advRotationY
-          end
+        if AMM.UI:GlyphButton(IconGlyphs.Reload.."##Roll") then
+          Tools.npcRotation[1] = Tools.npcRotation[1] + Tools.advRotationRoll
+          usedRoll = true
+        end
+
+        ImGui.SameLine()
+
+        if AMM.UI:GlyphButton(IconGlyphs.Restore.."##Roll") then
+          Tools.npcRotation[2] = Tools.npcRotation[2] - Tools.advRotationPitch
+          usedPitch = true
+        end
+
+        ImGui.SameLine()
+
+        Tools.advRotationPitch = ImGui.DragInt("##Pitch", Tools.advRotationPitch, 1, 0, 360)
+        
+        ImGui.SameLine()
+
+        if AMM.UI:GlyphButton(IconGlyphs.Reload.."##Pitch") then
+          Tools.npcRotation[2] = Tools.npcRotation[2] + Tools.advRotationPitch
+          usedPitch = true
         end
 
         ImGui.SameLine()
       end
 
-      local lastZ = Tools.advRotationZ
-      Tools.advRotationZ, usedZ = ImGui.InputInt("##Z", Tools.advRotationZ)
-      if usedZ then
-        if Tools.advRotationZ > lastZ + 1 or Tools.advRotationZ < lastZ - 1 then
-          lastZ = Tools.advRotationZ
+        if AMM.UI:GlyphButton(IconGlyphs.Restore.."##Yaw") then
+          Tools.npcRotation[3] = Tools.npcRotation[3] - Tools.advRotationYaw
+          usedYaw = true
         end
 
-        if Tools.advRotationZ == lastZ + 1 then
-          Tools.advRotationZ = lastZ
-          Tools.npcRotation[3] = Tools.npcRotation[3] + Tools.advRotationZ
-        else
-          Tools.advRotationZ = lastZ
-          Tools.npcRotation[3] = Tools.npcRotation[3] - Tools.advRotationZ
+        ImGui.SameLine()
+
+        Tools.advRotationYaw = ImGui.DragInt("##Yaw", Tools.advRotationYaw, 1, 0, 360)
+        
+        ImGui.SameLine()
+
+        if AMM.UI:GlyphButton(IconGlyphs.Reload.."##Yaw") then
+          Tools.npcRotation[3] = Tools.npcRotation[3] + Tools.advRotationYaw
+          usedYaw = true
         end
-      end
-      ImGui.PopItemWidth() -- rotationRowWidth / 3
+
+        ImGui.PopItemWidth() -- rotationRowWidth / 3
     end
 
-    if (usedX or usedY or usedZ or rotationUsed)
+    if (usedRoll or usedPitch or usedYaw or rotationUsed)
     and Tools.currentTarget ~= '' then
       local pos = Tools.currentTarget.handle:GetWorldPosition()
       if Tools.currentTarget.type == 'entEntity' then
@@ -1507,24 +1633,45 @@ function Tools:DrawMovementWindow()
       else
         Game.GetTeleportationFacility():Teleport(Tools.currentTarget.handle, pos, EulerAngles.new(Tools.npcRotation[1], Tools.npcRotation[2], Tools.npcRotation[3]))
       end
+
+      if Tools.axisIndicator then
+        Tools:UpdateAxisIndicatorPosition()
+      end
     end
 
     ImGui.Spacing()
-    Tools.precisonMode = AMM.UI:SmallCheckbox(Tools.precisonMode, "Precision Mode")
+
+    AMM.UI:TextColored("Mode:  ")
 
     ImGui.SameLine()
-    Tools.relativeMode, modeChange = AMM.UI:SmallCheckbox(Tools.relativeMode, "Relative Mode")
+    Tools.precisionMode = AMM.UI:SmallCheckbox(Tools.precisionMode, "Precision")
 
     ImGui.SameLine()
-    Tools.directMode, modeChange = AMM.UI:SmallCheckbox(Tools.directMode, "Direct Mode")
+    Tools.relativeMode, relativeToggle = AMM.UI:SmallCheckbox(Tools.relativeMode, "Relative")
+
+    ImGui.SameLine()
+    Tools.directMode, directToggle = AMM.UI:SmallCheckbox(Tools.directMode, "Direct")
 
     ImGui.SameLine()
     AMM.userSettings.advancedRotation = AMM.UI:SmallCheckbox(AMM.userSettings.advancedRotation, "Adv. Rotation")
 
-    if modeChange then
-      if Tools.directMode or not Tools.directMode then
-        Tools:ToggleDirectMode()
-      elseif Tools.relativeMode then
+    ImGui.SameLine()
+    Tools.axisIndicatorToggle, axisToggle = AMM.UI:SmallCheckbox(Tools.axisIndicatorToggle, IconGlyphs.AxisArrow)
+
+    if ImGui.IsItemHovered() then
+      ImGui.SetTooltip("Show X, Y and Z arrows for easier orientation when moving the target.")
+    end
+    
+    if axisToggle then
+      Tools:ToggleAxisIndicator()
+    end
+
+    if relativeToggle then
+      if Tools.axisIndicator then
+        Tools:UpdateAxisIndicatorPosition()
+      end
+
+      if Tools.relativeMode then
         Tools.npcLeft = 0
         Tools.npcRight = 0
         Tools.npcUpDown = 0
@@ -1534,12 +1681,26 @@ function Tools:DrawMovementWindow()
         Tools.npcRight = pos.y
         Tools.npcUpDown = pos.z
       end
-    end   
+    end
+
+    if directToggle then
+      Tools:ToggleDirectMode()
+    end
 
     if Tools.directMode then
       local speed = Tools.currentTarget.speed * 1000
       speed = ImGui.DragFloat("Movement Speed", speed, 1, 1, 1000, "%.0f")
       Tools.currentTarget.speed = speed / 1000
+    end
+
+    AMM.UI:Spacing(3)
+
+    local hash = Tools.currentTarget.hash
+    if AMM.Poses.activeAnims[hash] then
+      Tools.slowMotionSpeed, slowMotionUsed = ImGui.SliderFloat("Slow Motion", Tools.slowMotionSpeed, 0.000001, Tools.slowMotionMaxValue)
+      if slowMotionUsed then
+        Tools:SetSlowMotionSpeed(Tools.slowMotionSpeed)
+      end
     end
 
     AMM.UI:Spacing(3)
@@ -1650,7 +1811,7 @@ function Tools:DrawMovementWindow()
 
               if Tools.isCrouching then
                 local pos = handle:GetWorldPosition()
-                pos = Vector4.new(pos.x, pos.y, pos.z, pos.w)
+                pos = Vector4.new(pos.x, pos.y, pos.z, pos.w) 
                 Util:MoveTo(handle, pos, nil, true)
               else
                 Tools.currentTarget.parameters = AMM:GetAppearance(Tools.currentTarget)
@@ -1677,7 +1838,7 @@ function Tools:DrawMovementWindow()
       AMM.UI:Spacing(8)
 
       local targetIsPlayer = Tools.currentTarget.type == "Player"
-      if not AMM.playerInPhoto or (AMM.playerInPhoto and targetIsPlayer and Tools.animatedHead) then
+      if not AMM.playerInPhoto or AMM.userSettings.allowLookAtForNPCs or (AMM.playerInPhoto and targetIsPlayer and Tools.animatedHead) then
         AMM.UI:TextCenter("Facial Expression", true)
         ImGui.Spacing()
 
@@ -1704,7 +1865,7 @@ function Tools:DrawMovementWindow()
 
         ImGui.Spacing()
 
-        if not AMM.playerInPhoto and Tools.currentTarget ~= '' then
+        if (not AMM.playerInPhoto or AMM.userSettings.allowLookAtForNPCs) and Tools.currentTarget ~= '' then
 
           AMM.UI:Spacing(4)
 
@@ -2038,7 +2199,7 @@ function Tools:DrawTimeActions()
 
   ImGui.SameLine()
 
-  if ImGui.Button("-", 25, 40) then
+  if AMM.UI:GlyphButton(IconGlyphs.MinusCircle or "-", true) then
     if Tools.timeValue < 0 then
       Tools.timeValue = 1440
     end
@@ -2049,7 +2210,7 @@ function Tools:DrawTimeActions()
 
   ImGui.SameLine()
 
-  if ImGui.Button("+", 25, 40) then
+  if AMM.UI:GlyphButton(IconGlyphs.PlusCircle or "+", true) then
     if Tools.timeValue > 1440 then
       Tools.timeValue = 0
     end
@@ -2208,6 +2369,138 @@ function Tools:GetRelicFlats()
   return flats
 end
 
+-- Nibbles Replacer
+function Tools:DrawNibblesReplacer()
+  if not Tools.replacer then
+    ImGui.Spacing()
+    ImGui.Text("Photomode_NPCs_AMM.lua")
+    ImGui.SameLine()
+    AMM.UI:TextError("file not found in Collabs folder")
+  else
+    for _, option in ipairs(Tools.nibblesEntityOptions) do
+      if ImGui.RadioButton(option.name, Tools.selectedNibblesEntity.name == option.name) then
+        Tools.selectedNibblesEntity = option
+        Tools.cachedReplacerOptions = nil
+        Tools:UpdateNibblesEntity(option.ent)
+      end
+
+      if option.ent then
+        ImGui.SameLine()
+      end
+    end
+  end
+end
+
+function Tools:UpdateNibblesEntity(ent)
+  if not Tools.nibblesOG then
+    Tools.nibblesOG = {
+      ent = TweakDB:GetFlat('Character.Nibbles_Puppet_Photomode.entityTemplatePath'),
+      --poses = TweakDB:GetFlat("photo_mode.character.quadrupedPoses"),
+    }
+  end
+  
+  if ent then
+    TweakDB:SetFlat('Character.Nibbles_Puppet_Photomode.entityTemplatePath', f([[base\characters\entities\photomode_replacer\%s.ent]], ent))
+    --TweakDB:SetFlat('photo_mode.character.quadrupedPoses', Tools.replacer[ent]) -- this can't be done for now
+  else
+    TweakDB:SetFlat('Character.Nibbles_Puppet_Photomode.entityTemplatePath', Tools.nibblesOG.ent)
+    --TweakDB:SetFlat('photo_mode.character.quadrupedPoses', Tools.nibblesOG.poses)
+  end
+end
+
+local allCharacters = {}
+
+function Tools:PrepareCategoryHeadersForNibblesReplacer(options)
+  if not Tools.cachedReplacerOptions then
+    local query = f("SELECT app_name FROM favorites_apps WHERE entity_id = '%s'", AMM:GetScanID(Tools.selectedNibblesEntity.ent))
+    local favorites = {}
+    for app in db:urows(query) do
+      favorites[app] = true
+    end
+
+    local categories = {}
+    for _, app in ipairs(options) do
+      local index = string.find(app, "_")
+      local name = app
+      if index then name = string.sub(app, 1, index-1) end      
+      
+      if #allCharacters == 0 then
+        for n in db:urows("SELECT entity_name FROM entities WHERE entity_path LIKE '%%Character.%%'") do
+          table.insert(allCharacters, n)
+        end
+      end
+
+      name = Util:FirstToUpper(name)
+
+      name = Tools:RecursivelyScoreDistance(name, 6)
+
+      if categories[name] == nil then
+        categories[name] = {}
+      end
+
+      if favorites[app] then
+        favorites[app] = nil
+        favorites[name] = true
+      end
+
+      table.insert(categories[name], app)
+    end
+
+    local headers = {}
+
+    for k, v in pairs(favorites) do
+      if v then table.insert(headers, {name = k, options = categories[k]}) end
+    end
+
+    for k, v in pairs(categories) do
+      if not(favorites[k]) then
+        table.insert(headers, {name = k, options = v})
+      end
+    end
+
+    Tools.cachedReplacerOptions = headers
+  end
+
+  return Tools.cachedReplacerOptions
+end
+
+function Tools:SetupReplacerAppearances()
+  local appearances = Tools.replacer.appearances
+  if appearances ~= nil then
+    for ent, apps in pairs(appearances) do
+      for _, app in ipairs(apps) do
+        db:execute(f('INSERT INTO appearances (entity_id, app_name, collab_tag) VALUES ("%s", "%s", "%s")', AMM:GetScanID(ent), app, "Replacer"))
+      end
+    end
+  end
+end
+
+function Tools:RecursivelyScoreDistance(name, length)
+  if length < 3 then
+    return name
+  end
+
+  local lastScore = 9999
+  local lastName = nil
+  local firstLettersFromName = string.sub(name, 1, math.min(length, string.len(name)))
+
+  for _, character in ipairs(allCharacters) do
+    local noSpacesName = character:gsub("%s+", "")
+    local firstLettersFromCharacter = string.sub(noSpacesName, 1, math.min(length, string.len(noSpacesName)))
+    local currentScore = Util:StringMatch(firstLettersFromName, firstLettersFromCharacter)
+    if lastScore > currentScore then
+      lastScore = currentScore
+      lastName = character
+    end
+  end
+
+  if lastScore == 0 then
+    return lastName
+  end
+
+  return Tools:RecursivelyScoreDistance(name, length - 3)
+end
+
 -- Photo Mode Enhancements
 function Tools:DrawPhotoModeEnhancements()
 
@@ -2292,6 +2585,85 @@ function Tools:DrawPhotoModeEnhancements()
 end
 
 -- Utilities
+function Tools:SpawnHelper(ent, pos, angles)
+  local heading = AMM.player:GetWorldForward()
+	local offsetDir = Vector3.new(heading.x * 2, heading.y * 2, heading.z)
+	local spawnTransform = AMM.player:GetWorldTransform()
+	local spawnPosition = GetSingleton('WorldPosition'):ToVector4(spawnTransform.Position)
+	local newPosition = Vector4.new(spawnPosition.x  + offsetDir.x, spawnPosition.y + offsetDir.y, spawnPosition.z, spawnPosition.w)
+	spawnTransform:SetPosition(spawnTransform, pos or newPosition)
+	spawnTransform:SetOrientationEuler(spawnTransform, angles or EulerAngles.new(0, 0, 0))
+	  
+  ent.entityID = exEntitySpawner.Spawn(ent.template, spawnTransform, '')
+
+  local timerFunc = function(timer)
+		local entity = Game.FindEntityByID(ent.entityID)
+    timer.tick = timer.tick + 1
+		if entity then
+			ent.handle = entity
+      ent.hash = tostring(entity:GetEntityID().hash)
+      ent.appearance = AMM:GetAppearance(ent)
+      ent.spawned = true
+      ent.type = "Prop"
+      
+      local components = Props:CheckForValidComponents(entity)
+      if components then
+        local visualScale = Props:CheckDefaultScale(components)
+        ent.defaultScale = {
+          x = visualScale.x * 100,
+          y = visualScale.x * 100,
+          z = visualScale.x * 100,
+         }
+
+        if ent.scale and ent.scale ~= nilString then
+          AMM.Tools:SetScale(components, ent.scale)
+        else
+          ent.scale = {
+            x = visualScale.x * 100,
+            y = visualScale.y * 100,
+            z = visualScale.z * 100,
+           }
+        end
+      end
+
+			Cron.Halt(timer)
+		elseif timer.tick > 20 then
+			Cron.Halt(timer)
+		end
+	end
+
+	Cron.Every(0.1, {tick = 1}, timerFunc)
+end
+
+function Tools:UpdateAxisIndicatorPosition()
+  local targetPosition = Tools.currentTarget.handle:GetWorldPosition()
+  local targetAngles = nil
+  if Tools.relativeMode then
+    targetAngles = Tools.currentTarget.handle:GetWorldOrientation():ToEulerAngles()
+  end
+
+  Game.GetTeleportationFacility():Teleport(Tools.axisIndicator.handle, targetPosition, targetAngles)
+end
+
+function Tools:ToggleAxisIndicator()
+  if not Tools.axisIndicator and drawWindow then
+    Tools.axisIndicator = {}
+    Tools.axisIndicator.template = "base\\amm_props\\entity\\axis_indicator.ent"
+    Tools.axisIndicator = AMM.Entity:new(Tools.axisIndicator)
+
+    local targetPosition = Tools.currentTarget.handle:GetWorldPosition()
+    local targetAngles = nil
+    if Tools.relativeMode then
+      targetAngles = Tools.currentTarget.handle:GetWorldOrientation():ToEulerAngles()
+    end
+
+    Tools:SpawnHelper(Tools.axisIndicator, targetPosition, targetAngles)
+  elseif Tools.axisIndicator then
+    Tools.axisIndicator.handle:Dispose()
+    Tools.axisIndicator = nil
+  end
+end
+
 function Tools:CheckIfDirectModeShouldBeDisabled(hash)
   if hash == Tools.currentTarget.hash then
     Tools:ToggleDirectMode(true)
@@ -2363,6 +2735,17 @@ function Tools:ActivateLookAt()
   end
 
   Util:NPCLookAt(Tools.currentTarget.handle, Tools.lookAtTarget, headSettings, chestSettings)
+end
+
+function Tools:RestartLookAt()
+  if Tools.activatedFace then
+    Tools:ActivateFacialExpression(Tools.currentTarget.handle, Tools.selectedFace)
+  end
+
+  local npcHash = tostring(Tools.currentTarget.handle:GetEntityID().hash)
+  if Tools.lookAtActiveNPCs[npcHash] then
+    Tools:ActivateLookAt()
+  end
 end
 
 function Tools:ShouldCrouchButtonAppear(spawn)

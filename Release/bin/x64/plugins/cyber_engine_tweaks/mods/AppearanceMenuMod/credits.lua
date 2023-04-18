@@ -4,6 +4,8 @@ return {
 		'',
 		[[Code & Research]],
 		[[-- MaximiliumM]],
+		[[Code Support & UX]],
+		[[-- Manavortex]],
 		[[OG Idea, Data & Marketing]],
 		[[-- Daz (Retired)]],
 	},

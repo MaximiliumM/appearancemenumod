@@ -31,6 +31,32 @@ function Util:AMMDebug(msg, reset)
 end
 
 -- Code Helper Methods
+function Util:FirstToUpper(str)
+  return (str:gsub("^%l", string.upper))
+end
+
+function Util:StringMatch(s1, s2)
+  local len1, len2 = #s1, #s2
+  local matrix = {}
+  for i = 0, len1 do
+      matrix[i] = {[0] = i}
+  end
+  for j = 0, len2 do
+      matrix[0][j] = j
+  end
+  for i = 1, len1 do
+      for j = 1, len2 do
+          local cost = s1:sub(i,i) == s2:sub(j,j) and 0 or 1
+          matrix[i][j] = math.min(
+              matrix[i-1][j] + 1,
+              matrix[i][j-1] + 1,
+              matrix[i-1][j-1] + cost
+          )
+      end
+  end
+  return matrix[len1][len2]
+end
+
 function Util:ShallowCopy(copy, orig)
   local orig_type = type(orig)
   if orig_type == 'table' then
@@ -90,7 +116,7 @@ function Util:ParseSearch(query, column)
       r = r..string.format('%s LIKE "%%%s%%"', column, word)
       if i ~= #words then r = r..' AND ' end
   end
-  return r
+  return r, query
 end
 
 function Util:GetPosString(pos, angles)
@@ -140,6 +166,7 @@ function Util:RemovePlayerEffects()
   Game.RemoveEffectPlayer("GameplayRestriction.VehicleNoSummoning")
   Game.RemoveEffectPlayer("GameplayRestriction.NoPhone")
 end
+
 function Util:GetPlayerGender()
   -- True = Female / False = Male
   if string.find(tostring(Game.GetPlayer():GetResolvedGenderName()), "Female") then
@@ -384,35 +411,52 @@ function Util:SetMarkerOverObject(handle, variant, offset)
   return Game.GetMappinSystem():RegisterMappinWithObject(mappinData, handle, slot, offset)
 end
 
-function Util:ToggleCompanion(handle)
-  if handle.isPlayerCompanionCached then
-		local AIC = handle:GetAIControllerComponent()
-		local targetAttAgent = handle:GetAttitudeAgent()
-		local reactionComp = handle.reactionComponent
+function Util:SetHostileRole(targetPuppet)
+  local AIRole = AIRole.new()
+		
+  targetPuppet:GetAIControllerComponent():SetAIRole(AIRole)
+  targetPuppet:GetAIControllerComponent():OnAttach()
 
-		local aiRole = NewObject('handle:AIRole')
-		aiRole:OnRoleSet(handle)
+  targetPuppet:GetAttitudeAgent():SetAttitudeGroup('Hostile')
+  targetPuppet:GetAttitudeAgent():SetAttitudeTowards(Game.GetPlayer():GetAttitudeAgent(), EAIAttitude.AIA_Hostile)
 
-		handle.isPlayerCompanionCached = false
-		handle.isPlayerCompanionCachedTimeStamp = 0
+  targetPuppet.isPlayerCompanionCached = false
+  targetPuppet.isPlayerCompanionCachedTimeStamp = 0
+  
+  local sensePreset = TweakDBInterface.GetReactionPresetRecord(TweakDBID.new("ReactionPresets.Ganger_Aggressive"))
+  targetPuppet.reactionComponent:SetReactionPreset(sensePreset)
+  targetPuppet.reactionComponent:TriggerCombat(Game.GetPlayer())
+end
 
-    senseComponent.RequestMainPresetChange(handle, "Neutral")
+function Util:ToggleCompanion(ent)
+  local handle = ent.handle
+  local currentRole = handle:GetAIControllerComponent():GetAIRole()
 
-    local currentRole = AIC:GetCurrentRole()
-		if currentRole then currentRole:OnRoleCleared(handle) end
-    
-		AIC:SetAIRole(aiRole)
-		handle.movePolicies:Toggle(true)
+  if handle.isPlayerCompanionCached and currentRole:IsA('AIFollowerRole') then
+    if handle:IsCrowd() then
+      AMM.Spawn:Respawn(ent, true) -- Crowd NPCs can't change roles more than once; Respawn as non companion instead.
+    else
+      currentRole:OnRoleCleared(handle)
+
+      local noRole = AINoRole.new()
+      AIHumanComponent.SetCurrentRole(handle, noRole)
+
+      local sensePreset = handle:GetRecord():SensePreset():GetID()
+      SenseComponent.RequestPresetChange(handle, sensePreset, true)
+
+      handle.isPlayerCompanionCached = false
+      handle.isPlayerCompanionCachedTimeStamp = 0
+    end
   else
     AMM.Spawn:SetNPCAsCompanion(handle)
   end
 end
 
--- Not working
 function Util:TriggerCombatAgainst(handle, target)
-  local reactionComp = handle.reactionComponent
-  handle:GetAttitudeAgent():SetAttitudeTowards(target:GetAttitudeAgent(), Enum.new("EAIAttitude", "AIA_Hostile"))
-  reactionComp:TriggerCombat(target)
+  handle:GetAttitudeAgent():SetAttitudeTowards(target:GetAttitudeAgent(), EAIAttitude.AIA_Hostile)
+  local sensePreset = TweakDBInterface.GetReactionPresetRecord(TweakDBID.new("ReactionPresets.Ganger_Aggressive"))
+  handle.reactionComponent:SetReactionPreset(sensePreset)
+  handle.reactionComponent:TriggerCombat(target)
 end
 
 function Util:SetGodMode(entity, immortal)
@@ -575,19 +619,18 @@ function Util:CheckNibblesByID(id)
   return false
 end
 
+local possibleIDs = {
+  ["0x2A16D43E, 34"] = true,
+  ["0x9EDC71E0, 33"] = true,
+  ["0x15982ADF, 28"] = true,
+  ["0x451222BE, 24"] = true,
+  ["0x9FFA2212, 29"] = true,
+  ["0x382F94F4, 31"] = true,
+  ["0x55C01D9F, 36"] = true,
+}
+
 function Util:CheckVByID(id)
-  local possibleIDs = {
-    "0x2A16D43E, 34", "0x9EDC71E0, 33",
-    "0x15982ADF, 28", "0x451222BE, 24",
-    "0x9FFA2212, 29", "0x382F94F4, 31",
-    "0x55C01D9F, 36",
-  }
-
-  for _, possibleID in ipairs(possibleIDs) do
-    if id == possibleID then return true end
-  end
-
-  return false
+  return possibleIDs[id]
 end
 
 function Util:IsCustomWorkspot(handle)
@@ -605,12 +648,17 @@ function Util:GetAllCategoryIDs(categories)
 end
 
 function Util:CanBeHostile(t)
-  local canBeHostile = TweakDB:GetRecord(t.path):AbilitiesContains(TweakDBInterface.GetGameplayAbilityRecord("Ability.CanCloseCombat"))
-	if not(canBeHostile) then
-		canBeHostile = TweakDB:GetRecord(t.path):AbilitiesContains(TweakDBInterface.GetGameplayAbilityRecord("Ability.HasChargeJump"))
-	end
+  local record = TweakDB:GetRecord(t.path)
+  if record then
+    local canBeHostile = record:AbilitiesContains(TweakDBInterface.GetGameplayAbilityRecord("Ability.CanCloseCombat"))
+    if not(canBeHostile) then
+      canBeHostile = record:AbilitiesContains(TweakDBInterface.GetGameplayAbilityRecord("Ability.HasChargeJump"))
+    end
 
-	return canBeHostile
+    return canBeHostile
+  end
+
+  return false
 end
 
 function Util:UnlockVehicle(handle)
