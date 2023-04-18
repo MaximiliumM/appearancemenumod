@@ -1,5 +1,15 @@
 return {
 	{
+		'2.2.1',
+		'2023 Apr 18',
+		[[Added new UI Setting: Expand Favorites By Default]],
+		[[-- After enabling it, Favorites will be open the next time you launch AMM]],
+		[[Fixed multiple issues where the Poses tab would not display correctly]],
+		[[Fixed issue where Streamer Mode would be enabled despite the setting being OFF]],
+		[[Fixed issue where Saving Position for NPCs would not save their Rotation]],
+		[[Fixed issue where Protect NPC action would not work]],
+	},
+	{
 		'2.2',
 		'2023 Apr 17',
 		[[Introducing: Custom Poses]],
