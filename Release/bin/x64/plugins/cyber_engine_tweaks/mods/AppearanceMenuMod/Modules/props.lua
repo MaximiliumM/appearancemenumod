@@ -494,7 +494,7 @@ function Props:DrawCategoryHeaders(props, tag)
 end
 
 function Props:DrawProps(props, category)
-  AMM.UI:List(category or '', #props, Props.style.buttonHeight + 15, function(i)
+  AMM.UI:List(category or '', #props, Props.style.buttonHeight, function(i)
     Props:DrawSavedProp(props[i])
   end)
 end

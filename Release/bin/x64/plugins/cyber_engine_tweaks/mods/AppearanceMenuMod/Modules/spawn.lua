@@ -565,7 +565,6 @@ function Spawn:SpawnNPC(spawn, notCompanionOverride)
 	end
 
 	Spawn.currentSpawnedID = spawn.id
-	print(spawn.path)
 	spawn.entityID = Game.GetPreventionSpawnSystem():RequestSpawn(AMM:GetNPCTweakDBID(spawn.path), -99, spawnTransform)
 
 	while Spawn.spawnedNPCs[spawn.uniqueName()] ~= nil do

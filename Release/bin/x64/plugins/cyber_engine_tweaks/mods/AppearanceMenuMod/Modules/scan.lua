@@ -5,6 +5,12 @@ local Scan = {
   searchBarWidth = 500,
   minimalUI = false,
 
+  -- Target Info
+  currentAppIsFavorite = nil,
+  currentAppIsBlacklisted = nil,
+  currentSavedApp = nil,
+  currentApp = nil,
+
   -- Companion Drive properties
   possibleSeats = {
     { name = "Front Right", cname = "seat_front_right" },
@@ -90,66 +96,11 @@ function Scan:Draw(AMM, target, s)
           end
         end
       end
-    end    
-
-    local tabConfig = {
-      ['NPCPuppet'] = {
-        currentTitle = "Current Appearance:",
-        buttons = {
-          {
-            title = "Cycle Appearance",
-            width = style.halfButtonWidth,
-            action = "Cycle"
-          },
-          {
-            title = "Save Appearance",
-            width = style.halfButtonWidth,
-            action = "Save"
-          },
-          {
-            title = "Favorite Appearance",
-            width = style.halfButtonWidth,
-            action = "Favorite"
-          },
-          {
-            title = "Blacklist Appearance",
-            width = style.halfButtonWidth,
-            action = "Blacklist"
-          },
-        },
-      },
-      ['vehicle'] = {
-        currentTitle = "Current Model:",
-        buttons = {
-          {
-            title = "Cycle Model",
-            width = style.halfButtonWidth,
-            action = "Cycle"
-          },
-          {
-            title = "Save Appearance",
-            width = style.halfButtonWidth,
-            action = "Save"
-          },
-          {
-            title = "Favorite Appearance",
-            width = style.buttonWidth,
-            action = "Favorite"
-          },
-        },
-      }
-    }
+    end
 
     AMM.settings = false
 
     if target ~= nil then
-      -- Generic Objects Setup for Tab
-      if tabConfig[target.type] == nil then
-        tabConfig[target.type] = {
-          currentTitle = "Current Appearance:",
-          buttons = {}
-        }
-      end
 
       ImGui.Spacing()
 
@@ -178,9 +129,12 @@ function Scan:Draw(AMM, target, s)
 
         local categories = {
           { name = "List of Appearances", actions = function(target) return Scan:DrawListOfAppearances(target) end },
-          { name = "Target Info", actions = function(target, tabConfig) return Scan:DrawTargetInfo(target, tabConfig) end },
-          { name = "Target Actions", actions = function(target) return Scan:DrawTargetActions(target) end },
+          { name = "Target Info", actions = function(target, tabConfig) return Scan:DrawTargetInfo(target) end },
         }
+
+        if not AMM.playerInPhoto then
+          table.insert(categories, { name = "Target Actions", actions = function(target) return Scan:DrawTargetActions(target) end })
+        end
     
         if Scan:TargetIsSpawn(target) then
           table.insert(categories, { name = "Appearance Trigger", actions = function(target) return Scan:DrawAppearanceTrigger(target) end })
@@ -195,13 +149,9 @@ function Scan:Draw(AMM, target, s)
     
           if treeNode then
             ImGui.Separator()
-    
-            if category.name == "Target Info" then
-              category.actions(target, tabConfig)
-            else
-              category.actions(target)
-            end
-    
+
+            category.actions(target)
+
             AMM.UI:Spacing(3)
           end
           if not treeNode then ImGui.Separator() end
@@ -231,7 +181,7 @@ function Scan:Draw(AMM, target, s)
   end
 end
 
-function Scan:DrawTargetInfo(target, tabConfig)
+function Scan:DrawTargetInfo(target)
   if target.id ~= nil and target.id ~= "None" then
     AMM.UI:TextColored("ID:")
     ImGui.InputText("", target.id, 50, ImGuiInputTextFlags.ReadOnly)
@@ -243,71 +193,78 @@ function Scan:DrawTargetInfo(target, tabConfig)
 
   ImGui.Spacing()
 
-  AMM.UI:TextColored(tabConfig[target.type].currentTitle)
+  AMM.UI:TextColored("Current Appearance:")
   ImGui.Text(target.appearance or "default")
 
-  ImGui.Spacing()
+  if target.type == "NPCPuppet" or target.type == "vehicle" then
 
-  local buttons = tabConfig[target.type].buttons
+    ImGui.Spacing()
 
-  if tabConfig[target.type] ~= nil and #buttons > 0 then
-    
-    -- Check if Save button should be drawn
-    local drawSaveButton = AMM:ShouldDrawSaveButton(target)
+    AMM:DrawButton("Cycle Appearance", style.halfButtonWidth, style.buttonHeight, "Cycle", target)
 
-    for _, button in ipairs(buttons) do
-      repeat
-      if button.action ~= "Favorite" and button.action ~= "Cycle" then
-        ImGui.SameLine()
+    if Scan.currentSavedApp == nil or Scan.currentApp ~= target.appearance then
+      local query = f("SELECT app_name FROM saved_appearances WHERE entity_id = '%s'", target.id)
+      for app in db:urows(query) do
+        Scan.currentSavedApp = app
       end
-
-      if button.action == "Cycle" and target.id == "0x903E76AF, 43" then -- Extra Handling for Johnny
-        do break end
-      end
-
-      if button.action == "Favorite" then
-        local query = f("SELECT COUNT(1) FROM favorites_apps WHERE entity_id = '%s' AND app_name = '%s'", target.id, target.appearance)
-        local check = 0
-        for count in db:urows(query) do
-          check = count
-        end
-
-        if check ~= 0 then
-          button.title = "Unfavorite Appearance"
-        end
-      end
-
-      if not drawSaveButton and button.action == "Save" then
-        do break end
-      end
-
-      AMM:DrawButton(button.title, button.width, style.buttonHeight, button.action, target)
-
-      until true
     end
 
-    local check = nil
-    local query = f("SELECT COUNT(1) FROM blacklist_appearances WHERE app_name = '%s'", target.appearance)
-    for count in db:urows(query) do
-      check = count
+    ImGui.SameLine()
+
+    AMM:DrawButton("Save Appearance", style.halfButtonWidth, style.buttonHeight, "Save", target)
+
+    if Scan.currentAppIsFavorite == nil or Scan.currentApp ~= target.appearance then
+      local query = f("SELECT COUNT(1) FROM favorites_apps WHERE entity_id = '%s' AND app_name = '%s'", target.id, target.appearance)
+      local check = 0
+      for count in db:urows(query) do
+        check = count
+      end
+
+      if check ~= 0 then
+        Scan.currentAppIsFavorite = true
+      else
+        Scan.currentAppIsFavorite = false
+      end
     end
 
-    if check ~= 0 then
-      AMM:DrawButton("Unblacklist Appearance", style.buttonWidth, style.buttonHeight, "Unblack", target)
+    local favorite = {label = 'Favorite Appearance', action = 'Favorite'}
+    if Scan.currentAppIsFavorite then
+      favorite = {label = 'Unfavorite Appearance', action = 'Favorite'}
     end
 
-    local savedApp = nil
-    local query = f("SELECT app_name FROM saved_appearances WHERE entity_id = '%s'", target.id)
-    for app in db:urows(query) do
-      savedApp = app
+    AMM:DrawButton(favorite.label, style.halfButtonWidth, style.buttonHeight, favorite.action, target)
+
+    if Scan.currentAppIsBlacklisted == nil or Scan.currentApp ~= target.appearance then
+      local query = f("SELECT COUNT(1) FROM blacklist_appearances WHERE app_name = '%s'", target.appearance)
+      local check = 0
+      for count in db:urows(query) do
+        check = count
+      end
+
+      if check ~= 0 then
+        Scan.currentAppIsBlacklisted = true
+      else
+        Scan.currentAppIsBlacklisted = false
+      end
     end
 
-    if savedApp ~= nil then
+    local blacklist = {label = 'Blacklist Appearance', action = 'Blacklist'}
+    if Scan.currentAppIsBlacklisted then
+      blacklist = {label = 'Unblacklist Appearance', action = 'Unblacklist'}
+    end
+
+    ImGui.SameLine()
+
+    AMM:DrawButton(blacklist.label, style.halfButtonWidth, style.buttonHeight, blacklist.action, target)
+
+    if Scan.currentSavedApp then
       AMM.UI:Spacing(3)
       AMM.UI:TextColored("Saved Appearance:")
-      ImGui.Text(savedApp)
+      ImGui.Text(Scan.currentSavedApp)
       AMM:DrawButton("Clear Saved Appearance", style.buttonWidth, style.buttonHeight, "Clear", target)
     end
+
+    Scan.currentApp = target.appearance
   end
 end
 
@@ -512,7 +469,8 @@ function Scan:DrawListOfAppearances(target)
   ImGui.Spacing()
 
   if target.options ~= nil then
-    if AMM.nibblesReplacer and AMM.Tools.selectedNibblesEntity.ent and target.id == AMM:GetScanID(AMM.Tools.selectedNibblesEntity.ent) then
+    local selectedEntity = AMM.Tools.nibblesEntityOptions[AMM.Tools.selectedNibblesEntity]
+    if AMM.nibblesReplacer and selectedEntity and selectedEntity.ent and target.id == AMM:GetScanID(selectedEntity.ent) then
       local categories = AMM.Tools:PrepareCategoryHeadersForNibblesReplacer(target.options)
       for i, category in ipairs(categories) do
         local categoryHeader = ImGui.CollapsingHeader(category.name.."##"..i)
@@ -530,7 +488,7 @@ function Scan:DrawListOfAppearances(target)
 end
 
 function Scan:DrawAppearanceOptions(target, options)
-  AMM.UI:List('', #options, ImGui.GetFontSize() * 2, function(i)
+  AMM.UI:List('', #options, AMM.UI.style.buttonHeight - 10, function(i)
     local appearance = options[i]
     if (ImGui.Button(appearance)) then
       AMM:ChangeAppearanceTo(target, appearance)
@@ -615,7 +573,7 @@ function Scan:DrawSeatsPopup()
       local nonCompanions = {}
 
       for _, assign in pairs(Scan.selectedSeats) do
-        if assign.entity and (not assign.entity:IsPlayer() and not assign.entity.isPlayerCompanionCached) then          
+        if assign.entity and (not assign.entity:IsPlayer() and not assign.entity.isPlayerCompanionCached) then
           nonCompanions[assign.name] = assign
         end
       end

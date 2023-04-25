@@ -59,7 +59,7 @@ function AMM:new()
 	 AMM.nibblesReplacer = false
 
 	 -- Main Properties --
-	 AMM.currentVersion = "2.2.1"
+	 AMM.currentVersion = "2.2.2"
 	 AMM.CETVersion = tonumber(GetVersion():match("1.(%d+)."))
 	 AMM.updateNotes = require('update_notes.lua')
 	 AMM.credits = require("credits.lua")
@@ -111,6 +111,7 @@ function AMM:new()
 	 AMM.playerInCombat = false
 	 AMM.playerCurrentDistrict = nil
 	 AMM.playerCurrentZone = nil
+	 AMM.playerGender = nil
 	 AMM.settings = false
 	 AMM.ignoreAllWarnings = false
 	 AMM.shouldCheckSavedAppearance = true
@@ -189,6 +190,7 @@ function AMM:new()
 			 if math.floor(playerPosition.z) ~= 0 then
 				 AMM.player = player
 				 AMM.playerAttached = true
+				 AMM.playerGender = Util:GetPlayerGender()
 				 AMM.playerInMenu = false
 
 				 if next(AMM.Spawn.spawnedNPCs) ~= nil and AMM.userSettings.respawnOnLaunch then
@@ -201,6 +203,7 @@ function AMM:new()
 		 GameSession.OnStart(function()
 			 AMM.player = Game.GetPlayer()
 			 AMM.playerAttached = true
+			 AMM.playerGender = Util:GetPlayerGender()
 
 			 AMM.Tools:CheckGodModeIsActive()
 
@@ -624,9 +627,7 @@ function AMM:new()
 	 registerHotkey("amm_save", "Save Appearance", function()
 		local target = AMM:GetTarget()
  		if target ~= nil then
-			if AMM:ShouldDrawSaveButton(target) then
- 				AMM:SaveAppearance(target)
-			end
+ 			AMM:SaveAppearance(target)
  		end
 	 end)
 
@@ -1196,9 +1197,9 @@ function AMM:new()
 		 end
 
 		 -- Backup Decor Preset if active --
-		 if AMM.Props.activePreset ~= '' then
-		 	AMM.Props:BackupPreset(AMM.Props.activePreset)
-		 end
+		--  if AMM.Props.activePreset ~= '' then
+		--  	AMM.Props:BackupPreset(AMM.Props.activePreset)
+		--  end
 	 end)
 
 	 registerForEvent("onDraw", function()
@@ -1215,7 +1216,7 @@ function AMM:new()
 			AMM.UI:Start()
 		end
 
-	 	if drawWindow then			
+	 	if drawWindow then
 			AMM:Begin()
 	 	end
 
@@ -1665,11 +1666,14 @@ function AMM:DrawExperimentalSettingsTab(style)
 				ImGui.SetTooltip("This will give weapons and combat abilities to all NPCs. T-posing and weird animations are expected.")
 			end
 
-			AMM.userSettings.animPlayerSelfTarget, clicked = ImGui.Checkbox("Allow Player Animations on NPCs", AMM.userSettings.animPlayerSelfTarget)
+			AMM.userSettings.animPlayerSelfTarget, clicked = ImGui.Checkbox("Allow Player To Be Targeted in Poses tab", AMM.userSettings.animPlayerSelfTarget)
+			if clicked then settingChanged = true end
+
+			AMM.userSettings.allowPlayerAnimationOnNPCs, clicked = ImGui.Checkbox("Allow Player Animations on NPCs", AMM.userSettings.allowPlayerAnimationOnNPCs)
 			if clicked then settingChanged = true end
 
 			if ImGui.IsItemHovered() then
-				ImGui.SetTooltip("Disable this if you are using a mod that allows Player Animations to be used on NPCs.")
+				ImGui.SetTooltip("Enable this if you are using a mod that allows Player Animations to be used on NPCs.")
 			end
 
 			AMM.userSettings.allowLookAtForNPCs, clicked = ImGui.Checkbox("Allow Expressions and Look At for NPCs in Photo Mode", AMM.userSettings.allowLookAtForNPCs)
@@ -1736,11 +1740,14 @@ function AMM:NewTarget(handle, targetType, id, name, app, options)
 
 	-- Check if target is Nibbles
 	if obj.name == "Nibbles" or Util:CheckNibblesByID(obj.id) then
-		if AMM.nibblesReplacer and AMM.Tools.selectedNibblesEntity.ent then
-			obj.name = "Replacer"
-			obj.id = AMM:GetScanID(AMM.Tools.selectedNibblesEntity.ent)
-			obj.options = AMM:GetAppearanceOptions(handle, obj.id)
-			obj.type = "NPCPuppet"
+		if AMM.nibblesReplacer then
+			local selectedEntity = AMM.Tools.nibblesEntityOptions[AMM.Tools.selectedNibblesEntity]
+			if selectedEntity.ent then
+				obj.name = "Replacer"
+				obj.id = AMM:GetScanID(selectedEntity.ent)
+				obj.options = AMM:GetAppearanceOptions(handle, obj.id)
+				obj.type = "NPCPuppet"
+			end
 		else
 			obj.name = "Nibbles"
 			obj.type = "Player"
@@ -1766,7 +1773,7 @@ function AMM:NewTarget(handle, targetType, id, name, app, options)
 	-- Check if object is current target
 	if AMM.Tools.currentTarget and AMM.Tools.currentTarget ~= '' then
 		if AMM.Tools.currentTarget.hash == obj.hash then
-			AMM.Tools.currentTarget.options = options
+			AMM.Tools.currentTarget.options = obj.options
 			obj = AMM.Tools.currentTarget
 		end
 	end
@@ -1774,7 +1781,7 @@ function AMM:NewTarget(handle, targetType, id, name, app, options)
 	-- Check if object is spawnedProp
 	if next(AMM.Props.spawnedProps) ~= nil then
 		for _, prop in pairs(AMM.Props.spawnedProps) do
-			if prop.hash == obj.hash then	
+			if prop.hash == obj.hash then
 				obj = prop
 				break
 			end
@@ -1942,6 +1949,7 @@ function AMM:ImportUserData()
 				self.Tools.defaultAperture = userData['defaultAperture'] or 4
 				self.companionAttackMultiplier = userData['companionDamageMultiplier'] or 0
 				self.Poses.history = userData['posesHistory'] or {}
+				self.Tools.selectedNibblesEntity = userData['selectedNibblesEntity'] or 1
 
 				if userData['settings'] ~= nil then
 					for _, obj in ipairs(userData['settings']) do
@@ -2085,7 +2093,7 @@ function AMM:ExportUserData()
 		userData['companionDamageMultiplier'] = self.companionAttackMultiplier
 		userData['posesHistory'] = self.Poses.history
 		userData['savedPropsDisplayMode'] = self.Props.savedPropsDisplayMode
-
+		userData['selectedNibblesEntity'] = self.Tools.selectedNibblesEntity
 
 		local validJson, contents = pcall(function() return json.encode(userData) end)
 		if validJson and contents ~= nil then
@@ -3025,7 +3033,7 @@ function AMM:ChangeToSavedAppearance(ent, savedApp)
 			check = count
 		end
 		if check ~= 0 then
-			self:ChangeScanAppearanceTo(ent, savedApp)
+			self:ChangeAppearanceTo(ent, savedApp)
 		else
 			-- This is a custom renamed appearance
 			self:ClearSavedAppearance(ent)
@@ -3527,15 +3535,15 @@ function AMM:CreateBusInteractionPrompt(t)
 end
 
 function AMM:BusPromptAction()
-	if  AMM.playerInVehicle then return end
-  local target = Game.GetTargetingSystem():GetLookAtObject(AMM.player, false, false)
-  
-  if target == nil or not target:IsVehicle() or not AMM.displayInteractionPrompt then return end
-  
-  local seat = "seat_front_left"
-  if AMM.Scan.selectedSeats["Player"] then seat = AMM.Scan.selectedSeats["Player"].seat.cname end
-  AMM.Scan:MountPlayer(seat, target)
-  Util:SetInteractionHub("Enter Bus", "Choice1", false)
+	if AMM.playerInVehicle then return end
+	local target = Game.GetTargetingSystem():GetLookAtObject(AMM.player, false, false)
+
+	if target == nil or not target:IsVehicle() or not AMM.displayInteractionPrompt then return end
+
+	local seat = "seat_front_left"
+	if AMM.Scan.selectedSeats["Player"] then seat = AMM.Scan.selectedSeats["Player"].seat.cname end
+	AMM.Scan:MountPlayer(seat, target)
+	Util:SetInteractionHub("Enter Bus", "Choice1", false)
 end
 
 function AMM:IsUnique(npcID)
@@ -3589,31 +3597,6 @@ function AMM:IsSpawnable(t)
 
 		return spawnableID
 	end
-end
-
-function AMM:ShouldDrawSaveButton(t)
-	if t.handle:IsNPC() then
-		local npcID = self:GetScanID(t.handle)
-		if AMM:IsUnique(npcID) then
-			return true
-		end
-
-		local query = "SELECT entity_id FROM favorites"
-		for favID in db:urows(query) do
-			if t.id == favID then
-				-- NPC is user's favorites
-				return true
-			end
-		end
-
-		-- NPC isn't unique
-		return false
-
-	elseif t.handle:IsVehicle() and t.handle:IsPlayerVehicle() then
-		return true
-	end
-
-	return false
 end
 
 function AMM:OpenPopup(name)
@@ -3709,12 +3692,16 @@ function AMM:DrawButton(title, width, height, action, target)
 			AMM:ChangeAppearanceTo(target, 'Cycle')
 		elseif action == "Save" then
 			AMM:SaveAppearance(target)
+			AMM.Scan.currentSavedApp = nil
 		elseif action == "Clear" then
 			AMM:ClearSavedAppearance(target)
+			AMM.Scan.currentSavedApp = nil
 		elseif action == "Blacklist" then
 			AMM:BlacklistAppearance(target)
-		elseif action == "Unblack" then
+			AMM.Scan.currentAppIsBlacklisted = nil
+		elseif action == "Unblacklist" then
 			AMM:RemoveFromBlacklist(target)
+			AMM.Scan.currentAppIsBlacklisted = nil
 		elseif action == "SpawnNPC" then
 			AMM.Spawn:SpawnNPC(target)
 			buttonPressed = true
@@ -3725,6 +3712,7 @@ function AMM:DrawButton(title, width, height, action, target)
 			AMM.Props:SpawnProp(target)
 		elseif action == "Favorite" then
 			AMM.Scan:ToggleAppearanceAsFavorite(target)
+			AMM.Scan.currentAppIsFavorite = nil
 		end
 	end
 end

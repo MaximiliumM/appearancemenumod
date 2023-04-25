@@ -39,7 +39,6 @@ function Tools:new()
   Tools.favoriteLocations = {}
   Tools.useTeleportAnimation = false
   Tools.isTeleporting = false
-  Tools.userLocationsHasChanged = true
 
   -- V Properties --
   Tools.playerVisibility = true
@@ -97,7 +96,7 @@ function Tools:new()
   -- Nibbles Replacer Properties --
   Tools.cachedReplacerOptions = nil
   Tools.nibblesOG = nil
-  Tools.selectedNibblesEntity = {name = "None", ent = nil}
+  Tools.selectedNibblesEntity = 1
   Tools.replacer = require("Collabs/Photomode_NPCs_AMM.lua")
   Tools.nibblesEntityOptions = {}
 
@@ -139,8 +138,10 @@ function Tools:Initialize()
 
   Tools.selectedLookAt = Tools.lookAtOptions[1]
 
-  -- Get Locations Once
-  Tools.locations = Tools:GetLocations()
+  -- Get Locations Every 5 Seconds --
+  Cron.Every(5.0, function(timer)
+    Tools.locations = Tools:GetLocations()
+  end)
 
   -- Set Target Tools to Open on Launch
   if AMM.userSettings.floatingTargetTools and AMM.userSettings.autoOpenTargetTools then
@@ -274,7 +275,9 @@ function Tools:DrawVActions()
       end
 
       ImGui.SameLine()
-      if ImGui.Button("Target Nibbles", Tools.style.halfButtonWidth, Tools.style.buttonHeight) then
+      local buttonLabel = "Target Nibbles"
+      if Tools.selectedNibblesEntity ~= 1 then buttonLabel = "Target Replacer" end
+      if ImGui.Button(buttonLabel, Tools.style.halfButtonWidth, Tools.style.buttonHeight) then
         Tools:SetCurrentTarget(Tools:GetNibblesTarget())
         Tools.lockTarget = true
       end
@@ -719,7 +722,7 @@ function Tools:DrawTeleportActions()
           local currentLocation = Tools:GetPlayerLocation()
           local newLoc = Tools:NewLocationData(Tools.shareLocationName, currentLocation)
           Tools:SaveLocation(newLoc)
-          Tools.userLocations = Tools:GetUserLocations()
+          Tools.locations = Tools:GetLocations()
           Tools.shareLocationName = ''
           ImGui.CloseCurrentPopup()
         else
@@ -739,44 +742,40 @@ end
 
 function Tools:GetLocations()
 
-  if Tools.userLocationsHasChanged then
-    Tools.userLocations = Tools:GetUserLocations()
+  Tools.userLocations = Tools:GetUserLocations()
 
-    local separator = false
-    local locations = {}
+  local separator = false
+  local locations = {}
 
-    if next(Tools.favoriteLocations) ~= nil then
-      table.insert(locations, {loc_name = '--------- Favorites ----------'})
+  if next(Tools.favoriteLocations) ~= nil then
+    table.insert(locations, {loc_name = '--------- Favorites ----------'})
 
-      for _, loc in ipairs(Tools.favoriteLocations) do
-        table.insert(locations, loc)
-      end
-
-      separator = true
-    end
-
-    if next(Tools.userLocations) ~= nil then
-      table.insert(locations, {loc_name = '------- User Locations -------'})
-
-      for _, loc in ipairs(Tools.userLocations) do
-        table.insert(locations, loc)
-      end
-
-      separator = true
-    end
-
-    if separator then
-      table.insert(locations, {loc_name = '------------------------------'})
-    end
-
-    for loc in db:nrows([[SELECT * FROM locations ORDER BY loc_name ASC]]) do
+    for _, loc in ipairs(Tools.favoriteLocations) do
       table.insert(locations, loc)
     end
 
-    Tools.locations = locations
+    separator = true
   end
 
-  return Tools.locations
+  if next(Tools.userLocations) ~= nil then
+    table.insert(locations, {loc_name = '------- User Locations -------'})
+
+    for _, loc in ipairs(Tools.userLocations) do
+      table.insert(locations, loc)
+    end
+
+    separator = true
+  end
+
+  if separator then
+    table.insert(locations, {loc_name = '------------------------------'})
+  end
+
+  for loc in db:nrows([[SELECT * FROM locations ORDER BY loc_name ASC]]) do
+    table.insert(locations, loc)
+  end
+
+  return locations
 end
 
 function Tools:TeleportToLocation(loc)
@@ -855,7 +854,7 @@ function Tools:IsFavorite(loc)
   return false
 end
 
-function Tools:GetUserLocations()  
+function Tools:GetUserLocations()
   local files = dir("./User/Locations")
   local filesCount = #files
 
@@ -866,7 +865,6 @@ function Tools:GetUserLocations()
   end
 
   if #Tools.userLocations ~= filesCount then
-    Tools.userLocationsHasChanged = true
     local userLocations = {}
     for _, loc in ipairs(files) do
       if string.find(loc.name, '.json') then
@@ -876,12 +874,6 @@ function Tools:GetUserLocations()
     end
     return userLocations
   else
-    Cron.Every(5.0, function(timer)
-      Tools.userLocationsHasChanged = true
-      Cron.Halt(timer)
-    end)
-
-    Tools.userLocationsHasChanged = false
     return Tools.userLocations
   end
 end
@@ -994,7 +986,7 @@ function Tools:SetTargetPosition(pos, angles)
     if not Tools.movingProp then
       Tools:TeleportPropTo(Tools.currentTarget, pos, angles or EulerAngles.new(Tools.npcRotation[1], Tools.npcRotation[2], Tools.npcRotation[3]))
     end
-  elseif Tools.currentTarget.type ~= 'Player' and Tools.currentTarget.handle:IsNPC() then
+  elseif Tools.currentTarget.type ~= 'Player' and Tools.currentTarget.name ~= 'Replacer' and Tools.currentTarget.handle:IsNPC() then
     Tools:TeleportNPCTo(Tools.currentTarget.handle, pos, angles.yaw or Tools.npcRotation[3])
   else
     Game.GetTeleportationFacility():Teleport(Tools.currentTarget.handle, pos, angles or EulerAngles.new(Tools.npcRotation[1], Tools.npcRotation[2], Tools.npcRotation[3]))
@@ -1175,10 +1167,9 @@ end
 function Tools:FreezeNPC(handle, freeze)
   if freeze then
     if AMM.Poses.activeAnims[tostring(handle:GetEntityID().hash)] then
-      local anim = AMM.Poses.activeAnims[tostring(handle:GetEntityID().hash)]
       Game.GetWorkspotSystem():StopInDevice(handle)
     end
-  
+
     -- (reason: CName, dilation: Float, duration: Float, easeInCurve: CName, easeOutCurve: CName, ignoreGlobalDilation: Bool),
     handle:SetIndividualTimeDilation(CName.new("AMM"), 0.00001, 2.5, CName.new(""), CName.new(""), true)
     Tools.frozenNPCs[tostring(handle:GetEntityID().hash)] = true
@@ -1191,7 +1182,7 @@ function Tools:FreezeNPC(handle, freeze)
       
       Cron.Every(0.1, {tick = 1}, function(timer)
         if not Game.GetWorkspotSystem():IsActorInWorkspot(handle) then
-          Game.GetWorkspotSystem():PlayInDeviceSimple(anim.handle, handle, false, anim.comp)
+          Game.GetWorkspotSystem():PlayInDeviceSimple(anim.handle, handle, false, anim.comp, nil, nil, 0, 1, nil)
           Game.GetWorkspotSystem():SendJumpToAnimEnt(handle, anim.name, true)
         end
         
@@ -1510,7 +1501,7 @@ function Tools:DrawMovementWindow()
         if not Tools.movingProp then          
           Tools:TeleportPropTo(Tools.currentTarget, pos, EulerAngles.new(Tools.npcRotation[1], Tools.npcRotation[2], Tools.npcRotation[3]))
         end
-      elseif Tools.currentTarget.type ~= 'Player' and Tools.currentTarget.handle:IsNPC() then
+      elseif Tools.currentTarget.type ~= 'Player' and Tools.currentTarget.name ~= 'Replacer' and Tools.currentTarget.handle:IsNPC() then
         Tools:TeleportNPCTo(Tools.currentTarget.handle, pos, Tools.npcRotation[3])
       else
         Game.GetTeleportationFacility():Teleport(Tools.currentTarget.handle, pos, EulerAngles.new(Tools.npcRotation[1], Tools.npcRotation[2], Tools.npcRotation[3]))
@@ -1522,7 +1513,7 @@ function Tools:DrawMovementWindow()
         if not Tools.movingProp then
           Tools:TeleportPropTo(Tools.currentTarget, pos, EulerAngles.new(Tools.npcRotation[1], Tools.npcRotation[2], Tools.npcRotation[3]))
         end
-      elseif Tools.currentTarget.type ~= 'Player' and Tools.currentTarget.handle:IsNPC() then
+      elseif Tools.currentTarget.type ~= 'Player' and Tools.currentTarget.name ~= 'Replacer' and Tools.currentTarget.handle:IsNPC() then
         Tools:TeleportNPCTo(Tools.currentTarget.handle, pos, Tools.npcRotation[3])
       else
         Game.GetTeleportationFacility():Teleport(Tools.currentTarget.handle, pos, EulerAngles.new(Tools.npcRotation[1], Tools.npcRotation[2], Tools.npcRotation[3]))
@@ -1537,7 +1528,7 @@ function Tools:DrawMovementWindow()
     if Tools.precisionMode then rotationValue = 0.01 end
 
     local isNPC = false
-    if Tools.currentTarget ~= '' and (Tools.currentTarget.type ~= 'Prop' and Tools.currentTarget.type ~= 'entEntity' and Tools.currentTarget.type ~= 'Player' and Tools.currentTarget.handle:IsNPC()) then
+    if Tools.currentTarget ~= '' and (Tools.currentTarget.type ~= 'Prop' and Tools.currentTarget.type ~= 'entEntity' and Tools.currentTarget.type ~= 'Player' and Tools.currentTarget.name ~= 'Replacer' and Tools.currentTarget.handle:IsNPC()) then
       Tools.npcRotation[3], rotationUsed = ImGui.SliderFloat("Rotation", Tools.npcRotation[3], -180, 180)
       isNPC = true
     elseif Tools.currentTarget ~= '' then
@@ -1628,7 +1619,7 @@ function Tools:DrawMovementWindow()
         if not Tools.movingProp then
           Tools:TeleportPropTo(Tools.currentTarget, pos, EulerAngles.new(Tools.npcRotation[1], Tools.npcRotation[2], Tools.npcRotation[3]))
         end
-      elseif Tools.currentTarget.type ~= 'Player' and Tools.currentTarget.handle:IsNPC() then
+      elseif Tools.currentTarget.type ~= 'Player' and Tools.currentTarget.name ~= 'Replacer' and Tools.currentTarget.handle:IsNPC() then
         Tools:TeleportNPCTo(Tools.currentTarget.handle, pos, Tools.npcRotation[3])
       else
         Game.GetTeleportationFacility():Teleport(Tools.currentTarget.handle, pos, EulerAngles.new(Tools.npcRotation[1], Tools.npcRotation[2], Tools.npcRotation[3]))
@@ -2377,9 +2368,10 @@ function Tools:DrawNibblesReplacer()
     ImGui.SameLine()
     AMM.UI:TextError("file not found in Collabs folder")
   else
-    for _, option in ipairs(Tools.nibblesEntityOptions) do
-      if ImGui.RadioButton(option.name, Tools.selectedNibblesEntity.name == option.name) then
-        Tools.selectedNibblesEntity = option
+    for i, option in ipairs(Tools.nibblesEntityOptions) do
+      local selectedEntity = Tools.nibblesEntityOptions[Tools.selectedNibblesEntity]
+      if ImGui.RadioButton(option.name, selectedEntity.name == option.name) then
+        Tools.selectedNibblesEntity = i
         Tools.cachedReplacerOptions = nil
         Tools:UpdateNibblesEntity(option.ent)
       end
@@ -2412,7 +2404,8 @@ local allCharacters = {}
 
 function Tools:PrepareCategoryHeadersForNibblesReplacer(options)
   if not Tools.cachedReplacerOptions then
-    local query = f("SELECT app_name FROM favorites_apps WHERE entity_id = '%s'", AMM:GetScanID(Tools.selectedNibblesEntity.ent))
+    local selectedEntity = Tools.nibblesEntityOptions[Tools.selectedNibblesEntity]
+    local query = f("SELECT app_name FROM favorites_apps WHERE entity_id = '%s'", AMM:GetScanID(selectedEntity.ent))
     local favorites = {}
     for app in db:urows(query) do
       favorites[app] = true

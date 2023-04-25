@@ -9,7 +9,7 @@ function Poses:new()
   Poses.lastSearchQuery = ''
   Poses.searchBarWidth = 500
   Poses.historyEnabled = false
-  
+
   Poses.activeAnims = {}
   Poses.historyAnims = {}
   Poses.history = {}
@@ -74,22 +74,27 @@ function Poses:Draw(AMM, target)
         ImGui.Text(name)
 
         local buttonLabel = IconGlyphs.Pause or "  Pause  "
-        if Tools.currentTarget ~= '' and Tools.currentTarget.handle and 
-        (Tools.frozenNPCs[tostring(Tools.currentTarget.handle:GetEntityID().hash)] or not Game.GetWorkspotSystem():IsActorInWorkspot(Tools.currentTarget.handle)) then
+        if anim.target.handle ~= '' and
+        (Tools.frozenNPCs[hash] or not Game.GetWorkspotSystem():IsActorInWorkspot(anim.target.handle)) then
           buttonLabel = IconGlyphs.Play or "  Play  "
         end
 
         if AMM.UI:SmallButton(buttonLabel.."##"..hash) then
-          local frozen = Tools.frozenNPCs[tostring(Tools.currentTarget.handle:GetEntityID().hash)] == true
-          if not Game.GetWorkspotSystem():IsActorInWorkspot(Tools.currentTarget.handle) and not frozen then
+          local frozen = anim.target.handle and Tools.frozenNPCs[hash] == true
+          if not Game.GetWorkspotSystem():IsActorInWorkspot(anim.target.handle) and not frozen then
             Poses:RestartAnimation(anim)
           else
-            Tools:FreezeNPC(Tools.currentTarget.handle, not(frozen))
+            Tools:FreezeNPC(anim.target.handle, not(frozen))
           end
         end
 
         ImGui.SameLine()
         if AMM.UI:SmallButton((IconGlyphs.Stop or "  Stop  ").."##"..hash) then
+          local frozen = anim.target.handle and Tools.frozenNPCs[hash] == true
+          if frozen then
+            Tools:FreezeNPC(anim.target.handle, not(frozen))
+          end
+
           Poses:StopAnimation(anim, true)
         end
 
@@ -106,7 +111,7 @@ function Poses:Draw(AMM, target)
 
         if anim.target.handle ~= '' then
           ImGui.SameLine()
-          if AMM.UI:SmallButton("Target".."##"..anim.target.name) then
+          if AMM.UI:SmallButton("Target".."##"..hash) then
             AMM.Tools:SetCurrentTarget(anim.target)
             AMM.Tools.lockTarget = true
           end
@@ -119,6 +124,11 @@ function Poses:Draw(AMM, target)
 
         ImGui.SameLine()
         if AMM.UI:SmallButton((IconGlyphs.CloseThick or "  Remove  ").."##"..hash) then
+          local frozen = anim.target.handle and Tools.frozenNPCs[hash] == true
+          if frozen then
+            Tools:FreezeNPC(anim.target.handle, not(frozen))
+          end
+
           Poses:StopAnimation(anim)
         end
 
@@ -129,6 +139,7 @@ function Poses:Draw(AMM, target)
     if target == nil and AMM.userSettings.animPlayerSelfTarget then
       local entity = Game.GetPlayer()
       target = AMM:NewTarget(entity, "Player", AMM:GetScanID(entity), "V", nil, nil)
+      if AMM.playerGender == "_Female" then target.rig = 'player_woman_skeleton' else target.rig = 'player_man_skeleton' end
     end
 
     if target ~= nil and (target.type == 'Player' or (target.handle.IsNPC and target.handle:IsNPC()) or (target.handle.IsReplacer and target.handle:IsReplacer())) then
@@ -156,8 +167,14 @@ function Poses:Draw(AMM, target)
       ImGui.Spacing()
 
       AMM.UI:TextColored("Select Pose For Current Target:")
-      
+
       local anims = Poses.currentAnims
+
+      -- could do with or {}, but let's be verbose
+      if not anims then
+        spdlog.info("anims not set")
+        anims = {}
+      end
 
       if Poses.searchQuery ~= '' and Poses.searchQuery ~= Poses.lastSearchQuery then
         local parsedSearch = Util:ParseSearch(Poses.searchQuery, "anim_name")
@@ -174,9 +191,8 @@ function Poses:Draw(AMM, target)
         local y = resY / 3
 
         if ImGui.BeginChild("Categories", ImGui.GetWindowContentRegionWidth(), y) then
-          local categories = Poses.categories
+          local categories = Util:ShallowCopy({}, Poses.categories)
           local specials = Poses.specialCategories[target.name]
-          local collabs = Poses.collabCategories
 
           local rigs = Poses:CheckTargetRig(target)
 
@@ -188,11 +204,12 @@ function Poses:Draw(AMM, target)
             table.insert(categories, target.name)
           end
 
-          if collabs then
-            for _, collab in ipairs(collabs) do
-              table.insert(categories, collab)
-            end
-            
+          -- no need to do the lookup here, this was initialized during
+          -- Poses.collabAnims, Poses.collabCategories = Poses:GetCollabAnimations()
+          -- athough collabAnims seems to be falsy? Maybe we can optimize some more here
+
+          for _, collabCategory in ipairs(Poses.collabCategories or {}) do
+            table.insert(categories, collabCategory)
           end
 
           if next(anims) == nil then
@@ -200,17 +217,6 @@ function Poses:Draw(AMM, target)
           end
 
           for _, category in ipairs(categories) do
-            local gender = Util:GetPlayerGender()
-
-            if target.type == "Player" and AMM.userSettings.animPlayerSelfTarget then
-              if gender == "_Female" then gender = "Player Woman" else gender = "Player Man" end
-              if category == gender then gender = true else gender = false end
-            end
-            
-            if not gender and category ~= 'Favorites' then goto skip end
-            if (category == "Player Woman" or category == "Player Man")
-            and AMM.userSettings.animPlayerSelfTarget and target.type ~= "Player" then goto skip end
-            
             if anims[category] ~= nil and next(anims[category]) ~= nil or (category == 'Favorites' and Poses.searchQuery == '') then
               if anims[category][1] == nil and category ~= 'Favorites' then -- This means it's a Collab category
                 if (ImGui.CollapsingHeader(category)) then
@@ -222,6 +228,8 @@ function Poses:Draw(AMM, target)
                       usableRig = rig
                     end
                   end
+
+                  -- direct matches from categories
                   if count > 1 then
                     for _, rig in ipairs(categories) do
                       if anims[category][rig] then
@@ -230,11 +238,12 @@ function Poses:Draw(AMM, target)
                         end
                       end
                     end
-                  else
+                  -- the collab has tables nested by human-readable rig name
+                  elseif usableRig then
                     Poses:DrawAnimsButton(target, category, anims[category][usableRig])
                   end
                 end
-              else
+              else -- it's not a collab category
                 if (ImGui.CollapsingHeader(category)) then
                   if category == 'Favorites' and #Poses.anims['Favorites'] == 0 then
                     ImGui.Text("It's empty :(")
@@ -244,8 +253,6 @@ function Poses:Draw(AMM, target)
                 end
               end
             end
-
-            ::skip::
           end
         end
         ImGui.EndChild()
@@ -299,9 +306,9 @@ function Poses:DrawAnimsButton(target, category, anims)
   }
 
   AMM.UI:List(category, #anims, style.buttonHeight, function(i)
-    local name = anims[i].name:gsub("_", " ")
+      local name = anims[i].name:gsub("_", " ")
       name = name:gsub("__", " ")
-      name = name.."##"..tostring(i)
+      name = name.."##"..category..tostring(i)
 
       if ImGui.Button(name, style.buttonWidth, style.buttonHeight) then
         Poses:PlayAnimationOnTarget(target, anims[i])
@@ -310,11 +317,11 @@ function Poses:DrawAnimsButton(target, category, anims)
   end)
 end
 
-function Poses:PlayAnimationOnTarget(target, anim, instant)
-  if Poses.activeAnims[target.hash] then
-    Game.GetWorkspotSystem():StopInDevice(target.handle)
+function Poses:PlayAnimationOnTarget(t, anim, instant)
+  if Poses.activeAnims[t.hash] then
+    Game.GetWorkspotSystem():StopInDevice(t.handle)
 
-    local activeAnim = Poses.activeAnims[target.hash]
+    local activeAnim = Poses.activeAnims[t.hash]
     if activeAnim.handle then
       exEntitySpawner.Despawn(activeAnim.handle)
       activeAnim.handle:Dispose()
@@ -323,12 +330,12 @@ function Poses:PlayAnimationOnTarget(target, anim, instant)
 
   if AMM.userSettings.animPlayerSelfTarget and (anim.rig == "Player Woman" or anim.rig == "Player Man") then
     local entity = Game.GetPlayer()
-    target = AMM:NewTarget(entity, "NPCPuppet", AMM:GetScanID(entity), "V", nil, nil)
+    t = AMM:NewTarget(entity, "NPCPuppet", AMM:GetScanID(entity), "V", nil, nil)
   end
 
-  local spawnTransform = target.handle:GetWorldTransform()
-  spawnTransform:SetPosition(target.handle:GetWorldPosition())
-  local angles = target.handle:GetWorldOrientation():ToEulerAngles()
+  local spawnTransform = t.handle:GetWorldTransform()
+  spawnTransform:SetPosition(t.handle:GetWorldPosition())
+  local angles = t.handle:GetWorldOrientation():ToEulerAngles()
   angles.yaw = angles.yaw + 180
   spawnTransform:SetOrientationEuler(EulerAngles.new(0, 0, angles.yaw))
 
@@ -338,12 +345,12 @@ function Poses:PlayAnimationOnTarget(target, anim, instant)
     local ent = Game.FindEntityByID(entityID)
     if ent then
       anim.handle = ent
-      anim.hash = target.hash
-      anim.target = target
-      Poses.activeAnims[target.hash] = anim
+      anim.hash = t.hash
+      anim.target = t
+      Poses.activeAnims[t.hash] = anim
       
-      Game.GetWorkspotSystem():PlayInDeviceSimple(anim.handle, target.handle, false, anim.comp)
-      Game.GetWorkspotSystem():SendJumpToAnimEnt(target.handle, anim.name, true)
+      Game.GetWorkspotSystem():PlayInDeviceSimple(anim.handle, t.handle, false, anim.comp, nil, nil, 0, 1, nil)
+      Game.GetWorkspotSystem():SendJumpToAnimEnt(t.handle, anim.name, instant)
        
       Cron.Halt(timer)
     end
@@ -351,7 +358,7 @@ function Poses:PlayAnimationOnTarget(target, anim, instant)
 end
 
 function Poses:RestartAnimation(anim)
-  local target = {handle = anim.target.handle, hash = tostring(anim.target.handle:GetEntityID().hash), name = anim.target.name}
+  local target = anim.target
   
   Game.GetWorkspotSystem():StopInDevice(target.handle)
 
@@ -512,9 +519,14 @@ function Poses:GetCollabAnimations()
 		table.insert(anims[category][rig], {id = workspot.anim_id, name = workspot.anim_name, rig = workspot.anim_rig, comp = workspot.anim_comp, ent = workspot.anim_ent, fav = intToBool(workspot.anim_fav or 0)})
 	end
 
-	if next(anims) ~= nil and #categories > 0 then return anims, categories end
+  -- not completely sure what the check is doing :D Shouldn't we just create empty tables?
+  -- that way, we can always iterate, and if there's no data, we'll get a log message here
+	if next(anims) ~= nil and #categories > 0 then
+    return anims, categories
+  end
 
-  return nil, nil
+  spdlog.info("No custom poses found")
+  return {}, {}
 end
 
 function Poses:GetSpecialCategories()
@@ -580,6 +592,11 @@ end
 
 function Poses:CheckTargetRig(target)
   if target.rig then
+    if AMM.userSettings.allowPlayerAnimationOnNPCs then
+      local prefix = Util:GetPrefix(target.rig)
+      return {target.rig, "player_"..prefix.."_skeleton"}
+    end
+    
     return {target.rig}
   else
     local rigs = {
@@ -600,11 +617,8 @@ function Poses:CheckTargetRig(target)
 
     if compRig then
       for _, cat in ipairs(Util:GetTableKeys(Poses.rigs)) do
-        if string.find(cat, compRig) then
-          if string.find(cat, "player") then
-          else
-            table.insert(possibleRigs, cat)
-          end
+        if Util:IsPrefix(compRig, cat) or (Util:IsPrefix("player_"..compRig, cat) and AMM.userSettings.allowPlayerAnimationOnNPCs) then
+          table.insert(possibleRigs, cat)
         end
       end
 

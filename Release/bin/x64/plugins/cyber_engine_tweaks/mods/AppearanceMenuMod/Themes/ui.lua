@@ -225,7 +225,8 @@ end
 function UI:List(id, itemCount, height, func)
   if ImGui.BeginChild("List##"..id, ImGui.GetWindowContentRegionWidth(), calculateChildViewHeight(itemCount, height)) then
     local clipper = ImGuiListClipper.new()
-    clipper:Begin(itemCount, height + 1)
+    local h = height + 10
+    clipper:Begin(itemCount, h)
     while(clipper:Step()) do
       for i = clipper.DisplayStart + 1, clipper.DisplayEnd do
         func(i)

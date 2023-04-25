@@ -31,6 +31,19 @@ function Util:AMMDebug(msg, reset)
 end
 
 -- Code Helper Methods
+function Util:IsPrefix(s1, s2)
+  return string.sub(s2, 1, string.len(s1)) == s1
+end
+
+function Util:GetPrefix(s)
+  local i = string.find(s, "_")
+  if i then
+      return string.sub(s, 1, i-1)
+  else
+      return s
+  end
+end
+
 function Util:FirstToUpper(str)
   return (str:gsub("^%l", string.upper))
 end
@@ -275,7 +288,7 @@ function Util:EquipGivenWeapon(targetPuppet, weapon, override)
   end
   cmd = cmd:Copy()
 
-  target.handle:GetAIControllerComponent():SendCommand(cmd)
+  targetPuppet:GetAIControllerComponent():SendCommand(cmd)
 end
 
 function Util:MoveTo(targetPuppet, pos, walkType, stealth)
@@ -461,10 +474,14 @@ function Util:ToggleCompanion(ent)
 end
 
 function Util:TriggerCombatAgainst(handle, target)
+  target:GetAttitudeAgent():SetAttitudeTowards(Game.GetPlayer():GetAttitudeAgent(), EAIAttitude.AIA_Hostile)
   handle:GetAttitudeAgent():SetAttitudeTowards(target:GetAttitudeAgent(), EAIAttitude.AIA_Hostile)
   local sensePreset = TweakDBInterface.GetReactionPresetRecord(TweakDBID.new("ReactionPresets.Ganger_Aggressive"))
   handle.reactionComponent:SetReactionPreset(sensePreset)
   handle.reactionComponent:TriggerCombat(target)
+  target.reactionComponent:TriggerCombat(Game.GetPlayer())
+  target:GetAttitudeAgent():SetAttitudeTowards(handle:GetAttitudeAgent(), EAIAttitude.AIA_Hostile)
+  target.reactionComponent:TriggerCombat(handle)
 end
 
 function Util:SetGodMode(entity, immortal)

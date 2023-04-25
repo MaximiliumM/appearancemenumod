@@ -519,13 +519,17 @@ function Light:ConvertColor(color)
 end
 
 function Light:GetLightData(light)
-  local newLight = Light:NewLight(light)
-  if newLight then
-    newLight.color = f("{%f, %f, %f, %f}", newLight.color[1], newLight.color[2], newLight.color[3], newLight.color[4])
-    newLight.angles = f("{inner = %f, outer = %f}", newLight.innerAngle, newLight.outerAngle)
+  if light then
+    local newLight = Light:NewLight(light)
+    if newLight then
+      newLight.color = f("{%f, %f, %f, %f}", newLight.color[1], newLight.color[2], newLight.color[3], newLight.color[4])
+      newLight.angles = f("{inner = %f, outer = %f}", newLight.innerAngle, newLight.outerAngle)
+    end
+
+    return newLight
   end
 
-  return newLight
+  return false
 end
 
 function Light:SetLightData(light, data)
