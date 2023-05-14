@@ -59,7 +59,7 @@ function AMM:new()
 	 AMM.nibblesReplacer = false
 
 	 -- Main Properties --
-	 AMM.currentVersion = "2.2.2"
+	 AMM.currentVersion = "2.2.3"
 	 AMM.CETVersion = tonumber(GetVersion():match("1.(%d+)."))
 	 AMM.updateNotes = require('update_notes.lua')
 	 AMM.credits = require("credits.lua")
@@ -253,8 +253,15 @@ function AMM:new()
 			 end
 		 end)
 
-		 node = nil
 		 -- Setup Observers and Overrides --
+		 ObserveAfter('gameuiPhotoModeMenuController', 'OnSetCategoryEnabled', function(this)
+			this.topButtonsController:SetToggleEnabled(0, not(AMM.userSettings.disableCameraTab))
+			this.topButtonsController:SetToggleEnabled(1, not(AMM.userSettings.disableDOFTab))
+			this.topButtonsController:SetToggleEnabled(3, not(AMM.userSettings.disableEffectTab))
+			this.topButtonsController:SetToggleEnabled(4, not(AMM.userSettings.disableStickersTab))
+			this.topButtonsController:SetToggleEnabled(5, not(AMM.userSettings.disableLoadSaveTab))
+		 end)
+
 		 ObserveBefore("PreventionSpawnSystem", "SpawnCallback", function(self, spawnedObject)
 			if AMM.Spawn.currentSpawnedID == AMM:GetScanID(spawnedObject) then
 				return -- do nothing
@@ -1179,7 +1186,8 @@ function AMM:new()
 		end
 
 		 -- Update Tools Locations --
-		 AMM.Tools.locations = AMM.Tools:GetLocations()
+		 -- This causes stutters if the user has too many locations installed
+		 -- AMM.Tools.locations = AMM.Tools:GetLocations()
 
 		 -- Update Presets List --
 		 AMM.Props.presets = AMM.Props:LoadPresets()
@@ -1596,8 +1604,6 @@ function AMM:DrawUISettingsTab(style)
 			end
 		end
 
-		if settingChanged then AMM:UpdateSettings() end
-
 		AMM.UI:Spacing(3)
 
 		AMM.UI:TextColored("Custom Appearances:")
@@ -1609,6 +1615,40 @@ function AMM:DrawUISettingsTab(style)
 
 			ImGui.SameLine()
 		end
+
+		AMM.UI:Spacing(3)
+
+		AMM.UI:TextColored("Photo Mode Adjustments:")
+		AMM.userSettings.disablePhotoModeCursor, clicked = ImGui.Checkbox("Always Disable Photo Mode Cursor", AMM.userSettings.disablePhotoModeCursor)
+		if clicked then settingChanged = true end
+
+		AMM.UI:Spacing(3)
+
+		AMM.UI:TextColored("Disable Photo Mode Tabs:")
+		AMM.userSettings.disableCameraTab, clicked = ImGui.Checkbox("Camera", AMM.userSettings.disableCameraTab)
+		if clicked then settingChanged = true end
+
+		ImGui.SameLine()
+
+		AMM.userSettings.disableDOFTab, clicked = ImGui.Checkbox("DOF", AMM.userSettings.disableDOFTab)
+		if clicked then settingChanged = true end
+
+		ImGui.SameLine()
+
+		AMM.userSettings.disableEffectTab, clicked = ImGui.Checkbox("Effect", AMM.userSettings.disableEffectTab)
+		if clicked then settingChanged = true end
+
+		ImGui.SameLine()
+
+		AMM.userSettings.disableStickersTab, clicked = ImGui.Checkbox("Stickers", AMM.userSettings.disableStickersTab)
+		if clicked then settingChanged = true end
+
+		ImGui.SameLine()
+
+		AMM.userSettings.disableLoadSaveTab, clicked = ImGui.Checkbox("Load/Save", AMM.userSettings.disableLoadSaveTab)
+		if clicked then settingChanged = true end
+
+		if settingChanged then AMM:UpdateSettings() end
 
 		AMM.UI:Separator()
 
@@ -2745,6 +2785,8 @@ local insertPoseFormat = '("%s", "%s", "%s", "%s", "%s")'
 local insertPoseValuesFormat = 'INSERT INTO workspots %s VALUES %s'
 
 function AMM:SetupCustomPoses()
+
+	db:execute(f("DELETE FROM workspots WHERE anim_comp = '%s'", animCompType))
 	
 	local files = getFilesRecursively("./Collabs/Custom Poses", {})
 
@@ -2756,8 +2798,7 @@ function AMM:SetupCustomPoses()
   -- lookup table: tracks pose names to boolean for simple checking while adding custom poses
 	local alreadyRegisteredPoses = {}
   
-	db:execute(f("DELETE FROM workspots WHERE anim_comp LIKE '%s'", animCompType))
-	db:execute('UPDATE sqlite_sequence SET seq = (SELECT MAX(anim_id) FROM workspots) WHERE name="workspots"')
+	db:execute('UPDATE sqlite_sequence SET seq = (SELECT MAX(anim_id) FROM workspots) WHERE name = "workspots"')
   
 	for _, mod in ipairs(files) do
 		local data = require(mod)

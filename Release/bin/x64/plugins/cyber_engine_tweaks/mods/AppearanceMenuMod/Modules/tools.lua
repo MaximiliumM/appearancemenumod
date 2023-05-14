@@ -15,6 +15,7 @@ local PLAYER_TRIGGER_DIST = 5
 function Tools:new()
 
   -- Layout Properties
+  Tools.isOpen = false
   Tools.style = {}
   Tools.actionCategories = {}
   Tools.movementWindow = {open = false, isEditing = false, shouldDraw = false}
@@ -35,6 +36,7 @@ function Tools:new()
   Tools.selectedLocation = {loc_name = "Select Location"}
   Tools.shareLocationName = ''
   Tools.locations = {}
+  Tools.defaultLocations = {}
   Tools.userLocations = {}
   Tools.favoriteLocations = {}
   Tools.useTeleportAnimation = false
@@ -138,10 +140,13 @@ function Tools:Initialize()
 
   Tools.selectedLookAt = Tools.lookAtOptions[1]
 
+  -- This causes stutters if the user has too many locations installed
   -- Get Locations Every 5 Seconds --
-  Cron.Every(5.0, function(timer)
-    Tools.locations = Tools:GetLocations()
-  end)
+  -- Cron.Every(5.0, function(timer)
+    -- if Tools.isOpen then
+      Tools.locations = Tools:GetLocations()
+    -- end
+  -- end)
 
   -- Set Target Tools to Open on Launch
   if AMM.userSettings.floatingTargetTools and AMM.userSettings.autoOpenTargetTools then
@@ -171,9 +176,14 @@ function Tools:Draw(AMM, t)
   }
 
   -- Util Popup Helper --
-  Util:SetupPopup()  
+  Util:SetupPopup()
+
+  -- Tools Tab State --
+  Tools.isOpen = false
 
   if ImGui.BeginTabItem("Tools") then
+
+    Tools.isOpen = true
 
     if AMM.nibblesReplacer then
       Tools.actionCategories = {
@@ -771,8 +781,15 @@ function Tools:GetLocations()
     table.insert(locations, {loc_name = '------------------------------'})
   end
 
-  for loc in db:nrows([[SELECT * FROM locations ORDER BY loc_name ASC]]) do
-    table.insert(locations, loc)
+  if #Tools.defaultLocations > 0 then
+    for _, loc in ipairs(Tools.defaultLocations) do
+      table.insert(locations, loc)
+    end
+  else
+    for loc in db:nrows([[SELECT * FROM locations ORDER BY loc_name ASC]]) do
+      table.insert(locations, loc)
+      table.insert(Tools.defaultLocations, loc)
+    end
   end
 
   return locations
@@ -1171,7 +1188,7 @@ function Tools:FreezeNPC(handle, freeze)
     end
 
     -- (reason: CName, dilation: Float, duration: Float, easeInCurve: CName, easeOutCurve: CName, ignoreGlobalDilation: Bool),
-    handle:SetIndividualTimeDilation(CName.new("AMM"), 0.00001, 2.5, CName.new(""), CName.new(""), true)
+    handle:SetIndividualTimeDilation(CName.new("AMM"), 0.0000000000001, 99, CName.new(""), CName.new(""), true)
     Tools.frozenNPCs[tostring(handle:GetEntityID().hash)] = true
   else
     handle:SetIndividualTimeDilation(CName.new("AMM"), 1.0, 2.5, CName.new(""), CName.new(""), false)
@@ -2769,7 +2786,7 @@ function Tools:EnterPhotoMode()
       AMM.playerInPhoto = true
       Game.SetTimeDilation(0)
       
-      if Tools.cursorStateLock then
+      if Tools.cursorStateLock or AMM.userSettings.disablePhotoModeCursor then
         Tools:ToggleCursor(true)
       end
 

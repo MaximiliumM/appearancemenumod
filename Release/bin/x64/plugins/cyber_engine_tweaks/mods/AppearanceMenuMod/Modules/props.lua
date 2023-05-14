@@ -34,7 +34,7 @@ function Props:NewProp(uid, id, name, template, posString, scale, app, tag)
   obj.angles = EulerAngles.new(pos.roll, pos.pitch, pos.yaw)
   obj.scale = loadstring("return "..scale, '')()
 	obj.type = "Prop"
-  obj.isVehicle = false
+  obj.isVehicle = Props:CheckIfVehicle(id)
 
   return AMM.Entity:new(obj)
 end
@@ -262,7 +262,7 @@ function Props:DrawSpawnedProps()
           ImGui.Text(nameLabel)
         end
 
-        if spawn.appearance and spawn.appearance ~= "default" then
+        if spawn.appearance and spawn.appearance ~= '' and spawn.appearance ~= "default" then
           ImGui.SameLine()
           ImGui.Text(" -  "..spawn.appearance)
         end
@@ -494,7 +494,7 @@ function Props:DrawCategoryHeaders(props, tag)
 end
 
 function Props:DrawProps(props, category)
-  AMM.UI:List(category or '', #props, Props.style.buttonHeight, function(i)
+  AMM.UI:List(category or '', #props, Props.style.buttonHeight + 15, function(i)
     Props:DrawSavedProp(props[i])
   end)
 end
@@ -1140,6 +1140,10 @@ function Props:SpawnPropInPosition(ent, pos, angles)
     if ent.parameters.rec then
       record = ent.parameters.rec
     end
+  end
+
+  if ent.isVehicle then
+    record = ent.path
   end
 
   ent.entityID = exEntitySpawner.Spawn(ent.template, spawnTransform, ent.appearance, record)
@@ -2075,6 +2079,7 @@ function Props:GetCategories()
 
   -- Insert Vehicles category
   table.insert(categories, {cat_id = 24, cat_name = "Vehicles", cat_icon = "CarConvertible"})
+  categoriesNames[24] = "Vehicles"
 
   return categories, categoriesNames
 end
@@ -2160,6 +2165,16 @@ function Props:GetScaleString(scale)
   if type(scale) == "table" then
     return f("{x = %f, y = %f, z = %f}", scale.x, scale.y, scale.z)
   end
+end
+
+function Props:CheckIfVehicle(id)
+  local count = 0
+  local query = f("SELECT COUNT(1) FROM entities WHERE entity_id = '%s'", id)
+  for check in db:urows(query) do
+    count = check
+  end
+
+  if count ~= 0 then return true else return false end
 end
 
 return Props:new()

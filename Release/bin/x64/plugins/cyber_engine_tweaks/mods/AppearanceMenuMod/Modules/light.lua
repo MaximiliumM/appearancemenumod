@@ -337,6 +337,13 @@ function Light:Draw(AMM)
       ImGui.SameLine()
       Light.stickyMode, stickyUsed = ImGui.Checkbox("Stick To Camera", Light.stickyMode)
 
+      if Light.activeLight.marker then
+        if ImGui.Button(" Toggle Marker ") then
+          Light.activeLight.marker:Toggle(not Light.activeLight.marker:IsEnabled())
+        end
+        ImGui.SameLine()
+      end
+
       if stickyUsed then
         Light:ToggleStickyMode()
       end
@@ -348,13 +355,6 @@ function Light:Draw(AMM)
         end
         ImGui.SameLine()
       end
-    end
-
-    if Light.activeLight.marker then
-      if ImGui.Button(" Toggle Marker ") then
-        Light.activeLight.marker:Toggle(not Light.activeLight.marker:IsEnabled())
-      end
-      ImGui.SameLine()
     end
 
     if ImGui.Button(" Close Window ") then

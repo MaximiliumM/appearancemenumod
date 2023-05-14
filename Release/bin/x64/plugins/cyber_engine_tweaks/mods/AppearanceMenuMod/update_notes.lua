@@ -1,5 +1,17 @@
 return {
 	{
+		'2.2.3',
+		'2023 May 15',
+		[[Added new UI Settings: Photo Mode Adjustments]],
+		[[-- You can disable the Photo Mode Cursor permanently here]],
+		[[-- You can also disable Photo Mode tabs like Camera, Effect, Stickers, etc]],
+		[[Adjusted Toggle Marker position to avoid muscle memory misclicks]],
+		[[Fixed issue where saving a Vehicle as Prop would crash the game]],
+		[[Fixed issue where a saved Vehicle as Prop would break the UI]],
+		[[Fixed issue where AMM would refresh User Locations every 5 seconds causing stuttering]],
+		[[Fixed issue where AMM would not remove uninstalled Custom Poses in certain conditions]],
+	},
+	{
 		'2.2.2',
 		'2023 Apr 25',
 		[[Updated Scenes Pack]],
