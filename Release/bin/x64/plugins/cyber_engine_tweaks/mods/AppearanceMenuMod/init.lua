@@ -59,7 +59,7 @@ function AMM:new()
 	 AMM.nibblesReplacer = false
 
 	 -- Main Properties --
-	 AMM.currentVersion = "2.2.3"
+	 AMM.currentVersion = "2.2.4"
 	 AMM.CETVersion = tonumber(GetVersion():match("1.(%d+)."))
 	 AMM.updateNotes = require('update_notes.lua')
 	 AMM.credits = require("credits.lua")
@@ -574,7 +574,7 @@ function AMM:new()
 			-- Nibbles Replacer LocKey Update --
 			if AMM.Tools.replacer then
 				TweakDB:SetFlat('photo_mode.general.localizedNameForPhotoModePuppet', {"LocKey#48683", "LocKey#34414", 'Replacer'})
-				TweakDB:SetFlat('photo_mode.character.quadrupedPoses', AMM.Tools.replacer.poses)
+				-- TweakDB:SetFlat('photo_mode.character.quadrupedPoses', AMM.Tools.replacer.poses)
 			end
 
 			if AMM.userSettings.photoModeEnhancements then
@@ -1894,12 +1894,11 @@ function AMM:CheckMissingArchives()
 	end
 
 	if AMM.archivesInfo.missing then
-		local ignoreArchives = false
 		for v in db:urows("SELECT ignore_archives FROM metadata") do
-			ignoreArchives = intToBool(v)
+			AMM.ignoreAllWarnings = intToBool(v)
 		end
 
-		if ignoreArchives and AMM.archivesInfo.optional then
+		if AMM.ignoreAllWarnings and AMM.archivesInfo.optional then
 			AMM.archivesInfo = {missing = false, optional = true, sounds = AMM.archivesInfo.sounds}
 		end
 	end
@@ -3807,6 +3806,7 @@ function AMM:DrawArchives()
 
 		if ImGui.Button("Ignore warnings for this version!", ImGui.GetWindowContentRegionWidth(), 40) then
 			db:execute("UPDATE metadata SET ignore_archives = 1")
+			AMM:CheckMissingArchives()
 		end
 	end
 

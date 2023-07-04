@@ -152,8 +152,8 @@ function UI:Start()
 end
 
 function UI:End()
-  ImGui.PopStyleVar(6)
-  ImGui.PopStyleColor(23)
+  ImGui.PopStyleVar(7)
+  ImGui.PopStyleColor(25)
 end
 
 function UI:Spacing(amount)

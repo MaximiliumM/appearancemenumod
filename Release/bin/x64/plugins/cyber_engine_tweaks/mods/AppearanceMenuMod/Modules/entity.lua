@@ -30,6 +30,7 @@ function Entity:new(ent)
   obj.angles = ent.angles or Entity:GetAngles()
   obj.scale = ent.scale or nil
   obj.defaultScale = ent.defaultScale or nil
+  obj.scaleHasChanged = ent.scaleHasChanged
 
   obj.isVehicle = ent.isVehicle or false
 

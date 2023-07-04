@@ -1,5 +1,17 @@
 return {
 	{
+		'2.2.4',
+		'2023 Jul 04',
+		[[Added new Characters: Juggernaut and Male Tenant Big]],
+		[[Made Kerry's Overture gun resizeable]],
+		[[Fixed compatiblity issue with Nibbles Replacer TweakXL Pose packs]],
+		[[Fixed issue where Nibbles Replacer would not initialize your last saved state correctly]],
+		[[Fixed issue where 'Ignore Missing Files Warnings' button would not work properly]],
+		[[Fixed issue where using 'Crouch Stance' button would duplicate the NPC behind the player]],
+		[[Fixed compatiblity issues with latest ImGui assertion checks]],
+		[[Fixed rare issue where Prop appearances based on Visual Scale would not work properly when changing appearances]],
+	},
+	{
 		'2.2.3',
 		'2023 May 15',
 		[[Added new UI Settings: Photo Mode Adjustments]],

@@ -1524,8 +1524,13 @@ function Props:ChangePropAppearance(ent, app)
           z = visualScale.x * 100,
          }
 
-        if ent.scale and ent.scale ~= nilString then
-          AMM.Tools:SetScale(components, ent.scale)
+         if ent.scale and ent.scale ~= nilString then
+          if not ent.scaleHasChanged then
+            AMM.Tools:SetScale(components, ent.defaultScale)
+            ent.scale = Util:ShallowCopy({}, ent.defaultScale)
+          else
+            AMM.Tools:SetScale(components, ent.scale)
+          end
         else
           ent.scale = {
             x = visualScale.x * 100,

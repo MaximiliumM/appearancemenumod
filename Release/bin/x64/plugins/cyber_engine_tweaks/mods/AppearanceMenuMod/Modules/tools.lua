@@ -162,6 +162,9 @@ function Tools:Initialize()
   if Tools.replacer then
     Tools.nibblesEntityOptions = Tools.replacer.entityOptions
     Tools:SetupReplacerAppearances()
+
+    local selectedEntity = Tools.nibblesEntityOptions[Tools.selectedNibblesEntity]
+    Tools:UpdateNibblesEntity(selectedEntity.ent)
   end
 end
 
@@ -1832,7 +1835,7 @@ function Tools:DrawMovementWindow()
                 end
 
                 Tools.currentTarget = ''
-                AMM.Spawn:DespawnNPC(currentTarget)
+                currentTarget:Despawn()
 
                 Cron.After(0.5, function()
                   AMM.Spawn:SpawnNPC(currentTarget)
@@ -2073,6 +2076,7 @@ function Tools:DrawMovementWindow()
           ImGui.PopItemWidth()
 
           if scaleChanged then
+            Tools.currentTarget.scaleHasChanged = true
             Tools.currentTarget.scale.y = Tools.currentTarget.scale.x
             Tools.currentTarget.scale.z = Tools.currentTarget.scale.x
           end
@@ -2101,6 +2105,7 @@ function Tools:DrawMovementWindow()
 
         if ImGui.Button("Reset Scale", Tools.style.buttonWidth, Tools.style.buttonHeight) then
           Tools:SetScale(components, Tools.currentTarget.defaultScale, true)
+          Tools.currentTarget.scaleHasChanged = false
           Tools.currentTarget.scale = {
             x = Tools.currentTarget.defaultScale.x,
             y = Tools.currentTarget.defaultScale.y,
