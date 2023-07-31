@@ -2543,7 +2543,11 @@ function AMM:SetupCustomEntities()
   	for _, mod in ipairs(files) do
 		local data = require(mod)
 		local modder = data.modder
-		local uid = data.unique_identifier or ''
+		local uid = data.unique_identifier
+		if not uid then		
+        		spdlog.warn(f("invalid entity file %s", mod))
+			uid = ''
+		end
 		local archive = data.archive or nil
 		local entity = data.entity_info
 		local appearances = data.appearances
@@ -2644,7 +2648,11 @@ function AMM:SetupCustomProps()
         spdlog.error(f("failed to read file %s", mod))
     else
       local modder = data.modder
-      local uid = data.unique_identifier or ''
+      local uid = data.unique_identifier		
+      if not uid then		
+        spdlog.warn(f("invalid entity file %s", mod))
+        uid = ''  
+      end
       local archive = data.archive or nil
       local props = data.props
 
