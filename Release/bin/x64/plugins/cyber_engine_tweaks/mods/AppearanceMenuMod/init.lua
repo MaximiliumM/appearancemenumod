@@ -2540,86 +2540,86 @@ function AMM:SetupCustomEntities()
 
 	if #files == 0 then return end
   
-  	for _, mod in ipairs(files) do
-		local data = require(mod)
-		local modder = data.modder
-		local uid = data.unique_identifier
-		if not uid then		
-        		spdlog.warn(f("invalid entity file %s", mod))
-			uid = ''
-		end
-		local archive = data.archive or nil
-		local entity = data.entity_info
-		local appearances = data.appearances
-		local attributes = data.attributes
+    for _, mod in ipairs(files) do
+      local data = require(mod)
+      local modder = data.modder
+      local uid = data.unique_identifier
+      if not uid then		
+        spdlog.error(f("invalid unique identifier in file %s", mod))
+        uid = ''
+      end
+      local archive = data.archive or nil
+      local entity = data.entity_info
+      local appearances = data.appearances
+      local attributes = data.attributes
 
-		AMM.modders[uid] = modder
+      AMM.modders[uid] = modder
 
-		if archive then table.insert(AMM.collabArchives, {name = archive.name, desc = archive.description, active = true, optional = false}) end
+      if archive then table.insert(AMM.collabArchives, {name = archive.name, desc = archive.description, active = true, optional = false}) end
 
-		local ent = entity.path:match("[^\\]*.ent$"):gsub(".ent", "")
-		local entity_path = "Custom_"..uid.."_"..entity.type.."."..ent
+      local ent = entity.path:match("[^\\]*.ent$"):gsub(".ent", "")
+      local entity_path = "Custom_"..uid.."_"..entity.type.."."..ent
 
-		local check = 0
-		for count in db:urows(f([[SELECT COUNT(1) FROM entities WHERE entity_path = "%s"]], entity_path)) do
-			check = count
-		end
+      local check = 0
+      for count in db:urows(f([[SELECT COUNT(1) FROM entities WHERE entity_path = "%s"]], entity_path)) do
+        check = count
+      end
 
-		if check == 0 then
-			local check = 0
-			for count in db:urows(f([[SELECT COUNT(1) FROM entities WHERE entity_name = "%s"]], entity.name)) do
-			check = count
-			end
+      if check == 0 then
+        local check = 0
+        for count in db:urows(f([[SELECT COUNT(1) FROM entities WHERE entity_name = "%s"]], entity.name)) do
+        check = count
+        end
 
-			if check ~= 0 then
-			entity.name = uid.." "..entity.name
-			end
+        if check ~= 0 then
+        entity.name = uid.." "..entity.name
+        end
 
-			local entity_id = AMM:GetScanID(entity_path)
-			local canBeComp = 1
-			local category = 55
-			if entity.type == "Vehicle" then
-			canBeComp = 0
-			category = 56
-			end
+        local entity_id = AMM:GetScanID(entity_path)
+        local canBeComp = 1
+        local category = 55
+        if entity.type == "Vehicle" then
+        canBeComp = 0
+        category = 56
+        end
 
-			local tables = '(entity_id, entity_name, cat_id, parameters, can_be_comp, entity_path, is_spawnable, is_swappable, template_path, entity_rig)'
-			local values = f('("%s", "%s", %i, "%s", "%s", "%s", "%s", "%s", "%s", "%s")', entity_id, entity.name, category, nil, canBeComp, entity_path, 1, 1, entity.path, entity.rig)
-			values = values:gsub('"nil"', "NULL")
-			db:execute(f('INSERT INTO entities %s VALUES %s', tables, values))
+        local tables = '(entity_id, entity_name, cat_id, parameters, can_be_comp, entity_path, is_spawnable, is_swappable, template_path, entity_rig)'
+        local values = f('("%s", "%s", %i, "%s", "%s", "%s", "%s", "%s", "%s", "%s")', entity_id, entity.name, category, nil, canBeComp, entity_path, 1, 1, entity.path, entity.rig)
+        values = values:gsub('"nil"', "NULL")
+        db:execute(f('INSERT INTO entities %s VALUES %s', tables, values))
 
-			if entity.customName then
-				AMM.customNames[entity_id] = entity.name
-			end
+        if entity.customName then
+          AMM.customNames[entity_id] = entity.name
+        end
 
-			-- Setup Appearances
-			if appearances ~= nil then
-				for _, app in ipairs(appearances) do
-					db:execute(f('INSERT INTO appearances (entity_id, app_name, collab_tag) VALUES ("%s", "%s", "%s")', entity_id, app, uid))
-				end
-			end
+        -- Setup Appearances
+        if appearances ~= nil then
+          for _, app in ipairs(appearances) do
+            db:execute(f('INSERT INTO appearances (entity_id, app_name, collab_tag) VALUES ("%s", "%s", "%s")', entity_id, app, uid))
+          end
+        end
 
-			-- Check if TweakDB record exists
-			if not TweakDB:GetRecord(entity_path) then
-				-- Setup TweakDB Records
-				if entity.record ~= nil then
-					TweakDB:CloneRecord(entity_path, entity.record)
-				else
-					TweakDB:CloneRecord(entity_path, "Character.CitizenRichFemaleCasual")
-				end
-			end
+        -- Check if TweakDB record exists
+        if not TweakDB:GetRecord(entity_path) then
+          -- Setup TweakDB Records
+          if entity.record ~= nil then
+            TweakDB:CloneRecord(entity_path, entity.record)
+          else
+            TweakDB:CloneRecord(entity_path, "Character.CitizenRichFemaleCasual")
+          end
+        end
 
-   		TweakDB:SetFlat(entity_path..".entityTemplatePath", entity.path)
+        TweakDB:SetFlat(entity_path..".entityTemplatePath", entity.path)
 
-			if attributes ~= nil then
-				local newAttributes = {}
-				for attr, value in pairs(attributes) do
-					newAttributes[attr] = TweakDB:GetFlat(value)
-				end
-				TweakDB:SetFlats(entity_path, newAttributes)
-			end
-    	end
-	end
+        if attributes ~= nil then
+          local newAttributes = {}
+          for attr, value in pairs(attributes) do
+            newAttributes[attr] = TweakDB:GetFlat(value)
+          end
+          TweakDB:SetFlats(entity_path, newAttributes)
+        end
+        end
+    end
 end
 
 local propHandleFormat = "Custom_%s_Props.%s"
@@ -2644,15 +2644,11 @@ function AMM:SetupCustomProps()
   
   for _, mod in ipairs(files) do
     local data = require(mod)
-    if not data then
-        spdlog.error(f("failed to read file %s", mod))
+    if not data or not data.unique_identifier or not data.props then
+        spdlog.error(f("invalid custom props file %s", mod))
     else
       local modder = data.modder
-      local uid = data.unique_identifier		
-      if not uid then		
-        spdlog.warn(f("invalid entity file %s", mod))
-        uid = ''  
-      end
+      local uid = data.unique_identifier	
       local archive = data.archive or nil
       local props = data.props
 
