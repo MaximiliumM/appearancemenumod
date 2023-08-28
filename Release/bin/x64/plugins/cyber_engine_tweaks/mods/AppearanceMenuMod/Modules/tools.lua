@@ -731,7 +731,7 @@ function Tools:DrawTeleportActions()
       Tools.shareLocationName = ImGui.InputText("Name", Tools.shareLocationName, 50)
 
       if ImGui.Button("Save", style.halfButtonWidth + 8, style.buttonHeight) then
-        if not(io.open(f("User/Locations/%s.json", Tools.shareLocationName), "r")) then
+        if not(io.open(f("./User/Locations/%s.json", Tools.shareLocationName), "r")) then
           local currentLocation = Tools:GetPlayerLocation()
           local newLoc = Tools:NewLocationData(Tools.shareLocationName, currentLocation)
           Tools:SaveLocation(newLoc)
@@ -829,7 +829,7 @@ function Tools:NewLocationData(locationName, locationPosition)
 end
 
 function Tools:SaveLocation(loc)
-  local file = io.open(f("User/Locations/%s.json", loc.loc_name), "w")
+  local file = io.open(f("./User/Locations/%s.json", loc.loc_name), "w")
   if file then
     local contents = json.encode(loc)
 		file:write(contents)
@@ -846,7 +846,7 @@ function Tools:IsUserLocation(loc)
 end
 
 function Tools:DeleteLocation(loc)
-  os.remove("User/Locations/"..loc.file_name)
+  os.remove("./User/Locations/"..loc.file_name)
   Tools.selectedLocation = {loc_name = "Select Location"}
 end
 
@@ -899,7 +899,7 @@ function Tools:GetUserLocations()
 end
 
 function Tools:LoadLocationData(loc)
-  local file = io.open('User/Locations/'..loc, 'r')
+  local file = io.open('./User/Locations/'..loc, 'r')
   if file then
     local contents = file:read( "*a" )
 		local locationData = json.decode(contents)
@@ -1033,6 +1033,10 @@ function Tools:ClearTarget()
 end
 
 function Tools:SetCurrentTarget(target, systemActivated)
+  if not target and systemActivated and Tools.axisIndicator then   
+    Tools:ToggleAxisIndicator()
+    return
+  end
   local pos, angles
   target.appearance = AMM:GetAppearance(target)
   Tools.currentTarget = AMM.Entity:new(target)
@@ -1047,8 +1051,7 @@ function Tools:SetCurrentTarget(target, systemActivated)
             Tools:UpdateAxisIndicatorPosition()
           elseif not Tools.axisIndicator then
             Tools:ToggleAxisIndicator()
-          end
-    
+          end    
           Cron.Halt(timer)
         elseif timer.tick > 20 then
           Cron.Halt(timer)

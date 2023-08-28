@@ -206,7 +206,7 @@ function Spawn:DrawCategories(style)
 				if category.cat_name == 'Favorites' then
 					local query = "SELECT * FROM favorites"
 					for fav in db:nrows(query) do
-						query = f("SELECT * FROM entities WHERE entity_id = '%s' AND cat_id IN %s", fav.entity_id, validCatIDs)
+						query = f("SELECT * FROM entities WHERE entity_id = \"%s\" AND cat_id IN %s", fav.entity_id, validCatIDs)
 						for en in db:nrows(query) do
 							if fav.parameters ~= nil then en.parameters = fav.parameters end
 							en.entity_name = fav.entity_name
@@ -219,7 +219,7 @@ function Spawn:DrawCategories(style)
 						end
 					end
 				else
-					local query = f("SELECT * FROM entities WHERE is_spawnable = 1 AND cat_id == '%s' ORDER BY entity_name ASC", category.cat_id)
+					local query = f("SELECT * FROM entities WHERE is_spawnable = 1 AND cat_id == \"%s\" ORDER BY entity_name ASC", category.cat_id)
 					for en in db:nrows(query) do
 						table.insert(entities, en)
 					end
@@ -426,8 +426,8 @@ function Spawn:DrawArrowButton(direction, entity, index)
 			local query = f("SELECT * FROM %s WHERE position = %i", favoriteType, tempPos)
 			for fav in db:nrows(query) do temp = fav end
 
-			db:execute(f("UPDATE %s SET entity_id = '%s', entity_name = '%s', parameters = '%s' WHERE position = %i", favoriteType, entity.id, entity.name, entity.parameters, tempPos))
-			db:execute(f("UPDATE %s SET entity_id = '%s', entity_name = '%s', parameters = '%s' WHERE position = %i", favoriteType, temp.entity_id, temp.entity_name, temp.parameters, index))
+			db:execute(f("UPDATE %s SET entity_id = '%s', entity_name = '%s', parameters = \"%s\" WHERE position = %i", favoriteType, entity.id, entity.name, entity.parameters, tempPos))
+			db:execute(f("UPDATE %s SET entity_id = '%s', entity_name = '%s', parameters = \"%s\" WHERE position = %i", favoriteType, temp.entity_id, temp.entity_name, temp.parameters, index))
 		end
 	end
 end

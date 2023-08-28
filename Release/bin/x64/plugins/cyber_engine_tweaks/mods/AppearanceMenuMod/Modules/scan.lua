@@ -214,7 +214,7 @@ function Scan:DrawTargetInfo(target)
     AMM:DrawButton("Save Appearance", style.halfButtonWidth, style.buttonHeight, "Save", target)
 
     if Scan.currentAppIsFavorite == nil or Scan.currentApp ~= target.appearance then
-      local query = f("SELECT COUNT(1) FROM favorites_apps WHERE entity_id = '%s' AND app_name = '%s'", target.id, target.appearance)
+      local query = f("SELECT COUNT(1) FROM favorites_apps WHERE entity_id = \"%s\" AND app_name = '%s'", target.id, target.appearance)
       local check = 0
       for count in db:urows(query) do
         check = count
@@ -836,14 +836,14 @@ function Scan:TargetIsSpawn(target)
 end
 
 function Scan:ToggleAppearanceAsFavorite(target)
-  local query = f("SELECT COUNT(1) FROM favorites_apps WHERE entity_id = '%s' AND app_name = '%s'", target.id, target.appearance)
+  local query = f("SELECT COUNT(1) FROM favorites_apps WHERE entity_id = \"%s\" AND app_name = '%s'", target.id, target.appearance)
   local count = 0
   for check in db:urows(query) do
     count = check
   end
 
   if count ~= 0 then
-    db:execute(f("DELETE FROM favorites_apps WHERE entity_id = '%s' AND app_name = '%s'", target.id, target.appearance))
+    db:execute(f("DELETE FROM favorites_apps WHERE entity_id = \"%s\" AND app_name = '%s'", target.id, target.appearance))
   else
     db:execute(f("INSERT INTO favorites_apps (entity_id, app_name) VALUES ('%s', '%s')", target.id, target.appearance))
   end
@@ -915,7 +915,7 @@ function Scan:RemoveTrigger(target)
 end
 
 function Scan:RemoveTriggerByType(target, triggerType)
-  db:execute(f("DELETE FROM appearance_triggers WHERE entity_id = '%s' AND type = %i", target.id, triggerType))
+  db:execute(f("DELETE FROM appearance_triggers WHERE entity_id = \"%s\" AND type = %i", target.id, triggerType))
 end
 
 function Scan:RemoveTriggerByArgs(target, triggerType, args)
@@ -927,7 +927,7 @@ function Scan:RemoveTriggerByPosition(target, playerPos)
   for pos in db:urows(f('SELECT args FROM appearance_triggers WHERE entity_id = "%s" AND type = 6', target.id)) do
     local dist = Util:VectorDistance(Util:GetPosFromString(pos), playerPos)
     if dist < 20 then
-      db:execute(f("DELETE FROM appearance_triggers WHERE entity_id = '%s' AND args = '%s'", target.id, pos))
+      db:execute(f("DELETE FROM appearance_triggers WHERE entity_id = \"%s\" AND args = '%s'", target.id, pos))
     end
   end
 end

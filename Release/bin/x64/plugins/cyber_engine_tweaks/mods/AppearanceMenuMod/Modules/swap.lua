@@ -160,7 +160,7 @@ function Swap:Draw(AMM, t)
                   end
                 end
               else
-                local query = f("SELECT * FROM entities WHERE is_swappable = 1 AND cat_id == '%s' AND cat_id != 22 ORDER BY entity_name ASC", category.cat_id)
+                local query = f("SELECT * FROM entities WHERE is_swappable = 1 AND cat_id == \"%s\" AND cat_id != 22 ORDER BY entity_name ASC", category.cat_id)
                 for en in db:nrows(query) do
                   table.insert(entities, en)
                 end
@@ -264,8 +264,8 @@ function Swap:DrawArrowButton(direction, entityID, index)
 			local query = f("SELECT * FROM favorites_swap WHERE position = %i", tempPos)
 			for fav in db:nrows(query) do temp = fav end
 
-			db:execute(f("UPDATE favorites_swap SET entity_id = '%s' WHERE position = %i", entityID, tempPos))
-			db:execute(f("UPDATE favorites_swap SET entity_id = '%s' WHERE position = %i", temp.entity_id, index))
+			db:execute(f("UPDATE favorites_swap SET entity_id = \"%s\" WHERE position = %i", entityID, tempPos))
+			db:execute(f("UPDATE favorites_swap SET entity_id = \"%s\" WHERE position = %i", temp.entity_id, index))
 		end
 	end
 end

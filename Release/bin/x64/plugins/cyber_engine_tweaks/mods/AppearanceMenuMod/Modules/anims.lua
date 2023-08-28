@@ -294,7 +294,7 @@ function Poses:Draw(AMM, target)
 end
 
 function Poses:ToggleFavorite(isFavorite, anim)
-	db:execute(f("UPDATE workspots SET anim_fav = %i WHERE anim_name = '%s' AND anim_rig = '%s'", boolToInt(isFavorite), anim.name, anim.rig))
+	db:execute(f("UPDATE workspots SET anim_fav = %i WHERE anim_name = \"%s\" AND anim_rig = '%s'", boolToInt(isFavorite), anim.name, anim.rig))
   anim.fav = isFavorite
   Poses.anims['Favorites'] = Poses:GetFavorites()
 end
@@ -397,7 +397,7 @@ end
 
 function Poses:GetFavorites(search)
   local query = "SELECT * FROM workspots WHERE anim_fav = 1 ORDER BY anim_name ASC"
-  if search then query = "SELECT * FROM workspots WHERE "..search.." AND anim_fav = 1 ORDER BY anim_name ASC" end
+  if search then query = f("SELECT * FROM workspots WHERE %s AND anim_fav = 1 ORDER BY anim_name ASC", search) end
   local anims = {}
 
   for ws in db:nrows(query) do
@@ -581,9 +581,11 @@ function Poses:GetCategoriesForRig(rigs)
   table.insert(categories, "Favorites")
 
   for _, r in ipairs(rigs) do
-    table.insert(categories, Poses.rigs[r])
-    if Poses.sceneAnimsInstalled then
-      table.insert(categories, Poses.rigs[r].." Scenes")
+    if Poses.rigs[r] then -- I have no idea why this can be nil, but https://discord.com/channels/420406569872916480/1145732822896758785/1145750991677952030
+      table.insert(categories, Poses.rigs[r])
+      if Poses.sceneAnimsInstalled then
+        table.insert(categories, Poses.rigs[r].." Scenes")
+      end
     end
   end
 
