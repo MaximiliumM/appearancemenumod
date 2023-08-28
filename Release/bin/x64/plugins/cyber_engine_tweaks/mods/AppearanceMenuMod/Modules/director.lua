@@ -1854,12 +1854,12 @@ function Director:GetTriggers()
 end
 
 function Director:GetScripts()
-  local files = dir("./User/Scripts")
+  local files = dir("./User/Scripts") or {}
   local scripts = {}
 
   if #Director.scripts ~= #files then
     for _, script in ipairs(files) do
-      if string.find(script.name, '.json') then
+      if script.name and string.find(script.name, '.json') then
         table.insert(scripts, Director:LoadScriptData(script.name))
       end
     end
