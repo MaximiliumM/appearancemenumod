@@ -306,8 +306,12 @@ function Swap:DrawEntitiesButtons(entities, categoryName)
 end
 
 function Swap:ChangeEntityTemplateTo(targetName, fromID, toID)
+  if targetName == "Replacer" then 
+  -- todo: Show this on the GUI somewhere, somehow
+    spdlog.info("You can't swap the replacer! Use the tools tab in photo mode to target them, then switch their appearance from the Spawn Tab or the Target Tools.")  
+    return
+  end
   if toID == "0x5E611B16, 24" and not Swap.specialSwap then toID = '0xB1B50FFA, 14' end
-  -- todo: Show an error message if the user tries to swap the photo mode replacer
   
   local toPath = Swap:GetEntityPathFromID(toID)
   local fromPath = Swap:GetEntityPathFromID(fromID)
