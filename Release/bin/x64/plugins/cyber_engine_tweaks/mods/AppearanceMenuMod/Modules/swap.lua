@@ -307,9 +307,19 @@ end
 
 function Swap:ChangeEntityTemplateTo(targetName, fromID, toID)
   if toID == "0x5E611B16, 24" and not Swap.specialSwap then toID = '0xB1B50FFA, 14' end
-
+  -- todo: Show an error message if the user tries to swap the photo mode replacer
+  
   local toPath = Swap:GetEntityPathFromID(toID)
   local fromPath = Swap:GetEntityPathFromID(fromID)
+  
+  if not fromPath then 
+    spdlog.info(f("failed to read entity path of %s, fromID %s", targetName, fromID))
+    return 
+  end
+  if not fromPath then 
+    spdlog.info(f("failed to read entity path of %s, toID %s", targetName, toID))
+    return 
+  end
 
   local toTemplate
 
