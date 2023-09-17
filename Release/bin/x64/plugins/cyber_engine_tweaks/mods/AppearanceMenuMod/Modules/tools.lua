@@ -1804,7 +1804,7 @@ function Tools:DrawMovementWindow()
           if ImGui.IsItemHovered() then
             ImGui.BeginTooltip()
             ImGui.PushTextWrapPos(500)
-            ImGui.TextWrapped("Unfreeze Target will skip frames for custom animation mods in Photo Mode if not using IGCS. For full Freeze/Unfreeze functionality unpause using IGCS.")
+            ImGui.TextWrapped("In Photo Mode, Unfreeze Target will skip frames in animated poses. For the full (un)freeze functionality, you need to use Otis Camera Tools (IGCS).")
             ImGui.PopTextWrapPos()
             ImGui.EndTooltip()
           end
