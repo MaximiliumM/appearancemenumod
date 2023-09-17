@@ -884,6 +884,8 @@ end
 function Props:DrawTagActions(props, tag)
 
   AMM.UI:Spacing(3)
+  
+  tag = tag or 'Misc'
 
   if Props.editingTags[tag] == nil then
     Props.editingTags[tag] = tag
@@ -1214,8 +1216,8 @@ function Props:GetTagBasedOnLocation()
       local pos = Vector4.new(loc.x, loc.y, loc.z, loc.w)
       local dist = Util:VectorDistance(playerPos, pos)
 
-      if dist <= 200 then
-        return loc.loc_name
+      if dist <= 200 and loc and loc.loc_name then
+        loc.loc_name
       end
     end
   end
@@ -1238,6 +1240,7 @@ end
 
 function Props:TeleportToTag(tag)
   local loc = nil
+  tag = tag or 'Misc'
 
   for trigger in db:urows(f('SELECT DISTINCT trigger FROM saved_props WHERE tag = "%s"', tag)) do
     local newTrigger = Props:NewTrigger(trigger)
@@ -1249,6 +1252,7 @@ end
 
 function Props:AddHomeMarker(tag)
   local pos = nil
+  tag = tag or 'Misc'
 
   for trigger in db:urows(f('SELECT DISTINCT trigger FROM saved_props WHERE tag = "%s"', tag)) do
     local newTrigger = Props:NewTrigger(trigger)
@@ -1281,7 +1285,7 @@ end
 
 function Props:UpdatePropTag(prop, newTag)
   local newTagTrigger = nil
-  
+  newTag = newTag or 'Misc'
   for trigger in db:urows(f("SELECT trigger FROM saved_props WHERE tag = '%s'", newTag)) do
     newTagTrigger = trigger
   end
@@ -2080,6 +2084,7 @@ end
 function Props:GetTags()
   local tags = {}
   for tag in db:urows("SELECT DISTINCT tag FROM saved_props") do
+    tag = tag or 'default'
     table.insert(tags, tag)
     Props.totalPerTag[tag] = Props:GetPropsCount(tag)
   end
