@@ -1217,7 +1217,7 @@ function Props:GetTagBasedOnLocation()
       local dist = Util:VectorDistance(playerPos, pos)
 
       if dist <= 200 and loc and loc.loc_name then
-        loc.loc_name
+        return loc.loc_name
       end
     end
   end

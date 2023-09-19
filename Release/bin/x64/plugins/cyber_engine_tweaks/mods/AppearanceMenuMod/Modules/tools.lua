@@ -140,14 +140,9 @@ function Tools:Initialize()
 
   Tools.selectedLookAt = Tools.lookAtOptions[1]
 
-  -- This causes stutters if the user has too many locations installed
-  -- Get Locations Every 5 Seconds --
-  -- Cron.Every(5.0, function(timer)
-    -- if Tools.isOpen then
-      Tools.locations = Tools:GetLocations()
-    -- end
-  -- end)
-
+  -- Do not put in cron - will cause stutters or even crashes with >200 locations
+    Tools.locations = Tools:GetLocations()
+  
   -- Set Target Tools to Open on Launch
   if AMM.userSettings.floatingTargetTools and AMM.userSettings.autoOpenTargetTools then
     Tools.movementWindow.open = true
@@ -638,6 +633,21 @@ function Tools:GetVTarget()
   return AMM:NewTarget(entity, "NPCPuppet", AMM:GetScanID(entity), AMM:GetNPCName(entity),AMM:GetScanAppearance(entity), nil)
 end
 
+local locationRefreshDebounce = false
+local function refreshLocationListDebounced()
+  -- don't refresh if semaphore is set
+  if locationRefreshDebounce then return end
+  
+  -- set variable, refresh tools
+  locationRefreshDebounce = true  
+  Tools.locations = Tools:GetLocations()
+  
+  -- unset variable in 10 seconds
+  Cron.After(10, function()
+    locationRefreshDebounce = false
+  end)
+end
+
 -- Teleport actions
 function Tools:DrawTeleportActions()
   
@@ -682,6 +692,7 @@ function Tools:DrawTeleportActions()
   end
 
   if ImGui.IsItemHovered() then
+    refreshLocationListDebounced()
     ImGui.SetTooltip("User locations are saved in AppearanceMenuMod/User/Locations folder")
   end
 
