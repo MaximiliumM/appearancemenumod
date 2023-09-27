@@ -140,14 +140,9 @@ function Tools:Initialize()
 
   Tools.selectedLookAt = Tools.lookAtOptions[1]
 
-  -- This causes stutters if the user has too many locations installed
-  -- Get Locations Every 5 Seconds --
-  -- Cron.Every(5.0, function(timer)
-    -- if Tools.isOpen then
-      Tools.locations = Tools:GetLocations()
-    -- end
-  -- end)
-
+  -- Do not put in cron - will cause stutters or even crashes with >200 locations
+    Tools.locations = Tools:GetLocations()
+  
   -- Set Target Tools to Open on Launch
   if AMM.userSettings.floatingTargetTools and AMM.userSettings.autoOpenTargetTools then
     Tools.movementWindow.open = true
@@ -638,6 +633,21 @@ function Tools:GetVTarget()
   return AMM:NewTarget(entity, "NPCPuppet", AMM:GetScanID(entity), AMM:GetNPCName(entity),AMM:GetScanAppearance(entity), nil)
 end
 
+local locationRefreshDebounce = false
+local function refreshLocationListDebounced()
+  -- don't refresh if semaphore is set
+  if locationRefreshDebounce then return end
+  
+  -- set variable, refresh tools
+  locationRefreshDebounce = true  
+  Tools.locations = Tools:GetLocations()
+  
+  -- unset variable in 10 seconds
+  Cron.After(10, function()
+    locationRefreshDebounce = false
+  end)
+end
+
 -- Teleport actions
 function Tools:DrawTeleportActions()
   
@@ -682,6 +692,7 @@ function Tools:DrawTeleportActions()
   end
 
   if ImGui.IsItemHovered() then
+    refreshLocationListDebounced()
     ImGui.SetTooltip("User locations are saved in AppearanceMenuMod/User/Locations folder")
   end
 
@@ -731,7 +742,7 @@ function Tools:DrawTeleportActions()
       Tools.shareLocationName = ImGui.InputText("Name", Tools.shareLocationName, 50)
 
       if ImGui.Button("Save", style.halfButtonWidth + 8, style.buttonHeight) then
-        if not(io.open(f("User/Locations/%s.json", Tools.shareLocationName), "r")) then
+        if not(io.open(f("./User/Locations/%s.json", Tools.shareLocationName), "r")) then
           local currentLocation = Tools:GetPlayerLocation()
           local newLoc = Tools:NewLocationData(Tools.shareLocationName, currentLocation)
           Tools:SaveLocation(newLoc)
@@ -829,7 +840,7 @@ function Tools:NewLocationData(locationName, locationPosition)
 end
 
 function Tools:SaveLocation(loc)
-  local file = io.open(f("User/Locations/%s.json", loc.loc_name), "w")
+  local file = io.open(f("./User/Locations/%s.json", loc.loc_name), "w")
   if file then
     local contents = json.encode(loc)
 		file:write(contents)
@@ -846,7 +857,7 @@ function Tools:IsUserLocation(loc)
 end
 
 function Tools:DeleteLocation(loc)
-  os.remove("User/Locations/"..loc.file_name)
+  os.remove("./User/Locations/"..loc.file_name)
   Tools.selectedLocation = {loc_name = "Select Location"}
 end
 
@@ -899,7 +910,7 @@ function Tools:GetUserLocations()
 end
 
 function Tools:LoadLocationData(loc)
-  local file = io.open('User/Locations/'..loc, 'r')
+  local file = io.open('./User/Locations/'..loc, 'r')
   if file then
     local contents = file:read( "*a" )
 		local locationData = json.decode(contents)
@@ -1033,6 +1044,10 @@ function Tools:ClearTarget()
 end
 
 function Tools:SetCurrentTarget(target, systemActivated)
+  if not target and systemActivated and Tools.axisIndicator then   
+    Tools:ToggleAxisIndicator()
+    return
+  end
   local pos, angles
   target.appearance = AMM:GetAppearance(target)
   Tools.currentTarget = AMM.Entity:new(target)
@@ -1047,8 +1062,7 @@ function Tools:SetCurrentTarget(target, systemActivated)
             Tools:UpdateAxisIndicatorPosition()
           elseif not Tools.axisIndicator then
             Tools:ToggleAxisIndicator()
-          end
-    
+          end    
           Cron.Halt(timer)
         elseif timer.tick > 20 then
           Cron.Halt(timer)
@@ -1801,7 +1815,7 @@ function Tools:DrawMovementWindow()
           if ImGui.IsItemHovered() then
             ImGui.BeginTooltip()
             ImGui.PushTextWrapPos(500)
-            ImGui.TextWrapped("Unfreeze Target will skip frames for custom animation mods in Photo Mode if not using IGCS. For full Freeze/Unfreeze functionality unpause using IGCS.")
+            ImGui.TextWrapped("In Photo Mode, Unfreeze Target will skip frames in animated poses. For the full (un)freeze functionality, you need to use Otis Camera Tools (IGCS).")
             ImGui.PopTextWrapPos()
             ImGui.EndTooltip()
           end

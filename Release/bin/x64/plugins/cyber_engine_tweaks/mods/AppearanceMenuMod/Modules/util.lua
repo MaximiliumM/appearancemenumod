@@ -150,7 +150,7 @@ function Util:GetPosString(pos, angles)
 end
 
 function Util:GetPosFromString(posString)
-  local pos = loadstring("return "..posString, '')()
+  local pos = loadstring("return "..posString, '')() or { x=0, y=0, z=0, w=0 }
   return Vector4.new(pos.x, pos.y, pos.z, pos.w)
 end
 

@@ -160,7 +160,7 @@ function Swap:Draw(AMM, t)
                   end
                 end
               else
-                local query = f("SELECT * FROM entities WHERE is_swappable = 1 AND cat_id == '%s' AND cat_id != 22 ORDER BY entity_name ASC", category.cat_id)
+                local query = f("SELECT * FROM entities WHERE is_swappable = 1 AND cat_id == \"%s\" AND cat_id != 22 ORDER BY entity_name ASC", category.cat_id)
                 for en in db:nrows(query) do
                   table.insert(entities, en)
                 end
@@ -264,8 +264,8 @@ function Swap:DrawArrowButton(direction, entityID, index)
 			local query = f("SELECT * FROM favorites_swap WHERE position = %i", tempPos)
 			for fav in db:nrows(query) do temp = fav end
 
-			db:execute(f("UPDATE favorites_swap SET entity_id = '%s' WHERE position = %i", entityID, tempPos))
-			db:execute(f("UPDATE favorites_swap SET entity_id = '%s' WHERE position = %i", temp.entity_id, index))
+			db:execute(f("UPDATE favorites_swap SET entity_id = \"%s\" WHERE position = %i", entityID, tempPos))
+			db:execute(f("UPDATE favorites_swap SET entity_id = \"%s\" WHERE position = %i", temp.entity_id, index))
 		end
 	end
 end
@@ -306,10 +306,24 @@ function Swap:DrawEntitiesButtons(entities, categoryName)
 end
 
 function Swap:ChangeEntityTemplateTo(targetName, fromID, toID)
+  if targetName == "Replacer" then 
+  -- todo: Show this on the GUI somewhere, somehow
+    spdlog.info("You can't swap the replacer! Use the tools tab in photo mode to target them, then switch their appearance from the Spawn Tab or the Target Tools.")  
+    return
+  end
   if toID == "0x5E611B16, 24" and not Swap.specialSwap then toID = '0xB1B50FFA, 14' end
-
+  
   local toPath = Swap:GetEntityPathFromID(toID)
   local fromPath = Swap:GetEntityPathFromID(fromID)
+  
+  if not fromPath then 
+    spdlog.info(f("failed to read entity path of %s, fromID %s", targetName, fromID))
+    return 
+  end
+  if not fromPath then 
+    spdlog.info(f("failed to read entity path of %s, toID %s", targetName, toID))
+    return 
+  end
 
   local toTemplate
 

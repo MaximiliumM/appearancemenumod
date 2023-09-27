@@ -52,12 +52,12 @@ end
 function Props:NewPreset(name)
   local obj = {}
 
-  obj.name = name or 'My Preset'
+  obj.name = (name or 'My Preset'):gsub(".json", "")
   obj.props = {}
   obj.lights = {}
   obj.customIncluded = false
 
-  while io.open(f("User/Decor/%s.json", obj.name), "r") do
+  while io.open(f("./User/Decor/%s.json", obj.name), "r") do
 		local num = obj.name:match("%((%g+)%)")
 		if num then num = tonumber(num) + 1 else num = 1 end
 		obj.name = obj.name:gsub(" %("..tostring(num - 1).."%)", "")
@@ -154,7 +154,7 @@ function Props:Update()
     Props.triggers = Props:GetTriggers()
     Props.tags = Props:GetTags()
     Util.playerLastPos = ''
-    spdlog.info('during update')
+    spdlog.info(f('during update of %s', Props.activePreset))
     Props:SavePreset(Props.activePreset)
   else
     Props.savedProps = {}
@@ -233,6 +233,79 @@ function Props:DrawPresetsTab()
   end
 end
 
+-- put it into a local function to unbundle it from the logic
+local function drawSpawnedPropsList()
+  for i, spawn in ipairs(Props.spawnedPropsList) do
+      local spawn = Props.spawnedProps[spawn.uniqueName()]
+      local nameLabel = spawn.name
+      
+      if Tools.lockTarget and Tools.currentTarget ~= '' and Tools.currentTarget.handle then
+        if nameLabel == Tools.currentTarget.name then
+          AMM.UI:TextColored(nameLabel)
+        else
+          ImGui.Text(nameLabel)
+        end
+      else
+        ImGui.Text(nameLabel)
+      end
+
+      if spawn.appearance and spawn.appearance ~= '' and spawn.appearance ~= "default" then
+        ImGui.SameLine()
+        ImGui.Text(" -  "..spawn.appearance)
+      end
+
+      local favoritesLabels = {"Favorite", "Unfavorite"}
+      AMM.Spawn:DrawFavoritesButton(favoritesLabels, spawn)
+
+      ImGui.SameLine()
+
+      if Props.savingProp == spawn.name then
+        AMM.UI:TextColored(f("Moving %s to Saved Props", nameLabel))
+      else
+
+        if AMM.UI:SmallButton(" Save ##"..spawn.name) then
+          -- Cron.Halt()
+          if spawn.handle ~= '' then
+            Props:SavePropPosition(spawn)
+            Props.savingProp = spawn.name
+          end
+        end
+
+        ImGui.SameLine()
+        if AMM.UI:SmallButton("Despawn##"..spawn.name) then
+          if spawn.handle ~= '' then
+            spawn:Despawn()
+          end
+        end
+
+        if spawn.handle ~= '' then
+                    
+          local buttonLabel = " Hide "
+          local entID = tostring(spawn.handle:GetEntityID().hash)
+          if Props.hiddenProps[entID] ~= nil then
+            buttonLabel = " Unhide "
+          end
+
+          ImGui.SameLine()
+          if AMM.UI:SmallButton(buttonLabel.."##"..spawn.name) then
+            Props:ToggleHideProp(spawn)
+          end
+
+          ImGui.SameLine()
+          if AMM.UI:SmallButton("Target".."##"..spawn.name) then
+            AMM.Tools.lockTarget = true
+            AMM.Tools:SetCurrentTarget(spawn)
+          end
+
+          ImGui.SameLine()
+          if AMM.UI:SmallButton("Clone".."##"..spawn.name) then
+            Props:DuplicateProp(spawn)
+          end
+        end
+      end
+    end
+end
+
 function Props:DrawSpawnedProps()
   if #Props.spawnedPropsList > 0 then
     AMM.UI:TextColored("Spawned Props")    
@@ -248,75 +321,7 @@ function Props:DrawSpawnedProps()
       ImGui.Spacing()
       AMM.UI:TextColored("Moving all Props to Saved Props")
     else
-      for i, spawn in ipairs(Props.spawnedPropsList) do
-        local spawn = Props.spawnedProps[spawn.uniqueName()]
-        local nameLabel = spawn.name
-        
-        if Tools.lockTarget and Tools.currentTarget ~= '' and Tools.currentTarget.handle then
-          if nameLabel == Tools.currentTarget.name then
-            AMM.UI:TextColored(nameLabel)
-          else
-            ImGui.Text(nameLabel)
-          end
-        else
-          ImGui.Text(nameLabel)
-        end
-
-        if spawn.appearance and spawn.appearance ~= '' and spawn.appearance ~= "default" then
-          ImGui.SameLine()
-          ImGui.Text(" -  "..spawn.appearance)
-        end
-
-        local favoritesLabels = {"Favorite", "Unfavorite"}
-        AMM.Spawn:DrawFavoritesButton(favoritesLabels, spawn)
-
-        ImGui.SameLine()
-
-        if Props.savingProp == spawn.name then
-          AMM.UI:TextColored(f("Moving %s to Saved Props", nameLabel))
-        else
-
-          if AMM.UI:SmallButton(" Save ##"..spawn.name) then
-            -- Cron.Halt()
-            if spawn.handle ~= '' then
-              Props:SavePropPosition(spawn)
-              Props.savingProp = spawn.name
-            end
-          end
-
-          ImGui.SameLine()
-          if AMM.UI:SmallButton("Despawn##"..spawn.name) then
-            if spawn.handle ~= '' then
-              spawn:Despawn()
-            end
-          end
-
-          if spawn.handle ~= '' then
-                      
-            local buttonLabel = " Hide "
-            local entID = tostring(spawn.handle:GetEntityID().hash)
-            if Props.hiddenProps[entID] ~= nil then
-              buttonLabel = " Unhide "
-            end
-
-            ImGui.SameLine()
-            if AMM.UI:SmallButton(buttonLabel.."##"..spawn.name) then
-              Props:ToggleHideProp(spawn)
-            end
-
-            ImGui.SameLine()
-            if AMM.UI:SmallButton("Target".."##"..spawn.name) then
-              AMM.Tools.lockTarget = true
-              AMM.Tools:SetCurrentTarget(spawn)
-            end
-
-            ImGui.SameLine()
-            if AMM.UI:SmallButton("Clone".."##"..spawn.name) then
-              Props:DuplicateProp(spawn)
-            end
-          end
-        end
-      end
+      drawSpawnedPropsList()
     end
 
     AMM.UI:Separator()
@@ -381,7 +386,7 @@ function Props:DrawCategories()
           if category.cat_name == 'Favorites' then
             local query = "SELECT * FROM favorites_props"
             for fav in db:nrows(query) do
-              query = f("SELECT * FROM entities WHERE entity_id = '%s' AND cat_id IN %s", fav.entity_id, validCatIDs)
+              query = f("SELECT * FROM entities WHERE entity_id = \"%s\" AND cat_id IN %s", fav.entity_id, validCatIDs)
               for en in db:nrows(query) do
                 if fav.parameters ~= nil then en.parameters = fav.parameters end
                 en.entity_name = fav.entity_name
@@ -879,6 +884,8 @@ end
 function Props:DrawTagActions(props, tag)
 
   AMM.UI:Spacing(3)
+  
+  tag = tag or 'Misc'
 
   if Props.editingTags[tag] == nil then
     Props.editingTags[tag] = tag
@@ -961,7 +968,8 @@ function Props:DrawTagActions(props, tag)
   end
 
   if Props.cachedTagPosStrings[tag] == nil then
-    for triggerStr in db:urows(f("SELECT DISTINCT trigger FROM saved_props WHERE tag = '%s'", tag)) do
+    local selectStr = f("SELECT DISTINCT trigger FROM saved_props WHERE tag = \"%s\"", tag)
+    for triggerStr in db:urows(selectStr) do
       Props.cachedTagPosStrings[tag] = triggerStr
     end
   end
@@ -1004,14 +1012,14 @@ function Props:RenamePresetPopup(style)
         Props.rename = Props.activePreset.name
       end
 
-      Props.rename = ImGui.InputText("Name", Props.rename, 30)
+      Props.rename = ImGui.InputText("Name", Props.rename, 30):gsub(".json", "")
 
       AMM.UI:Spacing(8)
 
       if ImGui.Button("Save", style.buttonWidth, style.buttonHeight) then
-        if not(io.open(f("User/Decor/%s.json", Props.rename), "r")) then
-          local fileName = Props.activePreset.file_name or Props.activePreset.name..".json"
-          os.remove("User/Decor/"..fileName)
+        if not(io.open(f("./User/Decor/%s.json", Props.rename), "r")) then
+          local fileName = (Props.activePreset.file_name or Props.activePreset.name):gsub(".json", "")..".json"
+          os.remove("./User/Decor/"..fileName)
           Props.activePreset.name = Props.rename
           Props.activePreset.file_name = Props.rename..".json"
           Props:SavePreset(Props.activePreset)
@@ -1208,7 +1216,7 @@ function Props:GetTagBasedOnLocation()
       local pos = Vector4.new(loc.x, loc.y, loc.z, loc.w)
       local dist = Util:VectorDistance(playerPos, pos)
 
-      if dist <= 200 then
+      if dist <= 200 and loc and loc.loc_name then
         return loc.loc_name
       end
     end
@@ -1226,12 +1234,13 @@ end
 function Props:UpdateTagLocation(tag)
   local currentPlayerLocation = Game.GetPlayer():GetWorldPosition()
   local posStr = Util:GetPosString(currentPlayerLocation)
-  db:execute(f("UPDATE saved_props SET trigger = '%s' WHERE tag = '%s'", posStr, tag))
+  db:execute(f("UPDATE saved_props SET trigger = \"%s\" WHERE tag = '%s'", posStr, tag))
   Props:Update()
 end
 
 function Props:TeleportToTag(tag)
   local loc = nil
+  tag = tag or 'Misc'
 
   for trigger in db:urows(f('SELECT DISTINCT trigger FROM saved_props WHERE tag = "%s"', tag)) do
     local newTrigger = Props:NewTrigger(trigger)
@@ -1243,6 +1252,7 @@ end
 
 function Props:AddHomeMarker(tag)
   local pos = nil
+  tag = tag or 'Misc'
 
   for trigger in db:urows(f('SELECT DISTINCT trigger FROM saved_props WHERE tag = "%s"', tag)) do
     local newTrigger = Props:NewTrigger(trigger)
@@ -1275,7 +1285,7 @@ end
 
 function Props:UpdatePropTag(prop, newTag)
   local newTagTrigger = nil
-  
+  newTag = newTag or 'Misc'
   for trigger in db:urows(f("SELECT trigger FROM saved_props WHERE tag = '%s'", newTag)) do
     newTagTrigger = trigger
   end
@@ -1343,7 +1353,7 @@ function Props:SaveAllProps()
 
   Cron.After(1.0, function()
     for _, spawn in ipairs(Props.spawnedPropsList) do
-      if spawn.handle ~= '' then
+      if spawn.handle ~= '' then        
         Props:SavePropPosition(spawn)
       end
     end
@@ -1381,8 +1391,8 @@ function Props:SavePropPosition(ent)
   local light = AMM.Light:GetLightData(ent)
 
   if ent.uid then
+    
     db:execute(f('UPDATE saved_props SET template_path = "%s", pos = "%s", scale = "%s", app = "%s" WHERE uid = %i', ent.template, pos, scale, app, ent.uid))
-
     if light then
       db:execute(f('UPDATE saved_lights SET color = "%s", intensity = %f, radius = %f, angles = "%s" WHERE uid = %i', light.color, light.intensity, light.radius, light.angles, ent.uid))
     end
@@ -1399,7 +1409,7 @@ function Props:SavePropPosition(ent)
   Cron.After(0.5, function()
     if not ent.uid then
       ent:Despawn()    
-    end    
+    end
 
     if not saveAllInProgress then
       local preset = Props.activePreset
@@ -1497,7 +1507,9 @@ function Props:ChangePropAppearance(ent, app)
     if entity then
       ent.handle = entity
       ent.hash = tostring(entity:GetEntityID().hash)
-      ent.appearance = app
+      if app and "default" ~= app then -- no need to set if it's default, the game files have that covered
+        ent.appearance = app
+      end
       ent.spawned = true
 
       if ent.uniqueName then
@@ -1633,7 +1645,10 @@ function Props:SpawnProp(spawn, pos, angles)
 		if entity then
 			spawn.handle = entity
       spawn.hash = tostring(entity:GetEntityID().hash)
-      spawn.appearance = AMM:GetAppearance(spawn)
+      local appearance = AMM:GetAppearance(spawn)
+      if appearance and "default" ~= appearance then  -- no need to set if it's default, the game files have that covered
+        spawn.appearance = appearance
+      end
       spawn.spawned = true
 
       if AMM.playerInPhoto then
@@ -1721,14 +1736,12 @@ function Props:DespawnProp(ent)
       end
     end
   end
+  
 end
-
 
 function Props:despawnEntity(ent)
   if not ent or not ent.handle then return end
-  
-  --pcall(function() spdlog.info('Props:despawnEntity') end)
-  
+    
   if ent.handle.Dispose then 
     ent.handle:Dispose()
     return
@@ -1750,12 +1763,9 @@ function Props:DespawnAllSavedProps()
   despawnInProgress = true
   local ent = nil
   
-  pcall(function() spdlog.info('Props:DespawnAllSavedProps()') end)
-
   for _, ent in pairs(Props.activeProps) do
     if ent and ent.handle ~= '' then 
       if type(ent.handle) == typeEntEntity then
-        spdlog.info(f("trying to despawn entity with handle type %s", type(ent.handle)))     
         exEntitySpawner.Despawn(ent.handle)
        else
          Props:despawnEntity(ent)
@@ -1826,12 +1836,13 @@ function Props:ActivatePreset(preset)
 end
 
 function Props:BackupPreset(preset)
+  if not preset.name then return end -- do not back up a preset with no name
   pcall(function() spdlog.info(f("Backing up preset %s", preset.name)) end)
   
   -- only get backups for the current preset
   local matchingFiles = {}
   for _, file in pairs(dir("./User/Decor/Backup")) do
-    if string.find(file.name, preset.name) then
+    if string.find(file.name or 'FILENAME', preset.name) then
       table.insert(matchingFiles, file.name)
     end
   end
@@ -1846,7 +1857,7 @@ function Props:BackupPreset(preset)
   
   -- if there are more files than NUM_TOTAL_BACKUPS, delete the first one
   if #matchingFiles > NUM_TOTAL_BACKUPS then
-    os.remove("User/Decor/Backup/"..tostring(matchingFiles[1])) -- nil-proof it
+    os.remove("./User/Decor/Backup/"..tostring(matchingFiles[1])) -- nil-proof it
   end
 
   local props = {}
@@ -1865,7 +1876,7 @@ function Props:BackupPreset(preset)
     local newPreset = Props:NewPreset(backupName)
     newPreset.props = props
     newPreset.lights = lights
-    Props:SavePreset(newPreset, "User/Decor/Backup/%s")
+    Props:SavePreset(newPreset, "./User/Decor/Backup/%s")
   end
 end
 
@@ -1902,7 +1913,7 @@ function Props:LoadPreset(fileName)
 end
 
 function Props:LoadPresetData(preset)
-  local file = io.open('User/Decor/'..preset, 'r')
+  local file = io.open('./User/Decor/'..preset, 'r')
   if file then
     local contents = file:read( "*a" )
 		local presetData = json.decode(contents)
@@ -1930,8 +1941,10 @@ function Props:LoadPresets()
 end
 
 function Props:DeletePreset(preset)
-  local presetName = preset.file_name or preset.name..".json"
-  os.remove("User/Decor/"..presetName)
+  -- make sure we have the file extension only one
+  local presetName = (preset.file_name or preset.name or ''):gsub(".json", "")
+  
+  os.remove(f("./User/Decor/%s.json",presetName))
   Props.activePreset = ''
   Props.presets = Props:LoadPresets()
 
@@ -1946,8 +1959,18 @@ function Props:DeletePreset(preset)
   end
 end
 
+-- suppress that first error message, as the preset will be invalid at that point
+local isInitialSave = true
+
 function Props:SavePreset(preset, path, fromDB)
-  spdlog.info('Saving preset...')
+  
+  -- suppress error message when trying to serialize a preset that wasn't yet loaded
+  if isInitialSave then 
+    isInitialSave = false
+    return
+  end
+  
+  spdlog.info(f('Saving preset %s', preset.name))
 
   if fromDB then
     local props = {}
@@ -1960,7 +1983,7 @@ function Props:SavePreset(preset, path, fromDB)
       table.insert(lights, light)
     end
 
-    local presetFromDB = Props:NewPreset(preset.name or 'Preset')
+    local presetFromDB = Props:NewPreset(preset.name or 'Preset'):gsub(".json", "") -- make sure we have json only once
     presetFromDB.props = props
     presetFromDB.lights = lights
     presetFromDB.file_name = preset.name..".json"
@@ -1975,6 +1998,8 @@ function Props:SavePreset(preset, path, fromDB)
   local invalidOriginalPreset = #preset.props == 0 and #preset.lights == 0
   local invalidBouncedPreset = #bouncedPreset.props == 0 and #bouncedPreset.lights == 0
 
+
+  
   if invalidOriginalPreset or invalidBouncedPreset then
     local reason = (invalidBouncedPreset and not invalidOriginalPreset) and "preset serialization to JSON failed" or "preset props and lights are both empty"
 
@@ -1986,7 +2011,10 @@ function Props:SavePreset(preset, path, fromDB)
     return false
   end
 
-  local file = io.open(f(path or "User/Decor/%s", preset.file_name or preset.name..".json"), "w")
+  local filename = f("%s.json", (preset.file_name or preset.name):gsub(".json", "")) -- make sure we have the extension only once
+  local filepath = path or "./User/Decor/%s"
+  
+  local file = io.open(f(filepath, filename), "w")
 
   if file then
         file:write(contents)
@@ -2056,6 +2084,7 @@ end
 function Props:GetTags()
   local tags = {}
   for tag in db:urows("SELECT DISTINCT tag FROM saved_props") do
+    tag = tag or 'default'
     table.insert(tags, tag)
     Props.totalPerTag[tag] = Props:GetPropsCount(tag)
   end

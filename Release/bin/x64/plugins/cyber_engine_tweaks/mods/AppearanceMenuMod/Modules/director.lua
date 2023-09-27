@@ -196,18 +196,20 @@ function Director:SenseTriggers()
     local playerPos = Game.GetPlayer():GetWorldPosition()
     local dist
     for _, trigger in ipairs(Director.triggers) do
-      dist = Util:VectorDistance(playerPos, trigger.pos)
+      if trigger then
+        dist = Util:VectorDistance(playerPos, trigger.pos)
 
-      if dist <= trigger.radius then
-        if not trigger.activated then
-          trigger.activated = true
-          Director:ActivateTrigger(trigger)
+        if dist <= trigger.radius then
+          if not trigger.activated then
+            trigger.activated = true
+            Director:ActivateTrigger(trigger)
+          end
         end
-      end
 
-      if trigger.activated and dist >= 60 then
-        trigger.activated = false
-        Director:DeactivateTrigger(trigger)
+        if trigger.activated and dist >= 60 then
+          trigger.activated = false
+          Director:DeactivateTrigger(trigger)
+        end
       end
     end
   end
@@ -219,71 +221,71 @@ function Director:Draw(AMM)
   if #Director.triggers == 0 then
     Director.triggers = Director:GetTriggers()
   end
-
-  if (ImGui.BeginTabItem("Director")) then
-
-    if Director.sizeX == 0 then
-      Director.sizeX = ImGui.GetWindowContentRegionWidth()
-    end
-
-    if AMM.userSettings.tabDescriptions then
-      AMM.UI:TextColored("Director Mode")
-      local description = "Create Scripts to add, dress and direct Actors to perform for machinima, screenshots and roleplay."
-
-      if Director.activeTab == "Triggers" then
-        description = "Create Triggers to activate pre-made Scripts on contact."
-      elseif Director.activeTab == "Cameras" then
-        description = "Create Cameras to move around freely, set different field of views and zoom levels."
-      end
-
-      ImGui.TextWrapped(description)
-      AMM.UI:Spacing(2)
-      Director:DrawTriggersCheckbox()
-    end
-
-    if not AMM.userSettings.tabDescriptions then
-      AMM.UI:Spacing(2)
-      ImGui.Dummy(1, 1)
-      ImGui.SameLine(500)
-      Director:DrawTriggersCheckbox()
-      ImGui.SameLine(12)
-    end
-
-    if AMM.playerInPhoto then
-      if ImGui.BeginTabBar("Director Tabs") then
-        Director:DrawCamerasTab()
-
-        ImGui.EndTabBar()
-      end
-    elseif AMM.playerInMenu then
-      AMM.UI:TextColored("Player In Menu")
-      ImGui.Text("Director only works in game")
-    else
-      if ImGui.BeginTabBar("Director Tabs") then
-
-        Director:DrawScriptTab()
-        Director:DrawTriggerTab()
-        Director:DrawCamerasTab()
-
-        local running = false
-        for _, script in ipairs(Director.scripts) do
-          if script.isRunning then
-            running = true
-            break
-          end
-        end
-
-        if running then
-          Director:DrawRunningTab()
-        end
-
-        ImGui.EndTabBar()
-      end
-    end
-
-    ImGui.EndTabItem()
+  
+  if not ImGui.BeginTabItem("Director") then return end
+    
+  if Director.sizeX == 0 then
+    Director.sizeX = ImGui.GetWindowContentRegionWidth()
   end
+
+  if AMM.userSettings.tabDescriptions then
+    AMM.UI:TextColored("Director Mode")
+    local description = "Create Scripts to add, dress and direct Actors to perform for machinima, screenshots and roleplay."
+
+    if Director.activeTab == "Triggers" then
+      description = "Create Triggers to activate pre-made Scripts on contact."
+    elseif Director.activeTab == "Cameras" then
+      description = "Create Cameras to move around freely, set different field of views and zoom levels."
+    end
+
+    ImGui.TextWrapped(description)
+    AMM.UI:Spacing(2)
+    Director:DrawTriggersCheckbox()
+  end
+
+  if not AMM.userSettings.tabDescriptions then
+    AMM.UI:Spacing(2)
+    ImGui.Dummy(1, 1)
+    ImGui.SameLine(500)
+    Director:DrawTriggersCheckbox()
+    ImGui.SameLine(12)
+  end
+
+  if AMM.playerInPhoto then
+    if ImGui.BeginTabBar("Director Tabs") then
+      Director:DrawCamerasTab()
+
+      ImGui.EndTabBar()
+    end
+  elseif AMM.playerInMenu then
+    AMM.UI:TextColored("Player In Menu")
+    ImGui.Text("Director only works in game")
+  else
+    if ImGui.BeginTabBar("Director Tabs") then
+
+      Director:DrawScriptTab()
+      Director:DrawTriggerTab()
+      Director:DrawCamerasTab()
+
+      local running = false
+      for _, script in ipairs(Director.scripts) do
+        if script.isRunning then
+          running = true
+          break
+        end
+      end
+
+      if running then
+        Director:DrawRunningTab()
+      end
+
+      ImGui.EndTabBar()
+    end
+  end
+
+  ImGui.EndTabItem()
 end
+
 
 function Director:DrawTriggersCheckbox()
   local offSet = Director.sizeX - ImGui.CalcTextSize("Triggers On/Off")
@@ -335,6 +337,12 @@ function Director:DrawRunningTab()
   end
 end
 
+local cameraTimerFunc = function(timer)
+  if not AMM.Director.activeCamera or not AMM.Director.activeCamera.handle then return end
+  AMM.Director.activeCamera:Activate(1)
+  Cron.Halt(timer)
+end
+
 function Director:DrawCamerasTab()
   if ImGui.BeginTabItem("Cameras") then
     Director.activeTab = "Cameras"
@@ -349,12 +357,7 @@ function Director:DrawCamerasTab()
       table.insert(Director.cameras, camera)
       Director.activeCamera = camera
       
-      Cron.Every(0.1, function(timer)
-				if AMM.Director.activeCamera.handle then
-					AMM.Director.activeCamera:Activate(1)
-					Cron.Halt(timer)
-				end
-			end)
+      Cron.Every(0.1, cameraTimerFunc)
     end
 
     AMM.UI:Separator()
@@ -554,256 +557,256 @@ function Director:DrawTriggerTab()
 end
 
 function Director:DrawScriptTab()
-  if ImGui.BeginTabItem("Scripts") then
-    Director.activeTab = "Scripts"
+  if not ImGui.BeginTabItem("Scripts") then return end
+  Director.activeTab = "Scripts"
 
-    AMM.UI:Spacing(6)
+  AMM.UI:Spacing(6)
 
-    if ImGui.Button("New Script", -1, 40) then
-      local newScript = Director:NewScript("New Script")
+  if ImGui.Button("New Script", -1, 40) then
+    local newScript = Director:NewScript("New Script")
 
-      table.insert(Director.scripts, newScript)
-      Director.selectedScript = newScript
-      Director.selectedActor = ''
-      Director.selectedNode = ''
+    table.insert(Director.scripts, newScript)
+    Director.selectedScript = newScript
+    Director.selectedActor = ''
+    Director.selectedNode = ''
 
-      Director:SaveScript(newScript)
+    Director:SaveScript(newScript)
+  end
+
+  AMM.UI:Separator()
+
+  if #Director.scripts ~= 0 then
+
+    if Director.selectedScript.isRunning then
+      ImGui.InputText("Scripts", Director.selectedScript.title, 100, ImGuiInputTextFlags.ReadOnly)
+    else
+      if ImGui.BeginCombo("Scripts", Director.selectedScript.title, ImGuiComboFlags.HeightLarge) then
+        for i, script in ipairs(Director.scripts) do
+          if ImGui.Selectable(script.title, (script.title == Director.selectedScript.title)) then
+            Director.selectedScript = script
+            _, actor = next(script.actors)
+            Director.selectedActor = actor or ''
+          end
+        end
+        ImGui.EndCombo()
+      end
     end
 
-    AMM.UI:Separator()
+    if Director.selectedScript.title ~= "Select Script" then
 
-    if #Director.scripts ~= 0 then
+      ImGui.Spacing()
+      
+      local buttonLabel = "Play Script"
+      if Director.stopPressed then
+        if Director.selectedScript.isRunning then buttonLabel = "Stopping..."
+        elseif Director.selectedScript.done then buttonLabel = "Restarting..." end
+        ImGui.PushStyleColor(ImGuiCol.Button, 0.56, 0.06, 0.03, 0.25)
+        ImGui.PushStyleColor(ImGuiCol.ButtonHovered, 0.56, 0.06, 0.03, 0.25)
+        ImGui.PushStyleColor(ImGuiCol.ButtonActive, 0.56, 0.06, 0.03, 0.25)
+      elseif Director.selectedScript.isRunning then
+        buttonLabel = "Stop Script"
+      end
 
-      if Director.selectedScript.isRunning then
-        ImGui.InputText("Scripts", Director.selectedScript.title, 100, ImGuiInputTextFlags.ReadOnly)
-      else
-        if ImGui.BeginCombo("Scripts", Director.selectedScript.title, ImGuiComboFlags.HeightLarge) then
-          for i, script in ipairs(Director.scripts) do
-            if ImGui.Selectable(script.title, (script.title == Director.selectedScript.title)) then
-              Director.selectedScript = script
-              _, actor = next(script.actors)
-              Director.selectedActor = actor or ''
-            end
-          end
-          ImGui.EndCombo()
+      local stopPressed = Director.stopPressed
+      if ImGui.Button(buttonLabel) then
+        if Director.selectedScript.isRunning then
+          Director:StopScript(Director.selectedScript)
+        else
+          Director:PlayScript(Director.selectedScript)
         end
       end
 
-      if Director.selectedScript.title ~= "Select Script" then
+      if stopPressed then
+        ImGui.PopStyleColor(3)
+      end
+
+      if Director.selectedScript.isRunning then
+        ImGui.SameLine()
+        ImGui.TextDisabled("Script Running...")
+      else
+        ImGui.SameLine()
+        if ImGui.Button("Delete Script") then
+          popupDelegate = {title = 'WARNING', message = '', buttons = {}}
+          popupDelegate.message = "Are you sure you want to delete this script?"
+          table.insert(popupDelegate.buttons, {label = "Yes", action = function(script) Director:DeleteScript(script) end})
+          table.insert(popupDelegate.buttons, {label = "No", action = ''})
+          popupDelegate.actionArg = Director.selectedScript
+          ImGui.OpenPopup(popupDelegate.title)
+        end
+
+        AMM.UI:Separator()
+
+        AMM.UI:TextCenter("Editing", true)
+
+        Director.selectedScript.title = ImGui.InputText("Title", Director.selectedScript.title, 30)
 
         ImGui.Spacing()
 
-        local buttonLabel = "Play Script"
-        if Director.stopPressed then
-          if Director.selectedScript.isRunning then buttonLabel = "Stopping..."
-          elseif Director.selectedScript.done then buttonLabel = "Restarting..." end
-          ImGui.PushStyleColor(ImGuiCol.Button, 0.56, 0.06, 0.03, 0.25)
-          ImGui.PushStyleColor(ImGuiCol.ButtonHovered, 0.56, 0.06, 0.03, 0.25)
-          ImGui.PushStyleColor(ImGuiCol.ButtonActive, 0.56, 0.06, 0.03, 0.25)
-        elseif Director.selectedScript.isRunning then
-          buttonLabel = "Stop Script"
-        end
+        if ImGui.BeginListBox("Current Actors") then
+          for i, actor in pairs(Director.selectedScript.actors) do
 
-        local stopPressed = Director.stopPressed
-        if ImGui.Button(buttonLabel) then
-          if Director.selectedScript.isRunning then
-            Director:StopScript(Director.selectedScript)
-          else
-            Director:PlayScript(Director.selectedScript)
-          end
-        end
+            local selectedName = Director.selectedActor.uniqueName or ''
+            local currentName = actor.uniqueName
 
-        if stopPressed then
-          ImGui.PopStyleColor(3)
-        end
+            if actor.team ~= '' then
+              selectedName = selectedName:gsub(actor.name, actor.name.." ("..actor.team..")")
+              currentName = currentName:gsub(actor.name, actor.name.." ("..actor.team..")")
+            end
 
-        if Director.selectedScript.isRunning then
-          ImGui.SameLine()
-          ImGui.TextDisabled("Script Running...")
-        else
-          ImGui.SameLine()
-          if ImGui.Button("Delete Script") then
-            popupDelegate = {title = 'WARNING', message = '', buttons = {}}
-            popupDelegate.message = "Are you sure you want to delete this script?"
-            table.insert(popupDelegate.buttons, {label = "Yes", action = function(script) Director:DeleteScript(script) end})
-            table.insert(popupDelegate.buttons, {label = "No", action = ''})
-            popupDelegate.actionArg = Director.selectedScript
-            ImGui.OpenPopup(popupDelegate.title)
-          end
+            if (selectedName == currentName) then selected = true else selected = false end
+            if(ImGui.Selectable(currentName, selected)) then
+              Director.selectedActor = actor
 
-          AMM.UI:Separator()
+              if Director.lastSelectedActor.name ~= actor.name then
 
-          AMM.UI:TextCenter("Editing", true)
+                if #Director.selectedActor.nodes ~= 0 then
+                  Director.selectedNode = Director.selectedActor.nodes[1]
+                else
+                  Director.selectedNode = ''
+                end
 
-          Director.selectedScript.title = ImGui.InputText("Title", Director.selectedScript.title, 30)
-
-          ImGui.Spacing()
-
-          if ImGui.BeginListBox("Current Actors") then
-            for i, actor in pairs(Director.selectedScript.actors) do
-
-              local selectedName = Director.selectedActor.uniqueName or ''
-              local currentName = actor.uniqueName
-
-              if actor.team ~= '' then
-                selectedName = selectedName:gsub(actor.name, actor.name.." ("..actor.team..")")
-                currentName = currentName:gsub(actor.name, actor.name.." ("..actor.team..")")
+                if Director.showNodes then
+                  Director:RemoveNodeMarks(Director.lastSelectedActor.nodes)
+                  Director:ShowNodes(Director.selectedActor.nodes)
+                end
+                Director.lastSelectedActor = actor
               end
+            end
+          end
+          ImGui.EndListBox()
+        end
 
-              if (selectedName == currentName) then selected = true else selected = false end
-              if(ImGui.Selectable(currentName, selected)) then
-                Director.selectedActor = actor
+        if ImGui.Button("Add Actor") then
+          Director.selectedActor = ''
+          ImGui.OpenPopup("Actors")
+        end
 
-                if Director.lastSelectedActor.name ~= actor.name then
+        ImGui.SameLine()
+        if ImGui.Button("Remove Actor") then
+          Director:RemoveActorFromScript(Director.selectedScript, Director.selectedActor.uniqueName)
+        end
 
-                  if #Director.selectedActor.nodes ~= 0 then
-                    Director.selectedNode = Director.selectedActor.nodes[1]
-                  else
-                    Director.selectedNode = ''
-                  end
+        if Director.selectedActor ~= '' then
+          ImGui.SameLine()
+          if ImGui.Button("Change Actor") then
+            ImGui.OpenPopup("Actors")
+          end
 
-                  if Director.showNodes then
-                    Director:RemoveNodeMarks(Director.lastSelectedActor.nodes)
-                    Director:ShowNodes(Director.selectedActor.nodes)
-                  end
-                  Director.lastSelectedActor = actor
+          AMM.UI:Spacing(3)
+
+          AMM.UI:TextColored("Marks Sequence:")
+          if ImGui.RadioButton("Only One", Director.selectedActor.sequenceType == "OnlyOne") then
+            Director.selectedActor.sequenceType = "OnlyOne"
+            Director:SaveScript(Director.selectedScript)
+          end
+
+          if ImGui.IsItemHovered() then
+            ImGui.SetTooltip("Actor will stay on a single Mark")
+          end
+
+          ImGui.SameLine()
+          if ImGui.RadioButton("Random", Director.selectedActor.sequenceType == "Random") then
+            Director.selectedActor.sequenceType = "Random"
+            Director:SaveScript(Director.selectedScript)
+          end
+
+          if ImGui.IsItemHovered() then
+            ImGui.SetTooltip("Actor will randomly move between Marks")
+          end
+
+          ImGui.SameLine()
+          if ImGui.RadioButton("Sequential", Director.selectedActor.sequenceType == "Sequential") then
+            Director.selectedActor.sequenceType = "Sequential"
+            Director:SaveScript(Director.selectedScript)
+          end
+
+          if ImGui.IsItemHovered() then
+            ImGui.SetTooltip("Actor will move between Marks in numerical order")
+          end
+
+          AMM.UI:Spacing(3)
+
+          Director.showNodes, used = ImGui.Checkbox("Show Marks", Director.showNodes)
+
+          if ImGui.IsItemHovered() then
+            ImGui.SetTooltip("Displays a visible icon at Mark locations")
+          end
+
+          if used and Director.selectedActor ~= '' then
+            if Director.showNodes then
+              Director:ShowNodes(Director.selectedActor.nodes)
+            else
+              Director:RemoveNodeMarks(Director.selectedActor.nodes)
+            end
+          end
+
+          ImGui.SameLine()
+          Director.selectedActor.autoTalk, used = ImGui.Checkbox("Auto Talk", Director.selectedActor.autoTalk)
+
+          if ImGui.IsItemHovered() then
+            ImGui.SetTooltip("This will make NPCs talk once every minute when within range (voiced NPCs only)")
+          end
+
+          if ImGui.BeginListBox("Actor Marks") then
+            for i, node in pairs(Director.selectedActor.nodes) do
+              if (Director.selectedNode.name == node.name) then selected = true else selected = false end
+              node.name = node.name:gsub("%d+", tostring(i))
+              if(ImGui.Selectable(node.name, selected)) then
+                Director.selectedNode = node
+
+                local selectionChange = false
+                if Director.lastSelectedNode.name ~= node.name then
+                  Director.lastSelectedNode = node
+                  selectionChange = true
+                end
+
+                if Director.showNodes and selectionChange then
+                  Director:RemoveNodeMarks(Director.selectedActor.nodes)
+                  Director:CreateNodeMark(node.pos, false)
                 end
               end
             end
             ImGui.EndListBox()
           end
 
-          if ImGui.Button("Add Actor") then
-            Director.selectedActor = ''
-            ImGui.OpenPopup("Actors")
+          if ImGui.Button("New Mark") then
+            Director.selectedNode = ''
+            ImGui.OpenPopup("Node View")
+          end
+
+          if ImGui.IsItemHovered() then
+            ImGui.SetTooltip("Create Mark at current Player position to move and direct Actors")
           end
 
           ImGui.SameLine()
-          if ImGui.Button("Remove Actor") then
-            Director:RemoveActorFromScript(Director.selectedScript, Director.selectedActor.uniqueName)
+          if ImGui.Button("Remove Mark") then
+            Director:RemoveNodeFromActor(Director.selectedActor, Director.selectedNode)
+            if #Director.selectedActor.nodes ~= 0 then
+              Director.selectedNode = Director.selectedActor.nodes[1]
+            else
+              Director.selectedNode = ''
+            end
+            Director:SaveScript(Director.selectedScript)
           end
 
-          if Director.selectedActor ~= '' then
+          if Director.selectedNode ~= '' then
             ImGui.SameLine()
-            if ImGui.Button("Change Actor") then
-              ImGui.OpenPopup("Actors")
-            end
-
-            AMM.UI:Spacing(3)
-
-            AMM.UI:TextColored("Marks Sequence:")
-            if ImGui.RadioButton("Only One", Director.selectedActor.sequenceType == "OnlyOne") then
-              Director.selectedActor.sequenceType = "OnlyOne"
-              Director:SaveScript(Director.selectedScript)
-            end
-
-            if ImGui.IsItemHovered() then
-              ImGui.SetTooltip("Actor will stay on a single Mark")
-            end
-
-            ImGui.SameLine()
-            if ImGui.RadioButton("Random", Director.selectedActor.sequenceType == "Random") then
-              Director.selectedActor.sequenceType = "Random"
-              Director:SaveScript(Director.selectedScript)
-            end
-
-            if ImGui.IsItemHovered() then
-              ImGui.SetTooltip("Actor will randomly move between Marks")
-            end
-
-            ImGui.SameLine()
-            if ImGui.RadioButton("Sequential", Director.selectedActor.sequenceType == "Sequential") then
-              Director.selectedActor.sequenceType = "Sequential"
-              Director:SaveScript(Director.selectedScript)
-            end
-
-            if ImGui.IsItemHovered() then
-              ImGui.SetTooltip("Actor will move between Marks in numerical order")
-            end
-
-            AMM.UI:Spacing(3)
-
-            Director.showNodes, used = ImGui.Checkbox("Show Marks", Director.showNodes)
-
-            if ImGui.IsItemHovered() then
-              ImGui.SetTooltip("Displays a visible icon at Mark locations")
-            end
-
-            if used and Director.selectedActor ~= '' then
-              if Director.showNodes then
-                Director:ShowNodes(Director.selectedActor.nodes)
-              else
-                Director:RemoveNodeMarks(Director.selectedActor.nodes)
-              end
-            end
-
-            ImGui.SameLine()
-            Director.selectedActor.autoTalk, used = ImGui.Checkbox("Auto Talk", Director.selectedActor.autoTalk)
-
-            if ImGui.IsItemHovered() then
-              ImGui.SetTooltip("This will make NPCs talk once every minute when within range (voiced NPCs only)")
-            end
-
-            if ImGui.BeginListBox("Actor Marks") then
-              for i, node in pairs(Director.selectedActor.nodes) do
-                if (Director.selectedNode.name == node.name) then selected = true else selected = false end
-                node.name = node.name:gsub("%d+", tostring(i))
-                if(ImGui.Selectable(node.name, selected)) then
-                  Director.selectedNode = node
-
-                  local selectionChange = false
-                  if Director.lastSelectedNode.name ~= node.name then
-                    Director.lastSelectedNode = node
-                    selectionChange = true
-                  end
-
-                  if Director.showNodes and selectionChange then
-                    Director:RemoveNodeMarks(Director.selectedActor.nodes)
-                    Director:CreateNodeMark(node.pos, false)
-                  end
-                end
-              end
-              ImGui.EndListBox()
-            end
-
-            if ImGui.Button("New Mark") then
-              Director.selectedNode = ''
+            if ImGui.Button("Edit Mark") then
               ImGui.OpenPopup("Node View")
-            end
-
-            if ImGui.IsItemHovered() then
-              ImGui.SetTooltip("Create Mark at current Player position to move and direct Actors")
-            end
-
-            ImGui.SameLine()
-            if ImGui.Button("Remove Mark") then
-              Director:RemoveNodeFromActor(Director.selectedActor, Director.selectedNode)
-              if #Director.selectedActor.nodes ~= 0 then
-                Director.selectedNode = Director.selectedActor.nodes[1]
-              else
-                Director.selectedNode = ''
-              end
-              Director:SaveScript(Director.selectedScript)
-            end
-
-            if Director.selectedNode ~= '' then
-              ImGui.SameLine()
-              if ImGui.Button("Edit Mark") then
-                ImGui.OpenPopup("Node View")
-              end
             end
           end
         end
       end
     end
-
-    Director:DrawActorsPopup()
-    Director:DrawNodesPopup()
-    Director:DrawWarningPopup(popupDelegate)
-
-    ImGui.EndTabItem()
   end
+
+  Director:DrawActorsPopup()
+  Director:DrawNodesPopup()
+  Director:DrawWarningPopup(popupDelegate)
+
+  ImGui.EndTabItem()
 end
+
 
 function Director:ShowNodes(nodes)
   for _, node in ipairs(nodes) do
@@ -912,7 +915,7 @@ function Director:StopScript(script)
       script.trigger.activated = false
     end
 
-    Cron.Every(0.1, { tick = 1 }, function(timer)
+    local timerfunc = function(timer)
       local allGone = true
       for _, actor in pairs(script.actors) do
         Cron.Halt(actor.timer)
@@ -934,7 +937,8 @@ function Director:StopScript(script)
 
         Cron.Halt(timer)
       end
-    end)
+    end
+    Cron.Every(0.1, { tick = 1 }, timerfunc)
   end
 end
 
@@ -983,31 +987,39 @@ function Director:PlayScript(script, systemActivated)
     Director:SpawnActors(script, actors)
   end
 
-  Cron.Every(0.1, function(timer)
-    if Director.finishedSpawning then
-      Cron.Halt(timer)
-      Director.finishedSpawning = false
-      Director:MoveActors(script, actors)
-    end
-  end)
+  local timerfunc = function(timer)
+    if not Director.finishedSpawning then return end
+    Cron.Halt(timer)
+    Director.finishedSpawning = false
+    Director:MoveActors(script, actors)
+  end
+  
+  Cron.Every(0.1, timerfunc)
 end
 
 function Director:MoveActors(script, actors)
 
   for _, actor in ipairs(actors) do
-    Cron.Every(0.1, { tick = 1 }, function(timer)
-      actor.timer = timer
+    local timerfunc = (function(timer)
+        actor.timer = timer
 
-      if not actor.done then
+        if actor.done then
+          Cron.Halt(timer)
+          return
+        end
+        
         local node
         if actor.sequenceType == "OnlyOne" then
           node = actor.sequence[1]
         elseif actor.sequenceType == "Random" then
           node = actor.sequence[actor.currentNode]
         elseif actor.sequenceType == "Sequential" then
-          node = actor.nodes[actor.currentNode]
-        else
-          print("[AMM] ERROR: couldn't retrieve node; sequence type invalid")
+          node = actor.nodes[actor.currentNode]        
+        end
+        
+        if not node then 
+          print("[AMM] ERROR: couldn't retrieve node; sequence type invalid")   
+          return
         end
 
         if actor.activeCommand == '' then
@@ -1051,7 +1063,7 @@ function Director:MoveActors(script, actors)
               Director:SetFacialExpression(actor.handle, node.expression)
             end
           end)
-        elseif actor.activeCommand == 'done' then
+        elseif actor.activeCommand == 'done' then          
           if timer.tick > (node.holdDuration * 10) then
             if node.attackTarget then
               actor.activeCommand = 'attack'
@@ -1082,10 +1094,9 @@ function Director:MoveActors(script, actors)
             Director:GenerateSequence(actor)
           end
         end
-      else
-        Cron.Halt(timer)
-      end
+            
     end)
+    Cron.Every(0.1, { tick = 1 }, timerfunc)
   end
 
   Cron.Every(0.1, function(timer)
@@ -1146,7 +1157,7 @@ function Director:NodeIsDone(script, actor, node)
 
     if isDone then
       actor.activeCommand = "done"
-
+      if not node then return end
       if node.lookAt then
         Cron.After(0.2, function()
           local lookAtActor = Director:GetActorByName(script, node.lookAt)
@@ -1223,7 +1234,7 @@ function Director:SpawnActors(script, actors)
   local counter = #actors
   local spawned = 0
 
-  Cron.Every(0.5, function(timer)
+  local timerfunc = function(timer)
     if counter == 0 then
       Director.finishedSpawning = true
       Cron.Halt(timer)
@@ -1265,7 +1276,9 @@ function Director:SpawnActors(script, actors)
         end
       end
     end
-  end)
+  end
+  
+  Cron.Every(0.5, timerfunc)
 end
 
 function Director:TeleportActorTo(actor, pos, rotation)
@@ -1273,28 +1286,29 @@ function Director:TeleportActorTo(actor, pos, rotation)
 	cmd.position = pos
 	cmd.rotation = rotation or 0.0
 	cmd.doNavTest = false
-
-  actor.handle:GetAIControllerComponent():SendCommand(cmd)
+  if actor.handle then
+    actor.handle:GetAIControllerComponent():SendCommand(cmd)
+  end
 
   return cmd
 end
 
 function Director:SetFacialExpression(handle, expression)
   local stimComp = handle:GetStimReactionComponent()
-  if stimComp then
-    stimComp:ResetFacial(0)
+  if not stimComp then return end
+  
+  stimComp:ResetFacial(0)
 
-    Cron.After(0.5, function()
-      local animComp = handle:GetAnimationControllerComponent()
-
-    	if animComp then
-    		local animFeat = NewObject("handle:AnimFeature_FacialReaction")
-    		animFeat.category = expression.category
-    		animFeat.idle = expression.idle
-    		animComp:ApplyFeature(CName.new("FacialReaction"), animFeat)
-    	end
-    end)
+  local timerfunc = function()
+    local animComp = handle:GetAnimationControllerComponent()
+    if not animComp then return end
+    local animFeat = NewObject("handle:AnimFeature_FacialReaction")
+    animFeat.category = expression.category
+    animFeat.idle = expression.idle
+    animComp:ApplyFeature(CName.new("FacialReaction"), animFeat)
   end
+  
+  Cron.After(0.5, timerfunc)
 end
 
 function Director:GetRandomActorFromTeam(script, team)
@@ -1579,14 +1593,14 @@ function Director:DrawActorsPopup()
         if category.cat_name == 'Favorites' then
           local query = "SELECT * FROM favorites"
           for fav in db:nrows(query) do
-            query = f("SELECT * FROM entities WHERE entity_id = '%s' AND cat_id != 22", fav.entity_id)
+            query = f("SELECT * FROM entities WHERE entity_id = \"%s\" AND cat_id != 22", fav.entity_id)
             for en in db:nrows(query) do
               table.insert(entities, en)
             end
           end
         end
 
-        local query = f("SELECT * FROM entities WHERE is_spawnable = 1 AND cat_id != 22 AND cat_id == '%s' ORDER BY entity_name ASC", category.cat_id)
+        local query = f("SELECT * FROM entities WHERE is_spawnable = 1 AND cat_id != 22 AND cat_id == \"%s\" ORDER BY entity_name ASC", category.cat_id)
         for en in db:nrows(query) do
           table.insert(entities, en)
         end
@@ -1681,8 +1695,8 @@ function Director:DrawArrowButton(direction, entityID, index)
 			local query = f("SELECT * FROM favorites WHERE position = %i", tempPos)
 			for fav in db:nrows(query) do temp = fav end
 
-			db:execute(f("UPDATE favorites SET entity_id = '%s' WHERE position = %i", entityID, tempPos))
-			db:execute(f("UPDATE favorites SET entity_id = '%s' WHERE position = %i", temp.entity_id, index))
+			db:execute(f("UPDATE favorites SET entity_id = \"%s\" WHERE position = %i", entityID, tempPos))
+			db:execute(f("UPDATE favorites SET entity_id = \"%s\" WHERE position = %i", temp.entity_id, index))
 		end
 	end
 end
@@ -1743,7 +1757,7 @@ function Director:PrepareExportData(script)
 end
 
 function Director:SaveScript(script)
-  local file = io.open(f("User/Scripts/%s.json", script.title), "w")
+  local file = io.open(f("./User/Scripts/%s.json", script.title), "w")
   if file then
     local exportData = Director:PrepareExportData(script)
     local contents = json.encode(exportData)
@@ -1753,7 +1767,7 @@ function Director:SaveScript(script)
 end
 
 function Director:LoadScriptData(title)
-  local file = io.open('User/Scripts/'..title, 'r')
+  local file = io.open('./User/Scripts/'..title, 'r')
   if file then
     local contents = file:read( "*a" )
 		local scriptData = json.decode(contents)
@@ -1802,7 +1816,7 @@ function Director:LoadScriptData(title)
 end
 
 function Director:SaveTriggers()
-  local file = io.open("User/triggers.json", "w")
+  local file = io.open("./User/triggers.json", "w")
   if file then
     local triggers = {}
     for _, trigger in ipairs(Director.triggers) do
@@ -1824,25 +1838,31 @@ function Director:SaveTriggers()
 end
 
 function Director:GetTriggers()
-  local file = io.open("User/triggers.json", "r")
-  if file then
+  local file = io.open("./User/triggers.json", "r")
+  local triggers = {}
+  
+  -- try to read file.
+  if file then      
     local contents = file:read( "*a" )
-		local triData = json.decode(contents)
+    local success, triData = pcall(json.decode, contents)
     file:close()
-
-    local triggers = {}
-    for _, tri in ipairs(triData) do
-      local newTrigger = Director:NewTrigger(tri.title)
-      newTrigger.pos = Vector4.new(tri.pos.x, tri.pos.y, tri.pos.z, tri.pos.w)
-      newTrigger.script = tri.script
-      newTrigger.repeatable = intToBool(tri.repeatable)
-      newTrigger.radius = tri.radius or 1
-      table.insert(triggers, newTrigger)
+    if success then 
+      for _, tri in ipairs(triData) do
+        if tri and tri.pos then
+          local newTrigger = Director:NewTrigger(tri.title)
+          newTrigger.pos = Vector4.new(tri.pos.x, tri.pos.y, tri.pos.z, tri.pos.w)
+          newTrigger.script = tri.script
+          newTrigger.repeatable = intToBool(tri.repeatable)
+          newTrigger.radius = tri.radius or 1
+          table.insert(triggers, newTrigger)
+        end
+      end
     end
-
-    return triggers
-  else
-    local triggers = {}
+  end
+  
+  -- if file couldn't be read for some reason, insert default trigger
+  if #triggers == 0 then
+    -- show default trigger in V's mansion
     local newTrigger = Director:NewTrigger('Mansion')
     newTrigger.pos = Vector4.new(-1341.8415527344, 1230.8139648438, 111.10000610352, 1)
     newTrigger.script = "Judy and Nibbles - Mansion"
@@ -1851,15 +1871,18 @@ function Director:GetTriggers()
     table.insert(triggers, newTrigger)
     return triggers
   end
+  
+
+  return triggers
 end
 
 function Director:GetScripts()
-  local files = dir("./User/Scripts")
+  local files = dir("./User/Scripts") or {}
   local scripts = {}
 
   if #Director.scripts ~= #files then
     for _, script in ipairs(files) do
-      if string.find(script.name, '.json') then
+      if script.name and string.find(script.name, '.json') then
         table.insert(scripts, Director:LoadScriptData(script.name))
       end
     end
@@ -1873,7 +1896,7 @@ function Director:DeleteScript(script)
   if Director.showNodes and Director.selectedActor ~= '' then
     Director:RemoveNodeMarks(Director.selectedActor.nodes)
   end
-  os.remove("User/Scripts/"..script.title..".json")
+  os.remove("./User/Scripts/"..script.title..".json")
   Director.scripts = Director:GetScripts()
   Director.selectedScript = {title = "Select Script"}
 end
