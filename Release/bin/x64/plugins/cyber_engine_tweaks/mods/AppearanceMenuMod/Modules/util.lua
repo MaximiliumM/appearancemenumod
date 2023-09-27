@@ -355,7 +355,7 @@ function Util:NPCLookAt(handle, target, headSettings, chestSettings)
 
     local lookAtParts = {}
     local lookAtEvent = LookAtAddEvent.new()
-    lookAtEvent:SetEntityTarget(target and target.handle or Game.GetPlayer(), "pla_default_tgt", Vector4.EmptyVector())
+    lookAtEvent:SetEntityTarget(target and target.handle or Game.GetPlayer(), "pla_default_tgt", Vector4.new(0,0,0,0))
     lookAtEvent:SetStyle(animLookAtStyle.Normal)
     lookAtEvent.request.limits.softLimitDegrees = 360.00
     lookAtEvent.request.limits.hardLimitDegrees = 270.00

@@ -564,8 +564,7 @@ function Spawn:SpawnNPC(spawn, notCompanionOverride)
 		TweakDB:SetFlat(spawn.path..".archetypeData", TweakDB:GetFlat("Character.Judy.archetypeData"))
 	end
 
-	Spawn.currentSpawnedID = spawn.id
-	spawn.entityID = Game.GetPreventionSpawnSystem():RequestSpawn(AMM:GetNPCTweakDBID(spawn.path), -99, spawnTransform)
+	Game.GetPreventionSpawnSystem():RequestUnitSpawn(AMM:GetNPCTweakDBID(spawn.path), spawnTransform)
 
 	while Spawn.spawnedNPCs[spawn.uniqueName()] ~= nil do
 		local num = spawn.name:match("|([^|]+)")
@@ -575,7 +574,7 @@ function Spawn:SpawnNPC(spawn, notCompanionOverride)
 	end
 
   	Cron.Every(0.1, {tick = 1}, function(timer)
-		local entity = Game.FindEntityByID(spawn.entityID)
+		local entity = Game.FindEntityByID(Spawn.currentSpawnedID)
 
 		timer.tick = timer.tick + 1
 		
@@ -585,6 +584,7 @@ function Spawn:SpawnNPC(spawn, notCompanionOverride)
 
 		if entity then
 			spawn.handle = entity
+			spawn.entityID = entity:GetEntityID()
 			spawn.hash = tostring(entity:GetEntityID().hash)
 			spawn.appearance = AMM:GetAppearance(spawn)
 			spawn.archetype = Game.NameToString(TweakDB:GetFlat(spawn.path..".archetypeName"))
@@ -628,6 +628,7 @@ function Spawn:SpawnNPC(spawn, notCompanionOverride)
 			end
 
 			AMM:UpdateSettings()
+			Spawn.currentSpawnedID = nil
 			Cron.Halt(timer)
 		end
   	end)

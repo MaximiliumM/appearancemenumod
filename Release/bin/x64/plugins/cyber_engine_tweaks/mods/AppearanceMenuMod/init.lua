@@ -59,7 +59,7 @@ function AMM:new()
 	 AMM.nibblesReplacer = false
 
 	 -- Main Properties --
-	 AMM.currentVersion = "2.2.4"
+	 AMM.currentVersion = "2.3-beta"
 	 AMM.CETVersion = tonumber(GetVersion():match("1.(%d+)."))
 	 AMM.updateNotes = require('update_notes.lua')
 	 AMM.credits = require("credits.lua")
@@ -262,11 +262,14 @@ function AMM:new()
 			this.topButtonsController:SetToggleEnabled(5, not(AMM.userSettings.disableLoadSaveTab))
 		 end)
 
-		 ObserveBefore("PreventionSpawnSystem", "SpawnCallback", function(self, spawnedObject)
-			if AMM.Spawn.currentSpawnedID == AMM:GetScanID(spawnedObject) then
-				return -- do nothing
-			end
-	  	 end)
+		 Observe("PreventionSpawnSystem", "SpawnRequestFinished", function(self, requestResult)
+				local spawnedObject = requestResult.spawnedObjects[1]
+
+				if spawnedObject then
+					AMM.Spawn.currentSpawnedID = spawnedObject:GetEntityID()
+				end
+		 end)
+
 
 		 Override("CursorGameController", "ProcessCursorContext", function(self, context, data, force, wrapped)
 			AMM.Tools.cursorController = self
@@ -2507,7 +2510,7 @@ function AMM:SetupAMMCharacters()
 		statModifierGroups = TweakDB:GetFlat("Character.the_mox_1_melee2_baseball_wa.statModifierGroups"),
 	})
 
-	AMM.customNames['0x69E1384D, 22'] = 'Songbird'
+	AMM.customNames['0x69E1384D, 22'] = 'So Ri'
 	AMM.customNames['0xB54D1804, 28'] = 'Rache Bartmoss'
 	AMM.customNames['0xE09AAEB8, 26'] = 'Mahir MT28 Coach'
 end
