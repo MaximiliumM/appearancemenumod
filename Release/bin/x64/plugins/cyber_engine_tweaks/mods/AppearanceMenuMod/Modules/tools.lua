@@ -33,6 +33,8 @@ function Tools:new()
 
   -- Teleport Properties
   Tools.lastLocation = nil
+  Tools.locationSearch = ''
+  Tools.lastLocationSearch = ''
   Tools.selectedLocation = {loc_name = "Select Location"}
   Tools.shareLocationName = ''
   Tools.locations = {}
@@ -332,7 +334,12 @@ function Tools:DrawVActions()
     if ImGui.Button(buttonLabel, Tools.style.halfButtonWidth, Tools.style.buttonHeight) then
       if not Tools.infiniteOxygen then
         Tools.infiniteOxygen = not Tools.infiniteOxygen
-        Game.ModStatPlayer("CanBreatheUnderwater", "1")
+        
+        if Tools.infiniteOxygen then
+          Game.GetStatPoolsSystem():RequestRemovingStatPool(Game.GetPlayer():GetEntityID(), gamedataStatPoolType.Oxygen)
+        else
+          Game.GetStatPoolsSystem():RequestAddingStatPool(Game.GetPlayer():GetEntityID(), TweakDBID.new("BaseStatPools.Player_Oxygen_Base"), true)
+        end
       end
     end
 
@@ -477,27 +484,16 @@ function Tools:ToggleGodMode()
   Tools.godModeToggle = not Tools.godModeToggle
 
   if Tools.godModeToggle then
-    hp, o2, weight = -99999, -999999, 9999
+    Game.GetStatPoolsSystem():RequestRemovingStatPool(Game.GetPlayer():GetEntityID(), gamedataStatPoolType.Health)
+    Game.GetStatPoolsSystem():RequestRemovingStatPool(Game.GetPlayer():GetEntityID(), gamedataStatPoolType.Oxygen)
+    Game.GetStatPoolsSystem():RequestRemovingStatPool(Game.GetPlayer():GetEntityID(), gamedataStatPoolType.Stamina)
+    Util:ApplyEffectOnPlayer("GameplayRestriction.NoEncumbrance")
   else
-    hp, o2, weight = 99999, 999999, -9999
+    Game.GetStatPoolsSystem():RequestAddingStatPool(Game.GetPlayer():GetEntityID(), TweakDBID.new("BaseStatPools.Player_Health_Base"), true)
+    Game.GetStatPoolsSystem():RequestAddingStatPool(Game.GetPlayer():GetEntityID(), TweakDBID.new("BaseStatPools.Player_Oxygen_Base"), true)
+    Game.GetStatPoolsSystem():RequestAddingStatPool(Game.GetPlayer():GetEntityID(), TweakDBID.new("BaseStatPools.Player_Stamina_Base"), true)
+    Util:RemoveEffectOnPlayer("GameplayRestriction.NoEncumbrance")
   end
-
-  -- Stat Modifiers
-  Game.ModStatPlayer("Health", hp)
-  Game.ModStatPlayer("Oxygen", o2)
-  Game.ModStatPlayer("CarryCapacity", weight)
-
-  -- Toggles
-  local toggle = boolToInt(Tools.godModeToggle)
-  Game.InfiniteStamina(Tools.godModeToggle)
-  Game.ModStatPlayer("KnockdownImmunity", toggle)
-  Game.ModStatPlayer("PoisonImmunity", toggle)
-  Game.ModStatPlayer("BurningImmunity", toggle)
-  Game.ModStatPlayer("BlindImmunity", toggle)
-  Game.ModStatPlayer("BleedingImmunity", toggle)
-  Game.ModStatPlayer("FallDamageReduction", toggle)
-  Game.ModStatPlayer("ElectrocuteImmunity", toggle)
-  Game.ModStatPlayer("StunImmunity", toggle)
 end
 
 function Tools:ToggleAnimatedHead(animated)
@@ -565,12 +561,15 @@ function Tools:ToggleHead(userActivated)
   local ts = Game.GetTransactionSystem()
   local tdbid = TweakDBID.new(headItem)
   local itemID = ItemID.FromTDBID(tdbid)
+  local slot = TweakDBID.new("AttachmentSlots.TppHead")
+
+  local fppHead = ItemID.FromTDBID(TweakDBID.new("Items.PlayerFppHead"))
 
   if ts:HasItem(Game.GetPlayer(), itemID) == false then
-    Game.AddToInventory(headItem, 1)
+    Util:AddToInventory(headItem)
   end
 
-  -- ts:AddItemToSlot(AMM.player, EquipmentSystem.GetPlacementSlot(itemID), itemID)
+  ts:AddItemToSlot(Game.GetPlayer(), slot, itemID)
 
   if Tools.tppHead then
     Cron.Every(0.001, { tick = 1 }, function(timer)
@@ -582,17 +581,17 @@ function Tools:ToggleHead(userActivated)
       end
 
       Cron.After(0.01, function()
-        ts:RemoveItemFromSlot(AMM.player, TweakDBID.new('AttachmentSlots.TppHead'), true, true, true)
+        ts:RemoveItemFromSlot(Game.GetPlayer(), slot, true, true, true)
       end)
 
       Cron.After(0.1, function()
-        Game.EquipItemOnPlayer(headItem, "TppHead")
+        ts:AddItemToSlot(Game.GetPlayer(), slot, itemID)
       end)
     end)
   else
-    if ts:GetItemInSlot(AMM.player, TweakDBID.new("AttachmentSlots.TppHead")) ~= nil then
-      ts:RemoveItemFromSlot(AMM.player, TweakDBID.new('AttachmentSlots.TppHead'), true, true, true)
-      Game.EquipItemOnPlayer("Items.PlayerFppHead", "TppHead")
+    if ts:GetItemInSlot(Game.GetPlayer(), slot) ~= nil then
+      ts:RemoveItemFromSlot(Game.GetPlayer(), slot, true, true, true)
+      ts:AddItemToSlot(Game.GetPlayer(), slot, fppHead)
     end
   end
 end
@@ -650,6 +649,18 @@ end
 
 -- Teleport actions
 function Tools:DrawTeleportActions()
+
+  ImGui.PushItemWidth(250)
+  Tools.locationSearch = ImGui.InputTextWithHint(" ", "Filter Locations", Tools.locationSearch, 100)
+  Tools.locationSearch = Tools.locationSearch:gsub('"', '')
+  ImGui.PopItemWidth()
+
+  if (Tools.locationSearch ~= '' or Tools.locationSearch == '') and Tools.locationSearch ~= Tools.lastLocationSearch then
+    Tools.lastLocationSearch = Tools.locationSearch
+    Tools.locations = Tools:GetLocations()
+  end
+
+  ImGui.SameLine()
   
   if ImGui.BeginCombo("Locations", Tools.selectedLocation.loc_name, ImGuiComboFlags.HeightLarge) then
     for i, location in ipairs(Tools.locations) do
@@ -775,7 +786,11 @@ function Tools:GetLocations()
     table.insert(locations, {loc_name = '--------- Favorites ----------'})
 
     for _, loc in ipairs(Tools.favoriteLocations) do
-      table.insert(locations, loc)
+      if Tools.locationSearch ~= '' and string.find(loc.loc_name, Tools.locationSearch) then
+        table.insert(locations, loc)
+      elseif Tools.locationSearch == '' then
+        table.insert(locations, loc)
+      end
     end
 
     separator = true
@@ -785,19 +800,27 @@ function Tools:GetLocations()
     table.insert(locations, {loc_name = '------- User Locations -------'})
 
     for _, loc in ipairs(Tools.userLocations) do
-      table.insert(locations, loc)
+      if Tools.locationSearch ~= '' and string.find(loc.loc_name, Tools.locationSearch) then
+        table.insert(locations, loc)
+      elseif Tools.locationSearch == '' then
+        table.insert(locations, loc)
+      end
     end
 
     separator = true
   end
 
   if separator then
-    table.insert(locations, {loc_name = '------------------------------'})
+    table.insert(locations, {loc_name = '----------- Default ----------'})
   end
 
   if #Tools.defaultLocations > 0 then
     for _, loc in ipairs(Tools.defaultLocations) do
-      table.insert(locations, loc)
+      if Tools.locationSearch ~= '' and string.find(loc.loc_name, Tools.locationSearch) then
+        table.insert(locations, loc)
+      elseif Tools.locationSearch == '' then
+        table.insert(locations, loc)
+      end
     end
   else
     for loc in db:nrows([[SELECT * FROM locations ORDER BY loc_name ASC]]) do
@@ -1018,7 +1041,9 @@ function Tools:SetTargetPosition(pos, angles)
       Tools:TeleportPropTo(Tools.currentTarget, pos, angles or EulerAngles.new(Tools.npcRotation[1], Tools.npcRotation[2], Tools.npcRotation[3]))
     end
   elseif Tools.currentTarget.type ~= 'Player' and Tools.currentTarget.name ~= 'Replacer' and Tools.currentTarget.handle:IsNPC() then
-    Tools:TeleportNPCTo(Tools.currentTarget.handle, pos, angles.yaw or Tools.npcRotation[3])
+    local yaw = Tools.npcRotation[3]
+    if angles then yaw = angles.yaw end
+    Tools:TeleportNPCTo(Tools.currentTarget.handle, pos, yaw)
   else
     Game.GetTeleportationFacility():Teleport(Tools.currentTarget.handle, pos, angles or EulerAngles.new(Tools.npcRotation[1], Tools.npcRotation[2], Tools.npcRotation[3]))
   end
@@ -1044,7 +1069,7 @@ function Tools:ClearTarget()
 end
 
 function Tools:SetCurrentTarget(target, systemActivated)
-  if not target and systemActivated and Tools.axisIndicator then   
+  if not target and systemActivated and Tools.axisIndicator then
     Tools:ToggleAxisIndicator()
     return
   end
@@ -2326,8 +2351,13 @@ end
 
 function Tools:SetSlowMotionSpeed(c)
   Game.GetTimeSystem():SetIgnoreTimeDilationOnLocalPlayerZero(c == 1 and false or true)
-  if c == 0 then c = 0.0000000000001 elseif c == 1 then c = 0 end
-  Game.SetTimeDilation(c)
+  if c == 1 then
+    Game.GetTimeSystem():UnsetTimeDilation("consoleCommand")
+  else
+    if c == 0 then c = 0.0000000000001 end
+
+    Game.GetTimeSystem():SetTimeDilation("consoleCommand", c)
+  end
 end
 
 function Tools:SkipFrame()
@@ -2341,13 +2371,13 @@ end
 function Tools:FreezeTime()
   if Tools.timeState then
     Game.GetTimeSystem():SetIgnoreTimeDilationOnLocalPlayerZero(true)
-    Game.SetTimeDilation(0.0000000000001)
+    Game.GetTimeSystem():SetTimeDilation("consoleCommand", 0.0000000000001)
   else
     if Tools.slowMotionSpeed ~= 1 then
       Tools:SetSlowMotionSpeed(Tools.slowMotionSpeed)
     else
       Game.GetTimeSystem():SetIgnoreTimeDilationOnLocalPlayerZero(false)
-      Game.SetTimeDilation(0)
+      Game.GetTimeSystem():SetTimeDilation("consoleCommand", 0)
       Tools.slowMotionSpeed = 1
     end
   end
@@ -2803,7 +2833,6 @@ function Tools:EnterPhotoMode()
 
     if Tools.photoModePuppet then
       AMM.playerInPhoto = true
-      Game.SetTimeDilation(0)
       
       if Tools.cursorStateLock or AMM.userSettings.disablePhotoModeCursor then
         Tools:ToggleCursor(true)

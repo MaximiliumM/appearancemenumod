@@ -1,5 +1,16 @@
 return {
 	{
+		'2.3',
+		'2023 Oct 01',
+		[[Added new Characters: So Mi, Alex, Reed, Kurt, Myers, Aurore and more]],
+		[[-- Added Custom Appearances for the new characters where possible]],
+		[[Added new Filter Locations]],
+		[[Fixed missing Sound Effects]],
+		[[Fixed issues related to 2.0 compatibility]],
+		[[-- There might be still issues lingering around so please be patient]],
+		[[Adjusted systems to better manage chunk masks for Custom Appearances]],
+	},
+	{
 		'2.2.4',
 		'2023 Jul 04',
 		[[Added new Characters: Juggernaut and Male Tenant Big]],
