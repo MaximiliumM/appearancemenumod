@@ -1082,6 +1082,8 @@ end
 function Props:SensePropsTriggers()
   local player = Game.GetPlayer()
   if not player then return end
+
+  Props.Total = Props.Total or 0
   for _, trigger in ipairs(Props.triggers) do
     local dist = Util:VectorDistance(player:GetWorldPosition(), trigger.pos)
 
@@ -1096,6 +1098,16 @@ function Props:SensePropsTriggers()
       end
     end
   end
+
+
+  Cron.After(10, function() Util:RemovePlayerEffects() end)
+end
+
+local function reactivatePlayer()
+  -- Cron.After(10, function()
+    Util:RemovePlayerEffects()
+    spdlog.info('reactivatePlayer: effects removed')
+  -- end)
 end
 
 function Props:GetPropsToSpawn(trigger)
@@ -1107,21 +1119,28 @@ function Props:GetPropsToSpawn(trigger)
   return props
 end
 
+
 function Props:SpawnSavedProp(ent)
+  Props.total = Props.total -1
   local spawn = Props:SpawnPropInPosition(ent, ent.pos, ent.angles)
   Props.activeProps[ent.uid] = spawn
 
-  if not Props.presetLoadInProgress then
-    Cron.After(Props.total / 800, function()
-      Props.presetLoadInProgress = false
-      Util:RemovePlayerEffects()
-    end)
-  end
-
-  if Props.total > 500 then
+  if not Props.presetLoadInProgress and Props.total > 500 then
     Props.presetLoadInProgress = true
     Util:AddPlayerEffects()
   end
+
+  -- spdlog.info('SpawnSavedProp, Props.presetLoadInProgress: ' .. tostring(Props.presetLoadInProgress) .. ' props.Total: ' .. tostring(Props.total))
+
+  if Props.presetLoadInProgress and Props.total < 100 then
+    Props.presetLoadInProgress = false
+    Cron.After(Props.total / 800, reactivatePlayer())
+    return
+  end
+  if Props.total == 0 then
+    reactivatePlayer()
+  end
+
 end
 
 local typeEntEntity = 'entEntity'
@@ -1366,6 +1385,8 @@ function Props:SaveAllProps()
     Props:SensePropsTriggers()
     AMM:UpdateSettings()
   end)
+
+  Cron.After(10, function() Util:RemovePlayerEffects() end)
 end
 
 function Props:SavePropPosition(ent)
@@ -1827,12 +1848,14 @@ function Props:ActivatePreset(preset)
       Props:Update()
       Props:SensePropsTriggers()
       Cron.Halt(timer)
-
       pcall(function() spdlog.info('After update '..Props.activePreset.file_name or "no file name") end)
     end
   end
 
   Cron.Every(0.1, timerFunc)
+
+
+  Cron.After(15, function() Util:RemovePlayerEffects() end)
 end
 
 function Props:BackupPreset(preset)

@@ -59,7 +59,7 @@ function AMM:new()
 	 AMM.nibblesReplacer = false
 
 	 -- Main Properties --
-	 AMM.currentVersion = "2.3-beta"
+	 AMM.currentVersion = "2.3"
 	 AMM.CETVersion = tonumber(GetVersion():match("1.(%d+)."))
 	 AMM.updateNotes = require('update_notes.lua')
 	 AMM.credits = require("credits.lua")
@@ -170,7 +170,7 @@ function AMM:new()
 		 AMM.Spawn:Initialize()
 		 AMM.Scan:Initialize()
 		 AMM.Tools:Initialize()
-		 AMM.Swap:Initialize() 
+		 AMM.Swap:Initialize()
 		 AMM.Props:Initialize()
 		 AMM.Props:Update()
 		 AMM:SBInitialize()
@@ -269,7 +269,6 @@ function AMM:new()
 					AMM.Spawn.currentSpawnedID = spawnedObject:GetEntityID()
 				end
 		 end)
-
 
 		 Override("CursorGameController", "ProcessCursorContext", function(self, context, data, force, wrapped)
 			AMM.Tools.cursorController = self
@@ -416,7 +415,7 @@ function AMM:new()
 					end)
 				 end
 		 	 elseif event.character:IsPlayer() then
-				 AMM.playerInVehicle = not AMM.playerInVehicle
+				 AMM.playerInVehicle = event.isMounting
 
 				 if AMM.Tools.TPPCameraBeforeVehicle and not AMM.playerInVehicle then
 					Cron.After(1, function()
@@ -1137,10 +1136,16 @@ function AMM:new()
 											appParam.meshAppearance = CName.new(param.mesh_app)
 										end
 
-										if appParam.chunkMask ~= param.mesh_mask and not(string.find(param.app_name, "Underwear")) then
-											appParam.chunkMask = 18446744073709551615ULL
+										if appParam.chunkMask ~= param.mesh_mask and not(string.find(param.app_name, "Underwear")) then										
 											if param.mesh_mask then
-												appParam.chunkMask = loadstring("return "..param.mesh_mask, '')()
+												param.mesh_mask = loadstring("return "..param.mesh_mask, '')()
+												if appParam.chunkMask ~= 18446744073709551615ULL then
+													appParam.chunkMask = bit32.bor(param.mesh_mask, appParam.chunkMask)
+												else
+													appParam.chunkMask = 18446744073709551615ULL
+												end
+											else
+												appParam.chunkMask = 18446744073709551615ULL
 											end
 										end
 
@@ -2867,9 +2872,9 @@ end
 
 function AMM:DespawnAll(message)
 	-- if message then AMM.player:SetWarningMessage("Despawning will occur once you look away") end
-	for i = 0, 99 do
-		Game.GetPreventionSpawnSystem():RequestDespawnPreventionLevel(i * -1)
-	end
+	-- for i = 0, 99 do
+	-- 	Game.GetPreventionSpawnSystem():RequestDespawnPreventionLevel(i * -1)
+	-- end
 
 	AMM.Spawn:DespawnAll()
 end

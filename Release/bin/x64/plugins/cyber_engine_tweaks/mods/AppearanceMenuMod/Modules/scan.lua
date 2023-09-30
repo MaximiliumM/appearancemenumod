@@ -358,7 +358,7 @@ function Scan:DrawTargetActions(target)
     mountedVehicle = qm:GetVehicleObject()
     local shouldAssignSeats = Scan:ShouldDisplayAssignSeatsButton()
     local width = style.buttonWidth
-    if (GetVersion() == "v1.15.0" or shouldAssignSeats) then width = style.halfButtonWidth end
+    if shouldAssignSeats then width = style.halfButtonWidth end
     if ImGui.Button("  Toggle Engine  ", width, style.buttonHeight - 5) then
       Util:ToggleEngine(target.handle)
     end
@@ -381,7 +381,7 @@ function Scan:DrawTargetActions(target)
       end
     end
 
-    if (GetVersion() == "v1.15.0" or shouldAssignSeats) and not mountedVehicle then
+    if shouldAssignSeats and not mountedVehicle then
       ImGui.SameLine()
       if ImGui.Button("  Assign Seats  ", style.halfButtonWidth, style.buttonHeight - 5) then
         if Scan.vehicle == '' or Scan.vehicle.hash ~= target.handle:GetEntityID().hash then
@@ -488,7 +488,7 @@ function Scan:DrawListOfAppearances(target)
 end
 
 function Scan:DrawAppearanceOptions(target, options)
-  AMM.UI:List('', #options, AMM.UI.style.buttonHeight - 10, function(i)
+  AMM.UI:List('', #options, AMM.UI.style.buttonHeight - 8, function(i)
     local appearance = options[i]
     if (ImGui.Button(appearance)) then
       AMM:ChangeAppearanceTo(target, appearance)
@@ -605,7 +605,7 @@ function Scan:AssignSeats(entities, instant, unmount)
   for _, assign in pairs(entities) do
     if not assign.entity:IsPlayer() then
       local cmd = NewObject(command)
-      local mountData = NewObject('handle:gameMountEventData')
+      local mountData = MountEventData.new()
       mountData.mountParentEntityId = assign.vehicle.handle:GetEntityID()
       mountData.isInstant = instant
       mountData.setEntityVisibleWhenMountFinish = true
@@ -621,6 +621,8 @@ function Scan:AssignSeats(entities, instant, unmount)
       cmd = cmd:Copy()
 
       assign.entity:GetAIControllerComponent():SendCommand(cmd)
+    elseif assign.entity:IsPlayer() then
+      -- Scan:MountPlayer(assign.seat.cname, assign.vehicle.handle)
     end
   end
 end

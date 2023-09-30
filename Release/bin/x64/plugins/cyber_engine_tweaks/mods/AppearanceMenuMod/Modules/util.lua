@@ -160,6 +160,16 @@ function Util:GetAnglesFromString(posString)
 end
 
 -- Game Related Helpers
+function Util:AddToInventory(item)
+  local equipRequest = EquipRequest.new()
+  local itemID = ItemID.FromTDBID(TweakDBID.new(item))
+  local quantity = 1
+
+  Game.GetTransactionSystem():GiveItem(Game.GetPlayer(), itemID, quantity)
+  equipRequest.owner = Game.GetPlayer()
+  Game.GetScriptableSystemsContainer():Get("EquipmentSystem"):QueueRequest(equipRequest)
+end
+
 function Util:FreezePlayer()
   local player = Game.GetPlayer()
   local pos = player:GetWorldPosition()
@@ -168,33 +178,44 @@ function Util:FreezePlayer()
   Game.GetTeleportationFacility():Teleport(player, pos, angles)
 end
 
+function Util:ApplyEffectOnPlayer(effect)
+  local player = Game.GetPlayer()
+  local effectID = TweakDBID.new(effect)
+  Game.GetStatusEffectSystem():ApplyStatusEffect(player:GetEntityID(), effectID, player:GetRecordID(), player:GetEntityID())
+end
+
+function Util:RemoveEffectOnPlayer(effect)
+  local player = Game.GetPlayer()
+  local effectID = TweakDBID.new(effect)
+  Game.GetStatusEffectSystem():RemoveStatusEffect(player:GetEntityID(), effectID, 100)
+end
+
 function Util:AddPlayerEffects()
-  Game.ApplyEffectOnPlayer("GameplayRestriction.NoMovement")
-  Game.ApplyEffectOnPlayer("GameplayRestriction.NoCameraControl")
-  Game.ApplyEffectOnPlayer("GameplayRestriction.NoZooming")
-  Game.ApplyEffectOnPlayer("GameplayRestriction.FastForwardCrouchLock")
-  Game.ApplyEffectOnPlayer("GameplayRestriction.NoCombat")
-  Game.ApplyEffectOnPlayer("GameplayRestriction.VehicleNoSummoning")
-  Game.ApplyEffectOnPlayer("GameplayRestriction.NoPhone")
+  -- spdlog.info('Util:AddPlayerEffects()')
+  Util:ApplyEffectOnPlayer("GameplayRestriction.NoMovement")
+  Util:ApplyEffectOnPlayer("GameplayRestriction.NoCameraControl")
+  Util:ApplyEffectOnPlayer("GameplayRestriction.NoZooming")
+  Util:ApplyEffectOnPlayer("GameplayRestriction.FastForwardCrouchLock")
+  Util:ApplyEffectOnPlayer("GameplayRestriction.NoCombat")
+  Util:ApplyEffectOnPlayer("GameplayRestriction.VehicleNoSummoning")
+  Util:ApplyEffectOnPlayer("GameplayRestriction.NoPhone")
 end
 
 function Util:RemovePlayerEffects()
-  Game.RemoveEffectPlayer("GameplayRestriction.NoMovement")
-  Game.RemoveEffectPlayer("GameplayRestriction.NoCameraControl")
-  Game.RemoveEffectPlayer("GameplayRestriction.NoZooming")
-  Game.RemoveEffectPlayer("GameplayRestriction.FastForwardCrouchLock")
-  Game.RemoveEffectPlayer("GameplayRestriction.NoCombat")
-  Game.RemoveEffectPlayer("GameplayRestriction.VehicleNoSummoning")
-  Game.RemoveEffectPlayer("GameplayRestriction.NoPhone")
+  -- spdlog.info('Util:RemovePlayerEffects()')
+  Util:RemoveEffectOnPlayer("GameplayRestriction.NoMovement")
+  Util:RemoveEffectOnPlayer("GameplayRestriction.NoCameraControl")
+  Util:RemoveEffectOnPlayer("GameplayRestriction.NoZooming")
+  Util:RemoveEffectOnPlayer("GameplayRestriction.FastForwardCrouchLock")
+  Util:RemoveEffectOnPlayer("GameplayRestriction.NoCombat")
+  Util:RemoveEffectOnPlayer("GameplayRestriction.VehicleNoSummoning")
+  Util:RemoveEffectOnPlayer("GameplayRestriction.NoPhone")
 end
 
+local playerBodyGender
 function Util:GetPlayerGender()
-  -- True = Female / False = Male
-  if string.find(tostring(Game.GetPlayer():GetResolvedGenderName()), "Female") then
-		return "_Female"
-	else
-		return "_Male"
-	end
+  playerBodyGender = playerBodyGender or Game.GetPlayer():GetResolvedGenderName()
+  return (string.find(tostring(playerBodyGender), "Female") and "_Female") or "_Male"
 end
 
 function Util:PlayVoiceOver(handle, vo)
