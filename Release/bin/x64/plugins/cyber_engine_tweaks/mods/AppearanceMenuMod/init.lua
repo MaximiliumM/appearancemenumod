@@ -23,6 +23,7 @@ function printTable(t)
   end
 end
 
+
 -- Load Util Module Globally --
 Util = require('Modules/util.lua')
 
@@ -31,11 +32,11 @@ GameSettings = require('External/GameSettings.lua')
 GameSession = require('External/GameSession.lua')
 Cron = require('External/Cron.lua')
 
-function intToBool(value)
+function IntToBool(value)
 	return value > 0 and true or false
 end
 
-function boolToInt(value)
+function BoolToInt(value)
   return value and 1 or 0
 end
 
@@ -134,12 +135,14 @@ function AMM:new()
 
 	 AMM:ImportUserData()
 
+	 local buttonPressed, finishedUpdate = false, false
+	 local waitTimer, spamTimer, delayTimer = 0.0, 0.0, 0.0
+
+
 	 registerForEvent("onInit", function()
 		 waitTimer = 0.0
 		 spamTimer = 0.0
-		 respawnTimer = 0.0
 		 delayTimer = 0.0
-		 bbTested = false
 		 buttonPressed = false
 		 finishedUpdate = AMM:CheckDBVersion()
 
@@ -183,7 +186,7 @@ function AMM:new()
 
 		 -- Check if user is in-game using WorldPosition --
 		 -- Only way to set player attached if user reload all mods --
-		 local player = Game.GetPlayer()
+		 local player = AMM.player or Game.GetPlayer()
 		 if player then
 			 local playerPosition = player:GetWorldPosition()
 
@@ -193,7 +196,7 @@ function AMM:new()
 				 AMM.playerGender = Util:GetPlayerGender()
 				 AMM.playerInMenu = false
 
-				 if next(AMM.Spawn.spawnedNPCs) ~= nil and AMM.userSettings.respawnOnLaunch then
+				 if AMM.userSettings.respawnOnLaunch and next(AMM.Spawn.spawnedNPCs) ~= nil then
 				 	AMM:RespawnAll()
 				 end
 			 end
@@ -436,7 +439,7 @@ function AMM:new()
 							Util:TeleportNPCTo(lost.ent, Util:GetBehindPlayerPosition(5))
 						 end
 
-						 AMM.Scan.leftBehind = ''
+						 AMM.Scan.leftBehind = {}
 					 end
 
 					 if next(AMM.Scan.drivers) ~= nil then
@@ -459,14 +462,14 @@ function AMM:new()
 			 end
 		 end)
 
-		Observe("EquipCycleInitEvents", "OnEnter", function(self, script)
+		Observe("EquipCycleInitEvents", "OnEnter", function(_self, script)
 			if AMM.Tools.TPPCamera then
 				AMM.Tools:ToggleTPPCamera()
 				AMM.Tools.TPPCameraBeforeVehicle = true
 			end
 		end)
 
-		Observe("UnequippedEvents", "OnExit", function(self, script)
+		Observe("UnequippedEvents", "OnExit", function(_self, script)
 			if AMM.Tools.TPPCameraBeforeVehicle and not AMM.playerInVehicle then
 				AMM.Tools.TPPCameraBeforeVehicle = false
 
@@ -476,7 +479,7 @@ function AMM:new()
 			end
 		end)
 
-		Observe("PlayerPuppet", "OnAction", function(self, action)
+		Observe("PlayerPuppet", "OnAction", function(_self, action)
 			local actionName = Game.NameToString(action:GetName(action))
 			local actionType = action:GetType(action).value
 
@@ -754,7 +757,7 @@ function AMM:new()
 
 	 registerHotkey("amm_last_expression", "Last Expression Used", function()
 		local target = AMM:GetTarget()
-		if Tools.lockTarget and Tools.currentTarget ~= '' and Tools.currentTarget.handle
+		if Tools.lockTarget and Tools.currentTarget and Tools.currentTarget ~= '' and Tools.currentTarget.handle
 		and Tools.currentTarget.type ~= 'entEntity' and Tools.currentTarget.type ~= 'gameObject' then
 			target = Tools.currentTarget
 		end
@@ -1903,7 +1906,7 @@ function AMM:CheckMissingArchives()
 
 	if AMM.archivesInfo.missing then
 		for v in db:urows("SELECT ignore_archives FROM metadata") do
-			AMM.ignoreAllWarnings = intToBool(v)
+			AMM.ignoreAllWarnings = IntToBool(v)
 		end
 
 		if AMM.ignoreAllWarnings and AMM.archivesInfo.optional then
@@ -2000,7 +2003,7 @@ function AMM:ImportUserData()
 
 				if userData['settings'] ~= nil then
 					for _, obj in ipairs(userData['settings']) do
-						db:execute(f("UPDATE settings SET setting_name = '%s', setting_value = %i WHERE setting_name = '%s'", obj.setting_name, boolToInt(obj.setting_value),  obj.setting_name))
+						db:execute(f("UPDATE settings SET setting_name = '%s', setting_value = %i WHERE setting_name = '%s'", obj.setting_name, BoolToInt(obj.setting_value),  obj.setting_name))
 					end
 
 					AMM.userSettings = AMM:PrepareSettings()
@@ -2086,7 +2089,7 @@ function AMM:ExportUserData()
 		local userData = {}
 		userData['settings'] = {}
 		for r in db:nrows("SELECT * FROM settings") do
-			table.insert(userData['settings'], {setting_name = r.setting_name, setting_value = intToBool(r.setting_value)})
+			table.insert(userData['settings'], {setting_name = r.setting_name, setting_value = IntToBool(r.setting_value)})
 		end
 		userData['favorites'] = {}
 		for r in db:nrows("SELECT * FROM favorites") do
@@ -2155,13 +2158,12 @@ function AMM:ExportUserData()
 	end
 end
 
-function AMM:PrepareImportSpawnedData(savedIDs)
+function AMM:GetSavedSpawnData(savedIDs)
 	local savedEntities = {}
 
 	for _, id in ipairs(savedIDs) do
 		for ent in db:nrows(f("SELECT * FROM entities WHERE entity_id = '%s'", id)) do
-			spawn = AMM.Spawn:NewSpawn(ent.entity_name, ent.entity_id, ent.parameters, ent.can_be_comp, ent.entity_path, ent.template_path, ent.entity_rig)
-			table.insert(savedEntities, spawn)
+			table.insert(savedEntities, ent)
 		end
 	end
 
@@ -2924,14 +2926,14 @@ end
 function AMM:PrepareSettings()
 	local settings = {}
 	for r in db:nrows("SELECT * FROM settings") do
-		settings[r.setting_name] = intToBool(r.setting_value)
+		settings[r.setting_name] = IntToBool(r.setting_value)
 	end
 	return settings
 end
 
 function AMM:UpdateSettings()
 	for name, value in pairs(AMM.userSettings) do
-		db:execute(f("UPDATE settings SET setting_value = %i WHERE setting_name = '%s'", boolToInt(value), name))
+		db:execute(f("UPDATE settings SET setting_value = %i WHERE setting_name = '%s'", BoolToInt(value), name))
 	end
 
 	AMM:ExportUserData()
@@ -3405,7 +3407,7 @@ function AMM:GetCustomAppearanceParams(target, appearance, reverse)
 	local query = f("SELECT * FROM custom_appearances WHERE app_name = '%s' AND entity_id = '%s' AND collab_tag IS '%s'", appearance, target.id, collabTag)
 	query = query:gsub("'nil'", "NULL")
 	for app in db:nrows(query) do
-		app.app_toggle = not(intToBool(app.app_toggle))
+		app.app_toggle = not(IntToBool(app.app_toggle))
 		if reverse then app.app_toggle = not app.app_toggle end
 		table.insert(custom, app)
 	end

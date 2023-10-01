@@ -14,7 +14,7 @@ local NUM_TOTAL_BACKUPS = 5
 
 function Props:NewProp(uid, id, name, template, posString, scale, app, tag)
   local obj = {}
-	obj.handle = ''
+	obj.handle = nil
   obj.hash = ''
   obj.uid = uid
 	obj.id = id
@@ -236,7 +236,7 @@ end
 -- put it into a local function to unbundle it from the logic
 local function drawSpawnedPropsList()
   for i, spawn in ipairs(Props.spawnedPropsList) do
-      local spawn = Props.spawnedProps[spawn.uniqueName()]
+      local spawn = Props.spawnedProps[spawn.uniqueName]
       local nameLabel = spawn.name
       
       if Tools.lockTarget and Tools.currentTarget ~= '' and Tools.currentTarget.handle then
@@ -1337,7 +1337,7 @@ function Props:ToggleHideProp(ent)
       local prop = Props.hiddenProps[hash]
       local spawn = Props:SpawnPropInPosition(prop.ent, prop.pos, prop.angles)
       if ent.type ~= typeProp or ent.type ~= typeEntEntity and spawn.uniqueName then
-        Props.spawnedProps[spawn.uniqueName()] = spawn
+        Props.spawnedProps[spawn.uniqueName] = spawn
       end
     end
 
@@ -1534,7 +1534,7 @@ function Props:ChangePropAppearance(ent, app)
       ent.spawned = true
 
       if ent.uniqueName then
-        Props.spawnedProps[ent.uniqueName()] = ent
+        Props.spawnedProps[ent.uniqueName] = ent
         
         for i, prop in ipairs(Props.spawnedPropsList) do
           if ent.name == prop.name then
@@ -1731,14 +1731,14 @@ function Props:SpawnProp(spawn, pos, angles)
 	end
 	Cron.Every(0.1, {tick = 1}, timerFunc)
 
-	while Props.spawnedProps[spawn.uniqueName()] ~= nil do
+	while Props.spawnedProps[spawn.uniqueName] ~= nil do
     local num = spawn.name:match("|([^|]+)")
     if num then num = tonumber(num) + 1 else num = 1 end
     spawn.name = spawn.name:gsub(" | "..tostring(num - 1), "")
     spawn.name = spawn.name.." | "..tostring(num)
 	end
 
-	Props.spawnedProps[spawn.uniqueName()] = spawn
+	Props.spawnedProps[spawn.uniqueName] = spawn
   table.insert(Props.spawnedPropsList, spawn)
 end
 
@@ -1749,7 +1749,7 @@ function Props:DespawnProp(ent)
     Props.activeProps[ent.uid] = nil
   else
     ent.spawned = false 
-    Props.spawnedProps[ent.uniqueName()] = nil
+    Props.spawnedProps[ent.uniqueName] = nil
     
     for i, prop in ipairs(Props.spawnedPropsList) do
       if ent.name == prop.name then
@@ -1813,7 +1813,7 @@ function Props:ActivatePreset(preset)
 
   local savedProps =  Util:ShallowCopy({}, preset.props)
   local savedLights =  Util:ShallowCopy({}, preset.lights)
-  pcall(function() spdlog.info('Before saving '..Props.activePreset.file_name or "no file name") end)
+  pcall(function() spdlog.info('Before saving '..(Props.activePreset.file_name or "no file name")) end)
 
   -- Probably don't need to save here
   -- The preset is already saved if the user made any changes
@@ -1843,12 +1843,12 @@ function Props:ActivatePreset(preset)
 
       Props.activePreset = preset
 
-      pcall(function() spdlog.info('After setting variable '..Props.activePreset.file_name or "no file name") end)
+      pcall(function() spdlog.info('After setting variable '..(Props.activePreset.file_name or "no file name")) end)
 
       Props:Update()
       Props:SensePropsTriggers()
       Cron.Halt(timer)
-      pcall(function() spdlog.info('After update '..Props.activePreset.file_name or "no file name") end)
+      pcall(function() spdlog.info('After update '..(Props.activePreset.file_name or "no file name")) end)
     end
   end
 

@@ -304,13 +304,14 @@ function Light:Draw(AMM)
         Light:UpdateColor()
       end
     end
-
+    local intensityChanged = false
     Light.activeLight.intensity, intensityChanged = ImGui.DragFloat("Intensity", Light.activeLight.intensity, 1.0, 0.0, 10000.0)
     if intensityChanged then
       Light.activeLight.component:SetIntensity(Light.activeLight.intensity)
     end
 
     if Light.activeLight.lightType == ELightType.LT_Area or Light.activeLight.lightType == ELightType.LT_Area then
+      local radiusChanged = false
       Light.activeLight.radius, radiusChanged = ImGui.DragFloat("Radius", Light.activeLight.radius, 0.1, 0.0, 10000.0)
       if radiusChanged then
         Light.activeLight.component:SetRadius(Light.activeLight.radius)
@@ -318,7 +319,7 @@ function Light:Draw(AMM)
     end
 
     if Light.activeLight.lightType == ELightType.LT_Spot then
-      local anglesChanged = false
+      local anglesChanged, innerUsed = false, false
       Light.activeLight.innerAngle, innerUsed = ImGui.DragFloat("Inner Angle", Light.activeLight.innerAngle, 1.0, 0.0, 10000.0)
       Light.activeLight.outerAngle, anglesChanged = ImGui.DragFloat("Outer Angle", Light.activeLight.outerAngle, 1.0, 0.0, 10000.0)
 
@@ -327,12 +328,14 @@ function Light:Draw(AMM)
       end
     end
 
+    local shadowsUsed = false
     AMM.userSettings.contactShadows, shadowsUsed = ImGui.Checkbox("Local Shadows", AMM.userSettings.contactShadows)
 
     if shadowsUsed then
       Light:ToggleContactShadows(Light.activeLight)
     end
 
+    local stickyUsed = false
     if Light.activeLight.isAMMLight then
       ImGui.SameLine()
       Light.stickyMode, stickyUsed = ImGui.Checkbox("Stick To Camera", Light.stickyMode)
@@ -404,7 +407,7 @@ end
 function Light:ToggleContactShadows(light)
   local ent = nil
   if light.spawn.uniqueName then
-    ent = AMM.Props.spawnedProps[light.spawn.uniqueName()]
+    ent = AMM.Props.spawnedProps[light.spawn.uniqueName]
   else
     ent = AMM.Props.activeProps[light.spawn.uid]
   end
@@ -557,7 +560,7 @@ function Light:GetLightComponent(handle)
   local components = {}
 
   for comp in db:urows("SELECT cname FROM components WHERE type = 'Lights'") do
-    component = handle:FindComponentByName(comp)
+    local component = handle:FindComponentByName(comp)
     if component then      
       table.insert(components, component)
     end

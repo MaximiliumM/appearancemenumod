@@ -123,7 +123,7 @@ function Util:GetKeysCount(t)
 end
 
 function Util:Split(s, delimiter)
-  result = {}
+  local result = {}
   for match in (s..delimiter):gmatch("(.-)"..delimiter) do
       table.insert(result, match)
   end
@@ -522,7 +522,14 @@ function Util:Despawn(handle)
     local vehPS = handle:GetVehiclePS()
     vehPS:SetHasExploded(false)
   end
-  handle:Dispose()
+  if handle.Dispose() then
+    handle:Dispose()
+  end
+  if handle.GetEntity then
+		handle:GetEntity():Destroy()
+	end
+
+
 end
 
 function Util:RestoreElevator(handle)
@@ -612,7 +619,7 @@ function Util:ToggleEngine(handle)
   local state = vehVCPS:GetState()
 
   if state == vehicleEState.Default then
-      handle:TurnVehicleOn(true)  
+      handle:TurnVehicleOn(true)
   else
       handle:TurnVehicleOn(false)
   end
@@ -708,7 +715,9 @@ function Util:CanBeHostile(t)
 end
 
 function Util:UnlockVehicle(handle)
+  if handle and handle.GetVehiclePS then
 	handle:GetVehiclePS():UnlockAllVehDoors()
+  end
 end
 
 function Util:CreateInteractionChoice(action, title)
