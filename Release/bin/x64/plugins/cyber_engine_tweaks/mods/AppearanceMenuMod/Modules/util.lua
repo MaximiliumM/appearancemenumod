@@ -191,7 +191,6 @@ function Util:RemoveEffectOnPlayer(effect)
 end
 
 function Util:AddPlayerEffects()
-  -- spdlog.info('Util:AddPlayerEffects()')
   Util:ApplyEffectOnPlayer("GameplayRestriction.NoMovement")
   Util:ApplyEffectOnPlayer("GameplayRestriction.NoCameraControl")
   Util:ApplyEffectOnPlayer("GameplayRestriction.NoZooming")
@@ -202,7 +201,6 @@ function Util:AddPlayerEffects()
 end
 
 function Util:RemovePlayerEffects()
-  -- spdlog.info('Util:RemovePlayerEffects()')
   Util:RemoveEffectOnPlayer("GameplayRestriction.NoMovement")
   Util:RemoveEffectOnPlayer("GameplayRestriction.NoCameraControl")
   Util:RemoveEffectOnPlayer("GameplayRestriction.NoZooming")
@@ -212,7 +210,6 @@ function Util:RemovePlayerEffects()
   Util:RemoveEffectOnPlayer("GameplayRestriction.NoPhone")
 end
 
-local playerBodyGender
 function Util:GetPlayerGender()
   playerBodyGender = playerBodyGender or Game.GetPlayer():GetResolvedGenderName()
   return (string.find(tostring(playerBodyGender), "Female") and "_Female") or "_Male"

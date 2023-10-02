@@ -2382,7 +2382,7 @@ function Tools:FreezeTime()
       Tools:SetSlowMotionSpeed(Tools.slowMotionSpeed)
     else
       Game.GetTimeSystem():SetIgnoreTimeDilationOnLocalPlayerZero(false)
-      Game.GetTimeSystem():SetTimeDilation("consoleCommand", 0)
+      Game.GetTimeSystem():SetTimeDilation("consoleCommand", 1)
       Tools.slowMotionSpeed = 1
     end
   end
