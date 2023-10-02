@@ -123,7 +123,7 @@ function Util:GetKeysCount(t)
 end
 
 function Util:Split(s, delimiter)
-  result = {}
+  local result = {}
   for match in (s..delimiter):gmatch("(.-)"..delimiter) do
       table.insert(result, match)
   end
@@ -187,7 +187,7 @@ end
 function Util:RemoveEffectOnPlayer(effect)
   local player = Game.GetPlayer()
   local effectID = TweakDBID.new(effect)
-  Game.GetStatusEffectSystem():RemoveStatusEffect(player:GetEntityID(), effectID, 1)
+  Game.GetStatusEffectSystem():RemoveStatusEffect(player:GetEntityID(), effectID, 100)
 end
 
 function Util:AddPlayerEffects()
@@ -211,12 +211,8 @@ function Util:RemovePlayerEffects()
 end
 
 function Util:GetPlayerGender()
-  -- True = Female / False = Male
-  if string.find(tostring(Game.GetPlayer():GetResolvedGenderName()), "Female") then
-		return "_Female"
-	else
-		return "_Male"
-	end
+  playerBodyGender = playerBodyGender or Game.GetPlayer():GetResolvedGenderName()
+  return (string.find(tostring(playerBodyGender), "Female") and "_Female") or "_Male"
 end
 
 function Util:PlayVoiceOver(handle, vo)
@@ -523,7 +519,14 @@ function Util:Despawn(handle)
     local vehPS = handle:GetVehiclePS()
     vehPS:SetHasExploded(false)
   end
-  handle:Dispose()
+  if handle.Dispose() then
+    handle:Dispose()
+  end
+  if handle.GetEntity then
+		handle:GetEntity():Destroy()
+	end
+
+
 end
 
 function Util:RestoreElevator(handle)
@@ -613,7 +616,7 @@ function Util:ToggleEngine(handle)
   local state = vehVCPS:GetState()
 
   if state == vehicleEState.Default then
-      handle:TurnVehicleOn(true)  
+      handle:TurnVehicleOn(true)
   else
       handle:TurnVehicleOn(false)
   end
@@ -709,7 +712,9 @@ function Util:CanBeHostile(t)
 end
 
 function Util:UnlockVehicle(handle)
+  if handle and handle.GetVehiclePS then
 	handle:GetVehiclePS():UnlockAllVehDoors()
+  end
 end
 
 function Util:CreateInteractionChoice(action, title)

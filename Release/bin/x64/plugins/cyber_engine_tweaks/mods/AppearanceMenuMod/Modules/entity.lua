@@ -1,5 +1,6 @@
 Entity = {}
 
+
 function Entity:new(ent)
   local obj = {}
 
@@ -16,8 +17,7 @@ function Entity:new(ent)
   obj.uid = ent.uid or nil
   obj.appearance = ent.appearance
   obj.options = ent.options or nil
-  obj.uniqueName = type(ent.uniqueName) == 'function' and ent.uniqueName
-    
+
   obj.type = ent.type
   obj.archetype = ent.archetype
   obj.parameters = ent.parameters
@@ -62,8 +62,17 @@ function Entity:new(ent)
   obj.analogUp = 0
   obj.analogDown = 0
 
+  obj.uniqueName = function() return string.format("%s##%s", obj.name or '', obj.id or tostring(math.random()*10000)) end
+
   self.__index = self
   return setmetatable(obj, self)
+end
+
+
+local _entitySystem
+local function getEntitySystem()
+	_entitySystem = _entitySystem or Game.GetDynamicEntitySystem()
+	return _entitySystem
 end
 
 function Entity:GetPosition()
@@ -119,10 +128,15 @@ function Entity:Despawn()
   -- Handle Game Entity
   self.handle:Dispose()
 
-  local entity = Game.FindEntityByID(self.handle:GetEntityID())
+  getEntitySystem():DeleteEntity(self.entEntityID)
+
+  local entityId = self.handle:GetEntityID()
+  local entity = Game.FindEntityByID(entityId)
   if entity then
-    entity:GetEntity():Destroy()
+    getEntitySystem():DeleteEntity(self.entEntityID)
+    -- entity:GetEntity():Destroy()
   end
+
 
   self.spawned = false
   self = nil

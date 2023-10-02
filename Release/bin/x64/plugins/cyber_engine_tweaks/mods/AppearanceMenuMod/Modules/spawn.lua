@@ -1,31 +1,52 @@
 Spawn = {}
 
+local _player
+local function getPlayer()
+	_player = _player or Game.GetPlayer()
+	return _player
+end
+
+local _entitySystem
+local function getEntitySystem()
+	_entitySystem = _entitySystem or Game.GetDynamicEntitySystem()
+	return _entitySystem
+end
+
+local inspect = require("external/Inspect.lua")
 function Spawn:NewSpawn(name, id, parameters, companion, path, template, rig)
-  local obj = {}
+
+	local obj = DynamicEntitySpec.new()
 	if type(id) == 'userdata' then id = tostring(id) end
-	obj.handle = ''
+	obj.recordID = id
+	obj.tags = { "AMM_NPC" }
+	obj.position = getPlayer():GetWorldPosition()
+	obj.orientation = Vector4.new(0, 0, 1, 1)
 	obj.name = name
+	obj.appearanceName = (parameters or {}).app or "random"
+	obj.template = template
+	obj.handle = name
+
+    obj.persistState = false
+    obj.persistSpawn = false
+    obj.alwaysSpawned = false
+    obj.spawnInView = true
+
+	obj.entityObj = getEntitySystem():CreateEntity(obj)
+
 	obj.id = id
-	obj.hash = ''
-  	obj.appearance = ''
-	obj.uniqueName = function() return obj.name.."##"..obj.id end
 	obj.parameters = parameters
-	obj.canBeCompanion = intToBool(companion or 0)
+	obj.canBeCompanion = IntToBool(companion or 0)
 	obj.path = path
 	obj.rig = rig or nil
-	obj.template = template or ''
-	obj.type = 'Spawn'
-	obj.archetype = ''
-	obj.entityID = ''
 
 	if string.find(obj.path, "Props") then
 		obj.type = 'Prop'
 	end
-	
+
 	if obj.parameters == "Player" then
-		local gender = Util:GetPlayerGender()
-		if gender == "_Female" then obj.rig = 'woman_base' else obj.rig = 'man_base' end
-		obj.path = path..gender
+		playerGender = playerGender or Util:GetPlayerGender()
+		obj.rig = playerGender == "_Female" and 'woman_base' or 'man_base'
+		obj.path = path..playerGender
 		obj.parameters = nil
 	end
 
@@ -60,22 +81,27 @@ end
 function Spawn:Initialize()
 	Spawn.categories = Spawn:GetCategories()
 
-	if #Spawn.entitiesForRespawn ~= 0 then
-		Spawn.spawnedNPCs = AMM:PrepareImportSpawnedData(Spawn.entitiesForRespawn)
+	if #Spawn.entitiesForRespawn == 0 then return end
+	Spawn.spawnedNPCs = {}
+	for _, ent in pairs(AMM:GetSavedSpawnData(Spawn.entitiesForRespawn)) do
+		local spawn = AMM.Spawn:NewSpawn(ent.entity_name, ent.entity_id, ent.parameters, ent.can_be_comp, ent.entity_path, ent.template_path, ent.entity_rig)
+		Spawn.spawnedNPCs[spawn.uniqueName] = spawn
 	end
 end
 
+local _style
 function Spawn:Draw(AMM, style)
+   _style = style or _style
   if ImGui.BeginTabItem("Spawn") then
 
     if AMM.playerInMenu and not AMM.playerInPhoto then
       AMM.UI:TextColored("Player In Menu")
       ImGui.Text("Spawning only works in game")
     else
-      Spawn:DrawActiveSpawns(style)
+      Spawn:DrawActiveSpawns(_style)
 
       if not AMM.playerInPhoto then
-        Spawn:DrawCategories(style)
+        Spawn:DrawCategories(_style)
       end
     end
 
@@ -89,6 +115,8 @@ function Spawn:DrawActiveSpawns(style)
 
     for _, spawn in pairs(Spawn.spawnedNPCs) do
       local nameLabel = spawn.name
+
+	  local isVehicle = (spawn.handle or {}).isVehicle and spawn.handle:isVehicle()
 
 	  if Tools.lockTarget and Tools.currentTarget ~= '' and Tools.currentTarget.handle then
         if nameLabel == Tools.currentTarget.name then
@@ -105,7 +133,7 @@ function Spawn:DrawActiveSpawns(style)
       Spawn:DrawFavoritesButton(favoritesLabels, spawn)
 
       ImGui.SameLine()
-      if spawn.handle ~= '' and not(spawn.handle:IsVehicle()) then
+      if spawn and spawn.handle and spawn.handle ~= '' and not(isVehicle) then
         if AMM.UI:SmallButton("Respawn##"..spawn.name) then
           Spawn:Respawn(spawn)
         end
@@ -113,22 +141,19 @@ function Spawn:DrawActiveSpawns(style)
 
       ImGui.SameLine()
 		local qm = AMM.player:GetQuickSlotsManager()
-		mountedVehicle = qm:GetVehicleObject()
+		local mountedVehicle = qm:GetVehicleObject()
 
-		if spawn.handle ~= '' then
+		if spawn.handle then
 			if not(mountedVehicle and mountedVehicle:GetEntityID().hash == spawn.handle:GetEntityID().hash) then
 				if AMM.UI:SmallButton("Despawn##"..spawn.name) then
-					if spawn.handle:IsVehicle() then
-						Spawn:DespawnVehicle(spawn)
-					else
-						spawn:Despawn()
-					end
+					
+					spawn:Despawn()
 				end
 			end
 		end
 
 
-      if spawn.handle ~= '' then
+      if spawn.handle then
         ImGui.SameLine()
         if AMM.UI:SmallButton("Target".."##"..spawn.name) then
           AMM.Tools:SetCurrentTarget(spawn)
@@ -136,7 +161,7 @@ function Spawn:DrawActiveSpawns(style)
         end
       end
 
-      if spawn.handle ~= '' and not(spawn.handle:IsVehicle()) and not(spawn.handle:IsDevice()) and not(spawn.handle:IsDead()) and Util:CanBeHostile(spawn) then
+      if spawn.handle and not(spawn.handle:IsVehicle()) and not(spawn.handle:IsDevice()) and not(spawn.handle:IsDead()) and Util:CanBeHostile(spawn) then
 
 			local hostileButtonLabel = "Hostile"
 			if not(spawn.handle.isPlayerCompanionCached) then
@@ -377,9 +402,9 @@ function Spawn:DrawFavoritesButton(buttonLabels, entity, fullButton)
 					entity.name = Spawn.currentFavoriteName
 
 					if entity.type == "Spawn" and not Util:CheckVByID(entity.id) then
-						Spawn.spawnedNPCs[entity.uniqueName()] = nil
+						Spawn.spawnedNPCs[entity.uniqueName] = nil
 						entity.parameters = AMM:GetScanAppearance(entity.handle)
-						Spawn.spawnedNPCs[entity.uniqueName()] = entity
+						Spawn.spawnedNPCs[entity.uniqueName] = entity
 					end
 
 					Spawn.currentFavoriteName = ''
@@ -436,84 +461,114 @@ end
 
 -- Main Methods
 function Spawn:SpawnVehicle(spawn)
-	local vehicleGarageId = NewObject('vehicleGarageVehicleID')
-	vehicleGarageId.recordID = TweakDBID.new(spawn.path)
-	Game.GetVehicleSystem():ToggleSummonMode()
-	Game.GetVehicleSystem():TogglePlayerActiveVehicle(vehicleGarageId, 'Car', true)
-	Game.GetVehicleSystem():SpawnPlayerVehicle('Car')
-	Game.GetVehicleSystem():ToggleSummonMode()
 
-	Cron.Every(0.1, function(timer)
-		local vehicleSummonDef = Game.GetAllBlackboardDefs().VehicleSummonData
-		local vehicleSummonBB = Game.GetBlackboardSystem():Get(vehicleSummonDef)
-		local vehicleEntID = vehicleSummonBB:GetEntityID(vehicleSummonDef.SummonedVehicleEntityID)
-
-		spawn.handle = Game.FindEntityByID(vehicleEntID)
-
-		if spawn.handle then
-
-			Cron.After(0.2, function()
-				local floatFix = 1
-				if type(spawn.parameters) == "number" then floatFix = 0 end
-				
-				local pos = spawn.handle:GetWorldPosition()
-				local angles = GetSingleton('Quaternion'):ToEulerAngles(spawn.handle:GetWorldOrientation())
-				local teleportPosition = Vector4.new(pos.x, pos.y, pos.z - floatFix, pos.w)
-				Game.GetTeleportationFacility():Teleport(spawn.handle, teleportPosition, angles)
-			end)
-
-			Spawn.spawnedNPCs[spawn.uniqueName()] = spawn
-      	Util:UnlockVehicle(spawn.handle)
-
-			if spawn.id == "0xE09AAEB8, 26" then
-				Game.GetGodModeSystem():AddGodMode(spawn.handle:GetEntityID(), 0, "")
-			end
-
-			if spawn.parameters ~= nil then
-				AMM:ChangeScanAppearanceTo(spawn, spawn.parameters)
-			end
-
-			local components = AMM.Props:CheckForValidComponents(spawn.handle)
-			if components then
-				spawn.defaultScale = {
-					x = components[1].visualScale.x * 100,
-					y = components[1].visualScale.x * 100,
-					z = components[1].visualScale.x * 100,
-				}
-				spawn.scale = {
-					x = components[1].visualScale.x * 100,
-					y = components[1].visualScale.y * 100,
-					z = components[1].visualScale.z * 100,
-				}
-			end
-
-			Cron.Halt(timer)
-		end
-	end)
-end
-
-function Spawn:DespawnVehicle(ent)
-	local vehicleGarageId = NewObject('vehicleGarageVehicleID')
-	vehicleGarageId.recordID = TweakDBID.new(ent.path)
-	Game.GetVehicleSystem():DespawnPlayerVehicle(vehicleGarageId)
-	Spawn.spawnedNPCs[ent.uniqueName()] = nil
-	-- New system below
-
-	-- local handle = Game.FindEntityByID(ent.entityID)
-	-- if handle then
-	-- 	if handle:IsVehicle() then
-	-- 		Util:TeleportTo(handle, Util:GetBehindPlayerPosition(2))
+	-- spdlog.info(inspect(getmetatable(spawn)))
+	-- if spawn.pairs then
+	-- 	for key, value in pairs(spawn) do
+	-- 		spdlog.info(f("%s: %s", tostring(key), tostring(value)))
 	-- 	end
+	-- else
+	-- 	spdlog.info(inspect(getmetatable(spawn)))
 	-- end
+	local entitySystem = getEntitySystem()
 
-	-- Game.GetPreventionSpawnSystem():RequestDespawn(ent.entityID)
-	-- ent.handle:Dispose()
-	-- AMM:UpdateSettings()
+	local carobj = DynamicEntitySpec.new()
+    carobj.recordID = TweakDBID.new(spawn.path)
+	carobj.name = spawn.name
+    carobj.appearanceName = spawn.parameters or 'random'
+    carobj.position = getPlayer():GetWorldPosition()
+    carobj.orientation =   Vector4.new(0, 0, 1, 1)
+    carobj.persistState = false
+    carobj.persistSpawn = false
+    carobj.alwaysSpawned = false
+    carobj.spawnInView = true
+    carobj.tags = { "AMM_CAR" }
+
+    carobj.entityObj = entitySystem:CreateEntity(carobj)
+
+	local ent =  Entity:new(carobj)
+
+	local timerfunc = function(timer)
+		if not entitySystem:IsSpawned(ent.entityObj) then return end
+		ent.entEntityID = Game.FindEntityByID(ent.entityObj)
+		ent.handle = ent.handle or ent.entEntityID
+
+		Spawn.spawnedNPCs[ent.uniqueName()] = ent
+		if ent.id == "0xE09AAEB8, 26" then
+			Game.GetGodModeSystem():AddGodMode(spawn.handle:GetEntityID(), 0, "")
+		end
+
+		if ent.parameters ~= nil then
+			AMM:ChangeScanAppearanceTo(ent, ent.parameters)
+		end
+
+		Util:UnlockVehicle(ent.handle)
+		Cron.Halt(timer)
+	end
+
+
+	Cron.Every(0.3, timerfunc)
+
+	-- local vehicleGarageId = NewObject('vehicleGarageVehicleID')
+	-- vehicleGarageId.recordID = TweakDBID.new(spawn.path)
+	-- Game.GetVehicleSystem():ToggleSummonMode()
+	-- Game.GetVehicleSystem():TogglePlayerActiveVehicle(vehicleGarageId, 'Car', true)
+	-- Game.GetVehicleSystem():SpawnPlayerVehicle('Car')
+	-- Game.GetVehicleSystem():ToggleSummonMode()
+
+	-- Cron.Every(0.1, function(timer)
+	-- 	local vehicleSummonDef = Game.GetAllBlackboardDefs().VehicleSummonData
+	-- 	local vehicleSummonBB = Game.GetBlackboardSystem():Get(vehicleSummonDef)
+	-- 	local vehicleEntID = vehicleSummonBB:GetEntityID(vehicleSummonDef.SummonedVehicleEntityID)
+
+	-- 	spawn.handle = Game.FindEntityByID(vehicleEntID)
+
+	-- 	if spawn.handle then
+
+	-- 		Cron.After(0.2, function()
+	-- 			local floatFix = 1
+	-- 			if type(spawn.parameters) == "number" then floatFix = 0 end
+				
+	-- 			local pos = spawn.handle:GetWorldPosition()
+	-- 			local angles = GetSingleton('Quaternion'):ToEulerAngles(spawn.handle:GetWorldOrientation())
+	-- 			local teleportPosition = Vector4.new(pos.x, pos.y, pos.z - floatFix, pos.w)
+	-- 			Game.GetTeleportationFacility():Teleport(spawn.handle, teleportPosition, angles)
+	-- 		end)
+
+	-- 		Spawn.spawnedNPCs[spawn.uniqueName] = spawn
+    --   	Util:UnlockVehicle(spawn.handle)
+
+	-- 		if spawn.id == "0xE09AAEB8, 26" then
+	-- 			Game.GetGodModeSystem():AddGodMode(spawn.handle:GetEntityID(), 0, "")
+	-- 		end
+
+	-- 		if spawn.parameters ~= nil then
+	-- 			AMM:ChangeScanAppearanceTo(spawn, spawn.parameters)
+	-- 		end
+
+	-- 		local components = AMM.Props:CheckForValidComponents(spawn.handle)
+	-- 		if components then
+	-- 			spawn.defaultScale = {
+	-- 				x = components[1].visualScale.x * 100,
+	-- 				y = components[1].visualScale.x * 100,
+	-- 				z = components[1].visualScale.x * 100,
+	-- 			}
+	-- 			spawn.scale = {
+	-- 				x = components[1].visualScale.x * 100,
+	-- 				y = components[1].visualScale.y * 100,
+	-- 				z = components[1].visualScale.z * 100,
+	-- 			}
+	-- 		end
+
+	-- 		Cron.Halt(timer)
+	-- 	end
+	-- end)
 end
+
 
 function Spawn:Respawn(spawn, notCompanionOverride)
 	spawn:Despawn()
-			 
+
 	Cron.After(0.5, function()
 		Spawn:SpawnNPC(spawn)
 	end)
@@ -528,7 +583,7 @@ function Spawn:SpawnFavorite()
   for _, spawn in ipairs(favorites) do
     local spawned = false
     for _, ent in pairs(Spawn.spawnedNPCs) do
-      if spawn.uniqueName() == ent.uniqueName() then
+      if spawn.uniqueName == ent.uniqueName then
         spawned = true
         break
       end
@@ -566,89 +621,139 @@ function Spawn:SpawnNPC(spawn, notCompanionOverride)
 
 	Game.GetPreventionSpawnSystem():RequestUnitSpawn(AMM:GetNPCTweakDBID(spawn.path), spawnTransform)
 
-	while Spawn.spawnedNPCs[spawn.uniqueName()] ~= nil do
+	while Spawn.spawnedNPCs[spawn.uniqueName] ~= nil do
 		local num = spawn.name:match("|([^|]+)")
 		if num then num = tonumber(num) + 1 else num = 1 end
 		spawn.name = spawn.name:gsub(" | "..tostring(num - 1), "")
 		spawn.name = spawn.name.." | "..tostring(num)
 	end
 
-  	Cron.Every(0.1, {tick = 1}, function(timer)
-		local entity = Game.FindEntityByID(Spawn.currentSpawnedID)
+	local timerFunc = function(timer)
 
 		timer.tick = timer.tick + 1
-		
+
 		if timer.tick > 30 then
 			Cron.Halt(timer)
 		end
 
-		if entity then
-			spawn.handle = entity
-			spawn.entityID = entity:GetEntityID()
-			spawn.hash = tostring(entity:GetEntityID().hash)
-			spawn.appearance = AMM:GetAppearance(spawn)
-			spawn.archetype = Game.NameToString(TweakDB:GetFlat(spawn.path..".archetypeName"))
+		if not Spawn.currentSpawnedID then return end
+		local entity = Game.FindEntityByID(Spawn.currentSpawnedID)
+		if not entity then return end
+		spawn.handle = entity
+		spawn.entityID = entity:GetEntityID()
+		spawn.hash = tostring(entity:GetEntityID().hash)
+		spawn.appearance = AMM:GetAppearance(spawn)
+		spawn.archetype = Game.NameToString(TweakDB:GetFlat(spawn.path..".archetypeName"))
 
-			Spawn.spawnedNPCs[spawn.uniqueName()] = spawn
+		Spawn.spawnedNPCs[spawn.uniqueName] = spawn
 
-			if AMM.userSettings.streamerMode and AMM:CheckAppearanceForBannedWords(spawn.appearance) then
-				AMM:ChangeScanAppearanceTo(spawn, 'Cycle')
-			elseif (#custom > 0 or spawn.parameters ~= nil) and not Util:CheckVByID(spawn.id) then
-				AMM:ChangeAppearanceTo(spawn, spawn.parameters)
-			elseif not Util:CheckVByID(spawn.id) then
-				AMM:ChangeScanAppearanceTo(spawn, 'Cycle')
-			end
+		if AMM.userSettings.streamerMode and AMM:CheckAppearanceForBannedWords(spawn.appearance) then
+			AMM:ChangeScanAppearanceTo(spawn, 'Cycle')
+		elseif (#custom > 0 or spawn.parameters ~= nil) and not Util:CheckVByID(spawn.id) then
+			AMM:ChangeAppearanceTo(spawn, spawn.parameters)
+		elseif not Util:CheckVByID(spawn.id) then
+			AMM:ChangeScanAppearanceTo(spawn, 'Cycle')
+		end
 
-			Cron.After(0.2, function()
-				if not(string.find(spawn.name, "Drone")) then
-					local cmd = Util:TeleportNPCTo(spawn.handle)
-					
-					Cron.Every(0.1, {timer = 1}, function(timer)
-						if not Util:CheckIfCommandIsActive(spawn.handle, cmd) then
-							AMM.Tools:SetCurrentTarget(spawn)
-							Cron.Halt(timer)
-						end
-					end)
-				end
-
-				if AMM.userSettings.autoLock then
-					AMM.Tools.lockTarget = true
-					AMM.Tools:SetCurrentTarget(spawn)
-	
-					if AMM.userSettings.floatingTargetTools and AMM.userSettings.autoOpenTargetTools then
-						AMM.Tools.movementWindow.isEditing = true
+		Cron.After(0.2, function()
+			if not(string.find(spawn.name, "Drone")) then
+				local cmd = Util:TeleportNPCTo(spawn.handle)
+				
+				Cron.Every(0.1, {timer = 1}, function(timer)
+					if not Util:CheckIfCommandIsActive(spawn.handle, cmd) then
+						AMM.Tools:SetCurrentTarget(spawn)
+						Cron.Halt(timer)
 					end
-				end				
-			end)
-
-			if AMM.userSettings.spawnAsCompanion and spawn.canBeCompanion and not notCompanionOverride then
-				Spawn:SetNPCAsCompanion(spawn.handle)
-			else
-				AMM.Tools:SetNPCAttitude(spawn, EAIAttitude.AIA_Friendly)
+				end)
 			end
 
-			AMM:UpdateSettings()
-			Spawn.currentSpawnedID = nil
-			Cron.Halt(timer)
-		end
-  	end)
-end
+			if AMM.userSettings.autoLock then
+				AMM.Tools.lockTarget = true
+				AMM.Tools:SetCurrentTarget(spawn)
 
-function Spawn:DespawnNPC(ent)
-	Spawn.spawnedNPCs[ent.uniqueName()] = nil
+				if AMM.userSettings.floatingTargetTools and AMM.userSettings.autoOpenTargetTools then
+					AMM.Tools.movementWindow.isEditing = true
+				end
+			end				
+		end)
 
-	local handle = Game.FindEntityByID(ent.entityID)
-	if handle then
-		if handle:IsNPC() then
-			Util:TeleportNPCTo(handle, Util:GetBehindPlayerPosition(2))
+		if AMM.userSettings.spawnAsCompanion and spawn.canBeCompanion and not notCompanionOverride then
+			Spawn:SetNPCAsCompanion(spawn.handle)
+		else
+			AMM.Tools:SetNPCAttitude(spawn, EAIAttitude.AIA_Friendly)
 		end
+
+		AMM:UpdateSettings()
+		Spawn.currentSpawnedID = nil
+		Cron.Halt(timer)
 	end
 
-	Game.GetPreventionSpawnSystem():RequestDespawn(ent.entityID)
+  	Cron.Every(0.2, {tick = 1}, timerFunc)
+end
+
+function Spawn:Despawn(ent)
+
+	log("despawning" .. tostring(ent.uniqueName()))
+
+	Spawn.spawnedNPCs[ent.uniqueName()] = nil
+
+	if ent.Destroy then
+		ent:Destroy()
+		AMM:UpdateSettings()
+		return
+	end
+	if not ent.entityID then return end
+
+	local handle = Game.FindEntityByID(ent.entityID)
+	if handle and handle.GetEntity then
+		handle:GetEntity():Destroy()
+	end
+	if handle.Dispose() then
+    	exEntitySpawner.Despawn(handle)
+		handle:Dispose()
+	  end
+
+	  ent:despawn()
+
 	AMM:UpdateSettings()
 end
 
+function Spawn:DespawnVehicle(ent)
+	log("despawning vehicle " .. tostring(ent.uniqueName()))
+	Spawn.spawnedNPCs[ent.uniqueName()] = nil
+	ent:despawn()
+	AMM:UpdateSettings()
+
+	-- local vehicleGarageId = NewObject('vehicleGarageVehicleID')
+	-- vehicleGarageId.recordID = TweakDBID.new(ent.path)
+	-- Game.GetVehicleSystem():DespawnPlayerVehicle(vehicleGarageId)
+
+	-- New system below
+
+	-- local handle = Game.FindEntityByID(ent.entityID)
+	-- if handle then
+	-- 	if handle:IsVehicle() then
+	-- 		Util:TeleportTo(handle, Util:GetBehindPlayerPosition(2))
+	-- 	end
+	-- end
+
+	-- Game.GetPreventionSpawnSystem():RequestDespawn(ent.entityID)
+	-- ent.handle:Dispose()
+	-- AMM:UpdateSettings()
+end
+
+function Spawn:DespawnNPC(ent)
+
+	log("despawning npc " .. tostring(ent.uniqueName()))
+	Spawn.spawnedNPCs[ent.uniqueName()] = nil
+	ent:despawn()
+	AMM:UpdateSettings()
+	-- Spawn:Despawn(ent)
+end
+
 function Spawn:DespawnAll()
+
+	log("despawn all")
   for _, ent in pairs(Spawn.spawnedNPCs) do
 	if ent.handle and ent.handle ~= '' then
     	exEntitySpawner.Despawn(ent.handle)

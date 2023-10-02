@@ -245,6 +245,9 @@ function Tools:Draw(AMM, t)
   end
 end
 
+-- define these in file scope to prevent leaking
+local clicked, gender, invisClicked, mode, leftUsed, rightUsed, rotationUsed, axisToggle, relativeToggle, directToggle, upDownUsed, used, proportionalModeChanged
+
 -- V actions
 function Tools:DrawVActions()
   -- AMM.UI:TextColored("V Actions:")
@@ -397,7 +400,7 @@ end
 
 function Tools:ToggleSeamfix()
   local target = Tools:GetVTarget()
-
+  if not target then return end
   Tools.seamfixToggle = not Tools.seamfixToggle
   for cname in db:urows("SELECT cname FROM components WHERE cname LIKE '%seamfix%'") do
     local comp = target.handle:FindComponentByName(CName.new(cname))
@@ -424,6 +427,7 @@ end
 
 function Tools:ToggleMakeup()
   local target = Tools:GetVTarget()
+  if not target then return end
 	Tools.makeupToggle = not Tools.makeupToggle
 
 	local isFemale = Util:GetPlayerGender()
@@ -443,6 +447,7 @@ end
 
 function Tools:ToggleAccessories()
   local target = Tools:GetVTarget()
+  if not target then return end
   Tools.accessoryToggle = not Tools.accessoryToggle
 
   local isFemale = Util:GetPlayerGender()
@@ -1001,7 +1006,7 @@ function Tools:DrawNPCActions()
     ImGui.Spacing()
 
     if ImGui.Button("Protect NPC from Actions", Tools.style.buttonWidth, Tools.style.buttonHeight) then
-      if target.handle:IsNPC() then
+      if target and target.handle and target.handle.IsNPC and target.handle:IsNPC() then
         Tools:ProtectTarget(target)
       end
     end
@@ -1196,7 +1201,7 @@ function Tools:TeleportPropTo(prop, pos, angles)
       
       -- Update Spawned Props dict just in case
       if prop.uniqueName then
-        AMM.Props.spawnedProps[prop.uniqueName()] = prop
+        AMM.Props.spawnedProps[prop.uniqueName] = prop
       end
 
       if lastScale then
@@ -1353,7 +1358,7 @@ function Tools:DrawMovementWindow()
       Tools.lockTarget = false
       if target == nil and Tools.currentTarget ~= '' and Tools.currentTarget.type ~= "Player" then
         Tools.currentTarget = ''
-      elseif Tools.currentTarget == '' or (not(Tools.holdingNPC) and ((target.handle ~= nil and Tools.currentTarget.handle) and Tools.currentTarget.handle:GetEntityID().hash ~= target.handle:GetEntityID().hash)) then
+      elseif Tools.currentTarget == '' or (not(Tools.holdingNPC) and (target and (target.handle ~= nil and Tools.currentTarget.handle) and Tools.currentTarget.handle:GetEntityID().hash ~= target.handle:GetEntityID().hash)) then
         Tools:SetCurrentTarget(target, true)
       end
 
@@ -1747,8 +1752,8 @@ function Tools:DrawMovementWindow()
 
     local hash = Tools.currentTarget.hash
     if AMM.Poses.activeAnims[hash] then
-      Tools.slowMotionSpeed, slowMotionUsed = ImGui.SliderFloat("Slow Motion", Tools.slowMotionSpeed, 0.000001, Tools.slowMotionMaxValue)
-      if slowMotionUsed then
+      Tools.slowMotionSpeed, used = ImGui.SliderFloat("Slow Motion", Tools.slowMotionSpeed, 0.000001, Tools.slowMotionMaxValue)
+      if used then
         Tools:SetSlowMotionSpeed(Tools.slowMotionSpeed)
       end
     end
@@ -2245,7 +2250,7 @@ function Tools:DrawTimeActions()
 
   ImGui.PushItemWidth((ImGui.GetWindowContentRegionWidth() - ImGui.CalcTextSize("Time of Day ")) - 82)
 
-  Tools.timeValue, changeTimeUsed = ImGui.SliderInt("##", Tools.timeValue, 0, 1440, "")
+  Tools.timeValue, used = ImGui.SliderInt("##", Tools.timeValue, 0, 1440, "")
 
   ImGui.PopItemWidth()
 
@@ -2257,7 +2262,7 @@ function Tools:DrawTimeActions()
     end
 
     Tools.timeValue = Tools.timeValue - 1
-    changeTimeUsed = true
+    used = true
   end
 
   ImGui.SameLine()
@@ -2268,14 +2273,14 @@ function Tools:DrawTimeActions()
     end
 
     Tools.timeValue = Tools.timeValue + 2
-    changeTimeUsed = true
+    used = true
   end
 
   ImGui.SameLine()
 
   ImGui.Text("Time of Day")
 
-  if changeTimeUsed then
+  if used then
     if Tools.relicEffect then
       Tools:SetRelicEffect(false)
       Cron.After(60.0, function()
@@ -2292,8 +2297,8 @@ function Tools:DrawTimeActions()
   ImGui.Text(f("%02d:%02d", gameTime.hour, gameTime.minute))
 
   if not AMM.playerInPhoto or AMM.userSettings.freezeInPhoto then
-    Tools.slowMotionSpeed, slowMotionUsed = ImGui.SliderFloat("Slow Motion", Tools.slowMotionSpeed, 0.000001, Tools.slowMotionMaxValue)
-    if slowMotionUsed then
+    Tools.slowMotionSpeed, used = ImGui.SliderFloat("Slow Motion", Tools.slowMotionSpeed, 0.000001, Tools.slowMotionMaxValue)
+    if used then
       Tools:SetSlowMotionSpeed(Tools.slowMotionSpeed)
     end
 
@@ -2493,11 +2498,11 @@ function Tools:PrepareCategoryHeadersForNibblesReplacer(options)
 
       name = Tools:RecursivelyScoreDistance(name, 6)
 
-      if categories[name] == nil then
+      if name and categories[name] == nil then
         categories[name] = {}
       end
 
-      if favorites[app] then
+      if name and favorites[app] then
         favorites[app] = nil
         favorites[name] = true
       end
@@ -2868,7 +2873,7 @@ function Tools:EnterPhotoMode()
   if Tools.invisibleBody then
     Cron.After(1.0, function()
       local v = Tools:GetVTarget()
-      Tools:ToggleInvisibleBody(v.handle)
+      if v then Tools:ToggleInvisibleBody(v.handle) end
     end)
   end
 end

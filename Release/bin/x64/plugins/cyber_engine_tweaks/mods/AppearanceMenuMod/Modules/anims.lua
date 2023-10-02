@@ -259,7 +259,7 @@ function Poses:Draw(AMM, target)
 
         if Poses.historyEnabled then
           ImGui.SetNextWindowSize(600, 700)
-          if ImGui.Begin("Last Used Poses", ImGuiWindowFlags.AlwaysAutoResize) then        
+          if ImGui.Begin("Last Used Poses", ImGuiWindowFlags.AlwaysAutoResize) then
             if next(Poses.historyAnims) ~= nil then
               for _, category in ipairs(Poses.historyCategories) do
                 if Poses.historyAnims[category] ~= nil and next(Poses.historyAnims[category]) ~= nil and category ~= 'Favorites' then
@@ -294,7 +294,7 @@ function Poses:Draw(AMM, target)
 end
 
 function Poses:ToggleFavorite(isFavorite, anim)
-	db:execute(f("UPDATE workspots SET anim_fav = %i WHERE anim_name = \"%s\" AND anim_rig = '%s'", boolToInt(isFavorite), anim.name, anim.rig))
+	db:execute(f("UPDATE workspots SET anim_fav = %i WHERE anim_name = \"%s\" AND anim_rig = '%s'", BoolToInt(isFavorite), anim.name, anim.rig))
   anim.fav = isFavorite
   Poses.anims['Favorites'] = Poses:GetFavorites()
 end
@@ -401,7 +401,7 @@ function Poses:GetFavorites(search)
   local anims = {}
 
   for ws in db:nrows(query) do
-    table.insert(anims, {name = ws.anim_name, rig = ws.anim_rig, comp = ws.anim_comp, ent = ws.anim_ent, fav = intToBool(ws.anim_fav)})
+    table.insert(anims, {name = ws.anim_name, rig = ws.anim_rig, comp = ws.anim_comp, ent = ws.anim_ent, fav = IntToBool(ws.anim_fav)})
   end
 
   return anims
@@ -428,7 +428,7 @@ function Poses:GetAnimationsForListOfIDs(ids)
       table.insert(categories, category)
     end
 
-		table.insert(anims[category], {id = workspot.anim_id, name = workspot.anim_name, rig = workspot.anim_rig, comp = workspot.anim_comp, ent = workspot.anim_ent, fav = intToBool(workspot.anim_fav or 0)})
+		table.insert(anims[category], {id = workspot.anim_id, name = workspot.anim_name, rig = workspot.anim_rig, comp = workspot.anim_comp, ent = workspot.anim_ent, fav = IntToBool(workspot.anim_fav or 0)})
 	end
 	return anims, categories
 end
@@ -455,9 +455,9 @@ function Poses:GetAnimationsForSearch(parsedSearch)
     end
 
     if workspot.anim_cat then
-      table.insert(anims[category][workspot.anim_rig], {id = workspot.anim_id, name = workspot.anim_name, rig = workspot.anim_rig, comp = workspot.anim_comp, ent = workspot.anim_ent, fav = intToBool(workspot.anim_fav or 0)})
+      table.insert(anims[category][workspot.anim_rig], {id = workspot.anim_id, name = workspot.anim_name, rig = workspot.anim_rig, comp = workspot.anim_comp, ent = workspot.anim_ent, fav = IntToBool(workspot.anim_fav or 0)})
     else
-      table.insert(anims[category], {id = workspot.anim_id, name = workspot.anim_name, rig = workspot.anim_rig, comp = workspot.anim_comp, ent = workspot.anim_ent, fav = intToBool(workspot.anim_fav or 0)})
+      table.insert(anims[category], {id = workspot.anim_id, name = workspot.anim_name, rig = workspot.anim_rig, comp = workspot.anim_comp, ent = workspot.anim_ent, fav = IntToBool(workspot.anim_fav or 0)})
 	  end
   end
 
@@ -481,9 +481,9 @@ function Poses:GetAllAnimations()
     end
 
     if workspot.anim_cat then
-      table.insert(anims[category][workspot.anim_rig], {id = workspot.anim_id, name = workspot.anim_name, rig = workspot.anim_rig, comp = workspot.anim_comp, ent = workspot.anim_ent, fav = intToBool(workspot.anim_fav or 0)})
+      table.insert(anims[category][workspot.anim_rig], {id = workspot.anim_id, name = workspot.anim_name, rig = workspot.anim_rig, comp = workspot.anim_comp, ent = workspot.anim_ent, fav = IntToBool(workspot.anim_fav or 0)})
     else
-      table.insert(anims[category], {id = workspot.anim_id, name = workspot.anim_name, rig = workspot.anim_rig, comp = workspot.anim_comp, ent = workspot.anim_ent, fav = intToBool(workspot.anim_fav or 0)})
+      table.insert(anims[category], {id = workspot.anim_id, name = workspot.anim_name, rig = workspot.anim_rig, comp = workspot.anim_comp, ent = workspot.anim_ent, fav = IntToBool(workspot.anim_fav or 0)})
 	  end
   end
 
@@ -516,7 +516,7 @@ function Poses:GetCollabAnimations()
       anims[category][rig] = {}
     end
 
-		table.insert(anims[category][rig], {id = workspot.anim_id, name = workspot.anim_name, rig = workspot.anim_rig, comp = workspot.anim_comp, ent = workspot.anim_ent, fav = intToBool(workspot.anim_fav or 0)})
+		table.insert(anims[category][rig], {id = workspot.anim_id, name = workspot.anim_name, rig = workspot.anim_rig, comp = workspot.anim_comp, ent = workspot.anim_ent, fav = IntToBool(workspot.anim_fav or 0)})
 	end
 
   -- not completely sure what the check is doing :D Shouldn't we just create empty tables?

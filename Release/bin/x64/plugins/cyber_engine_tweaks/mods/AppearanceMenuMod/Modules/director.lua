@@ -75,7 +75,7 @@ function Director:NewActor(name)
   obj.id = ''
   obj.nodes = {}
   obj.entityID = ''
-  obj.handle = ''
+  obj.handle = nil
   obj.team = ''
   obj.autoTalk = false
   obj.talking = false
@@ -1263,7 +1263,7 @@ function Director:SpawnActors(script, actors)
       end
 
       local actor = actors[counter]
-      if actor.handle == '' then
+      if not actor.handle then
         if actor.entityID ~= '' then
           local entity = Game.FindEntityByID(actor.entityID)
           if entity then
@@ -1750,7 +1750,7 @@ function Director:PrepareExportData(script)
       table.insert(exportNodes, exportNode)
     end
 
-    table.insert(exportScript.actors, {name = actor.name, uniqueName = actor.uniqueName, team = actor.team, sequenceType = actor.sequenceType, nodes = exportNodes, autoTalk = boolToInt(actor.autoTalk)})
+    table.insert(exportScript.actors, {name = actor.name, uniqueName = actor.uniqueName, team = actor.team, sequenceType = actor.sequenceType, nodes = exportNodes, autoTalk = BoolToInt(actor.autoTalk)})
   end
 
   return exportScript
@@ -1788,7 +1788,7 @@ function Director:LoadScriptData(title)
     for i, actorData in ipairs(scriptData["actors"]) do
       local newActor = Director:NewActor(actorData.name)
       newActor.sequenceType = actorData.sequenceType
-      newActor.autoTalk = intToBool(actorData.autoTalk or 0)
+      newActor.autoTalk = IntToBool(actorData.autoTalk or 0)
       newActor.team = actorData.team or ''
       newActor.uniqueName = actorData.uniqueName or (actorData.name.."##"..i..tostring(os.clock()))
 
@@ -1824,7 +1824,7 @@ function Director:SaveTriggers()
       tri.title = trigger.title
       tri.pos = {x = trigger.pos.x, y = trigger.pos.y, z = trigger.pos.z, w = trigger.pos.w}
       tri.script = trigger.script
-      tri.repeatable = boolToInt(trigger.repeatable)
+      tri.repeatable = BoolToInt(trigger.repeatable)
       tri.radius = trigger.radius
       table.insert(triggers, tri)
     end
@@ -1852,7 +1852,7 @@ function Director:GetTriggers()
           local newTrigger = Director:NewTrigger(tri.title)
           newTrigger.pos = Vector4.new(tri.pos.x, tri.pos.y, tri.pos.z, tri.pos.w)
           newTrigger.script = tri.script
-          newTrigger.repeatable = intToBool(tri.repeatable)
+          newTrigger.repeatable = IntToBool(tri.repeatable)
           newTrigger.radius = tri.radius or 1
           table.insert(triggers, newTrigger)
         end
