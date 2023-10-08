@@ -24,6 +24,10 @@ function printTable(t)
 end
 
 
+local buttonPressed, finishedUpdate = false, false
+local waitTimer, spamTimer, delayTimer = 0.0, 0.0, 0.0
+
+
 -- Load Util Module Globally --
 Util = require('Modules/util.lua')
 
@@ -60,7 +64,7 @@ function AMM:new()
 	 AMM.nibblesReplacer = false
 
 	 -- Main Properties --
-	 AMM.currentVersion = "2.3.1-beta"
+	 AMM.currentVersion = "2.3.1"
 	 AMM.CETVersion = tonumber(GetVersion():match("1.(%d+)."))
 	 AMM.updateNotes = require('update_notes.lua')
 	 AMM.credits = require("credits.lua")
@@ -134,10 +138,6 @@ function AMM:new()
 	 AMM.Entity = require('Modules/entity.lua')
 
 	 AMM:ImportUserData()
-
-	 local buttonPressed, finishedUpdate = false, false
-	 local waitTimer, spamTimer, delayTimer = 0.0, 0.0, 0.0
-
 
 	 registerForEvent("onInit", function()
 		 waitTimer = 0.0
@@ -1886,9 +1886,12 @@ function AMM:CheckMissingArchives()
 			end
 
 			for _, archive in ipairs(AMM.archives) do
-				if not ModArchiveExists(archive.name..".archive") and not archive.extra then
+				if not ModArchiveExists(archive.name..".archive") then
 					archive.active = false
-					AMM.archivesInfo.missing = true
+
+					if not archive.extra then
+						AMM.archivesInfo.missing = true
+					end
 
 					if archive.name == "basegame_AMM_SoundEffects" then
 						AMM.archivesInfo.sounds = false
@@ -2349,6 +2352,7 @@ end
 
 function AMM:UpdateOldFavorites()
 	db:execute("UPDATE favorites SET parameters = NULL WHERE parameters = 'None' OR parameters = 'TPP_Body' OR parameters = 'nil';")
+	db:execute("UPDATE favorites_props SET parameters = NULL WHERE parameters = 'Prop';")
 	db:execute("UPDATE favorites SET entity_id = '0xCD70BCE4, 20' WHERE entity_id = '0xC111FBAC, 16';")
 	db:execute("UPDATE favorites_swap SET entity_id = '0xCD70BCE4, 20' WHERE entity_id = '0xC111FBAC, 16';")
 	db:execute("UPDATE favorites SET entity_id = '0x5E611B16, 24' WHERE entity_id = '0x903E76AF, 43';")

@@ -348,7 +348,7 @@ function Spawn:DrawFavoritesButton(buttonLabels, entity, fullButton)
 	for fav in db:urows(f('SELECT COUNT(1) FROM %s WHERE entity_name = "%s"', favoriteType, entity.name)) do
 		isFavorite = fav
 	end
-	if isFavorite == 0 and entity.parameters ~= nil and entity.parameters ~= 'Prop' then
+	if isFavorite == 0 and entity.parameters ~= nil then
 		for fav in db:urows(f("SELECT COUNT(1) FROM %s WHERE parameters = '%s'", favoriteType, entity.parameters)) do
 			isFavorite = fav
 		end
@@ -421,7 +421,6 @@ function Spawn:DrawArrowButton(direction, entity, index)
 	local favoriteType = "favorites"
 	if entity.type == "Prop" or entity.type == "entEntity" then
 		favoriteType = "favorites_props"
-		entity.parameters = 'Prop'
 	end
 
 	local dirEnum, tempPos

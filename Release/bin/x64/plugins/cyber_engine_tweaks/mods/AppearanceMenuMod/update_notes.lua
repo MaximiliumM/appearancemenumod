@@ -1,5 +1,21 @@
 return {
 	{
+		'2.3.1',
+		'2023 Oct 09',
+		[[Major rework of NPC and Vehicle spawn system using Codeware]],
+		[[-- Thank you psiberx for the help and awesome framework]],
+		[[Added new Characters: Dante, Yuri, Angelica, MaxTac, Downtown Soldiers and others]],
+		[[-- I will add more in upcoming versions. Please wait :)]],
+		[[Fixed issue with Extra Appearances for Misty and Cheri being listed despite their Archives not being installed]],
+		[[Fixed issue with some new characters not being able to use Poses]],
+		[[Fixed issue with Spawn and Swap V being bald]],
+		[[-- This issue might still happen if you're using Equipment-EX, try using Hover V instead]],
+		[[Fixed issue with Prop Favorites not respecting distance from ground parameters]],
+		[[Fixed issue where God Mode would not work correctly]],
+		[[Fixed issue where loading a Decor preset could cause the Player to lose movement control]],
+		[[Fixed issue where loading a preset could cause the Player to lose movement control]],
+	},
+	{
 		'2.3',
 		'2023 Oct 01',
 		[[Added new Characters: So Mi, Alex, Reed, Kurt, Myers, Aurore and more]],

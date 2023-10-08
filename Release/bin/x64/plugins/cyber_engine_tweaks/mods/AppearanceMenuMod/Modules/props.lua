@@ -265,7 +265,7 @@ local function drawSpawnedPropsList()
 
         if AMM.UI:SmallButton(" Save ##"..spawn.name) then
           -- Cron.Halt()
-          if spawn.handle ~= '' then
+          if spawn.handle and spawn.handle ~= '' then
             Props:SavePropPosition(spawn)
             Props.savingProp = spawn.name
           end
@@ -273,12 +273,12 @@ local function drawSpawnedPropsList()
 
         ImGui.SameLine()
         if AMM.UI:SmallButton("Despawn##"..spawn.name) then
-          if spawn.handle ~= '' then
+          if spawn.handle and spawn.handle ~= '' then
             spawn:Despawn()
           end
         end
 
-        if spawn.handle ~= '' then
+        if spawn.handle and spawn.handle ~= '' then
                     
           local buttonLabel = " Hide "
           local entID = tostring(spawn.handle:GetEntityID().hash)
@@ -1369,7 +1369,7 @@ function Props:SaveAllProps()
 
   Cron.After(1.0, function()
     for _, spawn in ipairs(Props.spawnedPropsList) do
-      if spawn.handle ~= '' then        
+      if spawn.handle and spawn.handle ~= '' then        
         Props:SavePropPosition(spawn)
       end
     end
