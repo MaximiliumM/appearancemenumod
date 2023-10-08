@@ -75,7 +75,7 @@ function Director:NewActor(name)
   obj.id = ''
   obj.nodes = {}
   obj.entityID = ''
-  obj.handle = ''
+  obj.handle = nil
   obj.team = ''
   obj.autoTalk = false
   obj.talking = false
@@ -1263,7 +1263,7 @@ function Director:SpawnActors(script, actors)
       end
 
       local actor = actors[counter]
-      if actor.handle == '' then
+      if not actor.handle then
         if actor.entityID ~= '' then
           local entity = Game.FindEntityByID(actor.entityID)
           if entity then

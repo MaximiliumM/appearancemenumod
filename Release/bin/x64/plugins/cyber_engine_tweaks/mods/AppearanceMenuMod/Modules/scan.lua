@@ -25,7 +25,7 @@ local Scan = {
   drivers = {},
   distanceMin = 0,
   assignedVehicles = {},
-  leftBehind = '',
+  leftBehind = {},
   companionDriver = nil,
   isDriving = false,
   carCam = false,
@@ -692,10 +692,6 @@ function Scan:AutoAssignSeats()
           Scan.selectedSeats[ent.name] = {name = ent.name, entity = ent.handle, seat = Scan.vehicleSeats[counter], vehicle = Scan.vehicle}
         end
       elseif counter > seatsNumber then
-        if Scan.leftBehind == '' then
-          Scan.leftBehind = {}
-        end
-
         table.insert(Scan.leftBehind, { ent = ent.handle, cmd = Util:HoldPosition(ent.handle, 99999) })
       end
 

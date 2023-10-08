@@ -123,7 +123,7 @@ function Util:GetKeysCount(t)
 end
 
 function Util:Split(s, delimiter)
-  result = {}
+  local result = {}
   for match in (s..delimiter):gmatch("(.-)"..delimiter) do
       table.insert(result, match)
   end
@@ -160,6 +160,40 @@ function Util:GetAnglesFromString(posString)
 end
 
 -- Game Related Helpers
+function Util:GetDirection(angle)
+  return Vector4.RotateAxis(Game.GetPlayer():GetWorldForward(), Vector4.new(0, 0, 1, 0), angle / 180.0 * Pi())
+end
+
+function Util:GetPosition(distance, angle)
+  local pos = Game.GetPlayer():GetWorldPosition()
+  local heading = Util:GetDirection(angle)
+  return Vector4.new(pos.x + (heading.x * distance), pos.y + (heading.y * distance), pos.z + heading.z, pos.w + heading.w)
+end
+
+function Util:GetOrientation(angle)
+  return EulerAngles.ToQuat(Vector4.ToRotation(Util:GetDirection(angle)))
+end
+
+function Util:ModStatPlayer(stat, value)
+  StrikeExecutor_ModifyStat.new():ModStatPuppet(Game.GetPlayer(), gamedataStatType[stat], StringToFloat(value, 0), Game.GetPlayer())
+end
+
+function Util:InfiniteStamina(enable)
+  local mod = StatPoolModifier.new()
+  local playerID = Game.GetPlayer():GetEntityID()
+  local statPoolSys = Game.GetStatPoolsSystem()
+  if enable then
+    mod.enabled = true
+    mod.rangeBegin = 0.00
+    mod.rangeEnd = 100.00
+    mod.delayOnChange = false
+    mod.valuePerSec = 1000000000.00
+    statPoolSys:RequestSettingModifier(playerID, gamedataStatPoolType.Stamina, gameStatPoolModificationTypes.Regeneration, mod)
+  else
+    statPoolSys:RequestResetingModifier(playerID, gamedataStatPoolType.Stamina, gameStatPoolModificationTypes.Regeneration)
+  end
+end
+
 function Util:AddToInventory(item)
   local equipRequest = EquipRequest.new()
   local itemID = ItemID.FromTDBID(TweakDBID.new(item))
@@ -187,7 +221,7 @@ end
 function Util:RemoveEffectOnPlayer(effect)
   local player = Game.GetPlayer()
   local effectID = TweakDBID.new(effect)
-  Game.GetStatusEffectSystem():RemoveStatusEffect(player:GetEntityID(), effectID, 1)
+  Game.GetStatusEffectSystem():RemoveStatusEffect(player:GetEntityID(), effectID, 100)
 end
 
 function Util:AddPlayerEffects()
@@ -211,12 +245,8 @@ function Util:RemovePlayerEffects()
 end
 
 function Util:GetPlayerGender()
-  -- True = Female / False = Male
-  if string.find(tostring(Game.GetPlayer():GetResolvedGenderName()), "Female") then
-		return "_Female"
-	else
-		return "_Male"
-	end
+  playerBodyGender = playerBodyGender or Game.GetPlayer():GetResolvedGenderName()
+  return (string.find(tostring(playerBodyGender), "Female") and "_Female") or "_Male"
 end
 
 function Util:PlayVoiceOver(handle, vo)
@@ -523,7 +553,14 @@ function Util:Despawn(handle)
     local vehPS = handle:GetVehiclePS()
     vehPS:SetHasExploded(false)
   end
-  handle:Dispose()
+  if handle.Dispose then
+    handle:Dispose()
+  end
+  if handle.GetEntity then
+		handle:GetEntity():Destroy()
+	end
+
+
 end
 
 function Util:RestoreElevator(handle)
@@ -613,7 +650,7 @@ function Util:ToggleEngine(handle)
   local state = vehVCPS:GetState()
 
   if state == vehicleEState.Default then
-      handle:TurnVehicleOn(true)  
+      handle:TurnVehicleOn(true)
   else
       handle:TurnVehicleOn(false)
   end
@@ -709,7 +746,9 @@ function Util:CanBeHostile(t)
 end
 
 function Util:UnlockVehicle(handle)
+  if handle and handle.GetVehiclePS then
 	handle:GetVehiclePS():UnlockAllVehDoors()
+  end
 end
 
 function Util:CreateInteractionChoice(action, title)

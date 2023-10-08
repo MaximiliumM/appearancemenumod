@@ -259,7 +259,7 @@ function Poses:Draw(AMM, target)
 
         if Poses.historyEnabled then
           ImGui.SetNextWindowSize(600, 700)
-          if ImGui.Begin("Last Used Poses", ImGuiWindowFlags.AlwaysAutoResize) then        
+          if ImGui.Begin("Last Used Poses", ImGuiWindowFlags.AlwaysAutoResize) then
             if next(Poses.historyAnims) ~= nil then
               for _, category in ipairs(Poses.historyCategories) do
                 if Poses.historyAnims[category] ~= nil and next(Poses.historyAnims[category]) ~= nil and category ~= 'Favorites' then

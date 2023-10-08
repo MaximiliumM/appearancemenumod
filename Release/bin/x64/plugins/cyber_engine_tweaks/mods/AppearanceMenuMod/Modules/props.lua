@@ -14,7 +14,7 @@ local NUM_TOTAL_BACKUPS = 5
 
 function Props:NewProp(uid, id, name, template, posString, scale, app, tag)
   local obj = {}
-	obj.handle = ''
+	obj.handle = nil
   obj.hash = ''
   obj.uid = uid
 	obj.id = id
@@ -1082,6 +1082,8 @@ end
 function Props:SensePropsTriggers()
   local player = Game.GetPlayer()
   if not player then return end
+
+  Props.Total = Props.Total or 0
   for _, trigger in ipairs(Props.triggers) do
     local dist = Util:VectorDistance(player:GetWorldPosition(), trigger.pos)
 
@@ -1098,6 +1100,13 @@ function Props:SensePropsTriggers()
   end
 end
 
+local function reactivatePlayer()
+  -- Cron.After(10, function()
+    Util:RemovePlayerEffects()
+    spdlog.info('reactivatePlayer: effects removed')
+  -- end)
+end
+
 function Props:GetPropsToSpawn(trigger)
   local props = {}
   for prop in db:nrows(f("SELECT * FROM saved_props WHERE trigger = '%s'", trigger.str)) do
@@ -1107,21 +1116,28 @@ function Props:GetPropsToSpawn(trigger)
   return props
 end
 
+
 function Props:SpawnSavedProp(ent)
+  Props.total = Props.total -1
   local spawn = Props:SpawnPropInPosition(ent, ent.pos, ent.angles)
   Props.activeProps[ent.uid] = spawn
 
-  if not Props.presetLoadInProgress then
-    Cron.After(Props.total / 800, function()
-      Props.presetLoadInProgress = false
-      Util:RemovePlayerEffects()
-    end)
-  end
-
-  if Props.total > 500 then
+  if not Props.presetLoadInProgress and Props.total > 500 then
     Props.presetLoadInProgress = true
     Util:AddPlayerEffects()
   end
+
+  -- spdlog.info('SpawnSavedProp, Props.presetLoadInProgress: ' .. tostring(Props.presetLoadInProgress) .. ' props.Total: ' .. tostring(Props.total))
+
+  if Props.presetLoadInProgress and Props.total < 100 then
+    Props.presetLoadInProgress = false
+    Cron.After(Props.total / 800, reactivatePlayer())
+    return
+  end
+  if Props.total == 0 then
+    reactivatePlayer()
+  end
+
 end
 
 local typeEntEntity = 'entEntity'
@@ -1366,6 +1382,8 @@ function Props:SaveAllProps()
     Props:SensePropsTriggers()
     AMM:UpdateSettings()
   end)
+
+  Cron.After(10, function() Util:RemovePlayerEffects() end)
 end
 
 function Props:SavePropPosition(ent)
@@ -1792,7 +1810,7 @@ function Props:ActivatePreset(preset)
 
   local savedProps =  Util:ShallowCopy({}, preset.props)
   local savedLights =  Util:ShallowCopy({}, preset.lights)
-  pcall(function() spdlog.info('Before saving '..Props.activePreset.file_name or "no file name") end)
+  pcall(function() spdlog.info('Before saving '..(Props.activePreset.file_name or "no file name")) end)
 
   -- Probably don't need to save here
   -- The preset is already saved if the user made any changes
@@ -1822,17 +1840,18 @@ function Props:ActivatePreset(preset)
 
       Props.activePreset = preset
 
-      pcall(function() spdlog.info('After setting variable '..Props.activePreset.file_name or "no file name") end)
+      pcall(function() spdlog.info('After setting variable '..(Props.activePreset.file_name or "no file name")) end)
 
       Props:Update()
       Props:SensePropsTriggers()
       Cron.Halt(timer)
-
-      pcall(function() spdlog.info('After update '..Props.activePreset.file_name or "no file name") end)
+      pcall(function() spdlog.info('After update '..(Props.activePreset.file_name or "no file name")) end)
     end
   end
 
   Cron.Every(0.1, timerFunc)
+
+  Cron.After(15, function() Util:RemovePlayerEffects() end)
 end
 
 function Props:BackupPreset(preset)

@@ -23,6 +23,7 @@ function printTable(t)
   end
 end
 
+
 -- Load Util Module Globally --
 Util = require('Modules/util.lua')
 
@@ -59,7 +60,7 @@ function AMM:new()
 	 AMM.nibblesReplacer = false
 
 	 -- Main Properties --
-	 AMM.currentVersion = "2.3"
+	 AMM.currentVersion = "2.3.1-beta"
 	 AMM.CETVersion = tonumber(GetVersion():match("1.(%d+)."))
 	 AMM.updateNotes = require('update_notes.lua')
 	 AMM.credits = require("credits.lua")
@@ -134,12 +135,14 @@ function AMM:new()
 
 	 AMM:ImportUserData()
 
+	 local buttonPressed, finishedUpdate = false, false
+	 local waitTimer, spamTimer, delayTimer = 0.0, 0.0, 0.0
+
+
 	 registerForEvent("onInit", function()
 		 waitTimer = 0.0
 		 spamTimer = 0.0
-		 respawnTimer = 0.0
 		 delayTimer = 0.0
-		 bbTested = false
 		 buttonPressed = false
 		 finishedUpdate = AMM:CheckDBVersion()
 
@@ -183,7 +186,7 @@ function AMM:new()
 
 		 -- Check if user is in-game using WorldPosition --
 		 -- Only way to set player attached if user reload all mods --
-		 local player = Game.GetPlayer()
+		 local player = AMM.player or Game.GetPlayer()
 		 if player then
 			 local playerPosition = player:GetWorldPosition()
 
@@ -193,14 +196,14 @@ function AMM:new()
 				 AMM.playerGender = Util:GetPlayerGender()
 				 AMM.playerInMenu = false
 
-				 if next(AMM.Spawn.spawnedNPCs) ~= nil and AMM.userSettings.respawnOnLaunch then
+				 if AMM.userSettings.respawnOnLaunch and next(AMM.Spawn.spawnedNPCs) ~= nil then
 				 	AMM:RespawnAll()
 				 end
 			 end
 		 end
 
 		 -- Setup GameSession --
-		 GameSession.OnStart(function()
+		 GameSession.OnStart(function()			
 			 AMM.player = Game.GetPlayer()
 			 AMM.playerAttached = true
 			 AMM.playerGender = Util:GetPlayerGender()
@@ -235,6 +238,8 @@ function AMM:new()
 			 AMM.playerAttached = false
 			 AMM.player = nil
 			 AMM.savedAppearanceCheckCache = {}
+			 AMM.Tools.axisIndicator = nil
+			 AMM.Tools.currentTarget = ''
 		 end)
 
 		 GameSession.OnPause(function()
@@ -260,14 +265,6 @@ function AMM:new()
 			this.topButtonsController:SetToggleEnabled(3, not(AMM.userSettings.disableEffectTab))
 			this.topButtonsController:SetToggleEnabled(4, not(AMM.userSettings.disableStickersTab))
 			this.topButtonsController:SetToggleEnabled(5, not(AMM.userSettings.disableLoadSaveTab))
-		 end)
-
-		 Observe("PreventionSpawnSystem", "SpawnRequestFinished", function(self, requestResult)
-				local spawnedObject = requestResult.spawnedObjects[1]
-
-				if spawnedObject then
-					AMM.Spawn.currentSpawnedID = spawnedObject:GetEntityID()
-				end
 		 end)
 
 		 Override("CursorGameController", "ProcessCursorContext", function(self, context, data, force, wrapped)
@@ -430,13 +427,13 @@ function AMM:new()
 				 end
 
 				 if not AMM.playerInVehicle then
-					 if AMM.Scan.leftBehind ~= '' then
+					 if #AMM.Scan.leftBehind > 0 then
 						 for _, lost in ipairs(AMM.Scan.leftBehind) do
 						 	lost.ent:GetAIControllerComponent():StopExecutingCommand(lost.cmd, true)
 							Util:TeleportNPCTo(lost.ent, Util:GetBehindPlayerPosition(5))
 						 end
 
-						 AMM.Scan.leftBehind = ''
+						 AMM.Scan.leftBehind = {}
 					 end
 
 					 if next(AMM.Scan.drivers) ~= nil then
@@ -459,14 +456,14 @@ function AMM:new()
 			 end
 		 end)
 
-		Observe("EquipCycleInitEvents", "OnEnter", function(self, script)
+		Observe("EquipCycleInitEvents", "OnEnter", function(_self, script)
 			if AMM.Tools.TPPCamera then
 				AMM.Tools:ToggleTPPCamera()
 				AMM.Tools.TPPCameraBeforeVehicle = true
 			end
 		end)
 
-		Observe("UnequippedEvents", "OnExit", function(self, script)
+		Observe("UnequippedEvents", "OnExit", function(_self, script)
 			if AMM.Tools.TPPCameraBeforeVehicle and not AMM.playerInVehicle then
 				AMM.Tools.TPPCameraBeforeVehicle = false
 
@@ -476,7 +473,7 @@ function AMM:new()
 			end
 		end)
 
-		Observe("PlayerPuppet", "OnAction", function(self, action)
+		Observe("PlayerPuppet", "OnAction", function(_self, action)
 			local actionName = Game.NameToString(action:GetName(action))
 			local actionType = action:GetType(action).value
 
@@ -569,6 +566,8 @@ function AMM:new()
 	 -- TweakDB Changes
 	 if AMM.CETVersion >= 18 then
 		registerForEvent('onTweak', function()
+
+			-- AMM:UpdateFollowDistance()
 
 			-- Adjust Prevention System Total Entities Limit --
 			TweakDB:SetFlat('PreventionSystem.setup.totalEntitiesLimit', 30)
@@ -754,7 +753,7 @@ function AMM:new()
 
 	 registerHotkey("amm_last_expression", "Last Expression Used", function()
 		local target = AMM:GetTarget()
-		if Tools.lockTarget and Tools.currentTarget ~= '' and Tools.currentTarget.handle
+		if Tools.lockTarget and Tools.currentTarget and Tools.currentTarget ~= '' and Tools.currentTarget.handle
 		and Tools.currentTarget.type ~= 'entEntity' and Tools.currentTarget.type ~= 'gameObject' then
 			target = Tools.currentTarget
 		end
@@ -1413,7 +1412,7 @@ function AMM:Begin()
 						-- 	ImGui.SameLine()
 						-- end
 
-						-- AMM.UI:Spacing(3)						
+						-- AMM.UI:Spacing(3)				
 						
 						AMM.UI:Separator()
 
@@ -2155,13 +2154,12 @@ function AMM:ExportUserData()
 	end
 end
 
-function AMM:PrepareImportSpawnedData(savedIDs)
+function AMM:GetSavedSpawnData(savedIDs)
 	local savedEntities = {}
 
 	for _, id in ipairs(savedIDs) do
 		for ent in db:nrows(f("SELECT * FROM entities WHERE entity_id = '%s'", id)) do
-			spawn = AMM.Spawn:NewSpawn(ent.entity_name, ent.entity_id, ent.parameters, ent.can_be_comp, ent.entity_path, ent.template_path, ent.entity_rig)
-			table.insert(savedEntities, spawn)
+			table.insert(savedEntities, ent)
 		end
 	end
 
@@ -2871,11 +2869,6 @@ function AMM:GetNPCTweakDBID(npc)
 end
 
 function AMM:DespawnAll(message)
-	-- if message then AMM.player:SetWarningMessage("Despawning will occur once you look away") end
-	for i = 0, 99 do
-		Game.GetPreventionSpawnSystem():RequestDespawnPreventionLevel(i * -1)
-	end
-
 	AMM.Spawn:DespawnAll()
 end
 
@@ -2891,17 +2884,11 @@ function AMM:RespawnAll()
 	local entitiesForRespawn = {}
 	for _, ent in pairs(AMM.Spawn.spawnedNPCs) do
 		if not(string.find(ent.path, "Vehicle")) then
-			if ent.handle and ent.handle ~= '' then
-				if ent.handle:IsNPC() then
-					Util:TeleportNPCTo(ent.handle, Util:GetBehindPlayerPosition(2))
-				end
-			end
 			table.insert(entitiesForRespawn, ent)
 		end
 	end
 
-	AMM:DespawnAll(buttonPressed)
-	if buttonPressed then buttonPressed = false end
+	AMM:DespawnAll()
 
 	Cron.Every(0.5, function(timer)
 		local ent = entitiesForRespawn[1]
@@ -3519,7 +3506,7 @@ end
 
 function AMM:UpdateFollowDistance()
 	local spawnsCounter = 0
-	for _ in pairs(AMM.Spawn.spawnedNPCs) do spawnsCounter = spawnsCounter + 1 end
+	-- for _ in pairs(AMM.Spawn.spawnedNPCs) do spawnsCounter = spawnsCounter + 1 end
 
 	if spawnsCounter < 3 then
 		self:SetFollowDistance(AMM.followDistance[2])
