@@ -393,9 +393,9 @@ function Spawn:DrawFavoritesButton(buttonLabels, entity, fullButton)
 					entity.name = Spawn.currentFavoriteName
 
 					if entity.type == "Spawn" and not Util:CheckVByID(entity.id) then
-						Spawn.spawnedNPCs[entity.uniqueName] = nil
+						Spawn.spawnedNPCs[entity.uniqueName()] = nil
 						entity.parameters = AMM:GetScanAppearance(entity.handle)
-						Spawn.spawnedNPCs[entity.uniqueName] = entity
+						Spawn.spawnedNPCs[entity.uniqueName()] = entity
 					end
 
 					Spawn.currentFavoriteName = ''
@@ -639,7 +639,7 @@ function Spawn:SpawnNPC(spawn, notCompanionOverride)
 
 			if AMM.userSettings.spawnAsCompanion and spawn.canBeCompanion and not notCompanionOverride then
 				Spawn:SetNPCAsCompanion(spawn.handle)
-			else
+			elseif AMM.userSettings.spawnAsFriendly then
 				AMM.Tools:SetNPCAttitude(spawn, EAIAttitude.AIA_Friendly)
 			end
 
@@ -652,7 +652,6 @@ function Spawn:SpawnNPC(spawn, notCompanionOverride)
 end
 
 function Spawn:DespawnVehicle(ent)
-	log("despawning vehicle " .. tostring(ent.uniqueName()))
 	Spawn.spawnedNPCs[ent.uniqueName()] = nil
 	AMM:UpdateSettings()
 

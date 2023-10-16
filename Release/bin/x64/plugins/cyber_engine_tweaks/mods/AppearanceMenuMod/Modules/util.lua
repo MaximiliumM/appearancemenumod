@@ -31,6 +31,16 @@ function Util:AMMDebug(msg, reset)
 end
 
 -- Code Helper Methods
+
+-- Function to compare two strings for sorting
+local function compareStrings(a, b)
+  return a < b
+end
+
+function Util:SortTableAlphabetically(tbl)
+  return table.sort(tbl, compareStrings)
+end
+
 function Util:IsPrefix(s1, s2)
   return string.sub(s2, 1, string.len(s1)) == s1
 end
@@ -221,7 +231,7 @@ end
 function Util:RemoveEffectOnPlayer(effect)
   local player = Game.GetPlayer()
   local effectID = TweakDBID.new(effect)
-  Game.GetStatusEffectSystem():RemoveStatusEffect(player:GetEntityID(), effectID, 100)
+  Game.GetStatusEffectSystem():RemoveStatusEffect(player:GetEntityID(), effectID, 999)
 end
 
 function Util:AddPlayerEffects()

@@ -30,6 +30,8 @@ function Tools:new()
   Tools.slowMotionToggle = false
   Tools.relicEffect = true
   Tools.relicOriginalFlats = nil
+  Tools.weatherOptions = {}
+  Tools.selectedWeather = 1
 
   -- Teleport Properties
   Tools.lastLocation = nil
@@ -122,6 +124,26 @@ function Tools:new()
 end
 
 function Tools:Initialize()
+  -- Weather Options --
+  Tools.weatherOptions = {
+    {name = "Default", cname = "reset"},
+    {name = "Rain", cname = "24h_weather_rain"},
+    {name = "Light Rain", cname = "q302_light_rain"},
+    {name = "Cloudy", cname = "24h_weather_cloudy"},
+    {name = "Fog", cname = "24h_weather_fog"},
+    {name = "Heavy Clouds", cname = "24h_weather_heavy_clouds"},
+    {name = "Light Clouds", cname = "24h_weather_light_clouds"},
+    {name = "Pollution", cname = "24h_weather_pollution"},
+    {name = "Sandstorm", cname = "24h_weather_sandstorm"},
+    {name = "Sunny", cname = "24h_weather_sunny"},
+    {name = "Toxic Rain", cname = "24h_weather_toxic_rain"},
+    {name = "Deep Blue", cname = "q302_deep_blue"},
+    {name = "Squat Morning", cname = "q302_squat_morning"},
+    {name = "Cloudy Morning", cname = "q306_epilogue_cloudy_morning"},
+    {name = "Rainy Night", cname = "q306_rainy_night"},
+    {name = "Courier Clouds", cname = "sa_courier_clouds"},
+  }
+
   -- Setup TPP Camera Options --
   Tools.TPPCameraOptions = {
     {name = "Left", vec = Vector4.new(-0.5, -2, 0, 1.0), rot = Quaternion.new(0.0, 0.0, 0.0, 1.0)},
@@ -190,7 +212,7 @@ function Tools:Draw(AMM, t)
         { name = "Photo Mode Nibbles Replacer", actions = Tools.DrawNibblesReplacer },
         { name = "Target Actions", actions = Tools.DrawNPCActions },
         { name = "Teleport Actions", actions = Tools.DrawTeleportActions },
-        { name = "Time Actions", actions = Tools.DrawTimeActions },
+        { name = "Time & Weather Actions", actions = Tools.DrawTimeActions },
         { name = "V Actions", actions = Tools.DrawVActions },
       }
     else
@@ -323,6 +345,7 @@ function Tools:DrawVActions()
     ImGui.SameLine()
     if ImGui.Button(buttonLabel, Tools.style.halfButtonWidth, Tools.style.buttonHeight) then
       Tools:ToggleGodMode()
+      AMM:UpdateSettings()
     end
 
     local buttonLabel = "Infinite Oxygen"
@@ -2056,7 +2079,7 @@ function Tools:DrawMovementWindow()
       if AMM.userSettings.experimental and Tools.currentTarget ~= '' and Tools.currentTarget.handle:IsNPC() then
 
         local es = Game.GetScriptableSystemsContainer():Get(CName.new("EquipmentSystem"))
-        local weapon = es:GetActiveWeaponObject(AMM.player, 39)
+        local weapon = es:GetActiveWeaponObject(Game.GetPlayer(), 40)
         local npcHasWeapon = Tools.currentTarget.handle:HasPrimaryOrSecondaryEquipment()
 
         if npcHasWeapon or weapon then
@@ -2257,6 +2280,35 @@ end
 -- Time actions
 function Tools:DrawTimeActions()
   -- AMM.UI:TextColored("Time Actions:")
+
+  if AMM.CodewareVersion >= 4 then
+    local selectedWeatherOption = Tools.weatherOptions[Tools.selectedWeather]
+    if ImGui.BeginCombo("Weather Control", selectedWeatherOption.name) then
+      for i, weather in ipairs(Tools.weatherOptions) do
+        if ImGui.Selectable(weather.name.."##"..i, (weather == selectedWeatherOption.name)) then
+          Tools.selectedWeather = i
+          local weatherSystem = Game.GetWeatherSystem()
+
+          if weather.cname == "reset" then
+            weatherSystem:ResetWeather(true)
+          else
+            weatherSystem:SetWeather(weather.cname, 10.0, 5)
+          end
+        end
+      end
+      ImGui.EndCombo()
+    end
+
+    ImGui.SameLine()
+
+    if ImGui.SmallButton("Reset") then
+      Tools.selectedWeather = 1
+    end
+  else
+    AMM.UI:TextError("Weather Control requires Codeware 1.4+")
+  end
+
+  ImGui.Spacing()
 
   local gameTime = Tools:GetCurrentHour()
   Tools.timeValue = Tools:ConvertTime(gameTime)
@@ -2460,7 +2512,7 @@ function Tools:DrawNibblesReplacer()
         Tools:UpdateNibblesEntity(option.ent)
       end
 
-      if option.ent then
+      if option.ent and i ~= 4 and i ~= 8 then
         ImGui.SameLine()
       end
     end
@@ -2499,17 +2551,19 @@ function Tools:PrepareCategoryHeadersForNibblesReplacer(options)
     for _, app in ipairs(options) do
       local index = string.find(app, "_")
       local name = app
-      if index then name = string.sub(app, 1, index-1) end      
+      if index then name = string.sub(app, 1, index-1) end
       
-      if #allCharacters == 0 then
-        for n in db:urows("SELECT entity_name FROM entities WHERE entity_path LIKE '%%Character.%%'") do
-          table.insert(allCharacters, n)
+      if Tools.replacer.version == nil then
+        if #allCharacters == 0 then
+          for n in db:urows("SELECT entity_name FROM entities WHERE entity_path LIKE '%%Character.%%'") do
+            table.insert(allCharacters, n)
+          end
         end
+
+        name = Util:FirstToUpper(name)
+
+        name = Tools:RecursivelyScoreDistance(name, 6)
       end
-
-      name = Util:FirstToUpper(name)
-
-      name = Tools:RecursivelyScoreDistance(name, 6)
 
       if name and categories[name] == nil then
         categories[name] = {}
@@ -2534,6 +2588,8 @@ function Tools:PrepareCategoryHeadersForNibblesReplacer(options)
         table.insert(headers, {name = k, options = v})
       end
     end
+
+    table.sort(headers, function(a, b) return a.name < b.name end)
 
     Tools.cachedReplacerOptions = headers
   end
@@ -2844,8 +2900,24 @@ function Tools:EnterPhotoMode()
 
   Cron.Every(0.1, { tick = 1 }, function(timer)
 
+    timer.tick = timer.tick + 1
+
+    if timer.tick > 10 then
+      Cron.Halt(timer)
+    end
+
     if AMM.playerInVehicle or Util:GetMountedVehicleTarget() then
       AMM.playerInVehicle = true
+      Tools.photoModePuppet = Game.GetPlayer()
+    end
+
+    -- if not Tools.photoModePuppet then
+      -- Tools.photoModePuppet = Game.GetPlayerSystem():GetPhotoPuppet()
+      -- print('player system')
+      -- print(Tools.photoModePuppet)
+    -- end
+
+    if timer.tick > 2 and not Tools.photoModePuppet then
       Tools.photoModePuppet = Game.GetPlayer()
     end
 
@@ -2856,12 +2928,6 @@ function Tools:EnterPhotoMode()
         Tools:ToggleCursor(true)
       end
 
-      Cron.Halt(timer)
-    end
-
-    timer.tick = timer.tick + 1
-
-    if timer.tick > 10 then
       Cron.Halt(timer)
     end
   end)

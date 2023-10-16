@@ -308,6 +308,7 @@ end
 function Swap:ChangeEntityTemplateTo(targetName, fromID, toID)
   if targetName == "Replacer" then 
   -- todo: Show this on the GUI somewhere, somehow
+    Game.GetPlayer():SetWarningMessage("Can't swap Replacer")
     spdlog.info("You can't swap the replacer! Use the tools tab in photo mode to target them, then switch their appearance from the Spawn Tab or the Target Tools.")  
     return
   end
@@ -371,6 +372,7 @@ function Swap:GetTemplateForEntity(entityPath)
     table.insert(entityTemplate, TweakDB:GetFlat(TweakDBID.new(entityPath..".entityTemplatePath")))
     table.insert(entityTemplate, TweakDB:GetFlat(TweakDBID.new(entityPath..".appearanceName")))
     table.insert(entityTemplate, TweakDB:GetFlat(TweakDBID.new(entityPath..".genders")))
+    table.insert(entityTemplate, TweakDB:GetFlat(TweakDBID.new(entityPath..".attachmentSlots")))
   else
     entityTemplate = TweakDB:GetFlat(TweakDBID.new(entityPath..".entityTemplatePath"))
   end
@@ -383,6 +385,7 @@ function Swap:UpdateEntityTemplate(entityPath, newTemplate)
     TweakDB:SetFlatNoUpdate(TweakDBID.new(entityPath..".entityTemplatePath"), newTemplate[1])
     TweakDB:SetFlatNoUpdate(TweakDBID.new(entityPath..".appearanceName"), newTemplate[2])
     TweakDB:SetFlatNoUpdate(TweakDBID.new(entityPath..".genders"), newTemplate[3])
+    TweakDB:SetFlatNoUpdate(TweakDBID.new(entityPath..".attachmentSlots"), newTemplate[4])
   else
     TweakDB:SetFlatNoUpdate(TweakDBID.new(entityPath..".entityTemplatePath"), newTemplate)
   end

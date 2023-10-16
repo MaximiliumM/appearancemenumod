@@ -31,6 +31,9 @@ local Scan = {
   carCam = false,
   currentCam = 1,
 
+  -- AI Driver
+  AIDriver = false,
+
   -- Saved Despawn properties
   savedDespawns = {},
   savedDespawnsActive = true,
@@ -355,12 +358,37 @@ function Scan:DrawTargetActions(target)
     end
 
     local qm = AMM.player:GetQuickSlotsManager()
-    mountedVehicle = qm:GetVehicleObject()
+    local mountedVehicle = qm:GetVehicleObject()
     local shouldAssignSeats = Scan:ShouldDisplayAssignSeatsButton()
     local width = style.buttonWidth
-    if shouldAssignSeats then width = style.halfButtonWidth end
+    local isDelamain = false
+    if mountedVehicle then 
+      isDelamain = AMM:GetScanID(mountedVehicle) == "0xC4C260DB, 25"
+    end
+
+    if shouldAssignSeats or isDelamain then
+      width = style.halfButtonWidth
+    end
+
     if ImGui.Button("  Toggle Engine  ", width, style.buttonHeight - 5) then
       Util:ToggleEngine(target.handle)
+    end
+
+    if isDelamain then
+      ImGui.SameLine()
+      if ImGui.Button("  Toggle AI Driver  ", width, style.buttonHeight - 5) then
+        Scan.AIDriver = not Scan.AIDriver
+        Util:ToggleEngine(mountedVehicle)
+
+        if Scan.AIDriver then
+          AMM.player:SetWarningMessage("Select a Fast Travel point on your map to get going")
+          Scan.vehicle = {handle = target.handle, hash = tostring(target.handle:GetEntityID().hash)}     
+          Scan.companionDriver = {vehicle = {handle = mountedVehicle}}
+        else
+          Scan.companionDriver = nil
+          Scan.vehicle = nil
+        end
+      end
     end
 
     if Scan.companionDriver ~= '' and mountedVehicle then
@@ -743,7 +771,7 @@ end
 
 function Scan:SetDriverVehicleToGoTo(driver, destination, needDriver)
   local cmd = NewObject("handle:AIVehicleToNodeCommand")
-  cmd.needDriver = needDriver or true
+  cmd.needDriver = needDriver
   cmd.nodeRef = destination
   cmd.stopAtPathEnd = true
   cmd.useTraffic = true
@@ -763,7 +791,7 @@ function Scan:SetVehicleDestination(worldMap, vehicleMap)
   local mappinPos = mappin:GetWorldPosition()
   local mappinNodeRef = mappin:GetPointData():GetMarkerRef()
 
-  local cmd = Scan:SetDriverVehicleToGoTo(Scan.companionDriver, mappinNodeRef)
+  local cmd = Scan:SetDriverVehicleToGoTo(Scan.companionDriver, mappinNodeRef, not Scan.AIDriver)
   Scan.isDriving = true
 
   Cron.Every(1, function(timer)

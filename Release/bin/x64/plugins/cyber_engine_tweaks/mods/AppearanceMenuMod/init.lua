@@ -64,8 +64,9 @@ function AMM:new()
 	 AMM.nibblesReplacer = false
 
 	 -- Main Properties --
-	 AMM.currentVersion = "2.3.1"
+	 AMM.currentVersion = "2.4"
 	 AMM.CETVersion = tonumber(GetVersion():match("1.(%d+)."))
+	 AMM.CodewareVersion = nil
 	 AMM.updateNotes = require('update_notes.lua')
 	 AMM.credits = require("credits.lua")
 	 AMM.updateLabel = "WHAT'S NEW"
@@ -146,6 +147,8 @@ function AMM:new()
 		 buttonPressed = false
 		 finishedUpdate = AMM:CheckDBVersion()
 
+		 AMM.CodewareVersion = tonumber(Codeware.Version():match("1.(%d+)."))
+
 		 if AMM.Debug ~= '' then
 			AMM.player = Game.GetPlayer()
 		 end
@@ -164,7 +167,6 @@ function AMM:new()
 		 AMM:SetupCustomEntities()
 		 AMM:SetupCustomPoses()
 		 AMM:SetupAMMCharacters()
-		 AMM:SetupVehicleData()
 		 AMM.collabs = AMM:SetupCollabAppearances()
 		 AMM.customAppDefaults = AMM:GetCustomAppearanceDefaults()
 
@@ -203,7 +205,7 @@ function AMM:new()
 		 end
 
 		 -- Setup GameSession --
-		 GameSession.OnStart(function()			
+		 GameSession.OnStart(function()
 			 AMM.player = Game.GetPlayer()
 			 AMM.playerAttached = true
 			 AMM.playerGender = Util:GetPlayerGender()
@@ -566,11 +568,6 @@ function AMM:new()
 	 -- TweakDB Changes
 	 if AMM.CETVersion >= 18 then
 		registerForEvent('onTweak', function()
-
-			-- AMM:UpdateFollowDistance()
-
-			-- Adjust Prevention System Total Entities Limit --
-			TweakDB:SetFlat('PreventionSystem.setup.totalEntitiesLimit', 30)
 
 			-- Nibbles Replacer LocKey Update --
 			if AMM.Tools.replacer then
@@ -1133,9 +1130,12 @@ function AMM:new()
 									if param.mesh_type == "body" then
 										if param.mesh_app then
 											appParam.meshAppearance = CName.new(param.mesh_app)
+											if AMM.CodewareVersion >= 4 and appParam.LoadAppearance then
+												appParam:LoadAppearance()
+											end
 										end
 
-										if appParam.chunkMask ~= param.mesh_mask and not(string.find(param.app_name, "Underwear")) then										
+										if appParam.chunkMask ~= param.mesh_mask and not(string.find(param.app_name, "Underwear")) then						
 											if param.mesh_mask then
 												param.mesh_mask = loadstring("return "..param.mesh_mask, '')()
 												if appParam.chunkMask ~= 18446744073709551615ULL then
@@ -1416,13 +1416,20 @@ function AMM:Begin()
 						
 						AMM.UI:Separator()
 
+						local CETVersion = GetVersion()
+						local CodewareVersion = Codeware.Version()
+
 						ImGui.Text("AMM Version:")					
 						ImGui.SameLine()
 						AMM.UI:TextColored(AMM.currentVersion)
 						ImGui.SameLine()						
 						ImGui.Text("CET Version:")
 						ImGui.SameLine()
-						AMM.UI:TextColored(GetVersion())
+						AMM.UI:TextColored(CETVersion)
+						ImGui.SameLine()						
+						ImGui.Text("Codeware Version:")
+						ImGui.SameLine()
+						AMM.UI:TextColored(CodewareVersion)
 
 						ImGui.SameLine()
 						if ImGui.InvisibleButton("Machine Gun", 20, 30) then
@@ -1468,6 +1475,11 @@ function AMM:DrawGeneralSettingsTab(style)
 		local settingChanged = false
 		AMM.userSettings.spawnAsCompanion, clicked = ImGui.Checkbox("Spawn As Companion", AMM.userSettings.spawnAsCompanion)
 		if clicked then settingChanged = true end
+
+		if not AMM.userSettings.spawnAsCompanion then
+			AMM.userSettings.spawnAsFriendly, clicked = ImGui.Checkbox("Spawn As Friendly", AMM.userSettings.spawnAsFriendly)
+			if clicked then settingChanged = true end
+		end
 
 		AMM.userSettings.isCompanionInvulnerable, clicked = ImGui.Checkbox("Invulnerable Companion", AMM.userSettings.isCompanionInvulnerable)
 		if clicked then
@@ -2173,8 +2185,13 @@ function AMM:PrepareExportSpawnedData()
 	local spawnedEntities = {}
 
 	for _, ent in pairs(AMM.Spawn.spawnedNPCs) do
+		-- Need to replace V and Hover V ID with the one included in the database
 		if Util:CheckVByID(ent.id) then
-			ent.id = "0x451222BE, 24"
+			if string.find("Hover", ent.name) then
+				ent.id = "0x55C01D9F, 36"
+			else
+				ent.id = "0x451222BE, 24"
+			end
 		end
 
 		table.insert(spawnedEntities, ent.id)
@@ -2407,6 +2424,23 @@ function AMM:SetupExtraFromArchives()
 			for _, app in ipairs(appearances) do
 				db:execute(f('INSERT INTO appearances (entity_id, app_name, collab_tag) VALUES ("%s", "%s", "%s")', entity_id, app, uid))
 			end
+
+		-- Setup 8ug8ear appearances
+		elseif archive.name == "basegame_AMM_requirement" and archive.active then
+			local appearances = {
+				["0x5F7049F1, 31"] = {"8ug8ear_casual", "8ug8ear_naked"},
+				["0x7F65F7F7, 16"] = {"evelyn_naked"},
+				["0xB1CC84D0, 14"] = {"t_bug_casual"},
+			}
+
+			local uid = "AMM"
+			for entity_id, apps in pairs(appearances) do
+				for _, app in ipairs(apps) do
+					db:execute(f('INSERT INTO appearances (entity_id, app_name, collab_tag) VALUES ("%s", "%s", "%s")', entity_id, app, uid))
+				end
+			end
+		
+		-- Enable Scenes if archive exists
 		elseif archive.name == "basegame_AMM_ScenesPack" and archive.active then
 			AMM.Poses.sceneAnimsInstalled = true
 		end
@@ -2718,13 +2752,13 @@ local insertAppearanceFormat = 'INSERT INTO appearances (entity_id, app_name, co
 local selectEntityFormat = "SELECT entity_path FROM entities WHERE entity_id = '%s'"
 
 function AMM:SetupCollabAppearances()
-  local files = getFilesRecursively("./Collabs/Custom Appearances", {})
+	local files = getFilesRecursively("./Collabs/Custom Appearances", {})
 	local collabs = {}
 	if #files == 0 then return collabs end
-  
+
   for _, mod in ipairs(files) do
     
-    local collab = require(mod) 
+    local collab = require(mod)
     
     local metadata = collab.metadata
     
@@ -3235,6 +3269,31 @@ function AMM:GetFavoritesAppearances(id)
 	return favorites
 end
 
+local listener
+local waiting = {}
+
+function AMM:GetAppearancesFromEntity(t)
+	listener = NewProxy({
+		OnResourceReady = {
+			args = {'whandle:ResourceToken'},
+			callback = function(token)
+				local template = token:GetResource()
+				for _, appearance in ipairs(template.appearances) do
+					db:execute(string.format("INSERT INTO appearances (entity_id, app_name) VALUES ('%s', '%s')", AMM:GetScanID(t), NameToString(appearance.name)))
+				end
+				waiting[token:GetHash()] = nil
+			end
+		}
+	})
+
+	local path = TweakDB:GetFlat(TweakDBID.new(t:GetRecordID(), '.entityTemplatePath'))
+	local token = Game.GetResourceDepot():LoadResource(path)
+	if not token:IsFailed() then
+		token:RegisterCallback(listener:Target(), listener:Function('OnResourceReady'))
+		waiting[token:GetHash()] = token
+	end
+end
+
 function AMM:GetAppearanceOptions(t, id)
 	local options = {}
 
@@ -3256,32 +3315,30 @@ function AMM:GetAppearanceOptionsWithID(id, t)
 	end
 
 	if self.Swap.activeSwaps[id] == nil then
-		if t ~= nil and t.IsNPC and t:IsNPC() and t:GetRecord():CrowdAppearanceNames()[1] ~= nil then
-			for _, app in ipairs(t:GetRecord():CrowdAppearanceNames()) do
-				table.insert(options, tostring(app):match("%[ (%g+) -"))
-			end
-		else
-			local searchQuery = ""
-			if AMM.Scan.searchQuery ~= "" then
-				searchQuery = "app_name LIKE '%"..AMM.Scan.searchQuery.."%' AND "
-			end
+		local searchQuery = ""
+		if AMM.Scan.searchQuery ~= "" then
+			searchQuery = "app_name LIKE '%"..AMM.Scan.searchQuery.."%' AND "
+		end
 
-			local query = f("SELECT app_name FROM appearances WHERE %sentity_id = '%s' AND app_name NOT IN (SELECT app_name FROM favorites_apps WHERE entity_id = '%s') ORDER BY app_name ASC", searchQuery, id, id)
+		local query = f("SELECT app_name FROM appearances WHERE %sentity_id = '%s' AND app_name NOT IN (SELECT app_name FROM favorites_apps WHERE entity_id = '%s') ORDER BY app_name ASC", searchQuery, id, id)
 
-			if AMM.userSettings.streamerMode then
-				local sql = "SELECT app_name FROM appearances WHERE "
-				local tb = {}
-				for _, word in ipairs(AMM.bannedWords) do
-				    table.insert(tb, f("app_name NOT LIKE '%%%s%%'", word))
-				end
-				
-				local concatBannedWords = table.concat(tb, " AND ")
-				query = sql..concatBannedWords..f(" AND %sentity_id = '%s' ORDER BY app_name ASC", searchQuery, id)
+		if AMM.userSettings.streamerMode then
+			local sql = "SELECT app_name FROM appearances WHERE "
+			local tb = {}
+			for _, word in ipairs(AMM.bannedWords) do
+					table.insert(tb, f("app_name NOT LIKE '%%%s%%'", word))
 			end
+			
+			local concatBannedWords = table.concat(tb, " AND ")
+			query = sql..concatBannedWords..f(" AND %sentity_id = '%s' ORDER BY app_name ASC", searchQuery, id)
+		end
 
-			for app in db:urows(query) do
-				table.insert(options, app)
-			end			
+		for app in db:urows(query) do
+			table.insert(options, app)
+		end
+
+		if next(options) == nil and t ~= nil and ((t.IsNPC and t:IsNPC()) or (t.IsVehicle and t:IsVehicle())) then
+			AMM:GetAppearancesFromEntity(t)
 		end
 	end
 
@@ -3784,10 +3841,8 @@ function AMM:DrawArchives()
 	AMM.UI:TextCenter("AMM Version: "..AMM.currentVersion, true)
 	ImGui.Spacing()
 	AMM.UI:TextCenter("CET Version: "..GetVersion(), true)
-	if AMM.CETVersion < 18 and not(AMM.CETVersion == 15 and GameVersion == "1.23") then
-		ImGui.SameLine()
-		AMM.UI:TextError(" Needs Update")
-	end
+	ImGui.Spacing()
+	AMM.UI:TextCenter("Codeware Version: "..Codeware.Version(), true)
 	ImGui.Spacing()
 	AMM.UI:TextCenter("Game Version: "..Game.GetSystemRequestsHandler():GetGameVersion(), true)
 	AMM.UI:Separator()

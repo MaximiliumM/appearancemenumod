@@ -59,7 +59,7 @@ end
 function Camera:Activate(blendTime)
   if self.handle then
     
-    if not AMM.playerInPhoto and (not AMM.playerInVehicle and not AMM.Light.stickyMode) or not AMM.Tools.tppHead then
+    if not AMM.playerInPhoto and (not AMM.playerInVehicle and not AMM.Light.stickyMode) then
       Util:AddPlayerEffects()
       AMM.Tools:ToggleHead()
     end
@@ -72,7 +72,7 @@ end
 function Camera:Deactivate(blendTime)
   if self.handle then
     
-    if not AMM.playerInPhoto and not AMM.playerInVehicle and AMM.Tools.tppHead then
+    if not AMM.playerInPhoto and (not AMM.playerInVehicle and not AMM.Light.stickyMode) then
       Util:RemovePlayerEffects()
       AMM.Tools:ToggleHead()
     end
