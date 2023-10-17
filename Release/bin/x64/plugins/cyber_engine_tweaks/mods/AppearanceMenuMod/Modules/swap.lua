@@ -316,15 +316,6 @@ function Swap:ChangeEntityTemplateTo(targetName, fromID, toID)
   
   local toPath = Swap:GetEntityPathFromID(toID)
   local fromPath = Swap:GetEntityPathFromID(fromID)
-  
-  if not fromPath then 
-    spdlog.info(f("failed to read entity path of %s, fromID %s", targetName, fromID))
-    return 
-  end
-  if not fromPath then 
-    spdlog.info(f("failed to read entity path of %s, toID %s", targetName, toID))
-    return 
-  end
 
   local toTemplate
 
@@ -340,13 +331,14 @@ function Swap:ChangeEntityTemplateTo(targetName, fromID, toID)
 
     -- Save original template to revert later
   	if Swap.activeSwaps[fromID] == nil then
-  		if player then
+  		if type(fromPath) == "string" and string.find(fromPath, "Player") then
+        fromPath = TweakDBID.new(fromPath)
   			originalTemplate = {}
-  			table.insert(originalTemplate, TweakDB:GetFlat(TweakDBID.new(fromPath..".entityTemplatePath")))
-  			table.insert(originalTemplate, TweakDB:GetFlat(TweakDBID.new(fromPath..".appearanceName")))
-  			table.insert(originalTemplate, TweakDB:GetFlat(TweakDBID.new(fromPath..".genders")))
+  			table.insert(originalTemplate, TweakDB:GetFlat(TweakDBID.new(fromPath, ".entityTemplatePath")))
+  			table.insert(originalTemplate, TweakDB:GetFlat(TweakDBID.new(fromPath, ".appearanceName")))
+  			table.insert(originalTemplate, TweakDB:GetFlat(TweakDBID.new(fromPath, ".genders")))
   		else
-  			originalTemplate = TweakDB:GetFlat(TweakDBID.new(fromPath..".entityTemplatePath"))
+  			originalTemplate = TweakDB:GetFlat(TweakDBID.new(fromPath, ".entityTemplatePath"))
   		end
   	else
       originalTemplate = Swap:GetSavedOriginalTemplateForEntity(fromID)
@@ -365,16 +357,15 @@ end
 
 function Swap:GetTemplateForEntity(entityPath)
   local entityTemplate
-  local player = string.find(entityPath, "Player")
-  if player then
-    entityPath = entityPath..Util:GetPlayerGender()
+  if type(entityPath) == "string" and string.find(entityPath, "Player") then
+    entityPath = TweakDBID.new(entityPath)
     entityTemplate = {}
-    table.insert(entityTemplate, TweakDB:GetFlat(TweakDBID.new(entityPath..".entityTemplatePath")))
-    table.insert(entityTemplate, TweakDB:GetFlat(TweakDBID.new(entityPath..".appearanceName")))
-    table.insert(entityTemplate, TweakDB:GetFlat(TweakDBID.new(entityPath..".genders")))
-    table.insert(entityTemplate, TweakDB:GetFlat(TweakDBID.new(entityPath..".attachmentSlots")))
+    table.insert(entityTemplate, TweakDB:GetFlat(TweakDBID.new(entityPath, ".entityTemplatePath")))
+    table.insert(entityTemplate, TweakDB:GetFlat(TweakDBID.new(entityPath, ".appearanceName")))
+    table.insert(entityTemplate, TweakDB:GetFlat(TweakDBID.new(entityPath, ".genders")))
+    table.insert(entityTemplate, TweakDB:GetFlat(TweakDBID.new(entityPath, ".attachmentSlots")))
   else
-    entityTemplate = TweakDB:GetFlat(TweakDBID.new(entityPath..".entityTemplatePath"))
+    entityTemplate = TweakDB:GetFlat(TweakDBID.new(entityPath, ".entityTemplatePath"))
   end
 
   return entityTemplate
@@ -382,15 +373,15 @@ end
 
 function Swap:UpdateEntityTemplate(entityPath, newTemplate)
   if type(newTemplate) == 'table' then
-    TweakDB:SetFlatNoUpdate(TweakDBID.new(entityPath..".entityTemplatePath"), newTemplate[1])
-    TweakDB:SetFlatNoUpdate(TweakDBID.new(entityPath..".appearanceName"), newTemplate[2])
-    TweakDB:SetFlatNoUpdate(TweakDBID.new(entityPath..".genders"), newTemplate[3])
-    TweakDB:SetFlatNoUpdate(TweakDBID.new(entityPath..".attachmentSlots"), newTemplate[4])
+    TweakDB:SetFlatNoUpdate(TweakDBID.new(entityPath, ".entityTemplatePath"), newTemplate[1])
+    TweakDB:SetFlatNoUpdate(TweakDBID.new(entityPath, ".appearanceName"), newTemplate[2])
+    TweakDB:SetFlatNoUpdate(TweakDBID.new(entityPath, ".genders"), newTemplate[3])
+    TweakDB:SetFlatNoUpdate(TweakDBID.new(entityPath, ".attachmentSlots"), newTemplate[4])
   else
-    TweakDB:SetFlatNoUpdate(TweakDBID.new(entityPath..".entityTemplatePath"), newTemplate)
+    TweakDB:SetFlatNoUpdate(TweakDBID.new(entityPath, ".entityTemplatePath"), newTemplate)
   end
 
-  TweakDB:Update(TweakDBID.new(entityPath))
+  TweakDB:Update(entityPath)
 end
 
 function Swap:GetEntityPathFromID(id)
@@ -400,17 +391,19 @@ function Swap:GetEntityPathFromID(id)
     return "Character.TPP_Player_Cutscene"..Util:GetPlayerGender()
   end
 
-  for path in db:urows(f("SELECT entity_path FROM entities WHERE entity_id = '%s'", id)) do
-    entityPath = path
-  end
+  return loadstring("return TweakDBID.new("..id..")", '')()
 
-  if not entityPath then
-    for path in db:urows(f("SELECT entity_path FROM paths WHERE entity_id = '%s'", id)) do
-      entityPath = path
-    end
-  end
+  -- for path in db:urows(f("SELECT entity_path FROM entities WHERE entity_id = '%s'", id)) do
+  --   entityPath = path
+  -- end
 
-  if entityPath then return entityPath else print("[AMM] entity path not found!") end
+  -- if not entityPath then
+  --   for path in db:urows(f("SELECT entity_path FROM paths WHERE entity_id = '%s'", id)) do
+  --     entityPath = path
+  --   end
+  -- end
+
+  -- if entityPath then return entityPath else print("[AMM] entity path not found!") end
 end
 
 if io.open("specialSwap.lua", "r") then

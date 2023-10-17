@@ -64,7 +64,7 @@ function AMM:new()
 	 AMM.nibblesReplacer = false
 
 	 -- Main Properties --
-	 AMM.currentVersion = "2.4"
+	 AMM.currentVersion = "2.4.1"
 	 AMM.CETVersion = tonumber(GetVersion():match("1.(%d+)."))
 	 AMM.CodewareVersion = nil
 	 AMM.updateNotes = require('update_notes.lua')
@@ -3271,34 +3271,41 @@ end
 
 local listener
 local waiting = {}
+local entitiesChecked = {}
 
-function AMM:GetAppearancesFromEntity(t)
+function AMM:GetAppearancesFromEntity(id)
 	listener = NewProxy({
 		OnResourceReady = {
 			args = {'whandle:ResourceToken'},
 			callback = function(token)
 				local template = token:GetResource()
 				for _, appearance in ipairs(template.appearances) do
-					db:execute(string.format("INSERT INTO appearances (entity_id, app_name) VALUES ('%s', '%s')", AMM:GetScanID(t), NameToString(appearance.name)))
+					db:execute(string.format("INSERT INTO appearances (entity_id, app_name) VALUES ('%s', '%s')", id, NameToString(appearance.name)))
 				end
 				waiting[token:GetHash()] = nil
 			end
 		}
 	})
 
-	local path = TweakDB:GetFlat(TweakDBID.new(t:GetRecordID(), '.entityTemplatePath'))
+	local recordID = loadstring("return TweakDBID.new("..id..")", '')()
+	local path = TweakDB:GetFlat(TweakDBID.new(recordID, '.entityTemplatePath'))
 	local token = Game.GetResourceDepot():LoadResource(path)
 	if not token:IsFailed() then
 		token:RegisterCallback(listener:Target(), listener:Function('OnResourceReady'))
 		waiting[token:GetHash()] = token
+		entitiesChecked[id] = true
 	end
 end
 
 function AMM:GetAppearanceOptions(t, id)
-	local options = {}
+	if drawWindow then
+		local options = {}
 
-	local scanID = id or self:GetScanID(t)
-	return self:GetAppearanceOptionsWithID(scanID, t)
+		local scanID = id or self:GetScanID(t)
+		return self:GetAppearanceOptionsWithID(scanID, t)
+	end
+
+	return nil
 end
 
 function AMM:GetAppearanceOptionsWithID(id, t)
@@ -3307,6 +3314,8 @@ function AMM:GetAppearanceOptionsWithID(id, t)
 	if self.Swap.activeSwaps[id] ~= nil then
 	 	id = self.Swap.activeSwaps[id].newID
 	end
+
+	if (t and t:IsPlayer()) or Util:CheckVByID(id) then return nil end
 
 	options = AMM:GetFavoritesAppearances(id)
 
@@ -3337,8 +3346,8 @@ function AMM:GetAppearanceOptionsWithID(id, t)
 			table.insert(options, app)
 		end
 
-		if next(options) == nil and t ~= nil and ((t.IsNPC and t:IsNPC()) or (t.IsVehicle and t:IsVehicle())) then
-			AMM:GetAppearancesFromEntity(t)
+		if next(options) == nil and t ~= nil and ((t.IsNPC and t:IsNPC()) or (t.IsVehicle and t:IsVehicle())) and not entitiesChecked[id] then
+			AMM:GetAppearancesFromEntity(id)
 		end
 	end
 
@@ -3545,7 +3554,7 @@ function AMM:GetTarget()
 			elseif target:IsVehicle() then
 				t = AMM:NewTarget(target, 'vehicle', AMM:GetScanID(target), AMM:GetVehicleName(target),AMM:GetScanAppearance(target), AMM:GetAppearanceOptions(target))
 			else
-				t = AMM:NewTarget(target, AMM:GetScanClass(target), "None", AMM:GetObjectName(target),AMM:GetScanAppearance(target), nil)				
+				t = AMM:NewTarget(target, AMM:GetScanClass(target), "None", AMM:GetObjectName(target),AMM:GetScanAppearance(target), nil)
 			end
 
 			if t ~= nil and t.name ~= "gameuiWorldMapGameObject" and t.name ~= "ScriptedWeakspotObject" then

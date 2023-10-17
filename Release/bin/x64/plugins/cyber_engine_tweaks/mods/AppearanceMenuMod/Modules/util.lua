@@ -37,6 +37,16 @@ local function compareStrings(a, b)
   return a < b
 end
 
+function Util:ClearTable(tbl)
+  local filteredTable = {}
+	for key, value in pairs(tbl) do
+		if value ~= nil then
+			filteredTable[key] = value
+		end
+	end
+  return filteredTable
+end
+
 function Util:SortTableAlphabetically(tbl)
   return table.sort(tbl, compareStrings)
 end
@@ -721,6 +731,7 @@ local possibleIDs = {
   ["0x9FFA2212, 29"] = true,
   ["0x382F94F4, 31"] = true,
   ["0x55C01D9F, 36"] = true,
+  ["0xBD4D2E74, 21"] = true,
 }
 
 function Util:CheckVByID(id)

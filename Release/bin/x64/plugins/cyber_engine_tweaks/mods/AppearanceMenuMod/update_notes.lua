@@ -1,5 +1,15 @@
 return {
 	{
+		'2.4.1',
+		'2023 Oct 17',
+		[[Added more Characters including Lina, Taylor, Shank, Tool and others]],
+		[[Added new Vehicle: Reed's Merrimac]],
+		[[Improved Swap system to allow swapping to any Character regardless if they are added to AMM or not]],
+		[[Fixed major performance issue when looking at certain entities that could lead to a crash of the system]],
+		[[Fixed performance issue when changing Weather]],
+		[[Fixed issue where Weather Control's Reset button would not work properly]],
+	},
+	{
 		'2.4',
 		'2023 Oct 16',
 		[[Introducing: Weather Control]],

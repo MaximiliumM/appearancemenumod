@@ -30,6 +30,7 @@ function Tools:new()
   Tools.slowMotionToggle = false
   Tools.relicEffect = true
   Tools.relicOriginalFlats = nil
+  Tools.weatherSystem = nil
   Tools.weatherOptions = {}
   Tools.selectedWeather = 1
 
@@ -143,6 +144,9 @@ function Tools:Initialize()
     {name = "Rainy Night", cname = "q306_rainy_night"},
     {name = "Courier Clouds", cname = "sa_courier_clouds"},
   }
+
+  -- Initialize Weather System
+  Tools.weatherSystem = Game.GetWeatherSystem()
 
   -- Setup TPP Camera Options --
   Tools.TPPCameraOptions = {
@@ -2281,18 +2285,17 @@ end
 function Tools:DrawTimeActions()
   -- AMM.UI:TextColored("Time Actions:")
 
-  if AMM.CodewareVersion >= 4 then
+  if AMM.CodewareVersion >= 4 and Tools.weatherSystem then
     local selectedWeatherOption = Tools.weatherOptions[Tools.selectedWeather]
     if ImGui.BeginCombo("Weather Control", selectedWeatherOption.name) then
       for i, weather in ipairs(Tools.weatherOptions) do
         if ImGui.Selectable(weather.name.."##"..i, (weather == selectedWeatherOption.name)) then
           Tools.selectedWeather = i
-          local weatherSystem = Game.GetWeatherSystem()
-
+          
           if weather.cname == "reset" then
-            weatherSystem:ResetWeather(true)
+            Tools.weatherSystem:ResetWeather(true)
           else
-            weatherSystem:SetWeather(weather.cname, 10.0, 5)
+            Tools.weatherSystem:SetWeather(weather.cname, 10.0, 5)
           end
         end
       end
@@ -2301,8 +2304,11 @@ function Tools:DrawTimeActions()
 
     ImGui.SameLine()
 
-    if ImGui.SmallButton("Reset") then
-      Tools.selectedWeather = 1
+    if Tools.selectedWeather ~= 1 then
+      if ImGui.SmallButton("Reset") then
+        Tools.selectedWeather = 1
+        Tools.weatherSystem:ResetWeather(true)
+      end
     end
   else
     AMM.UI:TextError("Weather Control requires Codeware 1.4+")
@@ -2791,7 +2797,7 @@ function Tools:ToggleAxisIndicator()
     end
 
     Tools:SpawnHelper(Tools.axisIndicator, targetPosition, targetAngles)
-  elseif Tools.axisIndicator then
+  elseif Tools.axisIndicator and Tools.axisIndicator.handle then
     Tools.axisIndicator.handle:Dispose()
     Tools.axisIndicator = nil
   end

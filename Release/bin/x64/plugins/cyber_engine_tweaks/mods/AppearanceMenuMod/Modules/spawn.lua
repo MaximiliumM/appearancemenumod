@@ -12,7 +12,7 @@ function Spawn:NewSpawn(name, id, parameters, companion, path, template, rig)
 
 	local obj = {}
 	if type(id) == 'userdata' then id = tostring(id) end
-	
+
 	obj.name = name
 	obj.appearanceName = (parameters or {}).app or "random"
 	obj.template = template
@@ -40,11 +40,6 @@ function Spawn:NewSpawn(name, id, parameters, companion, path, template, rig)
 		obj.rig = playerGender == "_Female" and 'woman_base' or 'man_base'
 		obj.path = path..playerGender
 		obj.parameters = nil
-	end
-
-	-- Check if model is swappedModels
-	if AMM.Swap.activeSwaps[obj.id] ~= nil then
-		obj.id = AMM.Swap.activeSwaps[obj.id].newID
 	end
 
 	obj = Entity:new(obj)
@@ -298,13 +293,13 @@ function Spawn:DrawEntitiesButtons(entities, categoryName, style)
 			isFavorite = fav
 		end
 
-		if Spawn.spawnedNPCs[uniqueName] and AMM:IsUnique(newSpawn.id) then
+		if Spawn.spawnedNPCs[newSpawn.uniqueName()] and AMM:IsUnique(newSpawn.id) then
 			ImGui.PushStyleColor(ImGuiCol.Button, 0.56, 0.06, 0.03, 0.25)
 			ImGui.PushStyleColor(ImGuiCol.ButtonHovered, 0.56, 0.06, 0.03, 0.25)
 			ImGui.PushStyleColor(ImGuiCol.ButtonActive, 0.56, 0.06, 0.03, 0.25)
 			AMM:DrawButton(buttonLabel, -1 - favOffset, style.buttonHeight, "Disabled", nil)
 			ImGui.PopStyleColor(3)
-		elseif not(Spawn.spawnedNPCs[uniqueName] ~= nil and AMM:IsUnique(newSpawn.id)) then
+		elseif not(Spawn.spawnedNPCs[newSpawn.uniqueName()] ~= nil and AMM:IsUnique(newSpawn.id)) then
 			local action = "SpawnNPC"
 			if string.find(tostring(newSpawn.path), "Vehicle") then action = "SpawnVehicle" end
 			if string.find(tostring(newSpawn.path), "Props") then action = "SpawnProp" end
@@ -482,61 +477,6 @@ function Spawn:SpawnVehicle(spawn)
 
 
 	Cron.Every(0.3, timerfunc)
-
-	-- local vehicleGarageId = NewObject('vehicleGarageVehicleID')
-	-- vehicleGarageId.recordID = TweakDBID.new(spawn.path)
-	-- Game.GetVehicleSystem():ToggleSummonMode()
-	-- Game.GetVehicleSystem():TogglePlayerActiveVehicle(vehicleGarageId, 'Car', true)
-	-- Game.GetVehicleSystem():SpawnPlayerVehicle('Car')
-	-- Game.GetVehicleSystem():ToggleSummonMode()
-
-	-- Cron.Every(0.1, function(timer)
-	-- 	local vehicleSummonDef = Game.GetAllBlackboardDefs().VehicleSummonData
-	-- 	local vehicleSummonBB = Game.GetBlackboardSystem():Get(vehicleSummonDef)
-	-- 	local vehicleEntID = vehicleSummonBB:GetEntityID(vehicleSummonDef.SummonedVehicleEntityID)
-
-	-- 	spawn.handle = Game.FindEntityByID(vehicleEntID)
-
-	-- 	if spawn.handle then
-
-	-- 		Cron.After(0.2, function()
-	-- 			local floatFix = 1
-	-- 			if type(spawn.parameters) == "number" then floatFix = 0 end
-				
-	-- 			local pos = spawn.handle:GetWorldPosition()
-	-- 			local angles = GetSingleton('Quaternion'):ToEulerAngles(spawn.handle:GetWorldOrientation())
-	-- 			local teleportPosition = Vector4.new(pos.x, pos.y, pos.z - floatFix, pos.w)
-	-- 			Game.GetTeleportationFacility():Teleport(spawn.handle, teleportPosition, angles)
-	-- 		end)
-
-	-- 		Spawn.spawnedNPCs[spawn.uniqueName] = spawn
-    --   	Util:UnlockVehicle(spawn.handle)
-
-	-- 		if spawn.id == "0xE09AAEB8, 26" then
-	-- 			Game.GetGodModeSystem():AddGodMode(spawn.handle:GetEntityID(), 0, "")
-	-- 		end
-
-	-- 		if spawn.parameters ~= nil then
-	-- 			AMM:ChangeScanAppearanceTo(spawn, spawn.parameters)
-	-- 		end
-
-	-- 		local components = AMM.Props:CheckForValidComponents(spawn.handle)
-	-- 		if components then
-	-- 			spawn.defaultScale = {
-	-- 				x = components[1].visualScale.x * 100,
-	-- 				y = components[1].visualScale.x * 100,
-	-- 				z = components[1].visualScale.x * 100,
-	-- 			}
-	-- 			spawn.scale = {
-	-- 				x = components[1].visualScale.x * 100,
-	-- 				y = components[1].visualScale.y * 100,
-	-- 				z = components[1].visualScale.z * 100,
-	-- 			}
-	-- 		end
-
-	-- 		Cron.Halt(timer)
-	-- 	end
-	-- end)
 end
 
 
@@ -618,12 +558,14 @@ function Spawn:SpawnNPC(spawn, notCompanionOverride)
 
 			Spawn.spawnedNPCs[spawn.uniqueName()] = spawn
 
-			if AMM.userSettings.streamerMode and AMM:CheckAppearanceForBannedWords(spawn.appearance) then
-				AMM:ChangeScanAppearanceTo(spawn, 'Cycle')
-			elseif (#custom > 0 or spawn.parameters ~= nil) and not Util:CheckVByID(spawn.id) then
-				AMM:ChangeAppearanceTo(spawn, spawn.parameters)
-			elseif not Util:CheckVByID(spawn.id) then
-				AMM:ChangeScanAppearanceTo(spawn, 'Cycle')
+			if not Util:CheckVByID(spawn.id) then
+				if AMM.userSettings.streamerMode and AMM:CheckAppearanceForBannedWords(spawn.appearance) then
+					AMM:ChangeScanAppearanceTo(spawn, 'Cycle')
+				elseif (#custom > 0 or spawn.parameters ~= nil) then
+					AMM:ChangeAppearanceTo(spawn, spawn.parameters)
+				else
+					AMM:ChangeScanAppearanceTo(spawn, 'Cycle')
+				end
 			end
 
 			Cron.After(0.2, function()
@@ -654,23 +596,6 @@ end
 function Spawn:DespawnVehicle(ent)
 	Spawn.spawnedNPCs[ent.uniqueName()] = nil
 	AMM:UpdateSettings()
-
-	-- local vehicleGarageId = NewObject('vehicleGarageVehicleID')
-	-- vehicleGarageId.recordID = TweakDBID.new(ent.path)
-	-- Game.GetVehicleSystem():DespawnPlayerVehicle(vehicleGarageId)
-
-	-- New system below
-
-	-- local handle = Game.FindEntityByID(ent.entityID)
-	-- if handle then
-	-- 	if handle:IsVehicle() then
-	-- 		Util:TeleportTo(handle, Util:GetBehindPlayerPosition(2))
-	-- 	end
-	-- end
-
-	-- Game.GetPreventionSpawnSystem():RequestDespawn(ent.entityID)
-	-- ent.handle:Dispose()
-	-- AMM:UpdateSettings()
 end
 
 function Spawn:DespawnNPC(ent)

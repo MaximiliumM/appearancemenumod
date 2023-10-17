@@ -35,6 +35,11 @@ function Entity:new(ent)
 
   obj.isVehicle = ent.isVehicle or false
 
+  -- Check if model is swappedModels
+	if AMM.Swap.activeSwaps[obj.id] ~= nil then
+		obj.id = AMM.Swap.activeSwaps[obj.id].newID
+	end
+
   -- Poses Properties
   obj.anim = nil
 
