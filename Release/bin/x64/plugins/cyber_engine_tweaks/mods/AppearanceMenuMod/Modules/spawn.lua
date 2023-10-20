@@ -122,7 +122,7 @@ function Spawn:DrawActiveSpawns(style)
       ImGui.SameLine()
       if spawn and spawn.handle and spawn.handle ~= '' and not(isVehicle) then
         if AMM.UI:SmallButton("Respawn##"..spawn.name) then
-          Spawn:Respawn(spawn)
+          Spawn:Respawn(Entity:new(spawn))
         end
       end
 
@@ -385,16 +385,17 @@ function Spawn:DrawFavoritesButton(buttonLabels, entity, fullButton)
 					isFavorite = fav
 				end
 				if isFavorite == 0 then
-					entity.name = Spawn.currentFavoriteName
+					local newEntity = Entity:new(entity)
+					newEntity.name = Spawn.currentFavoriteName
 
 					if entity.type == "Spawn" and not Util:CheckVByID(entity.id) then
 						Spawn.spawnedNPCs[entity.uniqueName()] = nil
 						entity.parameters = AMM:GetScanAppearance(entity.handle)
-						Spawn.spawnedNPCs[entity.uniqueName()] = entity
+						Spawn.spawnedNPCs[newEntity.uniqueName()] = newEntity
 					end
 
 					Spawn.currentFavoriteName = ''
-					Spawn:ToggleFavorite(favoriteType, isFavorite, entity)
+					Spawn:ToggleFavorite(favoriteType, isFavorite, newEntity)
 					AMM.popupIsOpen = false
 					ImGui.CloseCurrentPopup()
 				else

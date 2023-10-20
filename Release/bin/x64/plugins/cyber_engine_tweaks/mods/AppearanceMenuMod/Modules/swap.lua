@@ -388,7 +388,11 @@ function Swap:GetEntityPathFromID(id)
   local entityPath = nil
 
   if Util:CheckVByID(id) then
-    return "Character.TPP_Player_Cutscene"..Util:GetPlayerGender()
+    if id == '0xBD4D2E74, 21' then
+      return "AMM_Character.Player"..Util:GetPlayerGender()
+    else
+      return "Character.TPP_Player_Cutscene"..Util:GetPlayerGender()
+    end
   end
 
   return loadstring("return TweakDBID.new("..id..")", '')()

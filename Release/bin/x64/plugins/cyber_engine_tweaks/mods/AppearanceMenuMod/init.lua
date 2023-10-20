@@ -64,7 +64,7 @@ function AMM:new()
 	 AMM.nibblesReplacer = false
 
 	 -- Main Properties --
-	 AMM.currentVersion = "2.4.1"
+	 AMM.currentVersion = "2.4.2"
 	 AMM.CETVersion = tonumber(GetVersion():match("1.(%d+)."))
 	 AMM.CodewareVersion = nil
 	 AMM.updateNotes = require('update_notes.lua')
@@ -83,8 +83,9 @@ function AMM:new()
 	 AMM.archivesInfo = {missing = false, optional = true, sounds = true}
 	 AMM.collabArchives = {}
 	 AMM.savedAppearanceCheckCache = {}
-	 AMM.entities = {}
+	 AMM.cachedEntities = {}
 	 AMM.bannedWords = {"naked", "nude", "pp", "xxx", "penis", "birthday_suit", "shower"}
+	 AMM.cachedAppearanceOptions = {}
 
 	 -- Songbird Properties --
 	 AMM.SBInWorld = false
@@ -429,6 +430,14 @@ function AMM:new()
 				 end
 
 				 if not AMM.playerInVehicle then
+					 if AMM.Scan.companionDriver then
+						AMM.Scan.companionDriver = nil
+					 end
+
+					 if AMM.Scan.AIDriver then
+						AMM.Scan.AIDriver = false
+					 end
+
 					 if #AMM.Scan.leftBehind > 0 then
 						 for _, lost in ipairs(AMM.Scan.leftBehind) do
 						 	lost.ent:GetAIControllerComponent():StopExecutingCommand(lost.cmd, true)
@@ -712,7 +721,7 @@ function AMM:new()
 	 registerHotkey("amm_toggle_vehicle_camera", "Toggle Vehicle Camera", function()
 		local qm = AMM.player:GetQuickSlotsManager()
 		mountedVehicle = qm:GetVehicleObject()
-		if AMM.Scan.companionDriver ~= '' and mountedVehicle then
+		if AMM.Scan.companionDriver and mountedVehicle then
 			AMM.Scan:ToggleVehicleCamera()
 		end
 	 end)
@@ -984,6 +993,8 @@ function AMM:new()
 		AMM.Director:AdjustActiveCameraZoom(-1)
 	 end)
 
+	 local frameCounter = 0
+
 	 registerForEvent("onUpdate", function(deltaTime)
 		 -- Setup Travel Mod API --
 		 local mod = GetMod("gtaTravel")
@@ -996,33 +1007,42 @@ function AMM:new()
      	Cron.Update(deltaTime)
 
 		 if AMM.playerAttached and (not(AMM.playerInMenu) or AMM.playerInPhoto) then
-				if not AMM.archivesInfo.missing and finishedUpdate and AMM.player ~= nil then
-					-- Check Custom Defaults --
-					local target = AMM:GetTarget()
-					AMM:CheckCustomDefaults(target)
-			 		-- Load Saved Appearance --
-			 		if not drawWindow and AMM.shouldCheckSavedAppearance then
-						local count = 0
-						for x in db:urows("SELECT COUNT(1) FROM saved_appearances UNION ALL SELECT COUNT(1) FROM blacklist_appearances") do
-							count = count + x
-						end
 
-						if count ~= 0 then
-							AMM:CheckSavedAppearance(target)
-							AMM.shouldCheckSavedAppearance = false
-						end
-			 		elseif AMM.shouldCheckSavedAppearance == false then
-						delayTimer = delayTimer + deltaTime
-						delay = 1.0
+				frameCounter = frameCounter + 1
 
-						if buttonPressed then delay = 8 end
+				if frameCounter >= 2 then
+					AMM.currentTarget = AMM:GetTarget()
+					frameCounter = 0
+					
+					if not AMM.archivesInfo.missing and finishedUpdate and AMM.player ~= nil then
+						-- Check Custom Defaults --
+						local target = AMM.currentTarget
+						AMM:CheckCustomDefaults(target)
+							-- Load Saved Appearance --
+						if not drawWindow and AMM.shouldCheckSavedAppearance then
+							local count = 0
+							for x in db:urows("SELECT COUNT(1) FROM saved_appearances UNION ALL SELECT COUNT(1) FROM blacklist_appearances") do
+								count = count + x
+							end
 
-						if delayTimer > delay then
-							delayTimer = 0.0
-							AMM.shouldCheckSavedAppearance = true
-							if buttonPressed then buttonPressed = false end
+							if count ~= 0 then
+								AMM:CheckSavedAppearance(target)
+								AMM.shouldCheckSavedAppearance = false
+							end
+							elseif AMM.shouldCheckSavedAppearance == false then
+							delayTimer = delayTimer + deltaTime
+							delay = 1.0
+
+							if buttonPressed then delay = 8 end
+
+							if delayTimer > delay then
+								delayTimer = 0.0
+								AMM.shouldCheckSavedAppearance = true
+								if buttonPressed then buttonPressed = false end
+							end
 						end
 					end
+
 
 					-- Trigger Sensing Check --
 					if not drawWindow and AMM.playerAttached then
@@ -1091,7 +1111,7 @@ function AMM:new()
 					-- Disable Photo Mode Restriction --
 					if AMM.userSettings.photoModeEnhancements then
 						if StatusEffectSystem.ObjectHasStatusEffectWithTag(Game.GetPlayer(), 'NoPhotoMode') then
-							Game.RemoveEffectPlayer('GameplayRestriction.NoPhotoMode')
+							Util:RemoveEffectOnPlayer('GameplayRestriction.NoPhotoMode')
 						end
 					end
 
@@ -1135,7 +1155,7 @@ function AMM:new()
 											end
 										end
 
-										if appParam.chunkMask ~= param.mesh_mask and not(string.find(param.app_name, "Underwear")) then						
+										if param.mesh_mask ~= 'no_change' and appParam.chunkMask ~= param.mesh_mask and not(string.find(param.app_name, "Underwear")) then						
 											if param.mesh_mask then
 												param.mesh_mask = loadstring("return "..param.mesh_mask, '')()
 												if appParam.chunkMask ~= 18446744073709551615ULL then
@@ -1148,9 +1168,17 @@ function AMM:new()
 											end
 										end
 
-										appParam:Toggle(false)
-										appParam:Toggle(true)
-										appParam:TemporaryHide(false)
+										if param.mesh_app then
+											Cron.After(0.1, function()
+												appParam:Toggle(false)
+												appParam:Toggle(true)
+												appParam:TemporaryHide(false)
+											end)
+										else
+											appParam:Toggle(false)
+											appParam:Toggle(true)
+											appParam:TemporaryHide(false)
+										end
 									elseif appParam then
 										if not param.app_toggle then
 											appParam.chunkMask = 18446744073709551615ULL
@@ -1352,7 +1380,7 @@ function AMM:Begin()
 				end
 			else
 				-- Target Setup --
-				local target = AMM:GetTarget()
+				local target = AMM.currentTarget
 
 				if ImGui.BeginTabBar("TABS") then
 
@@ -1630,6 +1658,7 @@ function AMM:DrawUISettingsTab(style)
 		for _, option in ipairs(AMM.customAppOptions) do
 			if ImGui.RadioButton(option, AMM.customAppPosition == option) then
 				AMM.customAppPosition = option
+				AMM.cachedAppearanceOptions = {}
 			end
 
 			ImGui.SameLine()
@@ -3279,9 +3308,12 @@ function AMM:GetAppearancesFromEntity(id)
 			args = {'whandle:ResourceToken'},
 			callback = function(token)
 				local template = token:GetResource()
+				local valueList = {}
 				for _, appearance in ipairs(template.appearances) do
-					db:execute(string.format("INSERT INTO appearances (entity_id, app_name) VALUES ('%s', '%s')", id, NameToString(appearance.name)))
+					table.insert(valueList, f("('%s', '%s')", id, NameToString(appearance.name)))
 				end
+
+				db:execute(f("INSERT INTO appearances (entity_id, app_name) VALUES " .. table.concat(valueList, ",")))
 				waiting[token:GetHash()] = nil
 			end
 		}
@@ -3314,6 +3346,10 @@ function AMM:GetAppearanceOptionsWithID(id, t)
 	if self.Swap.activeSwaps[id] ~= nil then
 	 	id = self.Swap.activeSwaps[id].newID
 	end
+
+	-- Return cached appearance options if available
+	-- That means less database access needed
+	if AMM.cachedAppearanceOptions[id] and AMM.Scan.searchQuery == '' then return AMM.cachedAppearanceOptions[id] end
 
 	if (t and t:IsPlayer()) or Util:CheckVByID(id) then return nil end
 
@@ -3356,6 +3392,7 @@ function AMM:GetAppearanceOptionsWithID(id, t)
 	end
 
 	if next(options) ~= nil then
+		if AMM.Scan.searchQuery == '' then AMM.cachedAppearanceOptions[id] = options end
 		return options -- array of appearances names
 	end
 
@@ -3558,7 +3595,7 @@ function AMM:GetTarget()
 			end
 
 			if t ~= nil and t.name ~= "gameuiWorldMapGameObject" and t.name ~= "ScriptedWeakspotObject" then
-				AMM:SetCurrentTarget(t)
+				-- AMM:SetCurrentTarget(t)
 				AMM:CreateBusInteractionPrompt(t)
 				return t
 			end

@@ -352,16 +352,7 @@ function Tools:DrawVActions()
       AMM:UpdateSettings()
     end
 
-    local buttonLabel = "Infinite Oxygen"
-    local isInfiniteOxygenEnabled = Tools.infiniteOxygen
-    if isInfiniteOxygenEnabled then
-      buttonLabel = "Reload To Disable"
-      ImGui.PushStyleColor(ImGuiCol.Button, 0.56, 0.06, 0.03, 0.25)
-			ImGui.PushStyleColor(ImGuiCol.ButtonHovered, 0.56, 0.06, 0.03, 0.25)
-			ImGui.PushStyleColor(ImGuiCol.ButtonActive, 0.56, 0.06, 0.03, 0.25)
-    end
-
-    if ImGui.Button(buttonLabel, Tools.style.halfButtonWidth, Tools.style.buttonHeight) then
+    if ImGui.Button("Infinite Oxygen", Tools.style.halfButtonWidth, Tools.style.buttonHeight) then
       if not Tools.infiniteOxygen then
         Tools.infiniteOxygen = not Tools.infiniteOxygen
         
@@ -371,10 +362,6 @@ function Tools:DrawVActions()
           Game.GetStatPoolsSystem():RequestAddingStatPool(Game.GetPlayer():GetEntityID(), TweakDBID.new("BaseStatPools.Player_Oxygen_Base"), true)
         end
       end
-    end
-
-    if isInfiniteOxygenEnabled then
-      ImGui.PopStyleColor(3)
     end
 
     ImGui.SameLine()
@@ -2314,7 +2301,7 @@ function Tools:DrawTimeActions()
     AMM.UI:TextError("Weather Control requires Codeware 1.4+")
   end
 
-  ImGui.Spacing()
+  AMM.UI:Spacing(3)
 
   local gameTime = Tools:GetCurrentHour()
   Tools.timeValue = Tools:ConvertTime(gameTime)
@@ -2392,18 +2379,20 @@ function Tools:DrawTimeActions()
     ImGui.Spacing()
     if ImGui.Button(buttonLabel, Tools.style.buttonWidth, Tools.style.buttonHeight) then
       Tools.pauseTime = not Tools.pauseTime
-      Tools:SetRelicEffect(false)
+      Game.GetTimeSystem():SetPausedState(Tools.pauseTime, "consoleCommand")
 
-      local currentTime = Tools.timeValue
-      Cron.Every(5, function(timer)
-        Tools:SetTime(currentTime)
-        if not Tools.pauseTime then
-          Cron.After(60.0, function()
-            Tools:SetRelicEffect(true)
-          end)
-          Cron.Halt(timer)
-        end
-      end)
+      -- Tools:SetRelicEffect(false)
+
+      -- local currentTime = Tools.timeValue
+      -- Cron.Every(5, function(timer)
+      --   Tools:SetTime(currentTime)
+      --   if not Tools.pauseTime then
+      --     Cron.After(60.0, function()
+      --       Tools:SetRelicEffect(true)
+      --     end)
+      --     Cron.Halt(timer)
+      --   end
+      -- end)
     end
 
     local buttonLabel = "Unfreeze Time"
@@ -2453,7 +2442,7 @@ function Tools:FreezeTime()
       Tools:SetSlowMotionSpeed(Tools.slowMotionSpeed)
     else
       Game.GetTimeSystem():SetIgnoreTimeDilationOnLocalPlayerZero(false)
-      Game.GetTimeSystem():SetTimeDilation("consoleCommand", 1)
+      Game.GetTimeSystem():UnsetTimeDilation("consoleCommand", "None")
       Tools.slowMotionSpeed = 1
     end
   end

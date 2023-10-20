@@ -391,7 +391,7 @@ function Scan:DrawTargetActions(target)
       end
     end
 
-    if Scan.companionDriver ~= '' and mountedVehicle then
+    if Scan.companionDriver and mountedVehicle then
       ImGui.SameLine()
       if ImGui.Button("  Toggle Camera  ", style.halfButtonWidth, style.buttonHeight - 5) then
         Scan:ToggleVehicleCamera()
@@ -516,7 +516,7 @@ function Scan:DrawListOfAppearances(target)
 end
 
 function Scan:DrawAppearanceOptions(target, options)
-  AMM.UI:List('', #options, AMM.UI.style.buttonHeight - 8, function(i)
+  AMM.UI:List('', #options, AMM.UI.style.buttonHeight, function(i)
     local appearance = options[i]
     if (ImGui.Button(appearance)) then
       AMM:ChangeAppearanceTo(target, appearance)
