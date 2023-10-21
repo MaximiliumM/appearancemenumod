@@ -2589,17 +2589,26 @@ end
 local typeDirectory = 'directory'
 local extensionLua = '.lua$'
 
+function extractFileName(path)
+    local parts = {}
+    for part in string.gmatch(path, "([^\\]+)") do
+        table.insert(parts, part)
+    end
+    return parts[#parts]
+end
+
 local function getFilesRecursively(_dir, tbl)
   tbl = tbl or {}
   local files = dir(_dir)
   if #files == 0 then return tbl end
   for _, file in ipairs(files) do
+  	local filename = extractFileName(filename)
     -- if it's a directory: call recursive
     if file.type == typeDirectory then 
-      getFilesRecursively(_dir .. '/' .. file.name, tbl)
+      getFilesRecursively(_dir .. '/' .. filename, tbl)
     -- if it's a lua file: add to return list
-    elseif string.find(file.name, extensionLua) then
-      table.insert(tbl, _dir .. '/' .. file.name)
+    elseif string.find(filename, extensionLua) then
+      table.insert(tbl, _dir .. '/' .. filename)
     end
   end
   return tbl
