@@ -95,54 +95,55 @@ function Entity:GetAngles()
 end
 
 function Entity:Despawn()
-  -- Handle AMM Object
-  if AMM.Tools.currentTarget.hash == self.hash then
-    AMM.Tools.currentTarget = ''
+  if self.handle then
+    -- Handle AMM Object
+    if AMM.Tools.currentTarget.hash == self.hash then
+      AMM.Tools.currentTarget = ''
 
-    if AMM.Tools.axisIndicator then
-      AMM.Tools:ToggleAxisIndicator()
-    end
-  end
-
-  if AMM.Tools.directMode then
-    AMM.Tools:CheckIfDirectModeShouldBeDisabled(self.hash)
-  end
-
-  if AMM.Poses.activeAnims[self.hash] then
-    AMM.Poses:StopAnimation(AMM.Poses.activeAnims[self.hash])
-  end
-
-  if AMM.Light:IsAMMLight(self) then
-    if Light.stickyMode and self.id == Light.activeLight.id then
-      Light.stickyMode = false
-      Light.camera = nil
+      if AMM.Tools.axisIndicator then
+        AMM.Tools:ToggleAxisIndicator()
+      end
     end
 
-    if Light.activeCameras[self.hash] then
-      local camera = Light.activeCameras[self.hash]
-      camera:Despawn()
-      Light.activeCameras[self.hash] = nil
+    if AMM.Tools.directMode then
+      AMM.Tools:CheckIfDirectModeShouldBeDisabled(self.hash)
     end
-  end
-  
-  if self.type == "NPCPuppet" or self.type == "Spawn" then
-    AMM.Spawn:DespawnNPC(self)
-  elseif self.type == "Prop" or self.type == "entEntity" then
-    AMM.Props:DespawnProp(self)
-  end
 
-  -- Handle Game Entity
-  self.handle:Dispose()
+    if AMM.Poses.activeAnims[self.hash] then
+      AMM.Poses:StopAnimation(AMM.Poses.activeAnims[self.hash])
+    end
 
-  getEntitySystem():DeleteEntity(self.entityID)
+    if AMM.Light:IsAMMLight(self) then
+      if Light.stickyMode and self.id == Light.activeLight.id then
+        Light.stickyMode = false
+        Light.camera = nil
+      end
 
-  local entityID = self.handle:GetEntityID()
-  local entity = Game.FindEntityByID(entityID)
-  if entity then
+      if Light.activeCameras[self.hash] then
+        local camera = Light.activeCameras[self.hash]
+        camera:Despawn()
+        Light.activeCameras[self.hash] = nil
+      end
+    end
+    
+    if self.type == "NPCPuppet" or self.type == "Spawn" then
+      AMM.Spawn:DespawnNPC(self)
+    elseif self.type == "Prop" or self.type == "entEntity" then
+      AMM.Props:DespawnProp(self)
+    end
+
+    -- Handle Game Entity
+    self.handle:Dispose()
+
     getEntitySystem():DeleteEntity(self.entityID)
-    -- entity:GetEntity():Destroy()
-  end
 
+    local entityID = self.handle:GetEntityID()
+    local entity = Game.FindEntityByID(entityID)
+    if entity then
+      getEntitySystem():DeleteEntity(self.entityID)
+      -- entity:GetEntity():Destroy()
+    end
+  end
 
   self.spawned = false
   self = nil

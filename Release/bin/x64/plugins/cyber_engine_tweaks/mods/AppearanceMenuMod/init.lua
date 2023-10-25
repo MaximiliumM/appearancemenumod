@@ -75,7 +75,7 @@ function AMM:new()
 	 AMM.nibblesReplacer = false
 
 	 -- Main Properties --
-	 AMM.currentVersion = "2.4.3"
+	 AMM.currentVersion = "2.4.4"
 	 AMM.CETVersion = parseVersion(GetVersion())
 	 AMM.CodewareVersion = nil
 	 AMM.updateNotes = require('update_notes.lua')
@@ -165,7 +165,11 @@ function AMM:new()
 		 buttonPressed = false
 		 finishedUpdate = AMM:CheckDBVersion()
 
-		 AMM.CodewareVersion = parseVersion(Codeware.Version())
+		 if Codeware then
+		 	AMM.CodewareVersion = parseVersion(Codeware.Version())
+		 else
+			log("Codeware isn't loaded.")
+		 end
 
 		 if AMM.Debug ~= '' then
 			AMM.player = Game.GetPlayer()
@@ -1450,6 +1454,13 @@ function AMM:Begin()
 							AMM:DrawUISettingsTab(style)
 							AMM:DrawExperimentalSettingsTab(style)
 
+							if Tools.replacer then
+								if ImGui.BeginTabItem("Photo Mode Nibbles Replacer") then
+									AMM.Tools.DrawNibblesReplacer()
+									ImGui.EndTabItem()
+								end
+							end
+
 							ImGui.EndTabBar()      
 						end
 
@@ -2505,10 +2516,10 @@ function AMM:SetupExtraFromArchives()
 			local uid = "AMM"
 			local valueList = {}
 			for _, app in ipairs(appearances) do
-				table.insert(valueList, f("('%s', '%s')", entity_id, app))
+				table.insert(valueList, f('("%s", "%s", "%s")', entity_id, app, uid))
 			end
 
-			db:execute(f("INSERT INTO appearances (entity_id, app_name) VALUES " .. table.concat(valueList, ",")))
+			db:execute(f('INSERT INTO appearances (entity_id, app_name, collab_tag) VALUES ' .. table.concat(valueList, ",")))
 			
 
 		-- Setup Bryce appearances

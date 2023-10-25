@@ -260,7 +260,7 @@ function Tools:Draw(AMM, t)
 
     if AMM.nibblesReplacer then
       Tools.actionCategories = {
-        { name = "Photo Mode Nibbles Replacer", actions = Tools.DrawNibblesReplacer },
+        -- { name = "Photo Mode Nibbles Replacer", actions = Tools.DrawNibblesReplacer },
         { name = "Target Actions", actions = Tools.DrawNPCActions },
         { name = "Teleport Actions", actions = Tools.DrawTeleportActions },
         { name = "Time & Weather Actions", actions = Tools.DrawTimeActions },
@@ -2607,6 +2607,13 @@ function Tools:DrawNibblesReplacer()
         ImGui.SameLine()
       end
     end
+
+    AMM.UI:Spacing(3)
+
+    if ImGui.Button("Reset Replacer Database", Tools.style.halfButtonWidth, Tools.style.buttonHeight) then
+      db:execute("DELETE FROM appearances WHERE collab_tag = 'Replacer'")
+      Tools:SetupReplacerAppearances()
+    end
   end
 end
 
@@ -2696,18 +2703,38 @@ function Tools:PrepareCategoryHeadersForNibblesReplacer(options)
   return Tools.cachedReplacerOptions
 end
 
+local seen = {}
+local duplicates = {}
+
 function Tools:SetupReplacerAppearances()
   log('Setting up Replacer')
 
   local appearances = Tools.replacer.appearances
   if appearances ~= nil then
     for ent, apps in pairs(appearances) do
-      local valueList = {}
-      for _, app in ipairs(apps) do
-        table.insert(valueList, f("('%s', '%s', '%s')", AMM:GetScanID(ent), app, "Replacer"))
+      if not seen[ent] then
+        seen[ent] = {}
       end
 
-      db:execute(f("INSERT INTO appearances (entity_id, app_name, collab_tag) VALUES " .. table.concat(valueList, ",")))
+      local valueList = {}
+      for _, app in ipairs(apps) do
+        if seen[ent][app] then
+          table.insert(duplicates, app)
+        else
+          seen[ent][app] = true
+          table.insert(valueList, f("('%s', '%s', '%s')", AMM:GetScanID(ent), app, "Replacer"))
+        end
+      end
+      
+      local sql = f("INSERT INTO appearances (entity_id, app_name, collab_tag) VALUES " .. table.concat(valueList, ","))
+      local result = db:execute(sql)
+    end
+  end
+
+  if #duplicates > 0 then
+    print("[AMM Info] Found duplicates in Nibbles Replacer file")
+    for _, item in ipairs(duplicates) do
+      print("Duplicate found: " .. item)
     end
   end
 end

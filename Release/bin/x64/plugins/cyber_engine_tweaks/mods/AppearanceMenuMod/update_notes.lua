@@ -1,7 +1,16 @@
 return {
 	{
+		'2.4.4',
+		'2023 Oct 25',
+		[[Moved Nibbles Replacer options to Settings tab]],
+		[[Added a button to Reset Replacer Database in case the system doesn't update itself]],
+		[[Added error logging when adding Replacer appearances to find duplicates]],
+		[[Fixed issue where Nibbles Replacer duplicates could break the entire thing]],
+		[[Fixed issue where Cheri extra appearances would be displayed even without the AMM_Cheri_Appearances archive]],
+	},
+	{
 		'2.4.3',
-		'2023 Oct 22',
+		'2023 Oct 24',
 		[[Added more Characters including FSS Robot, Orbital Air Pilot, Barghest Citizen, Black Ops Operative, and a little something called Chimera]],
 		[[Added all Player Vehicles to Spawn tab]],
 		[[Split the basegame_AMM_requirement archive into individual archives:]],
