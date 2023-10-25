@@ -12,6 +12,31 @@ local target = nil
 -- Constant --
 local PLAYER_TRIGGER_DIST = 5
 
+-- Calculate delay based on framerate
+local function calculateDelay(base)
+  local currentFPS = 1 / AMM.deltaTime
+  local targetFPS = 30
+  local baseDelay = base
+  local maxDelay = base + 10
+
+  -- Calculate the scaling factor
+  local scalingFactor = 0.2 -- You can adjust this factor based on your preference
+
+  -- Calculate the adjusted delay
+  local adjustedDelay = baseDelay + (currentFPS - targetFPS) * scalingFactor
+
+  -- Ensure the delay is not lower than base delay
+  if adjustedDelay < base then
+      adjustedDelay = base
+
+  -- Ensure the delay isn't too high
+  elseif adjustedDelay > maxDelay then
+    adjustedDelay = maxDelay
+  end
+
+  return adjustedDelay
+end
+
 function Tools:new()
 
   -- Layout Properties
@@ -105,6 +130,7 @@ function Tools:new()
   Tools.nibblesOG = nil
   Tools.selectedNibblesEntity = 1
   Tools.replacer = require("Collabs/Photomode_NPCs_AMM.lua")
+  Tools.replacerVersion = nil
   Tools.nibblesEntityOptions = {}
 
   -- PME Properties --
@@ -183,11 +209,32 @@ function Tools:Initialize()
 
   -- Setup Nibbles Replacer --
   if Tools.replacer then
+
+    -- Check if Replacer appearances are in the database
+    local check = 0
+		for count in db:urows([[SELECT COUNT(1) FROM appearances WHERE collab_tag = "Replacer"]]) do
+			check = count
+		end
+
+    -- If appearances are available, check if version has changed
+    if check ~= 0 then
+      if (Tools.replacerVersion and Tools.replacer.version and Tools.replacer.version > Tools.replacerVersion) then
+        -- Delete appearances if version has changed
+        db:execute("DELETE FROM appearances WHERE collab_tag = 'Replacer'")
+        Tools:SetupReplacerAppearances()
+      end
+    else -- appearances aren't available so setup them
+      Tools:SetupReplacerAppearances()
+    end
+    
+    Tools.replacerVersion = Tools.replacer.version
     Tools.nibblesEntityOptions = Tools.replacer.entityOptions
-    Tools:SetupReplacerAppearances()
 
     local selectedEntity = Tools.nibblesEntityOptions[Tools.selectedNibblesEntity]
     Tools:UpdateNibblesEntity(selectedEntity.ent)
+  else
+    -- Delete appearances in case the Replacer was uninstalled
+    db:execute("DELETE FROM appearances WHERE collab_tag = 'Replacer'")
   end
 end
 
@@ -371,7 +418,7 @@ function Tools:DrawVActions()
 
     if AMM.userSettings.experimental then
       if ImGui.Button("Toggle TPP Camera", Tools.style.buttonWidth, Tools.style.buttonHeight) then
-        Tools:ToggleTPPCamera()
+        Tools:ToggleTPPCamera(true)
       end
 
       if ImGui.IsItemHovered() then
@@ -517,7 +564,7 @@ function Tools:ToggleGodMode()
 
   -- Toggles
   local toggle = boolToInt(Tools.godModeToggle)
-  Util:InfiniteStamina(Tools.godModeToggle)
+  -- Util:InfiniteStamina(Tools.godModeToggle)
   Util:ModStatPlayer("KnockdownImmunity", toggle)
   Util:ModStatPlayer("PoisonImmunity", toggle)
   Util:ModStatPlayer("BurningImmunity", toggle)
@@ -550,37 +597,60 @@ function Tools:ToggleAnimatedHead(animated)
   end
 end
 
-function Tools:ToggleTPPCamera()
+local toggleHeadInProgress = false
+
+function Tools:ToggleTPPCamera(userActivated)
+
+  if (AMM.playerInVehicle or toggleHeadInProgress) and userActivated then
+    return
+  end
+
   AMM.Tools.TPPCamera = not AMM.Tools.TPPCamera
 
+  Tools:ToggleHead()
+
   if Tools.TPPCamera then
-    Cron.After(0.1, function()
-      Game.GetPlayer():GetFPPCameraComponent():SetLocalPosition(Tools.TPPCameraOptions[Tools.selectedTPPCamera].vec)
-      Game.GetPlayer():GetFPPCameraComponent():SetLocalOrientation(Tools.TPPCameraOptions[Tools.selectedTPPCamera].rot)
+    Cron.Every(0.1, function(timer)
+      if not toggleHeadInProgress then
+        Cron.After(0.1, function()
+          Game.GetPlayer():GetFPPCameraComponent():SetLocalPosition(Tools.TPPCameraOptions[Tools.selectedTPPCamera].vec)
+          Game.GetPlayer():GetFPPCameraComponent():SetLocalOrientation(Tools.TPPCameraOptions[Tools.selectedTPPCamera].rot)
+        end)
+
+        Cron.Halt(timer)
+      end
     end)
 
     Cron.Every(0.1, function(timer)
-      if Tools.TPPCamera then
+      if Tools.TPPCamera and not toggleHeadInProgress then
         Game.GetPlayer():GetFPPCameraComponent():SetLocalPosition(Tools.TPPCameraOptions[Tools.selectedTPPCamera].vec)
         Game.GetPlayer():GetFPPCameraComponent():SetLocalOrientation(Tools.TPPCameraOptions[Tools.selectedTPPCamera].rot)
         Game.GetPlayer():GetFPPCameraComponent().pitchMax = 80
         Game.GetPlayer():GetFPPCameraComponent().pitchMin = -80
         Game.GetPlayer():GetFPPCameraComponent().yawMaxRight = -360
         Game.GetPlayer():GetFPPCameraComponent().yawMaxLeft = 360
-      else
+      elseif not Tools.TPPCamera then
         Game.GetPlayer():GetFPPCameraComponent():SetLocalPosition(Vector4.new(0.0, 0, 0, 1.0))
         Game.GetPlayer():GetFPPCameraComponent():SetLocalOrientation(Quaternion.new(0.0, 0.0, 0.0, 1.0))
         Cron.Halt(timer)
       end
     end)
   end
-
-  Tools:ToggleHead()
 end
 
 function Tools:ToggleHead(userActivated)
-  if AMM.playerInVehicle and userActivated then
+ 
+  if (AMM.playerInVehicle or toggleHeadInProgress) and userActivated then
     return
+  end
+
+  toggleHeadInProgress = true
+
+  local playerIsLeavingVehicle = AMM.Tools.TPPCameraBeforeVehicle
+  local delay = calculateDelay(5)
+
+  if playerIsLeavingVehicle then
+    delay = calculateDelay(20)
   end
 
   Tools.tppHead = not Tools.tppHead
@@ -601,30 +671,56 @@ function Tools:ToggleHead(userActivated)
     Util:AddToInventory(headItem)
   end
 
-  ts:AddItemToSlot(Game.GetPlayer(), slot, itemID)
+  if AMM.playerInVehicle then
+    ts:ChangeItemAppearanceByName(Game.GetPlayer(), itemID, "default&TPP")
+  end
+
+  ts:RemoveItemFromSlot(Game.GetPlayer(), slot, true, true, true)
 
   if Tools.tppHead then
     Cron.Every(0.001, { tick = 1 }, function(timer)
-
       timer.tick = timer.tick + 1
 
-      if timer.tick > 20 then
+      if timer.tick > delay or not Tools.tppHead then
+        Cron.After(0.1, function()
+          toggleHeadInProgress = false
+          Cron.Halt(timer)
+        end)
+      end
+
+      Cron.After(0.001, function()
+          ts:RemoveItemFromSlot(Game.GetPlayer(), slot, true, true, true)
+      end)
+
+      Cron.After(0.1, function()
+        if ts:GetItemInSlot(Game.GetPlayer(), slot) == nil then
+          ts:AddItemToSlot(Game.GetPlayer(), slot, itemID)
+        end
+
+      end)
+    end)
+  else
+    Cron.Every(0.001, { tick = 1 }, function(timer)
+      ts:ChangeItemAppearanceByName(Game.GetPlayer(), itemID, "default&FPP")
+      
+      timer.tick = timer.tick + 1
+      
+      if timer.tick > delay then
+        toggleHeadInProgress = false
         Cron.Halt(timer)
       end
 
-      Cron.After(0.01, function()
+      Cron.After(0.001, function()
         ts:RemoveItemFromSlot(Game.GetPlayer(), slot, true, true, true)
       end)
 
       Cron.After(0.1, function()
-        ts:AddItemToSlot(Game.GetPlayer(), slot, itemID)
+        if ts:GetItemInSlot(Game.GetPlayer(), slot) == nil then
+          ts:AddItemToSlot(Game.GetPlayer(), slot, fppHead)
+          ts:ChangeItemAppearanceByName(Game.GetPlayer(), fppHead, "default&FPP")
+        end
       end)
     end)
-  else
-    if ts:GetItemInSlot(Game.GetPlayer(), slot) ~= nil then
-      ts:RemoveItemFromSlot(Game.GetPlayer(), slot, true, true, true)
-      ts:AddItemToSlot(Game.GetPlayer(), slot, fppHead)
-    end
   end
 end
 
@@ -2578,13 +2674,21 @@ function Tools:PrepareCategoryHeadersForNibblesReplacer(options)
       if v then table.insert(headers, {name = k, options = categories[k]}) end
     end
 
+    local headersWithoutFavorites = {}
+
     for k, v in pairs(categories) do
       if not(favorites[k]) then
-        table.insert(headers, {name = k, options = v})
+        table.insert(headersWithoutFavorites, {name = k, options = v})
       end
     end
 
-    table.sort(headers, function(a, b) return a.name < b.name end)
+    -- Sort headers alphabetically
+    table.sort(headersWithoutFavorites, function(a, b) return a.name < b.name end)
+
+    -- Merge headers without favorites and favorites
+    for _, category in ipairs(headersWithoutFavorites) do
+      table.insert(headers, category)
+    end
 
     Tools.cachedReplacerOptions = headers
   end
@@ -2593,12 +2697,17 @@ function Tools:PrepareCategoryHeadersForNibblesReplacer(options)
 end
 
 function Tools:SetupReplacerAppearances()
+  log('Setting up Replacer')
+
   local appearances = Tools.replacer.appearances
   if appearances ~= nil then
     for ent, apps in pairs(appearances) do
+      local valueList = {}
       for _, app in ipairs(apps) do
-        db:execute(f('INSERT INTO appearances (entity_id, app_name, collab_tag) VALUES ("%s", "%s", "%s")', AMM:GetScanID(ent), app, "Replacer"))
+        table.insert(valueList, f("('%s', '%s', '%s')", AMM:GetScanID(ent), app, "Replacer"))
       end
+
+      db:execute(f("INSERT INTO appearances (entity_id, app_name, collab_tag) VALUES " .. table.concat(valueList, ",")))
     end
   end
 end

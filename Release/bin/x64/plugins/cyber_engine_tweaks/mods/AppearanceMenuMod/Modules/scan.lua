@@ -45,6 +45,9 @@ local Scan = {
   shouldSenseOnce = false,
 }
 
+-- Keep track of last target
+local lastTarget = nil
+
 -- Hack to fix dumb stuff as well
 local style = nil
 
@@ -70,6 +73,7 @@ end
 
 function Scan:Draw(AMM, target, s)
   if ImGui.BeginTabItem("Scan") then
+
     style = s
 
     -- Util Popup Helper --
@@ -104,6 +108,13 @@ function Scan:Draw(AMM, target, s)
     AMM.settings = false
 
     if target ~= nil then
+
+      if lastTarget and lastTarget.id ~= target.id then
+        lastTarget = target
+        Scan.currentSavedApp = nil
+      elseif lastTarget == nil then
+        lastTarget = target
+      end
 
       ImGui.Spacing()
 
@@ -164,7 +175,7 @@ function Scan:Draw(AMM, target, s)
       ImGui.NewLine()
 
       ImGui.PushTextWrapPos()
-      ImGui.TextColored(1, 0.16, 0.13, 0.75, "No Target! Look at NPC, Vehicle or Object to begin")
+      ImGui.TextColored(1, 0.16, 0.13, 0.75, AMM.LocalizableString["Warning_NoTarget_Desc"])
       ImGui.PopTextWrapPos()
 
       ImGui.NewLine()
@@ -504,7 +515,7 @@ function Scan:DrawListOfAppearances(target)
         local categoryHeader = ImGui.CollapsingHeader(category.name.."##"..i)
   
         if categoryHeader then
-          Scan:DrawAppearanceOptions(target, category.options)
+          Scan:DrawAppearanceOptions(target, category.options, i)
         end
       end
     else
@@ -515,8 +526,8 @@ function Scan:DrawListOfAppearances(target)
   end
 end
 
-function Scan:DrawAppearanceOptions(target, options)
-  AMM.UI:List('', #options, AMM.UI.style.buttonHeight, function(i)
+function Scan:DrawAppearanceOptions(target, options, categoryIndex)
+  AMM.UI:List(''..'##'..(categoryIndex or 1), #options, AMM.UI.style.buttonHeight, function(i)
     local appearance = options[i]
     if (ImGui.Button(appearance)) then
       AMM:ChangeAppearanceTo(target, appearance)

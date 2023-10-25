@@ -44,6 +44,17 @@ function boolToInt(value)
   return value and 1 or 0
 end
 
+local function parseVersion(str)
+	local major, minor = str:match("1.(%d+)%.*(%d*)")
+	if major then
+		minor = minor or "0" -- If minor is not present, assume it's "0"
+		local result = major .. "." .. minor
+		return tonumber(result) -- This will return "5.0" for "1.5"
+	else
+		print("Version format not recognized")
+	end
+end
+
 function AMM:new()
 
 	 -- Load Debug --
@@ -64,8 +75,8 @@ function AMM:new()
 	 AMM.nibblesReplacer = false
 
 	 -- Main Properties --
-	 AMM.currentVersion = "2.4.2"
-	 AMM.CETVersion = tonumber(GetVersion():match("1.(%d+)."))
+	 AMM.currentVersion = "2.4.3"
+	 AMM.CETVersion = parseVersion(GetVersion())
 	 AMM.CodewareVersion = nil
 	 AMM.updateNotes = require('update_notes.lua')
 	 AMM.credits = require("credits.lua")
@@ -123,6 +134,7 @@ function AMM:new()
 	 AMM.ignoreAllWarnings = false
 	 AMM.shouldCheckSavedAppearance = true
 	 AMM.importInProgress = false
+	 AMM.deltaTime = 0
 
 	 -- Load Modules --
 	 AMM.API = require("Collabs/API.lua")
@@ -133,6 +145,11 @@ function AMM:new()
 	 AMM.Props = require('Modules/props.lua')
 	 AMM.Director = require('Modules/director.lua')
 	 AMM.Poses = require('Modules/anims.lua')
+
+	 -- Load Localization Files
+	 AMM.LocalizableString = require("Localization/en_US.lua")
+	 AMM.availableLanguages = AMM:GetLocalizationLanguages()
+	 AMM.selectedLanguage = 1
 
 	 -- Loads Objects --
 	 AMM.Light = require('Modules/light.lua')
@@ -148,7 +165,7 @@ function AMM:new()
 		 buttonPressed = false
 		 finishedUpdate = AMM:CheckDBVersion()
 
-		 AMM.CodewareVersion = tonumber(Codeware.Version():match("1.(%d+)."))
+		 AMM.CodewareVersion = parseVersion(Codeware.Version())
 
 		 if AMM.Debug ~= '' then
 			AMM.player = Game.GetPlayer()
@@ -162,8 +179,13 @@ function AMM:new()
 		 -- Setup Nibbles Replacer --
 		 if ModArchiveExists("Photomode_NPCs_AMM.archive") then
 			AMM.nibblesReplacer = true
-		 end
+		 end		 
+
+		 -- Setup content that requires specific archives
+		 AMM.archivesInfo = AMM:CheckMissingArchives()
+		 AMM:SetupExtraFromArchives()
 		 
+		 -- Setup AMM Characters and Collab features
 		 AMM:SetupCustomProps()
 		 AMM:SetupCustomEntities()
 		 AMM:SetupCustomPoses()
@@ -172,7 +194,6 @@ function AMM:new()
 		 AMM.customAppDefaults = AMM:GetCustomAppearanceDefaults()
 
 		 -- Initialization
-		 AMM.archivesInfo = AMM:CheckMissingArchives()
 		 AMM.Spawn:Initialize()
 		 AMM.Scan:Initialize()
 		 AMM.Tools:Initialize()
@@ -180,9 +201,6 @@ function AMM:new()
 		 AMM.Props:Initialize()
 		 AMM.Props:Update()
 		 AMM:SBInitialize()
-
-		 -- Setup content that requires specific archives
-		 AMM:SetupExtraFromArchives()
 
 		 -- Poses should be initialized after extra archives
 		 AMM.Poses:Initialize()
@@ -996,6 +1014,8 @@ function AMM:new()
 	 local frameCounter = 0
 
 	 registerForEvent("onUpdate", function(deltaTime)
+		 AMM.deltaTime = deltaTime
+
 		 -- Setup Travel Mod API --
 		 local mod = GetMod("gtaTravel")
 		 if mod ~= nil and AMM.TeleportMod == nil then
@@ -1148,6 +1168,10 @@ function AMM:new()
 								for _, param in ipairs(customAppearance) do
 									local appParam = handle:FindComponentByName(CName.new(param.app_param))
 									if param.mesh_type == "body" then
+										if param.mesh_path and AMM.CodewareVersion >= 4.2 then
+											appParam:ChangeResource(param.mesh_path)
+										end
+
 										if param.mesh_app then
 											appParam.meshAppearance = CName.new(param.mesh_app)
 											if AMM.CodewareVersion >= 4 and appParam.LoadAppearance then
@@ -1155,7 +1179,7 @@ function AMM:new()
 											end
 										end
 
-										if param.mesh_mask ~= 'no_change' and appParam.chunkMask ~= param.mesh_mask and not(string.find(param.app_name, "Underwear")) then						
+										if param.mesh_mask ~= 'no_change' and appParam.chunkMask ~= param.mesh_mask and not(string.find(param.app_name, "Underwear")) then
 											if param.mesh_mask then
 												param.mesh_mask = loadstring("return "..param.mesh_mask, '')()
 												if appParam.chunkMask ~= 18446744073709551615ULL then
@@ -1168,7 +1192,7 @@ function AMM:new()
 											end
 										end
 
-										if param.mesh_app then
+										if param.mesh_app or param.mesh_path then
 											Cron.After(0.1, function()
 												appParam:Toggle(false)
 												appParam:Toggle(true)
@@ -1651,6 +1675,25 @@ function AMM:DrawUISettingsTab(style)
 			end
 		end
 
+
+		if #AMM.availableLanguages > 1 then
+			AMM.UI:Spacing(3)
+
+			AMM.UI:TextColored("Interface Language:")
+
+			local selectedLanguage = AMM.availableLanguages[AMM.selectedLanguage]
+			if ImGui.BeginCombo(" ##Interface Language", selectedLanguage.name) then
+				for i, lang in ipairs(AMM.availableLanguages) do
+					if ImGui.Selectable(lang.name.."##"..i, (lang == selectedLanguage.name)) then
+						AMM.selectedLanguage = i
+						AMM.LocalizableString = lang.strings
+						AMM:UpdateSettings()
+					end
+				end
+				ImGui.EndCombo()
+			end
+		end
+
 		AMM.UI:Spacing(3)
 
 		AMM.UI:TextColored("Custom Appearances:")
@@ -1722,6 +1765,7 @@ function AMM:DrawUISettingsTab(style)
 				AMM.selectedTheme = "Default"
 			end
 		end
+
 		ImGui.EndTabItem()
 	end
 end
@@ -1898,7 +1942,6 @@ function AMM:CheckMissingArchives()
 		if AMM.archives == nil then
 			AMM.archives = {
 				{name = "basegame_AMM_Props", desc = "Adds props, characters and vehicles. AMM won't launch without this.", active = true, optional = false},
-				{name = "basegame_AMM_requirement", desc = "Adds and fixes appearances for many characters.\nYou should install this.", active = true, optional = true},
 				{name = "basegame_johnny_companion", desc = "Adds Johnny Silverhand as a spawnable character.", active = true, optional = false},
 				{name = "basegame_AMM_ScenesPack", desc = "Adds 9358 scene animations to Poses system.\nDownload it on AMM's Nexus page.", active = true, optional = true, extra = true},
 				{name = "basegame_AMM_SoundEffects", desc = "Adds spawnable sound effects.", active = true, optional = true},
@@ -1908,16 +1951,23 @@ function AMM:CheckMissingArchives()
 				{name = "basegame_AMM_YorinobuPP", desc = "Adds a new naked appearance.", active = true, optional = true},
 				{name = "basegame_AMM_LizzyIncognito", desc = "Adds a new appearance.", active = true, optional = true},
 				{name = "basegame_AMM_MeredithXtra", desc = "Adds a new appearance.", active = true, optional = true},
-				{name = "basegame_AMM_Delamain_Fix", desc = "Adds full body to Delamain", active = true, optional = true},
-				{name = "basegame_texture_Cheri_SkinColorFix", desc = "Fixes Cheri's skin color.", active = true, optional = true},
+				{name = "basegame_AMM_Delamain_Fix", desc = "Adds full body to Delamain.", active = true, optional = true},
 				{name = "basegame_texture_HanakoNoMakeup", desc = "Allows AMM to remove Hanako's makeup when using Custom Appearance.", active = true, optional = true},
 				{name = "basegame_AMM_JudyBodyRevamp", desc = "Replaces Judy's body with a new improved one.", active = true, optional = true},
 				{name = "basegame_AMM_PanamBodyRevamp", desc = "Replaces Panam's body with a new improved one.", active = true, optional = true},
 				{name = "basegame_AMM_MistyBodyRevamp", desc = "Replaces Misty's body with a new improved one.\nDownload it on AMM's Nexus page.", active = true, optional = true, extra = true},
 				{name = "_1_Ves_HanakoFixedBodyNaked", desc = "Replaces Hanako's body with a new improved one.", active = true, optional = true},
-				{name = "AMM_Cheri_Appearances", desc = "Adds new appearances. Download it on AMM's Nexus page.", active = true, optional = true, extra = true},
 				{name = "PinkyDude_ANIM_FacialExpressions_FemaleV", desc = "Enables facial expressions tools on Female V", active = true, optional = true},
 				{name = "PinkyDude_ANIM_FacialExpressions_MaleV", desc = "Enables facial expressions tools on Male V", active = true, optional = true},
+				{name = "AMM_Dino_TattooFix", desc = "Replaces mesh and texture.", active = true, optional = true},
+				{name = "AMM_Songbird_BodyFix", desc = "Replaces body to fix grey area. Not perfect yet.", active = true, optional = true},
+				{name = "AMM_RitaWheeler_CombatEnabler", desc = "Replaces entity file in order to enable combat animations.", active = true, optional = true},
+				{name = "AMM_Cheri_Appearances", desc = "Adds new appearances. Download it on AMM's Nexus page.", active = true, optional = true, extra = true},
+				{name = "AMM_Bryce_Naked", desc = "Adds a new naked appearance. Download it on AMM's Nexus page.", active = true, optional = true, extra = true},
+				{name = "AMM_Evelyn_Naked", desc = "Fixes her body to allow naked appearance. Download it on AMM's Nexus page.", active = true, optional = true, extra = true},
+				{name = "AMM_Saburo_Appearances", desc = "Adds new appearances. Download it on AMM's Nexus page.", active = true, optional = true, extra = true},
+				{name = "AMM_TBug_Appearances", desc = "Adds new appearances. Download it on AMM's Nexus page.", active = true, optional = true, extra = true},
+				{name = "AMM_8ug8ear_Appearances", desc = "Adds new appearances. Download it on AMM's Nexus page.", active = true, optional = true, extra = true},
 			}
 
 			if #AMM.collabArchives > 0 then
@@ -2040,6 +2090,7 @@ function AMM:ImportUserData()
 				self.companionAttackMultiplier = userData['companionDamageMultiplier'] or 0
 				self.Poses.history = userData['posesHistory'] or {}
 				self.Tools.selectedNibblesEntity = userData['selectedNibblesEntity'] or 1
+				self.Tools.replacerVersion = userData['replacerVersion']
 
 				if userData['settings'] ~= nil then
 					for _, obj in ipairs(userData['settings']) do
@@ -2184,6 +2235,7 @@ function AMM:ExportUserData()
 		userData['posesHistory'] = self.Poses.history
 		userData['savedPropsDisplayMode'] = self.Props.savedPropsDisplayMode
 		userData['selectedNibblesEntity'] = self.Tools.selectedNibblesEntity
+		userData['replacerVersion'] = self.Tools.replacerVersion
 
 		local validJson, contents = pcall(function() return json.encode(userData) end)
 		if validJson and contents ~= nil then
@@ -2419,18 +2471,19 @@ function AMM:UpdateOldFavorites()
 		count = x
 	end
 
-	db:execute(f("UPDATE sqlite_sequence SET seq = %i WHERE name = 'favorites'", count))
+	db:execute(f("UPDATE sqlite_sequence SET seq = %i WHERE name = 'favorites'", count - 1))
 
 	for x in db:urows('SELECT COUNT(1) FROM favorites_props') do
 		count = x
 	end
 
-	db:execute(f("UPDATE sqlite_sequence SET seq = %i WHERE name = 'favorites_props'", count))
+	db:execute(f("UPDATE sqlite_sequence SET seq = %i WHERE name = 'favorites_props'", count - 1))
 end
 
 function AMM:SetupExtraFromArchives()
 
 	db:execute("DELETE FROM custom_appearances WHERE collab_tag = 'AMM'")
+	db:execute("DELETE FROM appearances WHERE collab_tag IS NOT NULL AND collab_tag IS NOT 'Replacer'")
 
 	for _, archive in ipairs(AMM.archives) do
 		-- Setup Misty appearances
@@ -2442,33 +2495,96 @@ function AMM:SetupExtraFromArchives()
 				db:execute(f('INSERT INTO appearances (entity_id, app_name, collab_tag) VALUES ("%s", "%s", "%s")', entity_id, app, uid))
 			end
 
-			db:execute([[INSERT INTO custom_appearances (entity_id, app_name, app_base, app_param, app_toggle, mesh_app, mesh_type, mesh_mask, collab_tag) VALUES ('0xA22A7797, 15', 'Custom Misty Naked No Choker', 'misty_naked', 'i1_048_wa_neck__ckoker', '0', NULL, 'item', NULL, 'AMM')]])
-			db:execute([[INSERT INTO custom_appearances (entity_id, app_name, app_base, app_param, app_toggle, mesh_app, mesh_type, mesh_mask, collab_tag) VALUES ('0xA22A7797, 15', 'Custom Misty Naked No Necklace', 'misty_naked', 'i1_001_wa_neck__misty0455', '0', NULL, 'item', NULL, 'AMM')]])
+			db:execute([[INSERT INTO custom_appearances (entity_id, app_name, app_base, app_param, app_toggle, mesh_app, mesh_type, mesh_mask, mesh_path, collab_tag) VALUES ('0xA22A7797, 15', 'Custom Misty Naked No Choker', 'misty_naked', 'i1_048_wa_neck__ckoker', '0', NULL, 'item', NULL, NULL, 'AMM')]])
+			db:execute([[INSERT INTO custom_appearances (entity_id, app_name, app_base, app_param, app_toggle, mesh_app, mesh_type, mesh_mask, mesh_path, collab_tag) VALUES ('0xA22A7797, 15', 'Custom Misty Naked No Necklace', 'misty_naked', 'i1_001_wa_neck__misty0455', '0', NULL, 'item', NULL, NULL, 'AMM')]])
 
 		-- Setup Cheri appearances
-		elseif archive.name == "AMM_Cheri_Appearances" and archive.active then			
+		elseif archive.name == "AMM_Cheri_Appearances" and archive.active then
 			local appearances = {"service__sexworker_wa_cheri_casual", "service__sexworker_wa_cheri_home", "service__sexworker_wa_cheri_panties", "service__sexworker_wa_cheri_date", "service__sexworker_wa_cheri_party"}
 			local entity_id = "0xBF76C44D, 29"
+			local uid = "AMM"
+			local valueList = {}
+			for _, app in ipairs(appearances) do
+				table.insert(valueList, f("('%s', '%s')", entity_id, app))
+			end
+
+			db:execute(f("INSERT INTO appearances (entity_id, app_name) VALUES " .. table.concat(valueList, ",")))
+			
+
+		-- Setup Bryce appearances
+		elseif archive.name == "AMM_Bryce_Naked" and archive.active then
+			local entity_id = "0x8EB4F79A, 29"
+			local uid = "AMM"
+
+			local sql = [[
+				INSERT INTO custom_appearances (entity_id, app_name, app_base, app_param, app_toggle, mesh_app, mesh_type, mesh_mask, mesh_path, collab_tag)
+				VALUES
+					('0x8EB4F79A, 29', 'Custom Bryce Topless', 'corpo__netwatch_ma__q110__bryce_mosley_naked', 't1_001_ma_shirt__netwatch_agent', '0', NULL, 'torso', NULL, NULL, 'AMM'),
+					('0x8EB4F79A, 29', 'Custom Bryce Topless', 'corpo__netwatch_ma__q110__bryce_mosley_naked', 't0_001_ma_body__netwatch_agent', '0', NULL, 'body', '18446742011118124815ULL', NULL, 'AMM'),
+					('0x8EB4F79A, 29', 'Custom Bryce No Pants', 'corpo__netwatch_ma__q110__bryce_mosley_naked', 'l1_001_ma_pants__netwatch_agent0430', '0', NULL, 'legs', NULL, NULL, 'AMM'),
+					('0x8EB4F79A, 29', 'Custom Bryce No Pants', 'corpo__netwatch_ma__q110__bryce_mosley_naked', 't0_001_ma_body__netwatch_agent', '0', NULL, 'body', NULL, NULL, 'AMM'),
+					('0x8EB4F79A, 29', 'Custom Bryce No Shoes', 'corpo__netwatch_ma__q110__bryce_mosley_naked', 's1_010_ma_shoe__elegant5827', '0', NULL, 'feet', NULL, NULL, 'AMM'),
+					('0x8EB4F79A, 29', 'Custom Bryce No Shoes', 'corpo__netwatch_ma__q110__bryce_mosley_naked', 't0_001_ma_body__netwatch_agent', '0', NULL, 'body', NULL, NULL, 'AMM'),
+					('0x8EB4F79A, 29', 'Custom Bryce Naked', 'corpo__netwatch_ma__q110__bryce_mosley_naked', 's1_010_ma_shoe__elegant5827', '0', NULL, 'feet', NULL, NULL, 'AMM'),
+					('0x8EB4F79A, 29', 'Custom Bryce Naked', 'corpo__netwatch_ma__q110__bryce_mosley_naked', 'l1_001_ma_pants__netwatch_agent0430', '0', NULL, 'legs', NULL, NULL, 'AMM'),
+					('0x8EB4F79A, 29', 'Custom Bryce Naked', 'corpo__netwatch_ma__q110__bryce_mosley_naked', 't1_001_ma_shirt__netwatch_agent', '0', NULL, 'torso', NULL, NULL, 'AMM'),
+					('0x8EB4F79A, 29', 'Custom Bryce Naked', 'corpo__netwatch_ma__q110__bryce_mosley_naked', 't0_001_ma_body__netwatch_agent', '0', NULL, 'body', NULL, NULL, 'AMM')
+			]]
+
+			db:execute(sql)
+
+		elseif archive.name == "AMM_8ug8ear_Appearances" and archive.active then
+			local appearances = {"8ug8ear_casual", "8ug8ear_naked"}
+			local entity_id = "0x5F7049F1, 31"
 			local uid = "AMM"
 			for _, app in ipairs(appearances) do
 				db:execute(f('INSERT INTO appearances (entity_id, app_name, collab_tag) VALUES ("%s", "%s", "%s")', entity_id, app, uid))
 			end
 
-		-- Setup 8ug8ear appearances
-		elseif archive.name == "basegame_AMM_requirement" and archive.active then
-			local appearances = {
-				["0x5F7049F1, 31"] = {"8ug8ear_casual", "8ug8ear_naked"},
-				["0x7F65F7F7, 16"] = {"evelyn_naked"},
-				["0xB1CC84D0, 14"] = {"t_bug_casual"},
-			}
-
+		elseif archive.name == "AMM_TBug_Appearances" and archive.active then
+			local appearances = {"t_bug_casual"}
+			local entity_id = "0xB1CC84D0, 14"
 			local uid = "AMM"
-			for entity_id, apps in pairs(appearances) do
-				for _, app in ipairs(apps) do
-					db:execute(f('INSERT INTO appearances (entity_id, app_name, collab_tag) VALUES ("%s", "%s", "%s")', entity_id, app, uid))
-				end
+			for _, app in ipairs(appearances) do
+				db:execute(f('INSERT INTO appearances (entity_id, app_name, collab_tag) VALUES ("%s", "%s", "%s")', entity_id, app, uid))
 			end
-		
+
+			local sql = [[
+				INSERT INTO custom_appearances (entity_id, app_name, app_base, app_param, app_toggle, mesh_app, mesh_type, mesh_mask, mesh_path, collab_tag)
+				VALUES
+					('0xB1CC84D0, 14', 'Custom T-Bug Jacket Only', 't_bug_casual', 'g1_008_wa_gloves__fingerless_l', '0', NULL, 'hands', NULL, NULL, NULL, 'AMM'),
+					('0xB1CC84D0, 14', 'Custom T-Bug Jacket Only', 't_bug_casual', 'g1_008_wa_gloves__fingerless_r', '0', NULL, 'hands', NULL, NULL, 'AMM'),
+					('0xB1CC84D0, 14', 'Custom T-Bug Jacket Only', 't_bug_casual', 't0_004_wa__c_base_h3119', '0', NULL, 'body', NULL, NULL, 'AMM'),
+					('0xB1CC84D0, 14', 'Custom T-Bug Jacket Only', 't_bug_casual', 's1_048_wa_boot__straps7816', '0', NULL, 'feet', NULL, NULL, 'AMM'),
+					('0xB1CC84D0, 14', 'Custom T-Bug Jacket Only', 't_bug_casual', 't0_001_wa_body__t_bug0211', '0', NULL, 'torso', NULL, NULL, 'AMM')
+			]]
+
+			db:execute(sql)
+
+		elseif archive.name == "AMM_Evelyn_Naked" and archive.active and AMM.CodewareVersion < 4.2 then
+			local appearances = {"evelyn_naked"}
+			local entity_id = "0x7F65F7F7, 16"
+			local uid = "AMM"
+
+			for _, app in ipairs(appearances) do
+				db:execute(f('INSERT INTO appearances (entity_id, app_name, collab_tag) VALUES ("%s", "%s", "%s")', entity_id, app, uid))
+			end
+
+			sql = [[
+				INSERT INTO custom_appearances (entity_id, app_name, app_base, app_param, app_toggle, mesh_app, mesh_type, mesh_mask, mesh_path, collab_tag)
+				VALUES
+					('0x7F65F7F7, 16', 'Custom Evelyn Panties', 'evelyn_naked', 'l1_075_wa_shorts__strap_pants6116', '1', NULL, 'legs', NULL, NULL, 'AMM'),
+					('0x7F65F7F7, 16', 'Custom Evelyn With Jacket', 'evelyn_naked', 'SkinnedCloth5670', '1', NULL, 'torso', NULL, NULL, 'AMM'),
+					('0x7F65F7F7, 16', 'Custom Evelyn With Jacket', 'evelyn_naked', 't2_001_wa_jacket__evelyn_coat_fur0527', '1', NULL, 'torso', NULL, NULL, 'AMM'),
+					('0x7F65F7F7, 16', 'Custom Evelyn No Fur', 'evelyn_naked', 't2_001_wa_jacket__evelyn_coat_fur0527', '0', NULL, 'torso', NULL, NULL, 'AMM'),
+					('0x7F65F7F7, 16', 'Custom Evelyn Dress Only', 'evelyn_naked', 't1_001_wa_dress__evelyn4160', '1', NULL, 'torso', NULL, NULL, 'AMM'),
+					('0x7F65F7F7, 16', 'Custom Evelyn With Gloves', 'evelyn_naked', 'g1_001_wa_gloves__evelyn5247', '1', NULL, 'hands', NULL, NULL, 'AMM'),
+					('0x7F65F7F7, 16', 'Custom Evelyn With Necklace', 'evelyn_naked', 'i1_082_wa_neck__clair_plate0241', '1', NULL, 'item', NULL, NULL, 'AMM'),
+					('0x7F65F7F7, 16', 'Custom Evelyn No Fur', 'evelyn_naked', 'SkinnedCloth5670', '1', NULL, 'torso', NULL, NULL, 'AMM')
+			]]
+
+			db:execute(sql)
+
 		-- Enable Scenes if archive exists
 		elseif archive.name == "basegame_AMM_ScenesPack" and archive.active then
 			AMM.Poses.sceneAnimsInstalled = true
@@ -2525,6 +2641,7 @@ function AMM:SetupAMMCharacters()
 	-- Setup TweakDB Records
 	TweakDB:SetFlat("AMM_Character.TPP_Player_Female.fullDisplayName", TweakDB:GetFlat("Character.TPP_Player.displayName"))
 	TweakDB:SetFlat("AMM_Character.TPP_Player_Male.fullDisplayName", TweakDB:GetFlat("Character.TPP_Player.displayName"))
+	-- TweakDB:SetFlat("AMM_Character.TPP_Player_Female.attachmentSlots", TweakDB:GetFlat("Character.Player_Puppet_Photomode.attachmentSlots"))
 
 	TweakDB:SetFlats("AMM_Character.Silverhand",{
 		voiceTag = TweakDB:GetFlat("Character.Silverhand.voiceTag"),
@@ -2583,6 +2700,46 @@ function AMM:SetupAMMCharacters()
 	AMM.customNames['0x69E1384D, 22'] = 'So Ri'
 	AMM.customNames['0xB54D1804, 28'] = 'Rache Bartmoss'
 	AMM.customNames['0xE09AAEB8, 26'] = 'Mahir MT28 Coach'
+
+	-- Temporary placement for new Custom Appearances based on Codeware 1.4.2
+	-- Adds Evelyn Custom Appearances if user has Codeware 1.4.2 installed
+	if AMM.CodewareVersion >= 4.2 then
+		local sql = [[
+			INSERT INTO custom_appearances (entity_id, app_name, app_base, app_param, app_toggle, mesh_app, mesh_type, mesh_mask, mesh_path, collab_tag)
+			VALUES
+				('0x7F65F7F7, 16', 'Custom Evelyn Dress Only', 'evelyn_default', 't1_001_wa_dress__evelyn4160', '1', NULL, 'torso', NULL, NULL, 'AMM'),
+				('0x7F65F7F7, 16', 'Custom Evelyn Dress Only', 'evelyn_default', 'l1_075_wa_shorts__strap_pants6116', '0', NULL, 'legs', NULL, NULL, 'AMM'),
+				('0x7F65F7F7, 16', 'Custom Evelyn Dress Only', 'evelyn_default', 's1_001_wa_boot__evelyn3572', '0', NULL, 'feet', NULL, NULL, 'AMM'),
+				('0x7F65F7F7, 16', 'Custom Evelyn Dress Only', 'evelyn_default', 'SkinnedCloth5670', '0', NULL, 'torso', NULL, NULL, 'AMM'),
+				('0x7F65F7F7, 16', 'Custom Evelyn Dress Only', 'evelyn_default', 'g1_001_wa_gloves__evelyn5247', '0', NULL, 'hands', NULL, NULL, 'AMM'),
+				('0x7F65F7F7, 16', 'Custom Evelyn Dress Only', 'evelyn_default', 'i1_082_wa_neck__clair_plate0241', '0', NULL, 'item', NULL, NULL, 'AMM'),
+				('0x7F65F7F7, 16', 'Custom Evelyn Dress Only', 'evelyn_default', 't0_001_wa_body__evelyn1732', '0', NULL, 'body', NULL, 'base\characters\main_npc\evelyn\t0_002_wa_body__evelyn.mesh', 'AMM'),
+				('0x7F65F7F7, 16', 'Custom Evelyn Dress Only', 'evelyn_default', 't2_001_wa_jacket__evelyn_coat_fur0527', '0', NULL, 'torso', NULL, NULL, 'AMM'),
+				('0x7F65F7F7, 16', 'Custom Evelyn Dress Only', 'evelyn_default', 'l1_075_wa_shorts__strap_pants6116', '0', NULL, 'legs', NULL, NULL, 'AMM'),
+				('0x7F65F7F7, 16', 'Custom Evelyn Dress Only', 'evelyn_default', 's1_001_wa_boot__evelyn3572', '0', NULL, 'feet', NULL, NULL, 'AMM'),
+				('0x7F65F7F7, 16', 'Custom Evelyn Dress Only', 'evelyn_default', 'SkinnedCloth5670', '0', NULL, 'torso', NULL, NULL, 'AMM'),
+				('0x7F65F7F7, 16', 'Custom Evelyn Dress Only', 'evelyn_default', 'g1_001_wa_gloves__evelyn5247', '0', NULL, 'hands', NULL, NULL, 'AMM'),
+				('0x7F65F7F7, 16', 'Custom Evelyn Dress Only', 'evelyn_default', 'i1_082_wa_neck__clair_plate0241', '0', NULL, 'item', NULL, NULL, 'AMM'),
+				('0x7F65F7F7, 16', 'Custom Evelyn Dress Only', 'evelyn_default', 't0_001_wa_body__evelyn1732', '0', NULL, 'body', NULL, 'base\characters\main_npc\evelyn\t0_002_wa_body__evelyn.mesh', 'AMM'),
+				('0x7F65F7F7, 16', 'Custom Evelyn Dress Only', 'evelyn_default', 't2_001_wa_jacket__evelyn_coat_fur0527', '0', NULL, 'torso', NULL, NULL, 'AMM'),
+				('0x7F65F7F7, 16', 'Custom Evelyn With Jacket', 'evelyn_default', 'SkinnedCloth5670', '1', NULL, 'torso', NULL, NULL, 'AMM'),
+				('0x7F65F7F7, 16', 'Custom Evelyn With Jacket', 'evelyn_default', 't2_001_wa_jacket__evelyn_coat_fur0527', '1', NULL, 'torso', NULL, NULL, 'AMM'),
+				('0x7F65F7F7, 16', 'Custom Evelyn With Gloves', 'evelyn_default', 'g1_001_wa_gloves__evelyn5247', '1', NULL, 'hands', NULL, NULL, 'AMM'),
+				('0x7F65F7F7, 16', 'Custom Evelyn With Necklace', 'evelyn_default', 'i1_082_wa_neck__clair_plate0241', '1', NULL, 'item', NULL, NULL, 'AMM'),
+				('0x7F65F7F7, 16', 'Custom Evelyn No Fur', 'evelyn_default', 't2_001_wa_jacket__evelyn_coat_fur0527', '0', NULL, 'torso', NULL, NULL, 'AMM'),
+				('0x7F65F7F7, 16', 'Custom Evelyn No Fur', 'evelyn_default', 'SkinnedCloth5670', '1', NULL, 'torso', NULL, NULL, 'AMM'),
+				('0x7F65F7F7, 16', 'Custom Evelyn Naked', 'evelyn_default', 't1_001_wa_dress__evelyn4160', '0', NULL, 'torso', NULL, NULL, 'AMM'),
+				('0x7F65F7F7, 16', 'Custom Evelyn Naked', 'evelyn_default', 's1_001_wa_boot__evelyn3572', '0', NULL, 'feet', NULL, NULL, 'AMM'),
+				('0x7F65F7F7, 16', 'Custom Evelyn Naked', 'evelyn_default', 'SkinnedCloth5670', '0', NULL, 'torso', NULL, NULL, 'AMM'),
+				('0x7F65F7F7, 16', 'Custom Evelyn Naked', 'evelyn_default', 'g1_001_wa_gloves__evelyn5247', '0', NULL, 'hands', NULL, NULL, 'AMM'),
+				('0x7F65F7F7, 16', 'Custom Evelyn Naked', 'evelyn_default', 'i1_082_wa_neck__clair_plate0241', '0', NULL, 'item', NULL, NULL, 'AMM'),
+				('0x7F65F7F7, 16', 'Custom Evelyn Naked', 'evelyn_default', 't0_001_wa_body__evelyn1732', '0', NULL, 'body', NULL, 'base\characters\main_npc\evelyn\t0_002_wa_body__evelyn.mesh', 'AMM'),
+				('0x7F65F7F7, 16', 'Custom Evelyn Naked', 'evelyn_default', 't2_001_wa_jacket__evelyn_coat_fur0527', '0', NULL, 'torso', NULL, NULL, 'AMM'),
+				('0x7F65F7F7, 16', 'Custom Evelyn Naked', 'evelyn_default', 'l1_075_wa_shorts__strap_pants6116', '0', NULL, 'legs', NULL, NULL, 'AMM')
+		]]
+
+		db:execute(sql)
+	end
 end
 
 
@@ -2704,7 +2861,6 @@ local insertEntitiesIntoTablesFormat = 'INSERT INTO entities %s VALUES %s'
 
 function AMM:SetupCustomProps()
 	db:execute("DELETE FROM entities WHERE entity_path LIKE '%Custom_%'")
-	db:execute("DELETE FROM appearances WHERE collab_tag IS NOT NULL")
   
   local files = getFilesRecursively("./Collabs/Custom Props", {})
   
@@ -2839,8 +2995,8 @@ function AMM:SetupCollabAppearances()
           end
           
           for _, customApp in ipairs(customApps) do
-            local tables = '("entity_id", "app_name", "app_base", "app_param", "app_toggle", "mesh_app", "mesh_type", "mesh_mask", "collab_tag")'
-            local values = f('("%s", "%s", "%s", "%s", "%s", "%s", "%s", "%s", "%s")', newApp.entity_id, customApp.app_name, newApp.appearance, customApp.app_param, customApp.app_toggle, customApp.mesh_app, customApp.mesh_type, customApp.mesh_mask, newApp.tag)
+            local tables = '("entity_id", "app_name", "app_base", "app_param", "app_toggle", "mesh_app", "mesh_type", "mesh_mask", "mesh_path", "collab_tag")'
+            local values = f('("%s", "%s", "%s", "%s", "%s", "%s", "%s", "%s", "%s", "%s")', newApp.entity_id, customApp.app_name, newApp.appearance, customApp.app_param, customApp.app_toggle, customApp.mesh_app, customApp.mesh_type, customApp.mesh_mask, customApp.mesh_path, newApp.tag)
             values = values:gsub('"nil"', "NULL")
             db:execute(f('INSERT INTO custom_appearances %s VALUES %s', tables, values))
           end
@@ -3303,6 +3459,8 @@ local waiting = {}
 local entitiesChecked = {}
 
 function AMM:GetAppearancesFromEntity(id)
+	log("Appearances From Entity: "..id)
+
 	listener = NewProxy({
 		OnResourceReady = {
 			args = {'whandle:ResourceToken'},
@@ -3879,10 +4037,23 @@ end
 function AMM:DrawArchives()
 	AMM.UI:TextColored("AMM Needs Attention")
 
+	ImGui.SameLine()
+
+	ImGui.Text("MISSING ARCHIVES")
+
+	local missingRequired = not AMM.archivesInfo.optional
+	
+	if missingRequired then
+		ImGui.TextWrapped(AMM.LocalizableString["Warning_MissingRequiredArchives"])
+	else
+		ImGui.TextWrapped(AMM.LocalizableString["Warning_MissingOptionalArchives"])
+	end
+
+	AMM.UI:Separator()
+
 	local GameVersion = Game.GetSystemRequestsHandler():GetGameVersion()
 
-	AMM.UI:Spacing(8)
-	AMM.UI:TextCenter(" MISSING ARCHIVES ")
+	AMM.UI:TextCenter(" VERSION INFORMATION ")
 	ImGui.Spacing()
 	AMM.UI:TextCenter("AMM Version: "..AMM.currentVersion, true)
 	ImGui.Spacing()
@@ -3891,26 +4062,17 @@ function AMM:DrawArchives()
 	AMM.UI:TextCenter("Codeware Version: "..Codeware.Version(), true)
 	ImGui.Spacing()
 	AMM.UI:TextCenter("Game Version: "..Game.GetSystemRequestsHandler():GetGameVersion(), true)
+	
 	AMM.UI:Separator()
 
-	local missingRequired = false
-
-	AMM.UI:TextColored("WARNING")
-
-	if missingRequired then
-		ImGui.TextWrapped("AMM is missing one or more required archives. Please install any missing required archive in your archive/pc/mod folder.")
-	else
-		ImGui.TextWrapped("AMM is missing one or more archives. These are optional but add functionality to AMM. You may ignore these warnings, but AMM might not work properly.")
-
-		AMM.UI:Spacing(4)
-
+	if not missingRequired then
 		if ImGui.Button("Ignore warnings for this version!", ImGui.GetWindowContentRegionWidth(), 40) then
 			db:execute("UPDATE metadata SET ignore_archives = 1")
 			AMM:CheckMissingArchives()
 		end
+		AMM.UI:Separator()
 	end
 
-	AMM.UI:Separator()
 
 	for _, archive in ipairs(AMM.archives) do
 		AMM.UI:TextColored(archive.name)
@@ -3933,6 +4095,23 @@ function AMM:DrawArchives()
 
 		AMM.UI:Spacing(4)
 	end	
+end
+
+function AMM:GetLocalizationLanguages()
+	local languages = {}
+	local files = dir("./Localization")
+	for _, loc in ipairs(files) do
+		if string.find(loc.name, '.lua') then
+			table.insert(languages, {name = loc.name:gsub(".lua", ""), strings = AMM:PreloadLanguage(loc.name)})
+		end
+	end
+
+	return languages
+end
+
+function AMM:PreloadLanguage(lang)
+	local strings = require("Localization/"..lang)
+	return strings
 end
 
 -- Songbird Immersion Methods

@@ -10,11 +10,22 @@ local UI = {
   },
 }
 
+local heightConstraint = nil
 local childViews = {}
 
 local function calculateChildViewHeight(itemCount, itemHeight)
   local windowHeight = ImGui.GetWindowHeight()
-  if itemCount >= 9 then itemCount = 9 end
+  local availableSpace = heightConstraint - windowHeight
+  local additionalItems = math.floor(availableSpace / itemHeight)
+  if additionalItems > 4 then
+    additionalItems = 4
+  end
+
+  if itemCount > 9 and availableSpace > 0 then
+    itemCount = 9
+    itemCount = itemCount + additionalItems
+  end
+
   local childViewHeight = itemCount * itemHeight
   if childViewHeight > windowHeight then
       childViewHeight = windowHeight
@@ -148,7 +159,8 @@ function UI:Start()
   ImGui.PushStyleVar(ImGuiStyleVar.WindowBorderSize, 1)
 
   local x, y = GetDisplayResolution()
-  ImGui.SetNextWindowSizeConstraints(650, 100, 700, y / 1.2)
+  heightConstraint = y / 1.2
+  ImGui.SetNextWindowSizeConstraints(650, 100, 700, heightConstraint)
 end
 
 function UI:End()
@@ -223,7 +235,15 @@ function UI:SmallButton(buttonLabel, padding)
 end
 
 function UI:List(id, itemCount, height, func)
-  if ImGui.BeginChild("List##"..id, ImGui.GetWindowContentRegionWidth(), calculateChildViewHeight(itemCount, height)) then
+  local childViewHeight = childViews[id]
+
+  if not childViewHeight or (childViewHeight and childViewHeight.itemCount ~= itemCount) then
+    local h = calculateChildViewHeight(itemCount, height)
+    childViews[id] = {h = h, itemCount = itemCount}
+    childViewHeight = childViews[id]
+  end
+
+  if ImGui.BeginChild("List##"..id, ImGui.GetWindowContentRegionWidth(), childViewHeight.h) then
     local clipper = ImGuiListClipper.new()
     local h = height + 10
     clipper:Begin(itemCount, h)

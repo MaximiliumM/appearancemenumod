@@ -437,8 +437,13 @@ function Spawn:DrawArrowButton(direction, entity, index)
 			local query = f("SELECT * FROM %s WHERE position = %i", favoriteType, tempPos)
 			for fav in db:nrows(query) do temp = fav end
 
-			db:execute(f("UPDATE %s SET entity_id = '%s', entity_name = '%s', parameters = \"%s\" WHERE position = %i", favoriteType, entity.id, entity.name, entity.parameters, tempPos))
-			db:execute(f("UPDATE %s SET entity_id = '%s', entity_name = '%s', parameters = \"%s\" WHERE position = %i", favoriteType, temp.entity_id, temp.entity_name, temp.parameters, index))
+			local sql = f("UPDATE %s SET entity_id = '%s', entity_name = '%s', parameters = \"%s\" WHERE position = %i", favoriteType, entity.id, entity.name, entity.parameters, tempPos)
+			sql = sql:gsub('"nil"', "NULL")
+			db:execute(sql)
+			
+			sql = f("UPDATE %s SET entity_id = '%s', entity_name = '%s', parameters = \"%s\" WHERE position = %i", favoriteType, temp.entity_id, temp.entity_name, temp.parameters, index)
+			sql = sql:gsub('"nil"', "NULL")
+			db:execute(sql)
 		end
 	end
 end
@@ -698,7 +703,7 @@ end
 function Spawn:RearrangeFavoritesIndex(favoriteType, removedIndex)
 	local lastIndex = 0
 	for x in db:urows('SELECT COUNT(1) FROM '..favoriteType) do
-		lastIndex = x
+		lastIndex = x - 1
 	end
 
 	for i = removedIndex, lastIndex do

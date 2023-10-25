@@ -278,7 +278,7 @@ function Util:VectorDistance(pointA, pointB)
 end
 
 function Util:CheckIfCommandIsActive(handle, cmd)
-  return AIbehaviorUniqueActiveCommandList.IsActionCommandById(handle:GetAIControllerComponent().activeCommands, cmd.id)
+  return AIActiveCommandList.IsActionCommandById(handle:GetAIControllerComponent().activeCommands, cmd.id)
 end
 
 function Util:CancelCommand(handle, cmd)
