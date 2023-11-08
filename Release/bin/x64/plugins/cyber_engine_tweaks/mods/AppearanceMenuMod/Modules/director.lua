@@ -7,7 +7,7 @@ local Director = {
   activeTab = '',
   scripts = {},
   triggers = '',
-  selectedTrigger = {title = "Select Trigger"},
+  selectedTrigger = {},
   selectedActor = '',
   selectedNode = '',
   lastSelectedNode = {name = ''},
@@ -17,7 +17,7 @@ local Director = {
   activeTriggers = {},
   activeScripts = {},
   activeActors = {},
-  selectedScript = {title = "Select Script"},
+  selectedScript = {},
   searchQuery = '',
   savePressed = true,
   stopPressed = false,
@@ -35,6 +35,17 @@ local Director = {
   -- Cron Callback Properties
   finishedSpawning = false,
 }
+
+local _entitySystem
+local function getEntitySystem()
+	_entitySystem = _entitySystem or Game.GetDynamicEntitySystem()
+	return _entitySystem
+end
+
+function Director:Initialize()
+  Director.selectedTrigger = {title = AMM.LocalizableString("Select_Trigger")}
+  Director.selectedScript = {title = AMM.LocalizableString("Select_Script")}
+end
 
 function Director:NewTrigger(title, pos)
   local obj = {}
@@ -74,8 +85,15 @@ function Director:NewActor(name)
   obj.uniqueName = name.."##"..tostring(os.clock())
   obj.id = ''
   obj.nodes = {}
-  obj.entityID = ''
+  obj.entityID = nil
   obj.handle = nil
+  obj.entitySpec = DynamicEntitySpec.new()
+
+	obj.entitySpec.persistState = false
+	obj.entitySpec.persistSpawn = false
+	obj.entitySpec.alwaysSpawned = false
+	obj.entitySpec.spawnInView = true
+
   obj.team = ''
   obj.autoTalk = false
   obj.talking = false
@@ -222,96 +240,97 @@ function Director:Draw(AMM)
     Director.triggers = Director:GetTriggers()
   end
   
-  if not ImGui.BeginTabItem("Director") then return end
+  if ImGui.BeginTabItem(AMM.LocalizableString("BeginItem_TabNameDirector")) then
     
-  if Director.sizeX == 0 then
-    Director.sizeX = ImGui.GetWindowContentRegionWidth()
-  end
-
-  if AMM.userSettings.tabDescriptions then
-    AMM.UI:TextColored("Director Mode")
-    local description = "Create Scripts to add, dress and direct Actors to perform for machinima, screenshots and roleplay."
-
-    if Director.activeTab == "Triggers" then
-      description = "Create Triggers to activate pre-made Scripts on contact."
-    elseif Director.activeTab == "Cameras" then
-      description = "Create Cameras to move around freely, set different field of views and zoom levels."
+    if Director.sizeX == 0 then
+      Director.sizeX = ImGui.GetWindowContentRegionWidth()
     end
 
-    ImGui.TextWrapped(description)
-    AMM.UI:Spacing(2)
-    Director:DrawTriggersCheckbox()
-  end
+    if AMM.userSettings.tabDescriptions then
+      AMM.UI:TextColored(AMM.LocalizableString("DirectorMode"))
+      local description = AMM.LocalizableString("Warn_CreateScriptsDesc_Info")
 
-  if not AMM.userSettings.tabDescriptions then
-    AMM.UI:Spacing(2)
-    ImGui.Dummy(1, 1)
-    ImGui.SameLine(500)
-    Director:DrawTriggersCheckbox()
-    ImGui.SameLine(12)
-  end
+      if Director.activeTab == "Triggers" then
+        description = AMM.LocalizableString("Warn_PremadeScriptsDesc_Info")
+      elseif Director.activeTab == "Cameras" then
+        description = AMM.LocalizableString("Warn_CreateCamera_FovZoomDesc_Info")
+      end
 
-  if AMM.playerInPhoto then
-    if ImGui.BeginTabBar("Director Tabs") then
-      Director:DrawCamerasTab()
-
-      ImGui.EndTabBar()
+      ImGui.TextWrapped(description)
+      AMM.UI:Spacing(2)
+      Director:DrawTriggersCheckbox()
     end
-  elseif AMM.playerInMenu then
-    AMM.UI:TextColored("Player In Menu")
-    ImGui.Text("Director only works in game")
-  else
-    if ImGui.BeginTabBar("Director Tabs") then
 
-      Director:DrawScriptTab()
-      Director:DrawTriggerTab()
-      Director:DrawCamerasTab()
+    if not AMM.userSettings.tabDescriptions then
+      AMM.UI:Spacing(2)
+      ImGui.Dummy(1, 1)
+      ImGui.SameLine(500)
+      Director:DrawTriggersCheckbox()
+      ImGui.SameLine(12)
+    end
 
-      local running = false
-      for _, script in ipairs(Director.scripts) do
-        if script.isRunning then
-          running = true
-          break
+    if AMM.playerInPhoto then
+      if ImGui.BeginTabBar("Director Tabs") then
+        Director:DrawCamerasTab()
+
+        ImGui.EndTabBar()
+      end
+    elseif AMM.playerInMenu then
+      AMM.UI:TextColored(AMM.LocalizableString("Warn_PlayerInMenu"))
+      ImGui.Text(AMM.LocalizableString("Warn_InMenuDirectorDesc"))
+    else
+      if ImGui.BeginTabBar("Director Tabs") then
+
+        Director:DrawScriptTab()
+        Director:DrawTriggerTab()
+        Director:DrawCamerasTab()
+
+        local running = false
+        for _, script in ipairs(Director.scripts) do
+          if script.isRunning then
+            running = true
+            break
+          end
         end
-      end
 
-      if running then
-        Director:DrawRunningTab()
-      end
+        if running then
+          Director:DrawRunningTab()
+        end
 
-      ImGui.EndTabBar()
+        ImGui.EndTabBar()
+      end
     end
-  end
 
-  ImGui.EndTabItem()
+    ImGui.EndTabItem()
+  end
 end
 
 
 function Director:DrawTriggersCheckbox()
-  local offSet = Director.sizeX - ImGui.CalcTextSize("Triggers On/Off")
+  local offSet = Director.sizeX - ImGui.CalcTextSize(AMM.LocalizableString("Triggers_On_Off"))
 
   if AMM.userSettings.tabDescriptions then
     ImGui.Dummy(offSet - 70, 10)
     ImGui.SameLine()
   end
 
-  AMM.UI:TextColored("Triggers On/Off")
+  AMM.UI:TextColored(AMM.LocalizableString("Triggers_On_Off"))
   ImGui.SameLine()
   
   AMM.userSettings.directorTriggers = AMM.UI:SmallCheckbox(AMM.userSettings.directorTriggers)
 end
 
 function Director:DrawRunningTab()
-  if ImGui.BeginTabItem("Running") then
+  if ImGui.BeginTabItem(AMM.LocalizableString("Running")) then
 
     AMM.UI:Spacing(2)
 
     for _, script in ipairs(Director.scripts) do
       if script.isRunning then
         ImGui.InputText(" ", script.title, 100, ImGuiInputTextFlags.ReadOnly)
-        local buttonLabel = "Stop Script##"..script.title
+        local buttonLabel = AMM.LocalizableString("Button_Label_StopScript").."##"..script.title
         if Director.stopPressed then
-          if script.isRunning then buttonLabel = "Stopping..." end
+          if script.isRunning then buttonLabel = AMM.LocalizableString("Button_Label_Stopping") end
           ImGui.PushStyleColor(ImGuiCol.Button, 0.56, 0.06, 0.03, 0.25)
           ImGui.PushStyleColor(ImGuiCol.ButtonHovered, 0.56, 0.06, 0.03, 0.25)
           ImGui.PushStyleColor(ImGuiCol.ButtonActive, 0.56, 0.06, 0.03, 0.25)
@@ -327,7 +346,7 @@ function Director:DrawRunningTab()
         end
 
         ImGui.SameLine()
-        ImGui.TextDisabled("Script Running...")
+        ImGui.TextDisabled(AMM.LocalizableString("Script_Running"))
 
         AMM.UI:Spacing(3)
       end
@@ -338,18 +357,21 @@ function Director:DrawRunningTab()
 end
 
 local cameraTimerFunc = function(timer)
-  if not AMM.Director.activeCamera or not AMM.Director.activeCamera.handle then return end
-  AMM.Director.activeCamera:Activate(1)
-  Cron.Halt(timer)
+  timer.tick = timer.tick + 1
+
+  if not AMM.Director.activeCamera or not AMM.Director.activeCamera.handle or timer.tick > 30 then
+    AMM.Director.activeCamera:Activate(1)
+    Cron.Halt(timer)
+  end
 end
 
 function Director:DrawCamerasTab()
-  if ImGui.BeginTabItem("Cameras") then
+  if ImGui.BeginTabItem(AMM.LocalizableString("Cameras")) then
     Director.activeTab = "Cameras"
 
     AMM.UI:Spacing(6)
 
-    if ImGui.Button("New Camera", -1, 40) then
+    if ImGui.Button(AMM.LocalizableString("Button_NewCamera"), -1, 40) then
       local camera = AMM.Camera:new()
       camera:Spawn()
       camera:StartListeners()
@@ -357,7 +379,7 @@ function Director:DrawCamerasTab()
       table.insert(Director.cameras, camera)
       Director.activeCamera = camera
       
-      Cron.Every(0.1, cameraTimerFunc)
+      Cron.Every(0.1, {tick = 1}, cameraTimerFunc)
     end
 
     AMM.UI:Separator()
@@ -366,15 +388,15 @@ function Director:DrawCamerasTab()
       for i, camera in ipairs(Director.cameras) do
         if ImGui.CollapsingHeader("Camera "..i.."##"..i) then
 
-          local buttonLabel = "Activate"      
+          local buttonLabel = AMM.LocalizableString("Activate")      
           if Director.activeCamera and Director.activeCamera.hash == camera.hash then
-            buttonLabel = "Deactivate"
+            buttonLabel = AMM.LocalizableString("Deactivate")
           end
 
           local buttonWidth = AMM.UI.style.halfButtonWidth - 10
 
           if ImGui.Button(buttonLabel.."##"..i, buttonWidth, 30) then
-            if buttonLabel == "Activate" then
+            if buttonLabel == AMM.LocalizableString("Activate") then
               Director.activeCamera = camera
               camera:Activate(1)
             else
@@ -385,13 +407,13 @@ function Director:DrawCamerasTab()
 
           ImGui.SameLine()
 
-          camera.fov, fovUsed = ImGui.DragInt("FOV##"..i, camera.fov, 1, 1, 175)
+          camera.fov, fovUsed = ImGui.DragInt(AMM.LocalizableString("FOV").."##"..i, camera.fov, 1, 1, 175)
 
           if fovUsed then
             camera:SetFOV(camera.fov)
           end
 
-          if ImGui.Button("Toggle Marker".."##"..i, buttonWidth, 30) then
+          if ImGui.Button(AMM.LocalizableString("Button_ToggleMarker").."##"..i, buttonWidth, 30) then
             if camera.mappinID then
               Game.GetMappinSystem():UnregisterMappin(camera.mappinID)
               camera.mappinID = nil
@@ -402,13 +424,13 @@ function Director:DrawCamerasTab()
 
           ImGui.SameLine()
 
-          camera.zoom, zoomUsed = ImGui.DragFloat("Zoom##"..i, camera.zoom, 0.1, 1, 175, "%.1f")
+          camera.zoom, zoomUsed = ImGui.DragFloat(AMM.LocalizableString("Zoom").."##"..i, camera.zoom, 0.1, 1, 175, "%.1f")
 
           if zoomUsed then
             camera:SetZoom(camera.zoom)
           end
 
-          if ImGui.Button("Despawn".."##"..i, buttonWidth, 30) then
+          if ImGui.Button(AMM.LocalizableString("Button_SmallDespawn").."##"..i, buttonWidth, 30) then
             if Director.activeCamera and Director.activeCamera.hash == camera.hash then
               Director.activeCamera = nil
             end
@@ -420,19 +442,19 @@ function Director:DrawCamerasTab()
           ImGui.SameLine()
 
           local speed = camera.speed * 100
-          speed = ImGui.DragFloat("Speed##"..i, speed, 1, 1, 100, "%.0f")
+          speed = ImGui.DragFloat(AMM.LocalizableString("Button_DragSpeed").."##"..i, speed, 1, 1, 100, "%.0f")
           camera.speed = speed / 100
 
-          camera.lock = ImGui.Checkbox("Lock Frame", camera.lock)
+          camera.lock = ImGui.Checkbox(AMM.LocalizableString("LockFrame"), camera.lock)
           camera:SetLock(camera.lock)
         end
       end
 
       AMM.UI:Separator()
 
-      AMM.UI:TextColored("WARNING:")
+      AMM.UI:TextColored(AMM.LocalizableString("Warning2"))
       ImGui.SameLine()
-      ImGui.Text("Close the menu to be able to move the camera")
+      ImGui.Text(AMM.LocalizableString("Warn_CloseCamForMove_Info"))
     end
 
     ImGui.EndTabItem()
@@ -440,12 +462,12 @@ function Director:DrawCamerasTab()
 end
 
 function Director:DrawTriggerTab()
-  if ImGui.BeginTabItem("Triggers") then
+  if ImGui.BeginTabItem(AMM.LocalizableString("BeginItem_TabNameTriggers")) then
     Director.activeTab = "Triggers"
 
     AMM.UI:Spacing(6)
 
-    if ImGui.Button("New Trigger", -1, 40) then
+    if ImGui.Button(AMM.LocalizableString("NewTrigger"), -1, 40) then
       local newTrigger = Director:NewTrigger("New Trigger")
 
       table.insert(Director.triggers, newTrigger)
@@ -455,7 +477,7 @@ function Director:DrawTriggerTab()
     AMM.UI:Separator()
 
     if #Director.triggers ~= 0 then
-      if ImGui.BeginCombo("Triggers", Director.selectedTrigger.title, ImGuiComboFlags.HeightLarge) then
+      if ImGui.BeginCombo(AMM.LocalizableString("BeginCombo_Triggers"), Director.selectedTrigger.title, ImGuiComboFlags.HeightLarge) then
         for i, trigger in ipairs(Director.triggers) do
           if ImGui.Selectable(trigger.title, (trigger.title == Director.selectedTrigger.title)) then
 
@@ -482,8 +504,8 @@ function Director:DrawTriggerTab()
         ImGui.EndCombo()
       end
 
-      if Director.selectedTrigger.title ~= "Select Trigger" then
-        Director.showTrigger, used = ImGui.Checkbox("Show Trigger", Director.showTrigger)
+      if Director.selectedTrigger.title ~= AMM.LocalizableString("Select_Trigger") then
+        Director.showTrigger, used = ImGui.Checkbox(AMM.LocalizableString("ShowTrigger"), Director.showTrigger)
 
         if used then
           if Director.showTrigger then
@@ -495,13 +517,13 @@ function Director:DrawTriggerTab()
 
         AMM.UI:Separator()
 
-        Director.selectedTrigger.title = ImGui.InputText("Title", Director.selectedTrigger.title, 30)
+        Director.selectedTrigger.title = ImGui.InputText(AMM.LocalizableString("Title"), Director.selectedTrigger.title, 30)
 
         ImGui.Spacing()
 
         if #Director.scripts ~= 0 then
 
-          if ImGui.BeginCombo("Scripts", Director.selectedScript.title, ImGuiComboFlags.HeightLarge) then
+          if ImGui.BeginCombo(AMM.LocalizableString("BeginCombo_Scripts"), Director.selectedScript.title, ImGuiComboFlags.HeightLarge) then
             for i, script in ipairs(Director.scripts) do
               if ImGui.Selectable(script.title, (script.title == Director.selectedScript.title)) then
                 Director.selectedScript = script
@@ -512,14 +534,14 @@ function Director:DrawTriggerTab()
             ImGui.EndCombo()
           end
 
-          if Director.selectedScript.title ~= "Select Script" then
+          if Director.selectedScript.title ~= AMM.LocalizableString("Select_Script") then
 
-            Director.selectedTrigger.repeatable = ImGui.Checkbox("Repeat In Loop", Director.selectedTrigger.repeatable)
-            Director.selectedTrigger.radius = ImGui.InputInt("Activation Radius", Director.selectedTrigger.radius, 1)
+            Director.selectedTrigger.repeatable = ImGui.Checkbox(AMM.LocalizableString("RepeatInLoop"), Director.selectedTrigger.repeatable)
+            Director.selectedTrigger.radius = ImGui.InputInt(AMM.LocalizableString("ActivationRadius"), Director.selectedTrigger.radius, 1)
 
             ImGui.Spacing()
 
-            if ImGui.Button("Save Trigger", -1, 30) then
+            if ImGui.Button(AMM.LocalizableString("Button_SaveTrigger"), -1, 30) then
               if not Director.selectedTrigger.pos then
                 local pos = Game.GetPlayer():GetWorldPosition()
                 Director.selectedTrigger.pos = pos
@@ -532,10 +554,10 @@ function Director:DrawTriggerTab()
 
               Director.selectedTrigger.script = Director.selectedScript.title
               Director:SaveTriggers()
-              Director.selectedTrigger.title = "Select Trigger"
+              Director.selectedTrigger.title = AMM.LocalizableString("Select_Trigger")
             end
 
-            if ImGui.Button("Delete Trigger", -1, 30) then
+            if ImGui.Button(AMM.LocalizableString("Delete_Trigger"), -1, 30) then
               for i, trigger in ipairs(Director.triggers) do
                 if trigger.title == Director.selectedTrigger.title then
                   if Director.showTrigger then
@@ -545,7 +567,7 @@ function Director:DrawTriggerTab()
                   Director:SaveTriggers()
                 end
               end
-              Director.selectedTrigger.title = "Select Trigger"
+              Director.selectedTrigger.title = AMM.LocalizableString("Select_Trigger")
             end
           end
         end
@@ -557,254 +579,257 @@ function Director:DrawTriggerTab()
 end
 
 function Director:DrawScriptTab()
-  if not ImGui.BeginTabItem("Scripts") then return end
-  Director.activeTab = "Scripts"
+  if ImGui.BeginTabItem(AMM.LocalizableString("BeginCombo_Scripts")) then
+    Director.activeTab = "Scripts"
 
-  AMM.UI:Spacing(6)
+    AMM.UI:Spacing(6)
 
-  if ImGui.Button("New Script", -1, 40) then
-    local newScript = Director:NewScript("New Script")
+    if ImGui.Button(AMM.LocalizableString("Button_NewScript"), -1, 40) then
+      local newScript = Director:NewScript("New Script")
 
-    table.insert(Director.scripts, newScript)
-    Director.selectedScript = newScript
-    Director.selectedActor = ''
-    Director.selectedNode = ''
+      table.insert(Director.scripts, newScript)
+      Director.selectedScript = newScript
+      Director.selectedActor = ''
+      Director.selectedNode = ''
 
-    Director:SaveScript(newScript)
-  end
-
-  AMM.UI:Separator()
-
-  if #Director.scripts ~= 0 then
-
-    if Director.selectedScript.isRunning then
-      ImGui.InputText("Scripts", Director.selectedScript.title, 100, ImGuiInputTextFlags.ReadOnly)
-    else
-      if ImGui.BeginCombo("Scripts", Director.selectedScript.title, ImGuiComboFlags.HeightLarge) then
-        for i, script in ipairs(Director.scripts) do
-          if ImGui.Selectable(script.title, (script.title == Director.selectedScript.title)) then
-            Director.selectedScript = script
-            _, actor = next(script.actors)
-            Director.selectedActor = actor or ''
-          end
-        end
-        ImGui.EndCombo()
-      end
+      Director:SaveScript(newScript)
     end
 
-    if Director.selectedScript.title ~= "Select Script" then
+    AMM.UI:Separator()
 
-      ImGui.Spacing()
-      
-      local buttonLabel = "Play Script"
-      if Director.stopPressed then
-        if Director.selectedScript.isRunning then buttonLabel = "Stopping..."
-        elseif Director.selectedScript.done then buttonLabel = "Restarting..." end
-        ImGui.PushStyleColor(ImGuiCol.Button, 0.56, 0.06, 0.03, 0.25)
-        ImGui.PushStyleColor(ImGuiCol.ButtonHovered, 0.56, 0.06, 0.03, 0.25)
-        ImGui.PushStyleColor(ImGuiCol.ButtonActive, 0.56, 0.06, 0.03, 0.25)
-      elseif Director.selectedScript.isRunning then
-        buttonLabel = "Stop Script"
-      end
-
-      local stopPressed = Director.stopPressed
-      if ImGui.Button(buttonLabel) then
-        if Director.selectedScript.isRunning then
-          Director:StopScript(Director.selectedScript)
-        else
-          Director:PlayScript(Director.selectedScript)
-        end
-      end
-
-      if stopPressed then
-        ImGui.PopStyleColor(3)
-      end
+    if #Director.scripts ~= 0 then
 
       if Director.selectedScript.isRunning then
-        ImGui.SameLine()
-        ImGui.TextDisabled("Script Running...")
+        ImGui.InputText(AMM.LocalizableString("BeginCombo_Scripts"), Director.selectedScript.title, 100, ImGuiInputTextFlags.ReadOnly)
       else
-        ImGui.SameLine()
-        if ImGui.Button("Delete Script") then
-          popupDelegate = {title = 'WARNING', message = '', buttons = {}}
-          popupDelegate.message = "Are you sure you want to delete this script?"
-          table.insert(popupDelegate.buttons, {label = "Yes", action = function(script) Director:DeleteScript(script) end})
-          table.insert(popupDelegate.buttons, {label = "No", action = ''})
-          popupDelegate.actionArg = Director.selectedScript
-          ImGui.OpenPopup(popupDelegate.title)
+        if ImGui.BeginCombo(AMM.LocalizableString("BeginCombo_Scripts"), Director.selectedScript.title, ImGuiComboFlags.HeightLarge) then
+          for i, script in ipairs(Director.scripts) do
+            if ImGui.Selectable(script.title, (script.title == Director.selectedScript.title)) then
+              Director.selectedScript = script
+              _, actor = next(script.actors)
+              Director.selectedActor = actor or ''
+            end
+          end
+          ImGui.EndCombo()
         end
+      end
 
-        AMM.UI:Separator()
-
-        AMM.UI:TextCenter("Editing", true)
-
-        Director.selectedScript.title = ImGui.InputText("Title", Director.selectedScript.title, 30)
+      if Director.selectedScript.title ~= AMM.LocalizableString("Select_Script") then
 
         ImGui.Spacing()
-
-        if ImGui.BeginListBox("Current Actors") then
-          for i, actor in pairs(Director.selectedScript.actors) do
-
-            local selectedName = Director.selectedActor.uniqueName or ''
-            local currentName = actor.uniqueName
-
-            if actor.team ~= '' then
-              selectedName = selectedName:gsub(actor.name, actor.name.." ("..actor.team..")")
-              currentName = currentName:gsub(actor.name, actor.name.." ("..actor.team..")")
-            end
-
-            if (selectedName == currentName) then selected = true else selected = false end
-            if(ImGui.Selectable(currentName, selected)) then
-              Director.selectedActor = actor
-
-              if Director.lastSelectedActor.name ~= actor.name then
-
-                if #Director.selectedActor.nodes ~= 0 then
-                  Director.selectedNode = Director.selectedActor.nodes[1]
-                else
-                  Director.selectedNode = ''
-                end
-
-                if Director.showNodes then
-                  Director:RemoveNodeMarks(Director.lastSelectedActor.nodes)
-                  Director:ShowNodes(Director.selectedActor.nodes)
-                end
-                Director.lastSelectedActor = actor
-              end
-            end
-          end
-          ImGui.EndListBox()
+        
+        local buttonLabel = AMM.LocalizableString("Button_Label_PlayScript")
+        if Director.stopPressed then
+          if Director.selectedScript.isRunning then buttonLabel = AMM.LocalizableString("Button_Label_Stopping")
+          elseif Director.selectedScript.done then buttonLabel = AMM.LocalizableString("Button_Label_Restarting") end
+          ImGui.PushStyleColor(ImGuiCol.Button, 0.56, 0.06, 0.03, 0.25)
+          ImGui.PushStyleColor(ImGuiCol.ButtonHovered, 0.56, 0.06, 0.03, 0.25)
+          ImGui.PushStyleColor(ImGuiCol.ButtonActive, 0.56, 0.06, 0.03, 0.25)
+        elseif Director.selectedScript.isRunning then
+          buttonLabel = AMM.LocalizableString("Button_Label_StopScript")
         end
 
-        if ImGui.Button("Add Actor") then
-          Director.selectedActor = ''
-          ImGui.OpenPopup("Actors")
+        local stopPressed = Director.stopPressed
+        if ImGui.Button(buttonLabel) then
+          if Director.selectedScript.isRunning then
+            Director:StopScript(Director.selectedScript)
+          else
+            Director:PlayScript(Director.selectedScript)
+          end
         end
 
-        ImGui.SameLine()
-        if ImGui.Button("Remove Actor") then
-          Director:RemoveActorFromScript(Director.selectedScript, Director.selectedActor.uniqueName)
+        if stopPressed then
+          ImGui.PopStyleColor(3)
         end
 
-        if Director.selectedActor ~= '' then
+        if Director.selectedScript.isRunning then
           ImGui.SameLine()
-          if ImGui.Button("Change Actor") then
-            ImGui.OpenPopup("Actors")
-          end
-
-          AMM.UI:Spacing(3)
-
-          AMM.UI:TextColored("Marks Sequence:")
-          if ImGui.RadioButton("Only One", Director.selectedActor.sequenceType == "OnlyOne") then
-            Director.selectedActor.sequenceType = "OnlyOne"
-            Director:SaveScript(Director.selectedScript)
-          end
-
-          if ImGui.IsItemHovered() then
-            ImGui.SetTooltip("Actor will stay on a single Mark")
-          end
-
+          ImGui.TextDisabled(AMM.LocalizableString("Script_Running"))
+        else
           ImGui.SameLine()
-          if ImGui.RadioButton("Random", Director.selectedActor.sequenceType == "Random") then
-            Director.selectedActor.sequenceType = "Random"
-            Director:SaveScript(Director.selectedScript)
+          if ImGui.Button(AMM.LocalizableString("Delete_Script")) then
+            popupDelegate = {title = AMM.LocalizableString("Warning"), message = '', buttons = {}}
+            popupDelegate.message = AMM.LocalizableString("Warn_DeleteScript_Info")
+            table.insert(popupDelegate.buttons, {label = AMM.LocalizableString("Button_Yes"), action = function(script) Director:DeleteScript(script) end})
+            table.insert(popupDelegate.buttons, {label = AMM.LocalizableString("Button_No"), action = ''})
+            popupDelegate.actionArg = Director.selectedScript
+            ImGui.OpenPopup(popupDelegate.title)
           end
 
-          if ImGui.IsItemHovered() then
-            ImGui.SetTooltip("Actor will randomly move between Marks")
-          end
+          AMM.UI:Separator()
 
-          ImGui.SameLine()
-          if ImGui.RadioButton("Sequential", Director.selectedActor.sequenceType == "Sequential") then
-            Director.selectedActor.sequenceType = "Sequential"
-            Director:SaveScript(Director.selectedScript)
-          end
+          AMM.UI:TextCenter(AMM.LocalizableString("Editing"), true)
 
-          if ImGui.IsItemHovered() then
-            ImGui.SetTooltip("Actor will move between Marks in numerical order")
-          end
+          Director.selectedScript.title = ImGui.InputText(AMM.LocalizableString("Title"), Director.selectedScript.title, 30)
 
-          AMM.UI:Spacing(3)
+          ImGui.Spacing()
 
-          Director.showNodes, used = ImGui.Checkbox("Show Marks", Director.showNodes)
+          if ImGui.BeginListBox(AMM.LocalizableString("Current_Actors")) then
+            if Director.selectedScript and #Director.selectedScript.actors > 0 then
+              for i, actor in pairs(Director.selectedScript.actors) do
 
-          if ImGui.IsItemHovered() then
-            ImGui.SetTooltip("Displays a visible icon at Mark locations")
-          end
+                local selectedName = Director.selectedActor.uniqueName or ''
+                local currentName = actor.uniqueName
 
-          if used and Director.selectedActor ~= '' then
-            if Director.showNodes then
-              Director:ShowNodes(Director.selectedActor.nodes)
-            else
-              Director:RemoveNodeMarks(Director.selectedActor.nodes)
-            end
-          end
-
-          ImGui.SameLine()
-          Director.selectedActor.autoTalk, used = ImGui.Checkbox("Auto Talk", Director.selectedActor.autoTalk)
-
-          if ImGui.IsItemHovered() then
-            ImGui.SetTooltip("This will make NPCs talk once every minute when within range (voiced NPCs only)")
-          end
-
-          if ImGui.BeginListBox("Actor Marks") then
-            for i, node in pairs(Director.selectedActor.nodes) do
-              if (Director.selectedNode.name == node.name) then selected = true else selected = false end
-              node.name = node.name:gsub("%d+", tostring(i))
-              if(ImGui.Selectable(node.name, selected)) then
-                Director.selectedNode = node
-
-                local selectionChange = false
-                if Director.lastSelectedNode.name ~= node.name then
-                  Director.lastSelectedNode = node
-                  selectionChange = true
+                if actor.team ~= '' then
+                  selectedName = selectedName:gsub(actor.name, actor.name.." ("..actor.team..")")
+                  currentName = currentName:gsub(actor.name, actor.name.." ("..actor.team..")")
                 end
 
-                if Director.showNodes and selectionChange then
-                  Director:RemoveNodeMarks(Director.selectedActor.nodes)
-                  Director:CreateNodeMark(node.pos, false)
+                if (selectedName == currentName) then selected = true else selected = false end
+                if(ImGui.Selectable(currentName, selected)) then
+                  Director.selectedActor = actor
+
+                  if Director.lastSelectedActor.name ~= actor.name then
+
+                    if #Director.selectedActor.nodes ~= 0 then
+                      Director.selectedNode = Director.selectedActor.nodes[1]
+                    else
+                      Director.selectedNode = ''
+                    end
+
+                    if Director.showNodes then
+                      Director:RemoveNodeMarks(Director.lastSelectedActor.nodes)
+                      Director:ShowNodes(Director.selectedActor.nodes)
+                    end
+                    Director.lastSelectedActor = actor
+                  end
                 end
               end
             end
             ImGui.EndListBox()
           end
 
-          if ImGui.Button("New Mark") then
-            Director.selectedNode = ''
-            ImGui.OpenPopup("Node View")
-          end
-
-          if ImGui.IsItemHovered() then
-            ImGui.SetTooltip("Create Mark at current Player position to move and direct Actors")
+          if ImGui.Button(AMM.LocalizableString("Button_AddActor")) then
+            Director.selectedActor = ''
+            ImGui.OpenPopup("Actors")
           end
 
           ImGui.SameLine()
-          if ImGui.Button("Remove Mark") then
-            Director:RemoveNodeFromActor(Director.selectedActor, Director.selectedNode)
-            if #Director.selectedActor.nodes ~= 0 then
-              Director.selectedNode = Director.selectedActor.nodes[1]
-            else
-              Director.selectedNode = ''
-            end
-            Director:SaveScript(Director.selectedScript)
+          if ImGui.Button(AMM.LocalizableString("Button_RemoveActor")) then
+            Director:RemoveActorFromScript(Director.selectedScript, Director.selectedActor.uniqueName)
           end
 
-          if Director.selectedNode ~= '' then
+          if Director.selectedActor ~= '' then
             ImGui.SameLine()
-            if ImGui.Button("Edit Mark") then
+            if ImGui.Button(AMM.LocalizableString("Button_ChangeActor")) then
+              ImGui.OpenPopup("Actors")
+            end
+
+            AMM.UI:Spacing(3)
+
+            AMM.UI:TextColored(AMM.LocalizableString("Marks_Sequence"))
+            if ImGui.RadioButton(AMM.LocalizableString("Button_RadioOnlyOne"), Director.selectedActor.sequenceType == "OnlyOne") then
+              Director.selectedActor.sequenceType = "OnlyOne"
+              Director:SaveScript(Director.selectedScript)
+            end
+
+            if ImGui.IsItemHovered() then
+              ImGui.SetTooltip(AMM.LocalizableString("Warn_ActorSingleMark_Info"))
+            end
+
+            ImGui.SameLine()
+            if ImGui.RadioButton(AMM.LocalizableString("Button_RadioRandom"), Director.selectedActor.sequenceType == "Random") then
+              Director.selectedActor.sequenceType = "Random"
+              Director:SaveScript(Director.selectedScript)
+            end
+
+            if ImGui.IsItemHovered() then
+              ImGui.SetTooltip(AMM.LocalizableString("Warn_ActorRandomMark_Info"))
+            end
+
+            ImGui.SameLine()
+            if ImGui.RadioButton(AMM.LocalizableString("Button_RadioSequential"), Director.selectedActor.sequenceType == "Sequential") then
+              Director.selectedActor.sequenceType = "Sequential"
+              Director:SaveScript(Director.selectedScript)
+            end
+
+            if ImGui.IsItemHovered() then
+              ImGui.SetTooltip(AMM.LocalizableString("Warn_ActorSequentialMark_Info"))
+            end
+
+            AMM.UI:Spacing(3)
+
+            Director.showNodes, used = ImGui.Checkbox(AMM.LocalizableString("ShowMarks"), Director.showNodes)
+
+            if ImGui.IsItemHovered() then
+              ImGui.SetTooltip(AMM.LocalizableString("Warn_ShowMarksLocations_Info"))
+            end
+
+            if used and Director.selectedActor ~= '' then
+              if Director.showNodes then
+                Director:ShowNodes(Director.selectedActor.nodes)
+              else
+                Director:RemoveNodeMarks(Director.selectedActor.nodes)
+              end
+            end
+
+            ImGui.SameLine()
+            Director.selectedActor.autoTalk, used = ImGui.Checkbox(AMM.LocalizableString("AutoTalk"), Director.selectedActor.autoTalk)
+
+            if ImGui.IsItemHovered() then
+              ImGui.SetTooltip(AMM.LocalizableString("This will make NPCs talk once every minute when within range (voiced NPCs only)"))
+            end
+
+            if ImGui.BeginListBox(AMM.LocalizableString("ActorMarks")) then
+              for i, node in pairs(Director.selectedActor.nodes) do
+                if (Director.selectedNode.name == node.name) then selected = true else selected = false end
+                node.name = node.name:gsub("%d+", tostring(i))
+                if(ImGui.Selectable(node.name, selected)) then
+                  Director.selectedNode = node
+
+                  local selectionChange = false
+                  if Director.lastSelectedNode.name ~= node.name then
+                    Director.lastSelectedNode = node
+                    selectionChange = true
+                  end
+
+                  if Director.showNodes and selectionChange then
+                    Director:RemoveNodeMarks(Director.selectedActor.nodes)
+                    Director:CreateNodeMark(node.pos, false)
+                  end
+                end
+              end
+              ImGui.EndListBox()
+            end
+
+            if ImGui.Button(AMM.LocalizableString("Button_NewMark")) then
+              Director.selectedNode = ''
               ImGui.OpenPopup("Node View")
+            end
+
+            if ImGui.IsItemHovered() then
+              ImGui.SetTooltip(AMM.LocalizableString("Warn_DirectActorPlayerPosition_Info"))
+            end
+
+            ImGui.SameLine()
+            if ImGui.Button(AMM.LocalizableString("Button_RemoveMark")) then
+              Director:RemoveNodeFromActor(Director.selectedActor, Director.selectedNode)
+              if #Director.selectedActor.nodes ~= 0 then
+                Director.selectedNode = Director.selectedActor.nodes[1]
+              else
+                Director.selectedNode = ''
+              end
+              Director:SaveScript(Director.selectedScript)
+            end
+
+            if Director.selectedNode ~= '' then
+              ImGui.SameLine()
+              if ImGui.Button(AMM.LocalizableString("Button_EditMark")) then
+                ImGui.OpenPopup("Node View")
+              end
             end
           end
         end
       end
     end
+
+    Director:DrawActorsPopup()
+    Director:DrawNodesPopup()
+    Director:DrawWarningPopup(popupDelegate)
+
+    ImGui.EndTabItem()
   end
-
-  Director:DrawActorsPopup()
-  Director:DrawNodesPopup()
-  Director:DrawWarningPopup(popupDelegate)
-
-  ImGui.EndTabItem()
 end
 
 
@@ -856,7 +881,7 @@ end
 function Director:GetActorsNames(script, nameToRemove, includeV)
   local names = {}
 
-  table.insert(names, "No Target")
+  table.insert(names, AMM.LocalizableString("No_Target"))
   table.insert(names, "Team A")
   table.insert(names, "Team B")
 
@@ -901,10 +926,8 @@ function Director:StopScript(script)
     local behindPlayer = Vector4.new(pos.x - (heading.x * 2), pos.y - (heading.y * 2), pos.z, pos.w)
     for _, actor in pairs(script.actors) do
       Director:TeleportActorTo(actor, behindPlayer)
-      actor.handle:Dispose()
+      getEntitySystem():DeleteEntity(actor.entityID)
     end
-
-    Game.GetPreventionSpawnSystem():RequestDespawnPreventionLevel(script.spawnLevel * -1)
 
     Cron.Halt(script.timer)
 
@@ -924,10 +947,6 @@ function Director:StopScript(script)
       end
 
       timer.tick = timer.tick + 1
-
-      if timer.tick == 50 then
-        Game.GetPlayer():SetWarningMessage("Stopping requires looking away from Actors")
-      end
 
       if allGone then
         script = Util:ShallowCopy(script, Director:LoadScriptData(script.title..".json"))
@@ -988,13 +1007,16 @@ function Director:PlayScript(script, systemActivated)
   end
 
   local timerfunc = function(timer)
-    if not Director.finishedSpawning then return end
-    Cron.Halt(timer)
-    Director.finishedSpawning = false
-    Director:MoveActors(script, actors)
+    timer.tick = timer.tick + 1
+
+    if Director.finishedSpawning or timer.tick > 50 then
+      Director.finishedSpawning = false
+      Director:MoveActors(script, actors)
+      Cron.Halt(timer)
+    end
   end
   
-  Cron.Every(0.1, timerfunc)
+  Cron.Every(0.1, {tick = 1}, timerfunc)
 end
 
 function Director:MoveActors(script, actors)
@@ -1008,17 +1030,17 @@ function Director:MoveActors(script, actors)
           return
         end
         
-        local node
+        local node = nil
         if actor.sequenceType == "OnlyOne" then
           node = actor.sequence[1]
         elseif actor.sequenceType == "Random" then
           node = actor.sequence[actor.currentNode]
         elseif actor.sequenceType == "Sequential" then
-          node = actor.nodes[actor.currentNode]        
+          node = actor.nodes[actor.currentNode]
         end
         
-        if not node then 
-          print("[AMM] ERROR: couldn't retrieve node; sequence type invalid")   
+        if not node then          
+          print("[AMM] ERROR: couldn't retrieve node; sequence type invalid")
           return
         end
 
@@ -1252,27 +1274,31 @@ function Director:SpawnActors(script, actors)
           end
         end
 
-        local player = Game.GetPlayer()
-        local heading = player:GetWorldForward()
-        local spawnTransform = player:GetWorldTransform()
-        local spawnPosition = GetSingleton('WorldPosition'):ToVector4(spawnTransform.Position)
-        spawnTransform:SetPosition(spawnTransform, Vector4.new(spawnPosition.x - heading.x, spawnPosition.y - heading.y, spawnPosition.z, spawnPosition.w))
-        local entityID = Game.GetPreventionSpawnSystem():RequestSpawn(TweakDBID.new(actorPath), script.spawnLevel * -1, spawnTransform)
-        script.actors[actor.uniqueName].entityID = entityID
-        script.actors[actor.uniqueName].id = actorID
+        local path = actorPath
+        if string.find(path, "0x") then
+          path = loadstring("return TweakDBID.new("..actorPath..")", '')()
+        end
+
+        actor.entitySpec.recordID = TweakDBID.new(path)
+        actor.entitySpec.tags = { "AMM_NPC" }
+        actor.entitySpec.position = Util:GetPosition(1, 0)
+        actor.entitySpec.orientation = Util:GetOrientation(-180)
+
+        actor.entityID = getEntitySystem():CreateEntity(actor.entitySpec)
+
+        script.actors[actor.uniqueName] = actor
+        actors[spawned] = actor
       end
 
       local actor = actors[counter]
-      if not actor.handle then
-        if actor.entityID ~= '' then
-          local entity = Game.FindEntityByID(actor.entityID)
-          if entity then
-            Util:SetGodMode(entity, true)
-            entity:GetAttitudeAgent():SetAttitudeTowards(AMM.player:GetAttitudeAgent(), Enum.new("EAIAttitude", "AIA_Friendly"))
-            actor.handle = entity
-            Director:GenerateSequence(actor)
-            counter = counter - 1
-          end
+      if not actor.handle and actor.entityID then
+        local entity = Game.FindEntityByID(actor.entityID)
+        if entity then
+          Util:SetGodMode(entity, true)
+          entity:GetAttitudeAgent():SetAttitudeTowards(AMM.player:GetAttitudeAgent(), Enum.new("EAIAttitude", "AIA_Friendly"))
+          actor.handle = entity
+          Director:GenerateSequence(actor)
+          counter = counter - 1
         end
       end
     end
@@ -1394,7 +1420,7 @@ function Director:DrawNodesPopup()
         startApp = Director.newNode.startApp
       end
 
-      if ImGui.BeginCombo("Start Appearance", startApp, ImGuiComboFlags.HeightLarge) then
+      if ImGui.BeginCombo(AMM.LocalizableString("BeginCombo_StartAppearance"), startApp, ImGuiComboFlags.HeightLarge) then
         for i, app in ipairs(appearances) do
           if ImGui.Selectable(app, (app == Director.newNode.startApp)) then
             Director.newNode.startApp = app
@@ -1410,7 +1436,7 @@ function Director:DrawNodesPopup()
         endApp = Director.newNode.endApp
       end
 
-      if ImGui.BeginCombo("End Appearance", endApp, ImGuiComboFlags.HeightLarge) then
+      if ImGui.BeginCombo(AMM.LocalizableString("BeginCombo_EndAppearance"), endApp, ImGuiComboFlags.HeightLarge) then
         for i, app in ipairs(appearances) do
           if ImGui.Selectable(app, (app == Director.newNode.endApp)) then
             Director.newNode.endApp = app
@@ -1422,11 +1448,11 @@ function Director:DrawNodesPopup()
       AMM.UI:Spacing(3)
     end
 
-    Director.newNode.holdDuration = ImGui.InputInt("Hold Duration", Director.newNode.holdDuration, 1)
+    Director.newNode.holdDuration = ImGui.InputInt(AMM.LocalizableString("HoldDuration"), Director.newNode.holdDuration, 1)
 
     AMM.UI:Spacing(3)
-    AMM.UI:TextColored("Movement:")
-    if ImGui.BeginCombo("Type", Director.newNode.movementType) then
+    AMM.UI:TextColored(AMM.LocalizableString("Movement2"))
+    if ImGui.BeginCombo(AMM.LocalizableString("BeginCombo_Type"), Director.newNode.movementType) then
       for i, moveType in ipairs(Director.movementTypes) do
         if ImGui.Selectable(moveType, (moveType == Director.newNode.movementType)) then
           Director.newNode.movementType = moveType
@@ -1439,11 +1465,11 @@ function Director:DrawNodesPopup()
 
     local actors = Director:GetActorsNames(Director.selectedScript, Director.selectedActor.name, true)
 
-    if ImGui.BeginCombo("Go To Target", Director.newNode.goTo or "No Target") then
+    if ImGui.BeginCombo(AMM.LocalizableString("BeginCombo_GoToTarget"), Director.newNode.goTo or AMM.LocalizableString("No_Target")) then
       for i, actor in ipairs(actors) do
         if i == 2 or i == 3 then else
-          if ImGui.Selectable(actor, (actor == (Director.newNode.goTo or "No Target"))) then
-            if actor == "No Target" then
+          if ImGui.Selectable(actor, (actor == (Director.newNode.goTo or AMM.LocalizableString("No_Target")))) then
+            if actor == AMM.LocalizableString("No_Target") then
               Director.newNode.goTo = false
             else
               Director.newNode.goTo = actor
@@ -1455,13 +1481,13 @@ function Director:DrawNodesPopup()
     end
 
     AMM.UI:Spacing(3)
-    AMM.UI:TextColored("Actions:")
+    AMM.UI:TextColored(AMM.LocalizableString("Actions"))
 
-    if ImGui.BeginCombo("Look At", Director.newNode.lookAt or "No Target") then
+    if ImGui.BeginCombo(AMM.LocalizableString("BeginCombo_LookAt2"), Director.newNode.lookAt or AMM.LocalizableString("No_Target")) then
       for i, actor in ipairs(actors) do
         if i == 2 or i == 3 then else
-          if ImGui.Selectable(actor, (actor == (Director.newNode.lookAt or "No Target"))) then
-            if actor == "No Target" then
+          if ImGui.Selectable(actor, (actor == (Director.newNode.lookAt or AMM.LocalizableString("No_Target")))) then
+            if actor == AMM.LocalizableString("No_Target") then
               Director.newNode.lookAt = false
             else
               Director.newNode.lookAt = actor
@@ -1474,10 +1500,10 @@ function Director:DrawNodesPopup()
 
     ImGui.Spacing()
 
-    if ImGui.BeginCombo("Play Voice", Director.newNode.playVO and Director.newNode.playVO.label or "No Target", ImGuiComboFlags.HeightLarge) then
+    if ImGui.BeginCombo(AMM.LocalizableString("BeginCombo_PlayVoice"), Director.newNode.playVO and Director.newNode.playVO.label or AMM.LocalizableString("No_Target"), ImGuiComboFlags.HeightLarge) then
       for _, vo in ipairs(Director.voData) do
-        if ImGui.Selectable(vo.label, (vo.label == (Director.newNode.playVO and Director.newNode.playVO.label or "No Target"))) then
-          if vo.label == "No Target" then
+        if ImGui.Selectable(vo.label, (vo.label == (Director.newNode.playVO and Director.newNode.playVO.label or AMM.LocalizableString("No_Target")))) then
+          if vo.label == AMM.LocalizableString("No_Target") then
             Director.newNode.playVO = false
           else
             Director.newNode.playVO = vo
@@ -1489,10 +1515,10 @@ function Director:DrawNodesPopup()
 
     ImGui.Spacing()
 
-    if ImGui.BeginCombo("Attack", Director.newNode.attackTarget or "No Target") then
+    if ImGui.BeginCombo("Attack", Director.newNode.attackTarget or AMM.LocalizableString("No_Target")) then
       for i, actor in ipairs(actors) do
-        if ImGui.Selectable(actor, (actor == (Director.newNode.attackTarget or "No Target"))) then
-          if actor == "No Target" then
+        if ImGui.Selectable(actor, (actor == (Director.newNode.attackTarget or AMM.LocalizableString("No_Target")))) then
+          if actor == AMM.LocalizableString("No_Target") then
             Director.newNode.attackTarget = false
             Director.selectedActor.team = ''
           else
@@ -1507,7 +1533,7 @@ function Director:DrawNodesPopup()
     end
 
     AMM.UI:Spacing(3)
-    AMM.UI:TextColored("Facial Expression:")
+    AMM.UI:TextColored(AMM.LocalizableString("FacialExpression_WithColon"))
     if ImGui.BeginCombo(" ", Director.newNode.expression and Director.newNode.expression.name or "Select Expression") then
       for i, face in ipairs(Director.expressions) do
         if ImGui.Selectable(face.name, (face.name == (Director.newNode.expression and Director.newNode.expression.name))) then
@@ -1519,8 +1545,8 @@ function Director:DrawNodesPopup()
 
     AMM.UI:Separator()
 
-    local buttonLabel = "Add Mark"
-    if Director.selectedNode ~= '' then buttonLabel = "Save with New Position" end
+    local buttonLabel = AMM.LocalizableString("Button_Label_AddMark")
+    if Director.selectedNode ~= '' then buttonLabel = AMM.LocalizableString("Button_Label_SaveWNewPos") end
 
     if ImGui.Button(buttonLabel, -1, 30) then
       if Director.selectedNode ~= '' then
@@ -1554,7 +1580,7 @@ function Director:DrawNodesPopup()
     end
 
     if Director.selectedNode ~= '' then
-      if ImGui.Button("Save Changes Only", -1, 30) then
+      if ImGui.Button(AMM.LocalizableString("Button_SaveChangesOnly"), -1, 30) then
         Director.selectedNode = Util:ShallowCopy(Director.selectedNode, Director.newNode)
         Director:SaveScript(Director.selectedScript)
         ImGui.CloseCurrentPopup()
@@ -1570,9 +1596,9 @@ end
 function Director:DrawActorsPopup()
   if ImGui.BeginPopup("Actors", ImGuiWindowFlags.AlwaysAutoResize) then
     if Director.selectedActor ~= '' then
-      AMM.UI:TextColored("Select Actor To Replace:")
+      AMM.UI:TextColored(AMM.LocalizableString("SelectActorToReplace"))
     else
-      AMM.UI:TextColored("Add Actor To Current Script:")
+      AMM.UI:TextColored(AMM.LocalizableString("AddActorToCurrentScript"))
     end
 
     if Director.searchQuery ~= '' then
@@ -1585,7 +1611,7 @@ function Director:DrawActorsPopup()
       if #entities ~= 0 then
         Director:DrawEntitiesButtons(entities, "ALL")
       else
-        ImGui.Text("No Results")
+        ImGui.Text(AMM.LocalizableString("No_Results"))
       end
     else
       for _, category in ipairs(AMM.Spawn.categories) do
@@ -1608,7 +1634,7 @@ function Director:DrawActorsPopup()
         if #entities ~= 0 or category.cat_name == 'Favorites' then
           if(ImGui.CollapsingHeader(category.cat_name)) then
             if #entities == 0 then
-              ImGui.Text("It's empty :(")
+              ImGui.Text(AMM.LocalizableString("Itsempty"))
             else
               Director:DrawEntitiesButtons(entities, category.cat_name)
             end
@@ -1706,7 +1732,7 @@ function Director:DrawWarningPopup(popupDelegate)
 	local x, y = ImGui.GetWindowPos()
 	ImGui.SetNextWindowPos(x + ((sizeX / 2) - 200), y - 40)
   ImGui.SetNextWindowSize(400, 140)
-	if ImGui.BeginPopupModal("WARNING", ImGuiWindowFlags.AlwaysAutoResize) then
+	if ImGui.BeginPopupModal(AMM.LocalizableString("Warning"), ImGuiWindowFlags.AlwaysAutoResize) then
 		ImGui.TextWrapped(popupDelegate.message)
 		for _, button in ipairs(popupDelegate.buttons) do
 			if ImGui.Button(button.label, ImGui.GetWindowContentRegionWidth() / 2, 30) then
@@ -1898,7 +1924,7 @@ function Director:DeleteScript(script)
   end
   os.remove("./User/Scripts/"..script.title..".json")
   Director.scripts = Director:GetScripts()
-  Director.selectedScript = {title = "Select Script"}
+  Director.selectedScript = {title = AMM.LocalizableString("Select_Script")}
 end
 
 return Director

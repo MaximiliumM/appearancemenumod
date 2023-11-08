@@ -30,7 +30,7 @@ local function calculateChildViewHeight(itemCount, itemHeight)
   if childViewHeight > windowHeight then
       childViewHeight = windowHeight
   end
-  return childViewHeight + 10
+  return childViewHeight
 end
 
 function UI:Preload(theme)
@@ -109,6 +109,13 @@ function UI:TextColored(text)
 end
 
 function UI:TextError(text)
+  ImGui.TextColored(1, 0.16, 0.13, 0.75, text)
+end
+
+function UI:TextCenterError(text)
+  local textWidth = ImGui.CalcTextSize(text)
+  local x = ImGui.GetWindowSize()
+  ImGui.SameLine(x / 2 - textWidth + (textWidth / 2))
   ImGui.TextColored(1, 0.16, 0.13, 0.75, text)
 end
 

@@ -6,7 +6,7 @@ local function getEntitySystem()
 	return _entitySystem
 end
 
-local inspect = require("external/Inspect.lua")
+local inspect = require("External/Inspect.lua")
 
 function Spawn:NewSpawn(name, id, parameters, companion, path, template, rig)
 
@@ -79,11 +79,11 @@ end
 local _style
 function Spawn:Draw(AMM, style)
    _style = style or _style
-  if ImGui.BeginTabItem("Spawn") then
+  if ImGui.BeginTabItem(AMM.LocalizableString("BeginItem_TabNameSpawn")) then
 
     if AMM.playerInMenu and not AMM.playerInPhoto then
-      AMM.UI:TextColored("Player In Menu")
-      ImGui.Text("Spawning only works in game")
+      AMM.UI:TextColored(AMM.LocalizableString("Warn_PlayerInMenu"))
+      ImGui.Text(AMM.LocalizableString("Warn_SpawnWorksInGame"))
     else
       Spawn:DrawActiveSpawns(_style)
 
@@ -98,7 +98,7 @@ end
 
 function Spawn:DrawActiveSpawns(style)
   if next(Spawn.spawnedNPCs) ~= nil then
-    AMM.UI:TextColored("Active Spawns ")
+    AMM.UI:TextColored(AMM.LocalizableString("Active_Spawns"))
 
     for _, spawn in pairs(Spawn.spawnedNPCs) do
       local nameLabel = spawn.name
@@ -116,12 +116,12 @@ function Spawn:DrawActiveSpawns(style)
       end
 
       -- Spawned NPC Actions --
-      local favoritesLabels = {"Favorite", "Unfavorite"}
+      local favoritesLabels = {AMM.LocalizableString("Label_Favorite"), AMM.LocalizableString("Label_Unfavorite")}
       Spawn:DrawFavoritesButton(favoritesLabels, spawn)
 
       ImGui.SameLine()
       if spawn and spawn.handle and spawn.handle ~= '' and not(isVehicle) then
-        if AMM.UI:SmallButton("Respawn##"..spawn.name) then
+        if AMM.UI:SmallButton(AMM.LocalizableString("Button_SmallRespawn").."##"..spawn.name) then
           Spawn:Respawn(Entity:new(spawn))
         end
       end
@@ -132,7 +132,7 @@ function Spawn:DrawActiveSpawns(style)
 
 		if spawn.handle then
 			if not(mountedVehicle and mountedVehicle:GetEntityID().hash == spawn.handle:GetEntityID().hash) then
-				if AMM.UI:SmallButton("Despawn##"..spawn.name) then					
+				if AMM.UI:SmallButton(AMM.LocalizableString("Button_SmallDespawn").."##"..spawn.name) then					
 					spawn:Despawn()
 				end
 			end
@@ -141,7 +141,7 @@ function Spawn:DrawActiveSpawns(style)
 
       if spawn.handle then
         ImGui.SameLine()
-        if AMM.UI:SmallButton("Target".."##"..spawn.name) then
+        if AMM.UI:SmallButton(AMM.LocalizableString("Button_SmallTarget").."##"..spawn.name) then
           AMM.Tools:SetCurrentTarget(spawn)
           AMM.Tools.lockTarget = true
         end
@@ -149,9 +149,9 @@ function Spawn:DrawActiveSpawns(style)
 
       if spawn.handle and not(spawn.handle:IsVehicle()) and not(spawn.handle:IsDevice()) and not(spawn.handle:IsDead()) and Util:CanBeHostile(spawn) then
 
-			local hostileButtonLabel = "Hostile"
+			local hostileButtonLabel = AMM.LocalizableString("Button_LabelHostile")
 			if not(spawn.handle.isPlayerCompanionCached) then
-				hostileButtonLabel = "Friendly"
+				hostileButtonLabel = AMM.LocalizableString("Button_LabelFriendly")
 			end
 
 			ImGui.SameLine()
@@ -160,7 +160,7 @@ function Spawn:DrawActiveSpawns(style)
 			end
 
         ImGui.SameLine()
-        if AMM.UI:SmallButton("Equipment".."##"..spawn.name) then
+        if AMM.UI:SmallButton(AMM.LocalizableString("Button_SmallEquipment").."##"..spawn.name) then
           popupDelegate = AMM:OpenPopup(spawn.name.."'s Equipment")
         end
 
@@ -171,27 +171,27 @@ function Spawn:DrawActiveSpawns(style)
     AMM.UI:Separator()
   elseif AMM.playerInPhoto then
     ImGui.NewLine()
-    ImGui.Text("No Active Spawns")
+    ImGui.Text(AMM.LocalizableString("NoActiveSpawns"))
     ImGui.NewLine()
   end
 end
 
 function Spawn:DrawCategories(style)
   ImGui.PushItemWidth(Spawn.searchBarWidth)
-  Spawn.searchQuery = ImGui.InputTextWithHint(" ", "Search", Spawn.searchQuery, 100)
+  Spawn.searchQuery = ImGui.InputTextWithHint(" ", AMM.LocalizableString("Search"), Spawn.searchQuery, 100)
   Spawn.searchQuery = Spawn.searchQuery:gsub('"', '')
   ImGui.PopItemWidth()
 
   if Spawn.searchQuery ~= '' then
     ImGui.SameLine()
-    if ImGui.Button("Clear") then
+    if ImGui.Button(AMM.LocalizableString("Clear")) then
       Spawn.searchQuery = ''
     end
   end
 
   ImGui.Spacing()
 
-  AMM.UI:TextColored("Select To Spawn:")
+  AMM.UI:TextColored(AMM.LocalizableString("Select_To_Spawn"))
 
   local validCatIDs = Util:GetAllCategoryIDs(Spawn.categories)
   if Spawn.searchQuery ~= '' then
@@ -205,7 +205,7 @@ function Spawn:DrawCategories(style)
     if #entities ~= 0 then
       Spawn:DrawEntitiesButtons(entities, 'ALL', style)
     else
-      ImGui.Text("No Results")
+      ImGui.Text(AMM.LocalizableString("No_Results"))
     end
   else
     local x, y = GetDisplayResolution()
@@ -226,7 +226,7 @@ function Spawn:DrawCategories(style)
 					end
 					if #entities == 0 then
 						if ImGui.CollapsingHeader(category.cat_name) then
-							ImGui.Text("It's empty :(")
+							ImGui.Text(AMM.LocalizableString("ItsEmpty"))
 						end
 					end
 				else
@@ -371,15 +371,15 @@ function Spawn:DrawFavoritesButton(buttonLabels, entity, fullButton)
 
 	if ImGui.BeginPopupModal("Favorite Name") then
 		if Spawn.currentFavoriteName == 'existing' then
-			ImGui.TextColored(1, 0.16, 0.13, 0.75, "Existing Name")
+			ImGui.TextColored(1, 0.16, 0.13, 0.75, AMM.LocalizableString("Existing_Name"))
 
 			if ImGui.Button("Ok", -1, style.buttonHeight) then
 				Spawn.currentFavoriteName = ''
 			end
 		elseif Spawn.popupEntity.name == entity.name then
-			Spawn.currentFavoriteName = ImGui.InputText("Name", Spawn.currentFavoriteName, 30)
+			Spawn.currentFavoriteName = ImGui.InputText(AMM.LocalizableString("Name"), Spawn.currentFavoriteName, 30)
 
-			if ImGui.Button("Save", style.halfButtonWidth + 8, style.buttonHeight) then
+			if ImGui.Button(AMM.LocalizableString("Button_Save"), style.halfButtonWidth + 8, style.buttonHeight) then
 				local isFavorite = 0
 				for fav in db:urows(f('SELECT COUNT(1) FROM %s WHERE entity_name = "%s"', favoriteType, Spawn.currentFavoriteName)) do
 					isFavorite = fav
@@ -387,10 +387,10 @@ function Spawn:DrawFavoritesButton(buttonLabels, entity, fullButton)
 				if isFavorite == 0 then
 					local newEntity = Entity:new(entity)
 					newEntity.name = Spawn.currentFavoriteName
-
-					if entity.type == "Spawn" and not Util:CheckVByID(entity.id) then
+					
+					if (entity.type == "Spawn" or entity.type == "NPCPuppet") and not Util:CheckVByID(entity.id) then
 						Spawn.spawnedNPCs[entity.uniqueName()] = nil
-						entity.parameters = AMM:GetScanAppearance(entity.handle)
+						newEntity.parameters = AMM:GetScanAppearance(entity.handle)
 						Spawn.spawnedNPCs[newEntity.uniqueName()] = newEntity
 					end
 
@@ -403,7 +403,7 @@ function Spawn:DrawFavoritesButton(buttonLabels, entity, fullButton)
 				end
 			end
 
-			if ImGui.Button("Cancel", style.halfButtonWidth + 8, style.buttonHeight) then
+			if ImGui.Button(AMM.LocalizableString("Button_Cancel"), style.halfButtonWidth + 8, style.buttonHeight) then
 				Spawn.currentFavoriteName = ''
 				AMM.popupIsOpen = false
 				ImGui.CloseCurrentPopup()
@@ -538,6 +538,12 @@ function Spawn:SpawnNPC(spawn, notCompanionOverride)
 	spawn.entitySpec.tags = { "AMM_NPC" }
 	spawn.entitySpec.position = Util:GetPosition(1, 0)
 	spawn.entitySpec.orientation = Util:GetOrientation(-180)
+
+	-- Simple exception when spawning Chimera because it's so big
+	if spawn.id == "0xF676721C, 31" then
+		spawn.entitySpec.position = Util:GetPosition(6, 0)
+	end
+
 	spawn.entityID = getEntitySystem():CreateEntity(spawn.entitySpec)
 
 	while Spawn.spawnedNPCs[spawn.uniqueName()] ~= nil do

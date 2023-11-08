@@ -499,7 +499,7 @@ function Props:DrawCategoryHeaders(props, tag)
 end
 
 function Props:DrawProps(props, category)
-  AMM.UI:List(category or '', #props, Props.style.buttonHeight + 30, function(i)
+  AMM.UI:List(category or '', #props, Props.style.buttonHeight + 15, function(i)
     Props:DrawSavedProp(props[i])
   end)
 end
@@ -1118,7 +1118,7 @@ end
 
 
 function Props:SpawnSavedProp(ent)
-  Props.total = Props.total -1
+  Props.total = Props.total - 1
   local spawn = Props:SpawnPropInPosition(ent, ent.pos, ent.angles)
   Props.activeProps[ent.uid] = spawn
 
@@ -1426,7 +1426,7 @@ function Props:SavePropPosition(ent)
   
   Cron.After(0.5, function()
     if not ent.uid then
-      ent:Despawn()    
+      ent:Despawn()
     end
 
     if not saveAllInProgress then
@@ -2222,7 +2222,7 @@ end
 
 function Props:CheckIfVehicle(id)
   local count = 0
-  local query = f("SELECT COUNT(1) FROM entities WHERE entity_id = '%s'", id)
+  local query = f("SELECT COUNT(1) FROM entities WHERE entity_id = '%s' AND cat_id = 24", id)
   for check in db:urows(query) do
     count = check
   end

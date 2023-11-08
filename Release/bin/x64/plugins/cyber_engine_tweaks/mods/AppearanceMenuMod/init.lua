@@ -23,7 +23,6 @@ function printTable(t)
   end
 end
 
-
 local buttonPressed, finishedUpdate = false, false
 local waitTimer, spamTimer, delayTimer = 0.0, 0.0, 0.0
 
@@ -75,9 +74,9 @@ function AMM:new()
 	 AMM.nibblesReplacer = false
 
 	 -- Main Properties --
-	 AMM.currentVersion = "2.4.4"
+	 AMM.currentVersion = "2.5"
 	 AMM.CETVersion = parseVersion(GetVersion())
-	 AMM.CodewareVersion = nil
+	 AMM.CodewareVersion = 0
 	 AMM.updateNotes = require('update_notes.lua')
 	 AMM.credits = require("credits.lua")
 	 AMM.updateLabel = "WHAT'S NEW"
@@ -136,6 +135,11 @@ function AMM:new()
 	 AMM.importInProgress = false
 	 AMM.deltaTime = 0
 
+	 -- Load Localization Files
+	 AMM.currentLanguage = require("Localization/en_US.lua")
+	 AMM.availableLanguages = AMM:GetLocalizationLanguages()
+	 AMM.selectedLanguage = 1
+
 	 -- Load Modules --
 	 AMM.API = require("Collabs/API.lua")
 	 AMM.Spawn = require('Modules/spawn.lua')
@@ -145,11 +149,6 @@ function AMM:new()
 	 AMM.Props = require('Modules/props.lua')
 	 AMM.Director = require('Modules/director.lua')
 	 AMM.Poses = require('Modules/anims.lua')
-
-	 -- Load Localization Files
-	 AMM.LocalizableString = require("Localization/en_US.lua")
-	 AMM.availableLanguages = AMM:GetLocalizationLanguages()
-	 AMM.selectedLanguage = 1
 
 	 -- Loads Objects --
 	 AMM.Light = require('Modules/light.lua')
@@ -204,6 +203,7 @@ function AMM:new()
 		 AMM.Swap:Initialize()
 		 AMM.Props:Initialize()
 		 AMM.Props:Update()
+		 AMM.Director:Initialize()
 		 AMM:SBInitialize()
 
 		 -- Poses should be initialized after extra archives
@@ -432,7 +432,7 @@ function AMM:new()
 
 					Cron.After(5, function()
 						if not AMM.Scan.isDriving then
-							AMM.player:SetWarningMessage("Select a Fast Travel point on your map to get going")
+							AMM.player:SetWarningMessage(AMM.LocalizableString("WarnTextAI_FastTravel"))
 						end
 					end)
 				 end
@@ -1025,7 +1025,7 @@ function AMM:new()
 		 if mod ~= nil and AMM.TeleportMod == nil then
 			 AMM.TeleportMod = mod
 			 AMM.Tools.useTeleportAnimation = AMM.userSettings.teleportAnimation
-		 end		 
+		 end
 
 		 -- This is required for Cron to function
      	Cron.Update(deltaTime)
@@ -1084,147 +1084,154 @@ function AMM:new()
 							AMM.Scan:SenseAppTriggers()
 						end
 					end
+				end
 
-					-- Freeze Player while Decor preset is loading
-					if AMM.Props.presetLoadInProgress then
-						Util:FreezePlayer()
+				-- Freeze Player while Decor preset is loading
+				if AMM.Props.presetLoadInProgress then
+					Util:FreezePlayer()
 
-						Cron.After(5, function()
-							AMM.Props.presetLoadInProgress = false
-							Util:RemovePlayerEffects()
-						end)
+					Cron.After(5, function()
+						AMM.Props.presetLoadInProgress = false
+						Util:RemovePlayerEffects()
+					end)
+				end
+
+				-- Camera Movement --
+				if AMM.Director.activeCamera then
+					AMM.Director.activeCamera:Move()
+				end
+
+				-- Light Movement --
+				if AMM.Light.stickyMode and AMM.Light.activeLight and AMM.Light.activeLight.isAMMLight then
+					AMM.Light.activeLight:Move()
+					AMM.Light.camera:Move()
+				end
+
+				-- Entity Movement --
+				if AMM.Tools.directMode and AMM.Tools.currentTarget and AMM.Tools.currentTarget ~= '' then
+					AMM.Tools.currentTarget:Move()
+				end
+
+				-- Travel Animation Done Check --
+				if AMM.TeleportMod and AMM.TeleportMod.api.done then
+					if next(AMM.Spawn.spawnedNPCs) ~= nil then
+						AMM:TeleportAll()
 					end
+					AMM.TeleportMod.api.done = false
+				end
 
-					-- Camera Movement --
-					if AMM.Director.activeCamera then
-						AMM.Director.activeCamera:Move()
-					end
+				-- Regular Teleport Wait Timer --
+				if AMM.Tools.isTeleporting then
+					waitTimer = waitTimer + deltaTime
 
-					-- Light Movement --
-					if AMM.Light.stickyMode and AMM.Light.activeLight and AMM.Light.activeLight.isAMMLight then
-						AMM.Light.activeLight:Move()
-						AMM.Light.camera:Move()
-					end
-
-					-- Entity Movement --
-					if AMM.Tools.directMode and AMM.Tools.currentTarget and AMM.Tools.currentTarget ~= '' then
-						AMM.Tools.currentTarget:Move()
-					end
-
-					-- Travel Animation Done Check --
-					if AMM.TeleportMod and AMM.TeleportMod.api.done then
+					if waitTimer > 8 then
+						waitTimer = 0.0
+						AMM.Tools.isTeleporting = false
 						if next(AMM.Spawn.spawnedNPCs) ~= nil then
 							AMM:TeleportAll()
 						end
-						AMM.TeleportMod.api.done = false
 					end
+				end
 
-					-- Regular Teleport Wait Timer --
-					if AMM.Tools.isTeleporting then
-						waitTimer = waitTimer + deltaTime
-
-						if waitTimer > 8 then
-							waitTimer = 0.0
-							AMM.Tools.isTeleporting = false
-							if next(AMM.Spawn.spawnedNPCs) ~= nil then
-					      	AMM:TeleportAll()
-					    	end
-						end
+				-- Disable Photo Mode Restriction --
+				if AMM.userSettings.photoModeEnhancements then
+					if StatusEffectSystem.ObjectHasStatusEffectWithTag(Game.GetPlayer(), 'NoPhotoMode') then
+						Util:RemoveEffectOnPlayer('GameplayRestriction.NoPhotoMode')
 					end
+				end
 
-					-- Disable Photo Mode Restriction --
-					if AMM.userSettings.photoModeEnhancements then
-						if StatusEffectSystem.ObjectHasStatusEffectWithTag(Game.GetPlayer(), 'NoPhotoMode') then
-							Util:RemoveEffectOnPlayer('GameplayRestriction.NoPhotoMode')
-						end
-					end
-
-					-- Check if Locked Target is gone --
-					if Tools.lockTarget then
-						if Tools.currentTarget.handle and Tools.currentTarget.handle ~= '' then
-							local ent = Game.FindEntityByID(Tools.currentTarget.handle:GetEntityID())
-							if not ent or (not Tools.currentTarget.spawned and Tools.currentTarget.type == 'entEntity') 
-							or (Tools.currentTarget.type == 'Player' and not AMM.playerInPhoto) then
-								Tools:ClearTarget()
-							end
-						else
+				-- Check if Locked Target is gone --
+				if Tools.lockTarget then
+					if Tools.currentTarget.handle and Tools.currentTarget.handle ~= '' then
+						local ent = Game.FindEntityByID(Tools.currentTarget.handle:GetEntityID())
+						if not ent or (not Tools.currentTarget.spawned and Tools.currentTarget.type == 'entEntity') 
+						or (Tools.currentTarget.type == 'Player' and not AMM.playerInPhoto) then
 							Tools:ClearTarget()
 						end
-					 end
-
-					-- Button Spamming Block --
-					if buttonPressed then
-						spamTimer = spamTimer + deltaTime
-
-						if spamTimer > 0.5 then
-							buttonPressed = false
-							spamTimer = 0.0
-						end
+					else
+						Tools:ClearTarget()
+					end
 					end
 
-					-- After Custom Appearance Set --
-					if AMM.setCustomApp ~= '' then
-						waitTimer = waitTimer + deltaTime
-						if waitTimer > 0.1 then
-							local handle, customAppearance = AMM.setCustomApp[1], AMM.setCustomApp[2]
-							local currentAppearance = AMM:GetScanAppearance(handle)
-							if currentAppearance == customAppearance[1].app_base then
-								for _, param in ipairs(customAppearance) do
-									local appParam = handle:FindComponentByName(CName.new(param.app_param))
-									if param.mesh_type == "body" then
-										if param.mesh_path and AMM.CodewareVersion >= 4.2 then
-											appParam:ChangeResource(param.mesh_path)
-										end
+				-- Button Spamming Block --
+				if buttonPressed then
+					spamTimer = spamTimer + deltaTime
 
-										if param.mesh_app then
-											appParam.meshAppearance = CName.new(param.mesh_app)
-											if AMM.CodewareVersion >= 4 and appParam.LoadAppearance then
-												appParam:LoadAppearance()
+					if spamTimer > 0.5 then
+						buttonPressed = false
+						spamTimer = 0.0
+					end
+				end
+
+				-- After Custom Appearance Set --
+				if AMM.setCustomApp ~= '' then
+					waitTimer = waitTimer + deltaTime
+					if waitTimer > 0.1 then
+						local handle, customAppearance = AMM.setCustomApp[1], AMM.setCustomApp[2]
+						local currentAppearance = AMM:GetScanAppearance(handle)
+						if currentAppearance == customAppearance[1].app_base then
+							for _, param in ipairs(customAppearance) do
+								local appParam = handle:FindComponentByName(CName.new(param.app_param))
+								if appParam then
+									if param.mesh_path and appParam.ChangeResource then
+										if appParam:ChangeResource(param.mesh_path, true) then
+											Cron.After(0.1, function()
+												appParam:Toggle(false)
+												
+												if param.app_toggle or param.mesh_type == "body" then
+													appParam:TemporaryHide(false)
+													appParam:Toggle(true)
+												end
+											end)
+										end
+									end
+
+									if param.mesh_app then
+										appParam.meshAppearance = CName.new(param.mesh_app)
+										if appParam.LoadAppearance then
+											if appParam:LoadAppearance() then
+												appParam:Toggle(false)
+
+												if param.app_toggle or param.mesh_type == "body" then
+													appParam:TemporaryHide(false)
+													appParam:Toggle(true)
+												end
 											end
 										end
+									end
 
-										if param.mesh_mask ~= 'no_change' and appParam.chunkMask ~= param.mesh_mask and not(string.find(param.app_name, "Underwear")) then
-											if param.mesh_mask then
-												param.mesh_mask = loadstring("return "..param.mesh_mask, '')()
-												if appParam.chunkMask ~= 18446744073709551615ULL then
-													appParam.chunkMask = bit32.bor(param.mesh_mask, appParam.chunkMask)
-												else
-													appParam.chunkMask = 18446744073709551615ULL
-												end
+									if param.mesh_mask ~= 'no_change' and appParam.chunkMask ~= param.mesh_mask and not(string.find(param.app_name, "Underwear")) then
+										if param.mesh_mask then
+											param.mesh_mask = loadstring("return "..param.mesh_mask, '')()
+											if param.app_toggle then
+												appParam.chunkMask = param.mesh_mask
+											elseif appParam.chunkMask ~= 18446744073709551615ULL then
+												appParam.chunkMask = bit32.bor(param.mesh_mask, appParam.chunkMask)
+											else
+												appParam.chunkMask = 18446744073709551615ULL
+											end
+										else
+											if param.mesh_type ~= "body" and not param.app_toggle then
+												appParam.chunkMask = 0
 											else
 												appParam.chunkMask = 18446744073709551615ULL
 											end
 										end
+									end
 
-										if param.mesh_app or param.mesh_path then
-											Cron.After(0.1, function()
-												appParam:Toggle(false)
-												appParam:Toggle(true)
-												appParam:TemporaryHide(false)
-											end)
-										else
-											appParam:Toggle(false)
-											appParam:Toggle(true)
-											appParam:TemporaryHide(false)
-										end
-									elseif appParam then
-										if not param.app_toggle then
-											appParam.chunkMask = 18446744073709551615ULL
-											appParam:Toggle(false)
-											appParam:Toggle(true)
-											appParam:TemporaryHide(false)
-										else
-											appParam.chunkMask = 0
-											appParam:Toggle(false)
-											appParam:Toggle(true)
-											appParam:TemporaryHide(true)
-										end
+									appParam:Toggle(false)
+
+									if param.app_toggle or param.mesh_type == "body" then
+										appParam:TemporaryHide(false)
+										appParam:Toggle(true)
+									else
+										appParam:TemporaryHide(true)
 									end
 								end
-
-								waitTimer = 0.0
-								AMM.setCustomApp = ''
 							end
+
+							waitTimer = 0.0
+							AMM.setCustomApp = ''
 						end
 					end
 				end
@@ -1303,6 +1310,22 @@ function AMM:new()
    return AMM
 end
 
+-- AMM Localization Function
+function AMM.LocalizableString(str)
+	if AMM.currentLanguage[str] then
+		return AMM.currentLanguage[str]
+	else
+		log("[AMM Error] Non-localized string found:"..str)
+		return str
+	end
+end
+
+function AMM:InitializeModules()
+	AMM.Scan:Initialize()
+	AMM.Tools:Initialize()
+	AMM.Director:Initialize()
+end
+
 -- Running On Draw
 function AMM:Begin()
 	local shouldResize = ImGuiWindowFlags.AlwaysAutoResize
@@ -1325,27 +1348,27 @@ function AMM:Begin()
 					local notes = AMM.updateNotes
 
 					if finishedUpdate and AMM.playerAttached == false then
-						AMM.UI:TextColored("Player In Menu")
-						ImGui.Text("AMM only functions in game")
+						AMM.UI:TextColored(AMM.LocalizableString("Warn_PlayerInMenu"))
+						ImGui.Text(AMM.LocalizableString("Warn_AMMonlyfunctions_ingame"))
 
-						if AMM.updateLabel ~= "CREDITS" then
-							AMM.updateLabel = 'UPDATE HISTORY'
+						if AMM.updateLabel ~= AMM.LocalizableString("CREDITS") then
+							AMM.updateLabel = AMM.LocalizableString("UPDATE_HISTORY")
 							notes = AMM.updateNotes
 						else
 							notes = AMM.credits
 						end
 
-						ImGui.SameLine(ImGui.GetWindowContentRegionWidth() - ImGui.CalcTextSize(" Updates "))
+						ImGui.SameLine(ImGui.GetWindowContentRegionWidth() - ImGui.CalcTextSize(AMM.LocalizableString("Updates")))
 
-						local buttonLabel = " Credits "
-						if AMM.updateLabel == "CREDITS" then
-							buttonLabel = " Updates "
+						local buttonLabel = AMM.LocalizableString("Button_Credits")
+						if AMM.updateLabel == AMM.LocalizableString("CREDITS") then
+							buttonLabel = AMM.LocalizableString("Updates")
 						end
 						if ImGui.SmallButton(buttonLabel) then
-							if AMM.updateLabel == "CREDITS" then
-								AMM.updateLabel = 'UPDATE HISTORY'
+							if AMM.updateLabel == AMM.LocalizableString("CREDITS") then
+								AMM.updateLabel = AMM.LocalizableString("UPDATE_HISTORY")
 							else
-								AMM.updateLabel = "CREDITS"
+								AMM.updateLabel = AMM.LocalizableString("CREDITS")
 							end
 						end
 
@@ -1355,7 +1378,7 @@ function AMM:Begin()
 					-- UPDATE NOTES
 					AMM.UI:Spacing(4)
 					AMM.UI:TextCenter(AMM.updateLabel, true)
-					if AMM.updateLabel == "WHAT'S NEW" then
+					if AMM.updateLabel == AMM.LocalizableString("WHATS_NEW") then
 						ImGui.Spacing()
 						AMM.UI:TextCenter(AMM.currentVersion, false)
 					end
@@ -1363,7 +1386,7 @@ function AMM:Begin()
 
 					if not(finishedUpdate) then
 						AMM.UI:Spacing(2)
-						if ImGui.Button("Cool!", ImGui.GetWindowContentRegionWidth(), 40) then
+						if ImGui.Button(AMM.LocalizableString("Button_Cool"), ImGui.GetWindowContentRegionWidth(), 40) then
 							AMM:FinishUpdate()
 						end
 						AMM.UI:Separator()
@@ -1440,7 +1463,7 @@ function AMM:Begin()
 					AMM.Director:Draw(AMM)
 
 					-- Settings Tab --
-					if (ImGui.BeginTabItem("Settings")) then
+					if (ImGui.BeginTabItem(AMM.LocalizableString("BeginItem_TabNameSettings"))) then
 
 						-- Util Popup Helper --
 						Util:SetupPopup()
@@ -1461,7 +1484,7 @@ function AMM:Begin()
 								end
 							end
 
-							ImGui.EndTabBar()      
+							ImGui.EndTabBar()
 						end
 
 						-- AMM.UI:TextColored("Companion Distance:")
@@ -1482,27 +1505,27 @@ function AMM:Begin()
 						local CETVersion = GetVersion()
 						local CodewareVersion = Codeware.Version()
 
-						ImGui.Text("AMM Version:")					
+						ImGui.Text(AMM.LocalizableString("AMM_Version"))					
 						ImGui.SameLine()
 						AMM.UI:TextColored(AMM.currentVersion)
 						ImGui.SameLine()						
-						ImGui.Text("CET Version:")
+						ImGui.Text(AMM.LocalizableString("CET_Version"))
 						ImGui.SameLine()
 						AMM.UI:TextColored(CETVersion)
 						ImGui.SameLine()						
-						ImGui.Text("Codeware Version:")
+						ImGui.Text(AMM.LocalizableString("Codeware_Version"))
 						ImGui.SameLine()
 						AMM.UI:TextColored(CodewareVersion)
 
 						ImGui.SameLine()
-						if ImGui.InvisibleButton("Machine Gun", 20, 30) then
-							local popupInfo = {text = "You found it! Heavy Machine Gun was added to Equipments."}
+						if ImGui.InvisibleButton(AMM.LocalizableString("Button_InvMachineGun"), 20, 30) then
+							local popupInfo = {text = AMM.LocalizableString("Warn_InvButtonMachineGun_Info")}
 							Util:OpenPopup(popupInfo)
 							AMM.equipmentOptions = AMM:GetEquipmentOptions(true)
 						end
 
 						if ImGui.IsItemHovered() then
-							ImGui.SetTooltip("Clicking here does nothing!")
+							ImGui.SetTooltip(AMM.LocalizableString("InvButtonTip2"))
 						end
 
 						AMM.settings = true
@@ -1534,148 +1557,149 @@ function AMM:Begin()
 end
 
 function AMM:DrawGeneralSettingsTab(style)
-	if ImGui.BeginTabItem("General") then
+	if ImGui.BeginTabItem(AMM.LocalizableString("BeginItem_TabNameGeneral")) then
 		local settingChanged = false
-		AMM.userSettings.spawnAsCompanion, clicked = ImGui.Checkbox("Spawn As Companion", AMM.userSettings.spawnAsCompanion)
+		AMM.userSettings.spawnAsCompanion, clicked = ImGui.Checkbox(AMM.LocalizableString("Checkbox_SpawnAsCompanion"), AMM.userSettings.spawnAsCompanion)
 		if clicked then settingChanged = true end
 
 		if not AMM.userSettings.spawnAsCompanion then
-			AMM.userSettings.spawnAsFriendly, clicked = ImGui.Checkbox("Spawn As Friendly", AMM.userSettings.spawnAsFriendly)
+			AMM.userSettings.spawnAsFriendly, clicked = ImGui.Checkbox(AMM.LocalizableString("Checkbox_SpawnAsFriendly"), AMM.userSettings.spawnAsFriendly)
 			if clicked then settingChanged = true end
 		end
 
-		AMM.userSettings.isCompanionInvulnerable, clicked = ImGui.Checkbox("Invulnerable Companion", AMM.userSettings.isCompanionInvulnerable)
+		AMM.userSettings.isCompanionInvulnerable, clicked = ImGui.Checkbox(AMM.LocalizableString("Checkbox_InvulnerableCompanion"), AMM.userSettings.isCompanionInvulnerable)
 		if clicked then
 			settingChanged = true
 			AMM:RespawnAll()
 		end
 
-		AMM.userSettings.respawnOnLaunch, clicked = ImGui.Checkbox("Respawn On Launch", AMM.userSettings.respawnOnLaunch)
+		AMM.userSettings.respawnOnLaunch, clicked = ImGui.Checkbox(AMM.LocalizableString("Checkbox_RespawnOnLaunch"), AMM.userSettings.respawnOnLaunch)
 		if clicked then settingChanged = true end
 
 		if ImGui.IsItemHovered() then
-			ImGui.SetTooltip("This setting will enable/disable respawn previously saved NPCs on game load. AMM automatically saves your spawned NPCs when you exit the game.")
+			ImGui.SetTooltip(AMM.LocalizableString("Warn_RespawnOnLaunch_Info"))
 		end
 
-		AMM.userSettings.autoLock, clicked = ImGui.Checkbox("Lock Target After Spawn", AMM.userSettings.autoLock)
+		AMM.userSettings.autoLock, clicked = ImGui.Checkbox(AMM.LocalizableString("Checkbox_LockTargetAfterSpawn"), AMM.userSettings.autoLock)
 		if clicked then settingChanged = true end
 
 		if AMM.userSettings.autoLock then
-			AMM.userSettings.autoOpenTargetTools, clicked = ImGui.Checkbox("Open Target Tools After Spawn", AMM.userSettings.autoOpenTargetTools)
+			AMM.userSettings.autoOpenTargetTools, clicked = ImGui.Checkbox(AMM.LocalizableString("Checkbox_OpenTargetToolsAfterSpawn"), AMM.userSettings.autoOpenTargetTools)
 			if clicked then settingChanged = true end
 		end
 
-		AMM.userSettings.axisIndicatorByDefault, clicked = ImGui.Checkbox("Display Axis Indicator By Default", AMM.userSettings.axisIndicatorByDefault)
+		AMM.userSettings.axisIndicatorByDefault, clicked = ImGui.Checkbox(AMM.LocalizableString("Checkbox_DisplayAxisIndicatorByDefault"), AMM.userSettings.axisIndicatorByDefault)
 		if clicked then settingChanged = true end
 
 		if AMM.CETVersion >= 18 then
-			AMM.userSettings.photoModeEnhancements, clicked = ImGui.Checkbox("Photo Mode Enhancements", AMM.userSettings.photoModeEnhancements)
+			AMM.userSettings.photoModeEnhancements, clicked = ImGui.Checkbox(AMM.LocalizableString("Checkbox_PhotoModeEnhancements"), AMM.userSettings.photoModeEnhancements)
 			if clicked then settingChanged = true end
 		end
 
-		AMM.userSettings.godModeOnLaunch, clicked = ImGui.Checkbox("God Mode On Launch", AMM.userSettings.godModeOnLaunch)
+		AMM.userSettings.godModeOnLaunch, clicked = ImGui.Checkbox(AMM.LocalizableString("Checkbox_GodModeOnLaunch"), AMM.userSettings.godModeOnLaunch)
 		if clicked then settingChanged = true end
 
-		AMM.userSettings.streamerMode, clicked = ImGui.Checkbox("Streamer Mode", AMM.userSettings.streamerMode)
+		AMM.userSettings.streamerMode, clicked = ImGui.Checkbox(AMM.LocalizableString("Checkbox_StreamerMode"), AMM.userSettings.streamerMode)
 		if clicked then settingChanged = true end
 
 		if ImGui.IsItemHovered() then
-			ImGui.SetTooltip("This setting will enable/disable NPC appearances that contain the words: naked, nude, xxx, shower, birthday_suit, pp and penis.")
+			ImGui.SetTooltip(AMM.LocalizableString("Warn_BannedWords_Info"))
 		end
 
 		if settingChanged then AMM:UpdateSettings() end
 
-		AMM.UI:TextColored("Companion Damage:")
+		AMM.UI:TextColored(AMM.LocalizableString("Companion_Damage"))
 
 		ImGui.PushItemWidth(200)
-		AMM.companionAttackMultiplier = ImGui.InputFloat("x Damage", AMM.companionAttackMultiplier, 0.5, 50, "%.1f")
+		AMM.companionAttackMultiplier = ImGui.InputFloat(AMM.LocalizableString("xDamage"), AMM.companionAttackMultiplier, 0.5, 50, "%.1f")
 		if AMM.companionAttackMultiplier < 0 then AMM.companionAttackMultiplier = 0 end
 		ImGui.PopItemWidth()
 
 		AMM.UI:Spacing(3)
 
-		AMM.UI:TextColored("Saved Appearances Hotkeys:")
+		AMM.UI:TextColored(AMM.LocalizableString("SavedAppearancesHotkeys"))
 
+		local target = AMM.currentTarget
 		if target ~= nil and (target.type == "NPCPuppet" or target.type == "vehicle") then
-			AMM:DrawHotkeySelection()
+			AMM:DrawHotkeySelection(target)
 		else
 			AMM.UI:Spacing(3)
-			AMM.UI:TextCenter("Target NPC or Vehicle to Set Hotkeys")
+			AMM.UI:TextCenter(AMM.LocalizableString("Warn_TargetNpcVehicleHotkey"))
 		end	
 
 		AMM.UI:Separator()
 
 		if AMM.userSettings.experimental then
-			if ImGui.Button("Revert All Model Swaps", style.halfButtonWidth, style.buttonHeight) then
+			if ImGui.Button(AMM.LocalizableString("Button_RevertAllModelSwaps"), style.halfButtonWidth, style.buttonHeight) then
 				AMM:RevertTweakDBChanges(true)
 			end
 
 			ImGui.SameLine()
-			if ImGui.Button("Respawn All", style.halfButtonWidth, style.buttonHeight) then
+			if ImGui.Button(AMM.LocalizableString("Button_RespawnAll"), style.halfButtonWidth, style.buttonHeight) then
 				AMM:RespawnAll()
 			end
 		end
 
 
-		if ImGui.Button("Force Despawn All", style.halfButtonWidth, style.buttonHeight) then
+		if ImGui.Button(AMM.LocalizableString("Button_ForceDespawnAll"), style.halfButtonWidth, style.buttonHeight) then
 			AMM:DespawnAll(true)
 		end
 
 		ImGui.SameLine()
-		if ImGui.Button("Clear Favorites", style.halfButtonWidth, style.buttonHeight) then
+		if ImGui.Button(AMM.LocalizableString("Button_ClearFavorites"), style.halfButtonWidth, style.buttonHeight) then
 			popupDelegate = AMM:OpenPopup("Favorites")
 		end
 
-		if ImGui.Button("Clear All Saved Appearances", style.buttonWidth, style.buttonHeight) then
+		if ImGui.Button(AMM.LocalizableString("Button_ClearAllSavedAppearances"), style.buttonWidth, style.buttonHeight) then
 			popupDelegate = AMM:OpenPopup("Appearances")
 		end
 
-		if ImGui.Button("Clear All Blacklisted Appearances", style.buttonWidth, style.buttonHeight) then
+		if ImGui.Button(AMM.LocalizableString("Button_ClearAllBlacklistedAppearances"), style.buttonWidth, style.buttonHeight) then
 			popupDelegate = AMM:OpenPopup("Blacklist")
 		end
 
-		if ImGui.Button("Clear All Appearance Triggers", style.buttonWidth, style.buttonHeight) then
-			popupDelegate = AMM:OpenPopup("Appearance Triggers")
+		if ImGui.Button(AMM.LocalizableString("Button_ClearAllAppearanceTriggers"), style.buttonWidth, style.buttonHeight) then
+			popupDelegate = AMM:OpenPopup("AppearanceTriggers")
 		end
 
 		if AMM.userSettings.experimental then
-			if ImGui.Button("Clear All Saved Despawns", style.buttonWidth, style.buttonHeight) then
-				popupDelegate = AMM:OpenPopup("Saved Despawns")
+			if ImGui.Button(AMM.LocalizableString("Button_ClearAllSavedDespawns"), style.buttonWidth, style.buttonHeight) then
+				popupDelegate = AMM:OpenPopup("SavedDespawns")
 			end
 		end
 
-		AMM:BeginPopup("WARNING", nil, true, popupDelegate, style)
+		AMM:BeginPopup(AMM.LocalizableString("Warning"), nil, true, popupDelegate, style)
 		ImGui.EndTabItem()
   end
 end
 
 function AMM:DrawUISettingsTab(style)
-	if ImGui.BeginTabItem("User Interface") then
+	if ImGui.BeginTabItem(AMM.LocalizableString("BeginItem_TabNameUI")) then
 		local settingsChanged = false
 		
-		AMM.userSettings.openWithOverlay, clicked = ImGui.Checkbox("Open With CET Overlay", AMM.userSettings.openWithOverlay)
+		AMM.userSettings.openWithOverlay, clicked = ImGui.Checkbox(AMM.LocalizableString("Checkbox_OpenWCETOverlay"), AMM.userSettings.openWithOverlay)
 		if clicked then settingChanged = true end
 
-		AMM.userSettings.autoResizing, clicked = ImGui.Checkbox("Auto-Resizing Window", AMM.userSettings.autoResizing)
+		AMM.userSettings.autoResizing, clicked = ImGui.Checkbox(AMM.LocalizableString("Checkbox_AutoResizingWindow"), AMM.userSettings.autoResizing)
 		if clicked then settingChanged = true end
 
-		AMM.userSettings.scanningReticle, clicked = ImGui.Checkbox("Scanning Reticle", AMM.userSettings.scanningReticle)
+		AMM.userSettings.scanningReticle, clicked = ImGui.Checkbox(AMM.LocalizableString("Checkbox_ScanningReticle"), AMM.userSettings.scanningReticle)
 		if clicked then settingChanged = true end
 
-		AMM.userSettings.floatingTargetTools, clicked = ImGui.Checkbox("Floating Target Tools", AMM.userSettings.floatingTargetTools)
+		AMM.userSettings.floatingTargetTools, clicked = ImGui.Checkbox(AMM.LocalizableString("Checkbox_FloatingTargetTools"), AMM.userSettings.floatingTargetTools)
 		if clicked then settingChanged = true end
 
-		AMM.userSettings.tabDescriptions, clicked = ImGui.Checkbox("Tab Header Descriptions", AMM.userSettings.tabDescriptions)
+		AMM.userSettings.tabDescriptions, clicked = ImGui.Checkbox(AMM.LocalizableString("Checkbox_TabHeaderDescriptions"), AMM.userSettings.tabDescriptions)
 		if clicked then settingChanged = true end
 
-		AMM.userSettings.favoritesDefaultOpen, clicked = ImGui.Checkbox("Expand Favorites By Default", AMM.userSettings.favoritesDefaultOpen)
+		AMM.userSettings.favoritesDefaultOpen, clicked = ImGui.Checkbox(AMM.LocalizableString("Checkbox_ExpandFavoritesByDefault"), AMM.userSettings.favoritesDefaultOpen)
 		if clicked then settingChanged = true end
 
 		if ImGui.IsItemHovered() then
-			ImGui.SetTooltip("This setting will expand Favorites in Spawn, Swap and Decor tabs by default when AMM first launches.")
+			ImGui.SetTooltip(AMM.LocalizableString("Warn_FirstLaunchDecideTabsExpand_Info"))
 		end
 
-		AMM.userSettings.scrollBarEnabled, scrollBarClicked = ImGui.Checkbox("Enable Scroll Bars", AMM.userSettings.scrollBarEnabled)
+		AMM.userSettings.scrollBarEnabled, scrollBarClicked = ImGui.Checkbox(AMM.LocalizableString("Checkbox_EnableScrollBars"), AMM.userSettings.scrollBarEnabled)
 
 		if scrollBarClicked then
 			settingChanged = true
@@ -1690,14 +1714,15 @@ function AMM:DrawUISettingsTab(style)
 		if #AMM.availableLanguages > 1 then
 			AMM.UI:Spacing(3)
 
-			AMM.UI:TextColored("Interface Language:")
+			AMM.UI:TextColored(AMM.LocalizableString("Interface_Language"))
 
 			local selectedLanguage = AMM.availableLanguages[AMM.selectedLanguage]
 			if ImGui.BeginCombo(" ##Interface Language", selectedLanguage.name) then
 				for i, lang in ipairs(AMM.availableLanguages) do
 					if ImGui.Selectable(lang.name.."##"..i, (lang == selectedLanguage.name)) then
 						AMM.selectedLanguage = i
-						AMM.LocalizableString = lang.strings
+						AMM.currentLanguage = lang.strings
+						AMM:InitializeModules()
 						AMM:UpdateSettings()
 					end
 				end
@@ -1707,7 +1732,7 @@ function AMM:DrawUISettingsTab(style)
 
 		AMM.UI:Spacing(3)
 
-		AMM.UI:TextColored("Custom Appearances:")
+		AMM.UI:TextColored(AMM.LocalizableString("Custom_Appearances"))
 
 		for _, option in ipairs(AMM.customAppOptions) do
 			if ImGui.RadioButton(option, AMM.customAppPosition == option) then
@@ -1720,34 +1745,34 @@ function AMM:DrawUISettingsTab(style)
 
 		AMM.UI:Spacing(3)
 
-		AMM.UI:TextColored("Photo Mode Adjustments:")
-		AMM.userSettings.disablePhotoModeCursor, clicked = ImGui.Checkbox("Always Disable Photo Mode Cursor", AMM.userSettings.disablePhotoModeCursor)
+		AMM.UI:TextColored(AMM.LocalizableString("PhotoModeAdjustments"))
+		AMM.userSettings.disablePhotoModeCursor, clicked = ImGui.Checkbox(AMM.LocalizableString("Checkbox_AlwaysDisablePhotoModeCursor"), AMM.userSettings.disablePhotoModeCursor)
 		if clicked then settingChanged = true end
 
 		AMM.UI:Spacing(3)
 
-		AMM.UI:TextColored("Disable Photo Mode Tabs:")
-		AMM.userSettings.disableCameraTab, clicked = ImGui.Checkbox("Camera", AMM.userSettings.disableCameraTab)
+		AMM.UI:TextColored(AMM.LocalizableString("DisablePhotoModeTabs"))
+		AMM.userSettings.disableCameraTab, clicked = ImGui.Checkbox(AMM.LocalizableString("Checkbox_Camera"), AMM.userSettings.disableCameraTab)
 		if clicked then settingChanged = true end
 
 		ImGui.SameLine()
 
-		AMM.userSettings.disableDOFTab, clicked = ImGui.Checkbox("DOF", AMM.userSettings.disableDOFTab)
+		AMM.userSettings.disableDOFTab, clicked = ImGui.Checkbox(AMM.LocalizableString("Checkbox_DepthOfField"), AMM.userSettings.disableDOFTab)
 		if clicked then settingChanged = true end
 
 		ImGui.SameLine()
 
-		AMM.userSettings.disableEffectTab, clicked = ImGui.Checkbox("Effect", AMM.userSettings.disableEffectTab)
+		AMM.userSettings.disableEffectTab, clicked = ImGui.Checkbox(AMM.LocalizableString("Checkbox_Effect"), AMM.userSettings.disableEffectTab)
 		if clicked then settingChanged = true end
 
 		ImGui.SameLine()
 
-		AMM.userSettings.disableStickersTab, clicked = ImGui.Checkbox("Stickers", AMM.userSettings.disableStickersTab)
+		AMM.userSettings.disableStickersTab, clicked = ImGui.Checkbox(AMM.LocalizableString("Checkbox_Stickers"), AMM.userSettings.disableStickersTab)
 		if clicked then settingChanged = true end
 
 		ImGui.SameLine()
 
-		AMM.userSettings.disableLoadSaveTab, clicked = ImGui.Checkbox("Load/Save", AMM.userSettings.disableLoadSaveTab)
+		AMM.userSettings.disableLoadSaveTab, clicked = ImGui.Checkbox(AMM.LocalizableString("Checkbox_LoadSave"), AMM.userSettings.disableLoadSaveTab)
 		if clicked then settingChanged = true end
 
 		if settingChanged then AMM:UpdateSettings() end
@@ -1755,7 +1780,7 @@ function AMM:DrawUISettingsTab(style)
 		AMM.UI:Separator()
 
 		if AMM.settings then
-			if ImGui.BeginListBox("Themes") then
+			if ImGui.BeginListBox(AMM.LocalizableString("Listbox_Themes")) then
 				for _, theme in ipairs(AMM.UI.userThemes) do
 					if (AMM.selectedTheme == theme.name) then selected = true else selected = false end
 					if(ImGui.Selectable(theme.name, selected)) then
@@ -1765,7 +1790,7 @@ function AMM:DrawUISettingsTab(style)
 				ImGui.EndListBox()
 			end
 
-			if ImGui.SmallButton("  Create Theme  ") then
+			if ImGui.SmallButton(AMM.LocalizableString("Button_SmallCreateTheme")) then
 				AMM.Editor:Setup()
 				AMM.Editor.isEditing = true
 			end
@@ -1782,48 +1807,48 @@ function AMM:DrawUISettingsTab(style)
 end
 
 function AMM:DrawExperimentalSettingsTab(style)
-	if ImGui.BeginTabItem("Experimental") then
+	if ImGui.BeginTabItem(AMM.LocalizableString("BeginItem_TabNameExperimental")) then
 
-		ImGui.TextWrapped("Experimental features add more functionality, but they might not work that well thus the experimental label. In fact, most AMM users have Experimental features enabled. So don't worry too much and have fun!")
+		ImGui.TextWrapped(AMM.LocalizableString("Warn_ExperimentalTabDesc_Info"))
 
 		local settingsChanged = false
 
-		AMM.userSettings.experimental, expClicked = ImGui.Checkbox("Experimental/Fun stuff", AMM.userSettings.experimental)
+		AMM.userSettings.experimental, expClicked = ImGui.Checkbox(AMM.LocalizableString("Checkbox_ExperimentalFunstuff"), AMM.userSettings.experimental)
 
 		if AMM.userSettings.experimental then
-			AMM.userSettings.freezeInPhoto, clicked = ImGui.Checkbox("Enable Freeze Target In Photo Mode", AMM.userSettings.freezeInPhoto)
+			AMM.userSettings.freezeInPhoto, clicked = ImGui.Checkbox(AMM.LocalizableString("Checkbox_EnableFreezeTargetInPhotoMode"), AMM.userSettings.freezeInPhoto)
 			if clicked then settingChanged = true end
 
 			if ImGui.IsItemHovered() then
 				ImGui.BeginTooltip()
 				ImGui.PushTextWrapPos(500)
-				ImGui.TextWrapped("This setting is meant to help freeze animations from mods that add custom animation to Photo Mode poses or when you unpause using IGCS.")
+				ImGui.TextWrapped(AMM.LocalizableString("Warn_FreezeTargetPhotoMode_Info"))
 				ImGui.PopTextWrapPos()
 				ImGui.EndTooltip()
 			end
 
 
-			AMM.userSettings.weaponizeNPC, weapClicked = ImGui.Checkbox("Weaponize Companions", AMM.userSettings.weaponizeNPC)
+			AMM.userSettings.weaponizeNPC, weapClicked = ImGui.Checkbox(AMM.LocalizableString("Checkbox_WeaponizeCompanions"), AMM.userSettings.weaponizeNPC)
 
 			if ImGui.IsItemHovered() then
-				ImGui.SetTooltip("This will give weapons and combat abilities to all NPCs. T-posing and weird animations are expected.")
+				ImGui.SetTooltip(AMM.LocalizableString("Warn_WeaponizeCompanions_Info"))
 			end
 
-			AMM.userSettings.animPlayerSelfTarget, clicked = ImGui.Checkbox("Allow Player To Be Targeted in Poses tab", AMM.userSettings.animPlayerSelfTarget)
+			AMM.userSettings.animPlayerSelfTarget, clicked = ImGui.Checkbox(AMM.LocalizableString("Checkbox_AllowPlayerToBeTargetedinPosestab"), AMM.userSettings.animPlayerSelfTarget)
 			if clicked then settingChanged = true end
 
-			AMM.userSettings.allowPlayerAnimationOnNPCs, clicked = ImGui.Checkbox("Allow Player Animations on NPCs", AMM.userSettings.allowPlayerAnimationOnNPCs)
+			AMM.userSettings.allowPlayerAnimationOnNPCs, clicked = ImGui.Checkbox(AMM.LocalizableString("Checkbox_AllowPlayerAnimationsonNPCs"), AMM.userSettings.allowPlayerAnimationOnNPCs)
 			if clicked then settingChanged = true end
 
 			if ImGui.IsItemHovered() then
-				ImGui.SetTooltip("Enable this if you are using a mod that allows Player Animations to be used on NPCs.")
+				ImGui.SetTooltip(AMM.LocalizableString("Warn_PlayerAnimsOnNpc_Info"))
 			end
 
-			AMM.userSettings.allowLookAtForNPCs, clicked = ImGui.Checkbox("Allow Expressions and Look At for NPCs in Photo Mode", AMM.userSettings.allowLookAtForNPCs)
+			AMM.userSettings.allowLookAtForNPCs, clicked = ImGui.Checkbox(AMM.LocalizableString("Checkbox_AllowExpressionOnNpcPM"), AMM.userSettings.allowLookAtForNPCs)
 			if clicked then settingChanged = true end
 
 			if ImGui.IsItemHovered() then
-				ImGui.SetTooltip("This setting requires IGCS to unpause time.")
+				ImGui.SetTooltip(AMM.LocalizableString("Warn_UnpauseRequiresIGSC"))
 			end
 		end
 
@@ -1832,7 +1857,7 @@ function AMM:DrawExperimentalSettingsTab(style)
 			AMM.Spawn.categories = AMM.Spawn:GetCategories()
 
 			if AMM.userSettings.experimental then
-				popupDelegate = AMM:OpenPopup("Experimental")
+				popupDelegate = AMM:OpenPopup(AMM.LocalizableString("BeginItem_TabNameExperimental"))
 			end
 		end
 
@@ -1840,7 +1865,7 @@ function AMM:DrawExperimentalSettingsTab(style)
 			settingChanged = true
 
 			if AMM.userSettings.weaponizeNPC then
-				popupDelegate = AMM:OpenPopup("Weaponize")
+				popupDelegate = AMM:OpenPopup(AMM.LocalizableString("Weaponize"))
 			end
 		end
 
@@ -1947,38 +1972,57 @@ end
 -- End Objects --
 
 -- AMM Methods --
+function AMM:SaveFileFromACM(filename, data)
+	
+	-- Open the file for writing
+	local file = io.open("Collabs/Custom Appearances/"..filename, "w")
+
+	if file then
+		-- Write the Lua code to the file
+		file:write(data)
+
+		-- Close the file
+		file:close()
+
+		db:execute("DELETE FROM custom_appearances WHERE collab_tag IS NOT NULL")
+		AMM.collabs = AMM:SetupCollabAppearances()
+		AMM.cachedAppearanceOptions = {}
+	else
+		log("[AMM Error] Unable to open the file for writing.")
+	end
+end
+
 function AMM:CheckMissingArchives()
 
 	if AMM.CETVersion >= 18 then
 		if AMM.archives == nil then
 			AMM.archives = {
-				{name = "basegame_AMM_Props", desc = "Adds props, characters and vehicles. AMM won't launch without this.", active = true, optional = false},
-				{name = "basegame_johnny_companion", desc = "Adds Johnny Silverhand as a spawnable character.", active = true, optional = false},
-				{name = "basegame_AMM_ScenesPack", desc = "Adds 9358 scene animations to Poses system.\nDownload it on AMM's Nexus page.", active = true, optional = true, extra = true},
-				{name = "basegame_AMM_SoundEffects", desc = "Adds spawnable sound effects.", active = true, optional = true},
-				{name = "basegame_AMM_KerryPP", desc = "Adds a new naked appearance.", active = true, optional = true},
-				{name = "basegame_AMM_BenjaminStonePP", desc = "Adds a new naked appearance.", active = true, optional = true},
-				{name = "basegame_AMM_RiverPP", desc = "Adds a new naked appearance.", active = true, optional = true},
-				{name = "basegame_AMM_YorinobuPP", desc = "Adds a new naked appearance.", active = true, optional = true},
-				{name = "basegame_AMM_LizzyIncognito", desc = "Adds a new appearance.", active = true, optional = true},
-				{name = "basegame_AMM_MeredithXtra", desc = "Adds a new appearance.", active = true, optional = true},
-				{name = "basegame_AMM_Delamain_Fix", desc = "Adds full body to Delamain.", active = true, optional = true},
-				{name = "basegame_texture_HanakoNoMakeup", desc = "Allows AMM to remove Hanako's makeup when using Custom Appearance.", active = true, optional = true},
-				{name = "basegame_AMM_JudyBodyRevamp", desc = "Replaces Judy's body with a new improved one.", active = true, optional = true},
-				{name = "basegame_AMM_PanamBodyRevamp", desc = "Replaces Panam's body with a new improved one.", active = true, optional = true},
-				{name = "basegame_AMM_MistyBodyRevamp", desc = "Replaces Misty's body with a new improved one.\nDownload it on AMM's Nexus page.", active = true, optional = true, extra = true},
-				{name = "_1_Ves_HanakoFixedBodyNaked", desc = "Replaces Hanako's body with a new improved one.", active = true, optional = true},
-				{name = "PinkyDude_ANIM_FacialExpressions_FemaleV", desc = "Enables facial expressions tools on Female V", active = true, optional = true},
-				{name = "PinkyDude_ANIM_FacialExpressions_MaleV", desc = "Enables facial expressions tools on Male V", active = true, optional = true},
-				{name = "AMM_Dino_TattooFix", desc = "Replaces mesh and texture.", active = true, optional = true},
-				{name = "AMM_Songbird_BodyFix", desc = "Replaces body to fix grey area. Not perfect yet.", active = true, optional = true},
-				{name = "AMM_RitaWheeler_CombatEnabler", desc = "Replaces entity file in order to enable combat animations.", active = true, optional = true},
-				{name = "AMM_Cheri_Appearances", desc = "Adds new appearances. Download it on AMM's Nexus page.", active = true, optional = true, extra = true},
-				{name = "AMM_Bryce_Naked", desc = "Adds a new naked appearance. Download it on AMM's Nexus page.", active = true, optional = true, extra = true},
-				{name = "AMM_Evelyn_Naked", desc = "Fixes her body to allow naked appearance. Download it on AMM's Nexus page.", active = true, optional = true, extra = true},
-				{name = "AMM_Saburo_Appearances", desc = "Adds new appearances. Download it on AMM's Nexus page.", active = true, optional = true, extra = true},
-				{name = "AMM_TBug_Appearances", desc = "Adds new appearances. Download it on AMM's Nexus page.", active = true, optional = true, extra = true},
-				{name = "AMM_8ug8ear_Appearances", desc = "Adds new appearances. Download it on AMM's Nexus page.", active = true, optional = true, extra = true},
+				{name = "basegame_AMM_Props", desc = AMM.LocalizableString("AMM_Props_Desc"), active = true, optional = false},
+				{name = "basegame_johnny_companion", desc = AMM.LocalizableString("AMM_JohnnyCompanion_Desc"), active = true, optional = false},
+				{name = "basegame_AMM_ScenesPack", desc = AMM.LocalizableString("AMM_ScenesPack_Desc"), active = true, optional = true, extra = true},
+				{name = "basegame_AMM_SoundEffects", desc = AMM.LocalizableString("AMM_SoundPack_Desc"), active = true, optional = true},
+				{name = "basegame_AMM_KerryPP", desc = AMM.LocalizableString("AMM_KerryPP_Desc"), active = true, optional = true},
+				{name = "basegame_AMM_BenjaminStonePP", desc = AMM.LocalizableString("AMM_BenjaminStonePP_Desc"), active = true, optional = true},
+				{name = "basegame_AMM_RiverPP", desc = AMM.LocalizableString("AMM_RiverPP_Desc"), active = true, optional = true},
+				{name = "basegame_AMM_YorinobuPP", desc = AMM.LocalizableString("AMM_YorinobuPP_Desc"), active = true, optional = true},
+				{name = "basegame_AMM_LizzyIncognito", desc = AMM.LocalizableString("AMM_LizzyIncognito_Desc"), active = true, optional = true},
+				{name = "basegame_AMM_MeredithXtra", desc = AMM.LocalizableString("AMM_MeredithXtra_Desc"), active = true, optional = true},
+				{name = "basegame_AMM_Delamain_Fix", desc = AMM.LocalizableString("AMM_DelamainFix_Desc"), active = true, optional = true},
+				{name = "basegame_texture_HanakoNoMakeup", desc = AMM.LocalizableString("AMM_HanakoNoMakeup_Desc"), active = true, optional = true},
+				{name = "basegame_AMM_JudyBodyRevamp", desc = AMM.LocalizableString("AMM_JudyBodyRevamp_Desc"), active = true, optional = true},
+				{name = "basegame_AMM_PanamBodyRevamp", desc = AMM.LocalizableString("AMM_PanamBodyRevamp_Desc"), active = true, optional = true},
+				{name = "basegame_AMM_MistyBodyRevamp", desc = AMM.LocalizableString("AMM_MistyBodyRevamp_Desc"), active = true, optional = true, extra = true},
+				{name = "_1_Ves_HanakoFixedBodyNaked", desc = AMM.LocalizableString("AMM_1VesHanakoFixedBodyNaked_Desc"), active = true, optional = true},
+				{name = "PinkyDude_ANIM_FacialExpressions_FemaleV", desc = AMM.LocalizableString("AMM_PinkyDudeANIMFacialExpressionsFemV_Desc"), active = true, optional = true},
+				{name = "PinkyDude_ANIM_FacialExpressions_MaleV", desc = AMM.LocalizableString("AMM_PinkyDudeANIMFacialExpressionsMaleV_Desc"), active = true, optional = true},
+				{name = "AMM_Dino_TattooFix", desc = AMM.LocalizableString("AMM_DinoTattooFixArchive_Desc"), active = true, optional = true},
+				{name = "AMM_Songbird_BodyFix", desc = AMM.LocalizableString("AMM_SongbirdBodyFixArchive_Desc"), active = true, optional = true},
+				{name = "AMM_RitaWheeler_CombatEnabler", desc = AMM.LocalizableString("AMM_RitaWheelerCombatEnablerArchive_Desc"), active = true, optional = true},
+				{name = "AMM_Cheri_Appearances", desc = AMM.LocalizableString("AMM_CheriAppearances_Desc"), active = true, optional = true, extra = true},
+				{name = "AMM_Bryce_Naked", desc = AMM.LocalizableString("AMM_BryceNaked_Desc"), active = true, optional = true, extra = true},
+				{name = "AMM_Saburo_Appearances", desc = AMM.LocalizableString("AMM_SaburoAppearances_Desc"), active = true, optional = true, extra = true},
+				{name = "AMM_TBug_Appearances", desc = AMM.LocalizableString("AMM_TbugAppearances_Desc"), active = true, optional = true, extra = true},
+				{name = "AMM_8ug8ear_Appearances", desc = AMM.LocalizableString("AMM_8ug8eagAppearances_Desc"), active = true, optional = true, extra = true},
 			}
 
 			if #AMM.collabArchives > 0 then
@@ -2102,6 +2146,7 @@ function AMM:ImportUserData()
 				self.Poses.history = userData['posesHistory'] or {}
 				self.Tools.selectedNibblesEntity = userData['selectedNibblesEntity'] or 1
 				self.Tools.replacerVersion = userData['replacerVersion']
+				self.selectedLanguage = self:GetLanguageIndex(userData['selectedLanguage'] or "en_US")
 
 				if userData['settings'] ~= nil then
 					for _, obj in ipairs(userData['settings']) do
@@ -2247,6 +2292,7 @@ function AMM:ExportUserData()
 		userData['savedPropsDisplayMode'] = self.Props.savedPropsDisplayMode
 		userData['selectedNibblesEntity'] = self.Tools.selectedNibblesEntity
 		userData['replacerVersion'] = self.Tools.replacerVersion
+		userData['selectedLanguage'] = self.availableLanguages[self.selectedLanguage].name or "en_US"
 
 		local validJson, contents = pcall(function() return json.encode(userData) end)
 		if validJson and contents ~= nil then
@@ -2320,39 +2366,39 @@ end
 
 function AMM:GetPossibleVOs()
 	local VOs = {
-		{label = "Greet V", param = "greeting"},
-		{label = "Fear Foll", param = "fear_foll"},
-		{label = "Fear Toll", param = "fear_toll"},
-		{label = "Fear Beg", param = "fear_beg"},
-		{label = "Fear Run", param = "fear_run"},
-		{label = "Stealth Search", param = "stlh_search"},
-		{label = "Stealth Death", param = "stlh_death"},
-		{label = "Stealth Restore", param = "stealth_restored"},
-		{label = "Stealth End", param = "stealth_ended"},
-		{label = "Curious Grunt", param = "stlh_curious_grunt"},
-		{label = "Grapple Grunt", param = "grapple_grunt"},
-		{label = "Bump", param = "bump"},
-		{label = "Vehicle Bump", param = "vehicle_bump"},
-		{label = "Turret Warning", param = "turret_warning"},
-		{label = "Octant Warning", param = "octant_warning"},
-		{label = "Drone Warning", param = "drones_warning"},
-		{label = "Mech Warning", param = "mech_warning"},
-		{label = "Elite Warning", param = "elite_warning"},
-		{label = "Camera Warning", param = "camera_warning"},
-		{label = "Enemy Warning", param = "enemy_warning"},
-		{label = "Heavy Warning", param = "heavy_warning"},
-		{label = "Sniper Warning", param = "sniper_warning"},
-		{label = "Any Damage", param = "vo_any_damage_hit"},
-		{label = "Danger", param = "danger"},
-		{label = "Combat Start", param = "start_combat"},
-		{label = "Combat End", param = "combat_ended"},
-		{label = "Combat Target Hit", param = "combat_target_hit"},
-		{label = "Pedestrian Hit", param = "pedestrian_hit"},
-		{label = "Light Hit", param = "hit_reaction_light"},
-		{label = "Curse", param = "battlecry_curse"},
-		{label = "Irritated", param = "coop_irritation"},
-		{label = "Grenade Throw", param = "grenade_throw"},
-		{label = "Got a kill!", param = "coop_reports_kill"},
+		{label = AMM.LocalizableString("Label_GreetV"), param = "greeting"},
+		{label = AMM.LocalizableString("Label_FearFoll"), param = "fear_foll"},
+		{label = AMM.LocalizableString("Label_FearToll"), param = "fear_toll"},
+		{label = AMM.LocalizableString("Label_FearBeg"), param = "fear_beg"},
+		{label = AMM.LocalizableString("Label_FearRun"), param = "fear_run"},
+		{label = AMM.LocalizableString("Label_StealthSearch"), param = "stlh_search"},
+		{label = AMM.LocalizableString("Label_StealthDeath"), param = "stlh_death"},
+		{label = AMM.LocalizableString("Label_StealthRestore"), param = "stealth_restored"},
+		{label = AMM.LocalizableString("Label_StealthEnd"), param = "stealth_ended"},
+		{label = AMM.LocalizableString("Label_CuriousGrunt"), param = "stlh_curious_grunt"},
+		{label = AMM.LocalizableString("Label_GrappleGrunt"), param = "grapple_grunt"},
+		{label = AMM.LocalizableString("Label_Bump"), param = "bump"},
+		{label = AMM.LocalizableString("Label_VehicleBump"), param = "vehicle_bump"},
+		{label = AMM.LocalizableString("Label_TurretWarning"), param = "turret_warning"},
+		{label = AMM.LocalizableString("Label_OctantWarning"), param = "octant_warning"},
+		{label = AMM.LocalizableString("Label_DroneWarning"), param = "drones_warning"},
+		{label = AMM.LocalizableString("Label_MechWarning"), param = "mech_warning"},
+		{label = AMM.LocalizableString("Label_EliteWarning"), param = "elite_warning"},
+		{label = AMM.LocalizableString("Label_CameraWarning"), param = "camera_warning"},
+		{label = AMM.LocalizableString("Label_EnemyWarning"), param = "enemy_warning"},
+		{label = AMM.LocalizableString("Label_HeavyWarning"), param = "heavy_warning"},
+		{label = AMM.LocalizableString("Label_SniperWarning"), param = "sniper_warning"},
+		{label = AMM.LocalizableString("Label_AnyDamage"), param = "vo_any_damage_hit"},
+		{label = AMM.LocalizableString("Label_Danger"), param = "danger"},
+		{label = AMM.LocalizableString("Label_CombatStart"), param = "start_combat"},
+		{label = AMM.LocalizableString("Label_CombatEnd"), param = "combat_ended"},
+		{label = AMM.LocalizableString("Label_CombatTargetHit"), param = "combat_target_hit"},
+		{label = AMM.LocalizableString("Label_PedestrianHit"), param = "pedestrian_hit"},
+		{label = AMM.LocalizableString("Label_LightHit"), param = "hit_reaction_light"},
+		{label = AMM.LocalizableString("Label_Curse"), param = "battlecry_curse"},
+		{label = AMM.LocalizableString("Label_Irritated"), param = "coop_irritation"},
+		{label = AMM.LocalizableString("Label_GrenadeThrow"), param = "grenade_throw"},
+		{label = AMM.LocalizableString("Label_Gotakill"), param = "coop_reports_kill"},
 	}
 
 	return VOs
@@ -2360,25 +2406,25 @@ end
 
 function AMM:GetPersonalityOptions()
 	local personalities = {
-		{name = "Neutral", idle = 2, category = 2},
-		{name = "Joy", idle = 5, category = 3},
-		{name = "Smile", idle = 6, category = 3},
-		{name = "Sad", idle = 3, category = 3},
-		{name = "Surprise", idle = 8, category = 3},
-		{name = "Aggressive", idle = 2, category = 3},
-		{name = "Anger", idle = 1, category = 3},
-		{name = "Interested", idle = 3, category = 1},
-		{name = "Disinterested", idle = 6, category = 1},
-		{name = "Disappointed", idle = 4, category = 3},
-		{name = "Disgust", idle = 7, category = 3},
-		{name = "Exertion", idle = 1, category = 1},
-		{name = "Nervous", idle = 10, category = 3},
-		{name = "Fear", idle = 11, category = 3},
-		{name = "Terrified", idle = 9, category = 3},
-		{name = "Pain", idle = 2, category = 1},
-		{name = "Sleepy", idle = 5, category = 1},
-		{name = "Unconscious", idle = 4, category = 1},
-		{name = "Dead", idle = 1, category = 2},
+		{name = AMM.LocalizableString("Neutral"), idle = 2, category = 2},
+		{name = AMM.LocalizableString("Joy"), idle = 5, category = 3},
+		{name = AMM.LocalizableString("Smile"), idle = 6, category = 3},
+		{name = AMM.LocalizableString("Sad"), idle = 3, category = 3},
+		{name = AMM.LocalizableString("Surprise"), idle = 8, category = 3},
+		{name = AMM.LocalizableString("Aggressive"), idle = 2, category = 3},
+		{name = AMM.LocalizableString("Anger"), idle = 1, category = 3},
+		{name = AMM.LocalizableString("Interested"), idle = 3, category = 1},
+		{name = AMM.LocalizableString("Disinterested"), idle = 6, category = 1},
+		{name = AMM.LocalizableString("Disappointed"), idle = 4, category = 3},
+		{name = AMM.LocalizableString("Disgust"), idle = 7, category = 3},
+		{name = AMM.LocalizableString("Exertion"), idle = 1, category = 1},
+		{name = AMM.LocalizableString("Nervous"), idle = 10, category = 3},
+		{name = AMM.LocalizableString("Fear"), idle = 11, category = 3},
+		{name = AMM.LocalizableString("Terrified"), idle = 9, category = 3},
+		{name = AMM.LocalizableString("Pain"), idle = 2, category = 1},
+		{name = AMM.LocalizableString("Sleepy"), idle = 5, category = 1},
+		{name = AMM.LocalizableString("Unconscious"), idle = 4, category = 1},
+		{name = AMM.LocalizableString("Dead"), idle = 1, category = 2},
 	}
 
 	return personalities
@@ -2423,9 +2469,8 @@ function AMM:GetFollowDistanceOptions()
 end
 
 function AMM:GetCustomAppearanceDefaults()
-	local customs = {}
-
 	if AMM.collabs and #AMM.collabs > 0 then
+		local customs = {}
 		for _, collab in ipairs(AMM.collabs) do
 			if collab.disabledByDefault then
 				for _, default in ipairs(collab.disabledByDefault) do
@@ -2438,9 +2483,11 @@ function AMM:GetCustomAppearanceDefaults()
 				end
 			end
 		end
+
+		return customs
 	end
 
-	return customs
+	return nil
 end
 
 function AMM:RevertTweakDBChanges(userActivated)
@@ -2493,7 +2540,7 @@ end
 
 function AMM:SetupExtraFromArchives()
 
-	db:execute("DELETE FROM custom_appearances WHERE collab_tag = 'AMM'")
+	db:execute("DELETE FROM custom_appearances WHERE collab_tag IS NOT NULL")
 	db:execute("DELETE FROM appearances WHERE collab_tag IS NOT NULL AND collab_tag IS NOT 'Replacer'")
 
 	for _, archive in ipairs(AMM.archives) do
@@ -2995,15 +3042,15 @@ function AMM:SetupCollabAppearances()
         local customApps = collab.customApps[newApp.tag]
         
         if customApps then
-          
-          local check = 0
-          for count in db:urows(f("SELECT COUNT(1) FROM custom_appearances WHERE collab_tag = '%s'", newApp.tag)) do
-            check = count
-          end
-          
-          if check ~= 0 then
-            db:execute(f("DELETE FROM custom_appearances WHERE collab_tag = '%s'", newApp.tag))
-          end
+
+			local check = 0
+			for count in db:urows(f("SELECT COUNT(1) FROM custom_appearances WHERE collab_tag = '%s'", newApp.tag)) do
+				check = count
+			end
+
+			if check ~= 0 then
+				db:execute(f("DELETE FROM custom_appearances WHERE collab_tag = '%s'", newApp.tag))
+			end
           
           for _, customApp in ipairs(customApps) do
             local tables = '("entity_id", "app_name", "app_base", "app_param", "app_toggle", "mesh_app", "mesh_type", "mesh_mask", "mesh_path", "collab_tag")'
@@ -3169,7 +3216,7 @@ function AMM:CheckAppearanceForBannedWords(appearance)
 end
 
 function AMM:CheckCustomDefaults(target)
-	if target ~= nil and target.handle.IsNPC and target.handle:IsNPC() then
+	if AMM.customAppDefaults and target ~= nil and target.handle.IsNPC and target.handle:IsNPC() then
 		for component, apps in pairs(AMM.customAppDefaults) do
 			local appParam = target.handle:FindComponentByName(CName.new(component))
 			if appParam then
@@ -3374,7 +3421,7 @@ function AMM:SaveAppearance(t)
 	end
 
 	if check ~= 0 then
-		local popupInfo = {text = "You can't save a blacklisted appearance!"}
+		local popupInfo = {text = AMM.LocalizableString("Warn_CantSave_BlacklistedAppearance")}
 		Util:OpenPopup(popupInfo)
 	else
 		check = 0
@@ -3411,6 +3458,11 @@ function AMM:GetObjectName(t)
 end
 
 function AMM:GetScanID(t)
+	if not t then
+		log('Error while trying to get tdbid from:'..t)
+		return
+	end
+
 	local tdbid
 	local hasRecord
 	if type(t) == 'userdata' then
@@ -3471,6 +3523,7 @@ local entitiesChecked = {}
 
 function AMM:GetAppearancesFromEntity(id)
 	log("Appearances From Entity: "..id)
+	entitiesChecked[id] = true
 
 	listener = NewProxy({
 		OnResourceReady = {
@@ -3490,11 +3543,12 @@ function AMM:GetAppearancesFromEntity(id)
 
 	local recordID = loadstring("return TweakDBID.new("..id..")", '')()
 	local path = TweakDB:GetFlat(TweakDBID.new(recordID, '.entityTemplatePath'))
-	local token = Game.GetResourceDepot():LoadResource(path)
-	if not token:IsFailed() then
-		token:RegisterCallback(listener:Target(), listener:Function('OnResourceReady'))
-		waiting[token:GetHash()] = token
-		entitiesChecked[id] = true
+	if path then
+		local token = Game.GetResourceDepot():LoadResource(path)
+		if not token:IsFailed() then
+			token:RegisterCallback(listener:Target(), listener:Function('OnResourceReady'))
+			waiting[token:GetHash()] = token
+		end
 	end
 end
 
@@ -3579,17 +3633,17 @@ function AMM:LoadCustomAppearances(options, id)
 		for i, collab in ipairs(AMM.collabs) do
 			collabsAppBase = collabsAppBase..f("'%s'", collab.appearance)
 			if i ~= #AMM.collabs then collabsAppBase = collabsAppBase..", " end
-			for app in db:urows(f("SELECT DISTINCT app_name FROM custom_appearances WHERE %scollab_tag = '%s' AND entity_id = '%s' ORDER BY app_base ASC", searchQuery, collab.tag, id)) do
+			for app in db:urows(f("SELECT DISTINCT app_name FROM custom_appearances WHERE %scollab_tag = '%s' AND entity_id = '%s' ORDER BY app_name ASC", searchQuery, collab.tag, id)) do
 				table.insert(options, app)
 			end
 		end
 		collabsAppBase = collabsAppBase..")"
 
-		for app in db:urows(f("SELECT DISTINCT app_name FROM custom_appearances WHERE %s(collab_tag IS NULL OR collab_tag = 'AMM') AND app_base NOT IN %s AND entity_id = '%s' ORDER BY app_base ASC", searchQuery, collabsAppBase, id)) do
+		for app in db:urows(f("SELECT DISTINCT app_name FROM custom_appearances WHERE %s(collab_tag IS NULL OR collab_tag = 'AMM') AND app_base NOT IN %s AND entity_id = '%s' ORDER BY app_name ASC", searchQuery, collabsAppBase, id)) do
 			table.insert(options, app)
 		end
 	else
-		for app in db:urows(f("SELECT DISTINCT app_name FROM custom_appearances WHERE %s(collab_tag IS NULL OR collab_tag = 'AMM') AND entity_id = '%s' ORDER BY app_base ASC", searchQuery, id)) do
+		for app in db:urows(f("SELECT DISTINCT app_name FROM custom_appearances WHERE %s(collab_tag IS NULL OR collab_tag = 'AMM') AND entity_id = '%s' ORDER BY app_name ASC", searchQuery, id)) do
 			table.insert(options, app)
 		end
 	end
@@ -3668,8 +3722,7 @@ function AMM:GetCustomAppearanceParams(target, appearance, reverse)
 	local query = f("SELECT * FROM custom_appearances WHERE app_name = '%s' AND entity_id = '%s' AND collab_tag IS '%s'", appearance, target.id, collabTag)
 	query = query:gsub("'nil'", "NULL")
 	for app in db:nrows(query) do
-		app.app_toggle = not(intToBool(app.app_toggle))
-		if reverse then app.app_toggle = not app.app_toggle end
+		app.app_toggle = intToBool(app.app_toggle)
 		table.insert(custom, app)
 	end
 	return custom
@@ -3749,18 +3802,23 @@ end
 
 function AMM:GetTarget()
 	local player = Game.GetPlayer()
-
+	
 	if player then
 		local target = Game.GetTargetingSystem():GetLookAtObject(player, true, false) or Game.GetTargetingSystem():GetLookAtObject(player, false, false)
 		local t = nil
 
 		if target ~= nil then
+
+			-- Checking ID of that stupid explosive car that for some reason crashes the game when AMM calls NewTarget() on it
+			local id = AMM:GetScanID(target)
+			if id == "0x62701058, 29" then return nil end
+
 			if target:IsNPC() or target:IsReplacer() then
-				t = AMM:NewTarget(target, AMM:GetScanClass(target), AMM:GetScanID(target), AMM:GetNPCName(target),AMM:GetScanAppearance(target), AMM:GetAppearanceOptions(target))
+				t = AMM:NewTarget(target, AMM:GetScanClass(target), AMM:GetScanID(target), AMM:GetNPCName(target), AMM:GetScanAppearance(target), AMM:GetAppearanceOptions(target))
 			elseif target:IsVehicle() then
-				t = AMM:NewTarget(target, 'vehicle', AMM:GetScanID(target), AMM:GetVehicleName(target),AMM:GetScanAppearance(target), AMM:GetAppearanceOptions(target))
+				t = AMM:NewTarget(target, 'vehicle', AMM:GetScanID(target), AMM:GetVehicleName(target), AMM:GetScanAppearance(target), AMM:GetAppearanceOptions(target))
 			else
-				t = AMM:NewTarget(target, AMM:GetScanClass(target), "None", AMM:GetObjectName(target),AMM:GetScanAppearance(target), nil)
+				t = AMM:NewTarget(target, AMM:GetScanClass(target), "None", AMM:GetObjectName(target), AMM:GetScanAppearance(target), nil)
 			end
 
 			if t ~= nil and t.name ~= "gameuiWorldMapGameObject" and t.name ~= "ScriptedWeakspotObject" then
@@ -3924,55 +3982,49 @@ function AMM:OpenPopup(name)
 		end
 	elseif name == "Experimental" then
 		ImGui.SetNextWindowSize(400, 140)
-		popupDelegate.message = "Are you sure you want to enable experimental features? AMM might not work as expected. Use it at your own risk!"
-		table.insert(popupDelegate.buttons, {label = "Yes", action = ''})
-		table.insert(popupDelegate.buttons, {label = "No", action = function() AMM.userSettings.experimental = false end})
-		name = "WARNING"
+		popupDelegate.message = AMM.LocalizableString("Warn_ConfirmEnableExperimentalAndSave_Info")
+		table.insert(popupDelegate.buttons, {label = AMM.LocalizableString("Button_Yes"), action = ''})
+		table.insert(popupDelegate.buttons, {label = AMM.LocalizableString("Button_No"), action = function() AMM.userSettings.experimental = false end})
 	elseif name == "Favorites" then
 		ImGui.SetNextWindowSize(400, 140)
-		popupDelegate.message = "If you are sure you want to delete all your favorites, select which one below:"
-		table.insert(popupDelegate.buttons, {label = "Spawn Favorites", action = function() AMM:ClearAllFavorites() end})
-		table.insert(popupDelegate.buttons, {label = "Swap Favorites", action = function() AMM:ClearAllSwapFavorites() end})
-		table.insert(popupDelegate.buttons, {label = "Favorite Appearances", action = function() AMM:ClearAllFavoriteAppearances() end})
-		table.insert(popupDelegate.buttons, {label = "Cancel", action = ''})
-		name = "WARNING"
+		popupDelegate.message = AMM.LocalizableString("Warn_DeleteFavoritesAskWhichOne_Info")
+		table.insert(popupDelegate.buttons, {label = AMM.LocalizableString("Label_SpawnFavorites"), action = function() AMM:ClearAllFavorites() end})
+		table.insert(popupDelegate.buttons, {label = AMM.LocalizableString("Label_SwapFavorites"), action = function() AMM:ClearAllSwapFavorites() end})
+		table.insert(popupDelegate.buttons, {label = AMM.LocalizableString("Label_FavoriteAppearances"), action = function() AMM:ClearAllFavoriteAppearances() end})
+		table.insert(popupDelegate.buttons, {label = AMM.LocalizableString("Label_Cancel"), action = ''})
 	elseif name == "Appearances" then
 		ImGui.SetNextWindowSize(400, 140)
-		popupDelegate.message = "Are you sure you want to delete all your saved appearances?"
-		table.insert(popupDelegate.buttons, {label = "Yes", action = function() AMM:ClearAllSavedAppearances() end})
-		table.insert(popupDelegate.buttons, {label = "No", action = ''})
-		name = "WARNING"
+		popupDelegate.message = AMM.LocalizableString("Warn_ConfirmDeleteSavedAppearances")
+		table.insert(popupDelegate.buttons, {label = AMM.LocalizableString("Button_Yes"), action = function() AMM:ClearAllSavedAppearances() end})
+		table.insert(popupDelegate.buttons, {label = AMM.LocalizableString("Button_No"), action = ''})
 	elseif name == "Blacklist" then
 		ImGui.SetNextWindowSize(400, 140)
-		popupDelegate.message = "Are you sure you want to delete all your blacklisted appearances?"
-		table.insert(popupDelegate.buttons, {label = "Yes", action = function() AMM:ClearAllBlacklistedAppearances() end})
-		table.insert(popupDelegate.buttons, {label = "No", action = ''})
-		name = "WARNING"
+		popupDelegate.message = AMM.LocalizableString("Warn_ConfirmDeleteBlacklistedAppearances")
+		table.insert(popupDelegate.buttons, {label = AMM.LocalizableString("Button_Yes"), action = function() AMM:ClearAllBlacklistedAppearances() end})
+		table.insert(popupDelegate.buttons, {label = AMM.LocalizableString("Button_No"), action = ''})
 	elseif name == "Saved Despawns" then
 		ImGui.SetNextWindowSize(400, 140)
-		popupDelegate.message = "Are you sure you want to delete all your saved despawns?"
-		table.insert(popupDelegate.buttons, {label = "Yes", action = function() AMM:ClearAllSavedDespawns() end})
-		table.insert(popupDelegate.buttons, {label = "No", action = ''})
-		name = "WARNING"
+		popupDelegate.message = AMM.LocalizableString("Warn_ConfirmDeleteSavedDespawns")
+		table.insert(popupDelegate.buttons, {label = AMM.LocalizableString("Button_Yes"), action = function() AMM:ClearAllSavedDespawns() end})
+		table.insert(popupDelegate.buttons, {label = AMM.LocalizableString("Button_No"), action = ''})
 	elseif name == "Appearance Triggers" then
 		ImGui.SetNextWindowSize(400, 140)
-		popupDelegate.message = "Are you sure you want to delete all your appearance triggers?"
-		table.insert(popupDelegate.buttons, {label = "Yes", action = function() AMM:ClearAllAppearanceTriggers() end})
-		table.insert(popupDelegate.buttons, {label = "No", action = ''})
-		name = "WARNING"
+		popupDelegate.message = AMM.LocalizableString("Warn_ConfirmDeleteAppearanceTriggers")
+		table.insert(popupDelegate.buttons, {label = AMM.LocalizableString("Button_Yes"), action = function() AMM:ClearAllAppearanceTriggers() end})
+		table.insert(popupDelegate.buttons, {label = AMM.LocalizableString("Button_No"), action = ''})
 	elseif name == "Preset" then
 		ImGui.SetNextWindowSize(400, 140)
-		popupDelegate.message = "Are you sure you want to delete your current active preset?"
-		table.insert(popupDelegate.buttons, {label = "Yes", action = function() AMM.Props:DeletePreset(AMM.Props.activePreset) end})
-		table.insert(popupDelegate.buttons, {label = "No", action = ''})
-		name = "WARNING"
+		popupDelegate.message = AMM.LocalizableString("Warn_ConfirmDeleteCurrentAppearance")
+		table.insert(popupDelegate.buttons, {label = AMM.LocalizableString("Button_Yes"), action = function() AMM.Props:DeletePreset(AMM.Props.activePreset) end})
+		table.insert(popupDelegate.buttons, {label = AMM.LocalizableString("Button_No"), action = ''})
 	elseif name == "Weaponize" then
 		ImGui.SetNextWindowSize(400, 140)
-		popupDelegate.message = "Not every NPC will have the necessary animations to use every type of weapon. T-posing and incorrect animations might occur.\nAre you sure you want to enable it?"
-		table.insert(popupDelegate.buttons, {label = "Yes", action = ''})
-		table.insert(popupDelegate.buttons, {label = "No", action = function() AMM.userSettings.weaponizeNPC = false end})
-		name = "WARNING"
+		popupDelegate.message = AMM.LocalizableString("Warn_WeaponizeNpcAnimationIssues")
+		table.insert(popupDelegate.buttons, {label = AMM.LocalizableString("Button_Yes"), action = ''})
+		table.insert(popupDelegate.buttons, {label = AMM.LocalizableString("Button_No"), action = function() AMM.userSettings.weaponizeNPC = false end})
 	end
+
+	name = AMM.LocalizableString("Warning")
 
 	ImGui.OpenPopup(name)
 	return popupDelegate
@@ -4028,7 +4080,7 @@ function AMM:DrawButton(title, width, height, action, target)
 	end
 end
 
-function AMM:DrawHotkeySelection()
+function AMM:DrawHotkeySelection(target)
 	if AMM.selectedHotkeys[target.id] == nil then
 		AMM.selectedHotkeys[target.id] = {'', '', ''}
 	end
@@ -4046,38 +4098,50 @@ function AMM:DrawHotkeySelection()
 end
 
 function AMM:DrawArchives()
-	AMM.UI:TextColored("AMM Needs Attention")
+	AMM.UI:TextColored(AMM.LocalizableString("AMMNeedsAttention"))
 
-	ImGui.SameLine()
-
-	ImGui.Text("MISSING ARCHIVES")
-
-	local missingRequired = not AMM.archivesInfo.optional
-	
-	if missingRequired then
-		ImGui.TextWrapped(AMM.LocalizableString["Warning_MissingRequiredArchives"])
+	if not Codeware then
+		ImGui.TextWrapped(AMM.LocalizableString("Warning_MissingCodeware"))
 	else
-		ImGui.TextWrapped(AMM.LocalizableString["Warning_MissingOptionalArchives"])
+		local missingRequired = not AMM.archivesInfo.optional
+		
+		if missingRequired then
+			ImGui.TextWrapped(AMM.LocalizableString("Warning_MissingRequiredArchives"))
+		else
+			ImGui.TextWrapped(AMM.LocalizableString("Warning_MissingOptionalArchives"))
+		end
 	end
 
 	AMM.UI:Separator()
 
 	local GameVersion = Game.GetSystemRequestsHandler():GetGameVersion()
 
-	AMM.UI:TextCenter(" VERSION INFORMATION ")
+	AMM.UI:TextCenter(AMM.LocalizableString("VERSION_INFORMATION"))
 	ImGui.Spacing()
-	AMM.UI:TextCenter("AMM Version: "..AMM.currentVersion, true)
+	AMM.UI:TextCenter(AMM.LocalizableString("AMM_Version"), true)
+	ImGui.SameLine()
+	ImGui.Text(AMM.currentVersion)
 	ImGui.Spacing()
-	AMM.UI:TextCenter("CET Version: "..GetVersion(), true)
+	AMM.UI:TextCenter(AMM.LocalizableString("CET_Version"), true)
+	ImGui.SameLine()
+	ImGui.Text(GetVersion())
 	ImGui.Spacing()
-	AMM.UI:TextCenter("Codeware Version: "..Codeware.Version(), true)
+	if Codeware then
+		AMM.UI:TextCenter(AMM.LocalizableString("Codeware_Version"), true)
+		ImGui.SameLine()
+		ImGui.Text(Codeware.Version())
+	else
+		AMM.UI:TextCenter(AMM.LocalizableString("Codeware_Version"), true)
+		ImGui.SameLine()
+		AMM.UI:TextError(AMM.LocalizableString("Warn_NotInstalled"))
+	end
 	ImGui.Spacing()
-	AMM.UI:TextCenter("Game Version: "..Game.GetSystemRequestsHandler():GetGameVersion(), true)
+	AMM.UI:TextCenter(AMM.LocalizableString("Game_Version")..Game.GetSystemRequestsHandler():GetGameVersion(), true)
 	
 	AMM.UI:Separator()
 
-	if not missingRequired then
-		if ImGui.Button("Ignore warnings for this version!", ImGui.GetWindowContentRegionWidth(), 40) then
+	if not missingRequired and Codeware then
+		if ImGui.Button(AMM.LocalizableString("Button_Ignorewarningsforthisversion"), ImGui.GetWindowContentRegionWidth(), 40) then
 			db:execute("UPDATE metadata SET ignore_archives = 1")
 			AMM:CheckMissingArchives()
 		end
@@ -4090,15 +4154,15 @@ function AMM:DrawArchives()
 
 		if not archive.active then
 			ImGui.SameLine()
-			AMM.UI:TextError(" MISSING")
+			AMM.UI:TextError(AMM.LocalizableString(" MISSING"))
 
 			if not archive.optional then
 				ImGui.SameLine()
-				AMM.UI:TextError("REQUIRED")
+				AMM.UI:TextError(AMM.LocalizableString("REQUIRED"))
 				missingRequired = true
 			else
 				ImGui.SameLine()
-				AMM.UI:TextError("OPTIONAL")
+				AMM.UI:TextError(AMM.LocalizableString("OPTIONAL"))
 			end
 		end
 
@@ -4108,12 +4172,26 @@ function AMM:DrawArchives()
 	end	
 end
 
+function AMM:GetLanguageIndex(langStr)
+	for i, lang in ipairs(AMM.availableLanguages) do
+		if lang.name == langStr then
+			AMM.currentLanguage = lang.strings
+			return i
+		end
+	end
+
+	return 1
+end
+
 function AMM:GetLocalizationLanguages()
 	local languages = {}
 	local files = dir("./Localization")
 	for _, loc in ipairs(files) do
 		if string.find(loc.name, '.lua') then
-			table.insert(languages, {name = loc.name:gsub(".lua", ""), strings = AMM:PreloadLanguage(loc.name)})
+			local localizableStrings = AMM:PreloadLanguage(loc.name)
+			if localizableStrings then
+				table.insert(languages, {name = loc.name:gsub(".lua", ""), strings = localizableStrings})
+			end
 		end
 	end
 
@@ -4122,6 +4200,10 @@ end
 
 function AMM:PreloadLanguage(lang)
 	local strings = require("Localization/"..lang)
+	if not strings then
+		print("Language file is invalid: "..lang)
+		return false
+	end
 	return strings
 end
 

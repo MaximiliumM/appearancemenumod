@@ -63,7 +63,7 @@ function Tools:new()
   Tools.lastLocation = nil
   Tools.locationSearch = ''
   Tools.lastLocationSearch = ''
-  Tools.selectedLocation = {loc_name = "Select Location"}
+  Tools.selectedLocation = {loc_name = AMM.LocalizableString("Select_Location")}
   Tools.shareLocationName = ''
   Tools.locations = {}
   Tools.defaultLocations = {}
@@ -106,13 +106,16 @@ function Tools:new()
   Tools.npcUpDown = 0
   Tools.npcLeft = 0
   Tools.npcRight = 0
+  Tools.advX = 100
+  Tools.advY = 100
+  Tools.advZ = 100
   Tools.npcRotation = 0
   Tools.advRotationRoll = 90
   Tools.advRotationPitch = 90
   Tools.advRotationYaw = 90
   Tools.movingProp = false
   Tools.savedPosition = ''
-  Tools.selectedFace = {name = 'Select Expression'}
+  Tools.selectedFace = {name = AMM.LocalizableString("Select_Expression")}
   Tools.activatedFace = false
   Tools.lookAtActiveNPCs = {}
   Tools.lookAtTarget = nil
@@ -151,24 +154,28 @@ function Tools:new()
 end
 
 function Tools:Initialize()
+  -- Initialize Strings here to be able to change localization language
+  Tools.selectedLocation = {loc_name = AMM.LocalizableString("Select_Location")}
+  Tools.selectedFace = {name = AMM.LocalizableString("Select_Expression")}
+
   -- Weather Options --
   Tools.weatherOptions = {
-    {name = "Default", cname = "reset"},
-    {name = "Rain", cname = "24h_weather_rain"},
-    {name = "Light Rain", cname = "q302_light_rain"},
-    {name = "Cloudy", cname = "24h_weather_cloudy"},
-    {name = "Fog", cname = "24h_weather_fog"},
-    {name = "Heavy Clouds", cname = "24h_weather_heavy_clouds"},
-    {name = "Light Clouds", cname = "24h_weather_light_clouds"},
-    {name = "Pollution", cname = "24h_weather_pollution"},
-    {name = "Sandstorm", cname = "24h_weather_sandstorm"},
-    {name = "Sunny", cname = "24h_weather_sunny"},
-    {name = "Toxic Rain", cname = "24h_weather_toxic_rain"},
-    {name = "Deep Blue", cname = "q302_deep_blue"},
-    {name = "Squat Morning", cname = "q302_squat_morning"},
-    {name = "Cloudy Morning", cname = "q306_epilogue_cloudy_morning"},
-    {name = "Rainy Night", cname = "q306_rainy_night"},
-    {name = "Courier Clouds", cname = "sa_courier_clouds"},
+    {name = AMM.LocalizableString("Default"), cname = "reset"},
+    {name = AMM.LocalizableString("Rain"), cname = "24h_weather_rain"},
+    {name = AMM.LocalizableString("Light_Rain"), cname = "q302_light_rain"},
+    {name = AMM.LocalizableString("Cloudy"), cname = "24h_weather_cloudy"},
+    {name = AMM.LocalizableString("Fog"), cname = "24h_weather_fog"},
+    {name = AMM.LocalizableString("Heavy_Clouds"), cname = "24h_weather_heavy_clouds"},
+    {name = AMM.LocalizableString("Light_Clouds"), cname = "24h_weather_light_clouds"},
+    {name = AMM.LocalizableString("Pollution"), cname = "24h_weather_pollution"},
+    {name = AMM.LocalizableString("Sandstorm"), cname = "24h_weather_sandstorm"},
+    {name = AMM.LocalizableString("Sunny"), cname = "24h_weather_sunny"},
+    {name = AMM.LocalizableString("Toxic_Rain"), cname = "24h_weather_toxic_rain"},
+    {name = AMM.LocalizableString("Deep_Blue"), cname = "q302_deep_blue"},
+    {name = AMM.LocalizableString("Squat_Morning"), cname = "q302_squat_morning"},
+    {name = AMM.LocalizableString("Cloudy_Morning"), cname = "q306_epilogue_cloudy_morning"},
+    {name = AMM.LocalizableString("Rainy_Night"), cname = "q306_rainy_night"},
+    {name = AMM.LocalizableString("Courier_Clouds"), cname = "sa_courier_clouds"},
   }
 
   -- Initialize Weather System
@@ -176,20 +183,20 @@ function Tools:Initialize()
 
   -- Setup TPP Camera Options --
   Tools.TPPCameraOptions = {
-    {name = "Left", vec = Vector4.new(-0.5, -2, 0, 1.0), rot = Quaternion.new(0.0, 0.0, 0.0, 1.0)},
-    {name = "Left Close", vec = Vector4.new(-0.4, -1.5, 0, 1.0), rot = Quaternion.new(0.0, 0.0, 0.0, 1.0)},
-    {name = "Right", vec = Vector4.new(0.5, -2, 0, 1.0), rot = Quaternion.new(0.0, 0.0, 0.0, 1.0)},
-    {name = "Right Close", vec = Vector4.new(0.4, -1.5, 0, 1.0), rot = Quaternion.new(0.0, 0.0, 0.0, 1.0)},
-    {name = "Center Close", vec = Vector4.new(0, -2, 0, 1.0), rot = Quaternion.new(0.0, 0.0, 0.0, 1.0)},
-    {name = "Center Far", vec = Vector4.new(0, -4, 0, 1.0), rot = Quaternion.new(0.0, 0.0, 0.0, 1.0)},
-    {name = "Front Close", vec = Vector4.new(0, 2, 0, 0), rot = Quaternion.new(50.0, 0.0, 4000.0, 0.0)},
-    {name = "Front Far", vec = Vector4.new(0, 4, 0, 0), rot = Quaternion.new(50.0, 0.0, 4000.0, 0.0)},
+    {name = AMM.LocalizableString("Left"), vec = Vector4.new(-0.5, -2, 0, 1.0), rot = Quaternion.new(0.0, 0.0, 0.0, 1.0)},
+    {name = AMM.LocalizableString("Left_Close"), vec = Vector4.new(-0.4, -1.5, 0, 1.0), rot = Quaternion.new(0.0, 0.0, 0.0, 1.0)},
+    {name = AMM.LocalizableString("Right"), vec = Vector4.new(0.5, -2, 0, 1.0), rot = Quaternion.new(0.0, 0.0, 0.0, 1.0)},
+    {name = AMM.LocalizableString("Right_Close"), vec = Vector4.new(0.4, -1.5, 0, 1.0), rot = Quaternion.new(0.0, 0.0, 0.0, 1.0)},
+    {name = AMM.LocalizableString("Center_Close"), vec = Vector4.new(0, -2, 0, 1.0), rot = Quaternion.new(0.0, 0.0, 0.0, 1.0)},
+    {name = AMM.LocalizableString("Center_Far"), vec = Vector4.new(0, -4, 0, 1.0), rot = Quaternion.new(0.0, 0.0, 0.0, 1.0)},
+    {name = AMM.LocalizableString("Front_Close"), vec = Vector4.new(0, 2, 0, 0), rot = Quaternion.new(50.0, 0.0, 4000.0, 0.0)},
+    {name = AMM.LocalizableString("Front_Far"), vec = Vector4.new(0, 4, 0, 0), rot = Quaternion.new(50.0, 0.0, 4000.0, 0.0)},
   }
 
   Tools.lookAtOptions = {
-    {name = "All", parts = {'LookatPreset.PhotoMode_LookAtCamera_inline0', 'LookatPreset.PhotoMode_LookAtCamera_inline1'}},
-    {name = "Head Only", parts = {'LookatPreset.PhotoMode_LookAtCamera_inline0'}},
-    {name = "Eyes Only", parts = {}},
+    {name = AMM.LocalizableString("All"), parts = {'LookatPreset.PhotoMode_LookAtCamera_inline0', 'LookatPreset.PhotoMode_LookAtCamera_inline1'}},
+    {name = AMM.LocalizableString("Head_Only"), parts = {'LookatPreset.PhotoMode_LookAtCamera_inline0'}},
+    {name = AMM.LocalizableString("Eyes_Only"), parts = {}},
   }
 
   Tools.selectedLookAt = Tools.lookAtOptions[1]
@@ -244,7 +251,7 @@ function Tools:Draw(AMM, t)
 
   Tools.style = {
     buttonHeight = ImGui.GetFontSize() * 2,
-    buttonWidth = ImGui.GetWindowContentRegionWidth(),
+    buttonWidth = (ImGui.GetWindowContentRegionWidth() - 8),
     halfButtonWidth = ((ImGui.GetWindowContentRegionWidth() / 2) - 8)
   }
 
@@ -254,37 +261,27 @@ function Tools:Draw(AMM, t)
   -- Tools Tab State --
   Tools.isOpen = false
 
-  if ImGui.BeginTabItem("Tools") then
+  if ImGui.BeginTabItem(AMM.LocalizableString("BeginItem_TabTools")) then
 
     Tools.isOpen = true
 
-    if AMM.nibblesReplacer then
-      Tools.actionCategories = {
-        -- { name = "Photo Mode Nibbles Replacer", actions = Tools.DrawNibblesReplacer },
-        { name = "Target Actions", actions = Tools.DrawNPCActions },
-        { name = "Teleport Actions", actions = Tools.DrawTeleportActions },
-        { name = "Time & Weather Actions", actions = Tools.DrawTimeActions },
-        { name = "V Actions", actions = Tools.DrawVActions },
-      }
-    else
-      Tools.actionCategories = {
-        { name = "Target Actions", actions = Tools.DrawNPCActions },
-        { name = "Teleport Actions", actions = Tools.DrawTeleportActions },
-        { name = "Time Actions", actions = Tools.DrawTimeActions },
-        { name = "V Actions", actions = Tools.DrawVActions },
-      }
-    end
+    Tools.actionCategories = {
+      { name = AMM.LocalizableString("Target_Actions"), actions = Tools.DrawNPCActions },
+      { name = AMM.LocalizableString("Teleport_Actions"), actions = Tools.DrawTeleportActions },
+      { name = AMM.LocalizableString("Time_Actions"), actions = Tools.DrawTimeActions },
+      { name = AMM.LocalizableString("V_Actions"), actions = Tools.DrawVActions },
+    }
 
     if AMM.playerInMenu and not AMM.playerInPhoto then
-      AMM.UI:TextColored("Player In Menu")
-      ImGui.Text("Tools only works in game")
+      AMM.UI:TextColored(AMM.LocalizableString("Warn_PlayerInMenu"))
+      ImGui.Text(AMM.LocalizableString("Warn_ToolsOnly_WorksIngame"))
     else
       if AMM.playerInPhoto then
         Tools.actionCategories = {
-          { name = "V Actions", actions = Tools.DrawVActions },
-          { name = "Target Actions", actions = Tools.DrawNPCActions },
-          { name = "Time Actions", actions = Tools.DrawTimeActions },
-          { name = "Photo Mode Enhancements", actions = Tools.DrawPhotoModeEnhancements },
+          { name = AMM.LocalizableString("V_Actions"), actions = Tools.DrawVActions },
+          { name = AMM.LocalizableString("Target_Actions"), actions = Tools.DrawNPCActions },
+          { name = AMM.LocalizableString("Time_Actions"), actions = Tools.DrawTimeActions },
+          { name = AMM.LocalizableString("PhotoModeEnhancements"), actions = Tools.DrawPhotoModeEnhancements },
         }
       end
 
@@ -304,14 +301,14 @@ function Tools:Draw(AMM, t)
         if not treeNode then ImGui.Separator() end
       end
 
-      if ImGui.InvisibleButton("Speed", 10, 30) then
-        local popupInfo = {text = "You found it! Fast Motion is now available."}
+      if ImGui.InvisibleButton(AMM.LocalizableString("Button_InvSpeed2"), 10, 30) then
+        local popupInfo = {text = AMM.LocalizableString("Warn_InvButton_Info")}
 				Util:OpenPopup(popupInfo)
         Tools.slowMotionMaxValue = 5
       end
 
       if ImGui.IsItemHovered() then
-        ImGui.SetTooltip("What if I click here?")
+        ImGui.SetTooltip(AMM.LocalizableString("InvButtonTip"))
       end
     end
     ImGui.EndTabItem()
@@ -326,12 +323,12 @@ function Tools:DrawVActions()
   -- AMM.UI:TextColored("V Actions:")
 
   if AMM.playerInPhoto or Util:CheckVByID(Tools.currentTarget.id) then
-    if ImGui.Button("Toggle Makeup", Tools.style.halfButtonWidth, Tools.style.buttonHeight) then
+    if ImGui.Button(AMM.LocalizableString("Button_ToggleMakeup"), Tools.style.halfButtonWidth, Tools.style.buttonHeight) then
       Tools:ToggleMakeup()
     end
 
     ImGui.SameLine()
-    if ImGui.Button("Toggle Piercings", Tools.style.halfButtonWidth, Tools.style.buttonHeight) then
+    if ImGui.Button(AMM.LocalizableString("Button_TogglePiercings"), Tools.style.halfButtonWidth, Tools.style.buttonHeight) then
       Tools:ToggleAccessories()
     end
 
@@ -340,20 +337,20 @@ function Tools:DrawVActions()
       buttonWidth = Tools.style.buttonWidth
     end
 
-    if ImGui.Button("Toggle Seamfix", buttonWidth, Tools.style.buttonHeight) then
+    if ImGui.Button(AMM.LocalizableString("Button_ToggleSeamfix"), buttonWidth, Tools.style.buttonHeight) then
       Tools:ToggleSeamfix()
     end
 
     if AMM.playerInPhoto then
       ImGui.SameLine()
-      if ImGui.Button("Target V", Tools.style.halfButtonWidth, Tools.style.buttonHeight) then
+      if ImGui.Button(AMM.LocalizableString("Button_TargetV"), Tools.style.halfButtonWidth, Tools.style.buttonHeight) then
         Tools:SetCurrentTarget(Tools:GetVTarget())
         Tools.lockTarget = true
       end
 
-      local buttonLabel = "Lock Look At Camera"
+      local buttonLabel = AMM.LocalizableString("LockLook_AtCamera")
       if Tools.lookAtLocked then
-        buttonLabel = "Unlock Look At Camera"
+        buttonLabel = AMM.LocalizableString("UnlockLook_AtCamera")
       end
 
       if ImGui.Button(buttonLabel, Tools.style.halfButtonWidth, Tools.style.buttonHeight) then
@@ -361,23 +358,23 @@ function Tools:DrawVActions()
       end
 
       ImGui.SameLine()
-      local buttonLabel = "Target Nibbles"
-      if Tools.selectedNibblesEntity ~= 1 then buttonLabel = "Target Replacer" end
+      local buttonLabel = AMM.LocalizableString("Target_Nibbles")
+      if Tools.selectedNibblesEntity ~= 1 then buttonLabel = AMM.LocalizableString("Target_Replacer") end
       if ImGui.Button(buttonLabel, Tools.style.halfButtonWidth, Tools.style.buttonHeight) then
         Tools:SetCurrentTarget(Tools:GetNibblesTarget())
         Tools.lockTarget = true
       end
 
-      Tools.savePhotoModeToggles = ImGui.Checkbox("Save Toggles State", Tools.savePhotoModeToggles)
+      Tools.savePhotoModeToggles = ImGui.Checkbox(AMM.LocalizableString("Save_Toggles_State"), Tools.savePhotoModeToggles)
 
       if ImGui.IsItemHovered() then
-        ImGui.SetTooltip("This will save Makeup, Piercing and Seamfix toggles state until you close the game.")
+        ImGui.SetTooltip(AMM.LocalizableString("Warn_SeamfixPiercingToggle_Info"))
       end
     end
   else
-    local buttonLabel = "Disable Passive Mode"
+    local buttonLabel = AMM.LocalizableString("DisablePassiveMode")
     if Tools.playerVisibility then
-      buttonLabel = "Enable Passive Mode"
+      buttonLabel = AMM.LocalizableString("EnablePassiveMode")
     end
 
     if ImGui.Button(buttonLabel, Tools.style.halfButtonWidth, Tools.style.buttonHeight) then
@@ -385,12 +382,12 @@ function Tools:DrawVActions()
     end
 
     if ImGui.IsItemHovered() then
-      ImGui.SetTooltip("Enemies will still attack you if you trigger combat")
+      ImGui.SetTooltip(AMM.LocalizableString("Warn_PassiveMode_Info"))
     end
 
-    local buttonLabel = "Enable God Mode"
+    local buttonLabel = AMM.LocalizableString("EnableGodMode")
     if Tools.godModeToggle then
-      buttonLabel = "Disable God Mode"
+      buttonLabel = AMM.LocalizableString("DisableGodMode")
     end
 
     ImGui.SameLine()
@@ -399,7 +396,7 @@ function Tools:DrawVActions()
       AMM:UpdateSettings()
     end
 
-    if ImGui.Button("Infinite Oxygen", Tools.style.halfButtonWidth, Tools.style.buttonHeight) then
+    if ImGui.Button(AMM.LocalizableString("Infinite_Oxygen"), Tools.style.halfButtonWidth, Tools.style.buttonHeight) then
       if not Tools.infiniteOxygen then
         Tools.infiniteOxygen = not Tools.infiniteOxygen
         
@@ -412,21 +409,21 @@ function Tools:DrawVActions()
     end
 
     ImGui.SameLine()
-    if ImGui.Button("Toggle V Head", Tools.style.halfButtonWidth, Tools.style.buttonHeight) then
+    if ImGui.Button(AMM.LocalizableString("Toggle_V_Head"), Tools.style.halfButtonWidth, Tools.style.buttonHeight) then
       Tools:ToggleHead(true)
     end
 
     if AMM.userSettings.experimental then
-      if ImGui.Button("Toggle TPP Camera", Tools.style.buttonWidth, Tools.style.buttonHeight) then
-        Tools:ToggleTPPCamera(true)
+      if ImGui.Button(AMM.LocalizableString("Toggle_TPP_Camera"), Tools.style.buttonWidth, Tools.style.buttonHeight) then
+        Tools:ToggleTPPCamera()
       end
 
       if ImGui.IsItemHovered() then
-        ImGui.SetTooltip("TPP Camera is not suited for regular gameplay, but it's fun for a walk ;)")
+        ImGui.SetTooltip(AMM.LocalizableString("Warn_TppCameraGameplay_Info"))
       end
 
       local selectedCamera = Tools.TPPCameraOptions[Tools.selectedTPPCamera]
-      if ImGui.BeginCombo("TPP Camera Position", selectedCamera.name) then
+      if ImGui.BeginCombo(AMM.LocalizableString("TPPCamera_Position"), selectedCamera.name) then
         for i, cam in ipairs(Tools.TPPCameraOptions) do
           if ImGui.Selectable(cam.name.."##"..i, (cam == selectedCamera.name)) then
             Tools.selectedTPPCamera = i
@@ -439,7 +436,7 @@ function Tools:DrawVActions()
 
     ImGui.Spacing()
 
-    Tools.animatedHead, clicked = ImGui.Checkbox("Animated Head in Photo Mode", Tools.animatedHead)
+    Tools.animatedHead, clicked = ImGui.Checkbox(AMM.LocalizableString("AnimatedHeadin_PhotoMode"), Tools.animatedHead)
 
     if clicked then
       Tools:ToggleAnimatedHead(Tools.animatedHead)
@@ -447,11 +444,11 @@ function Tools:DrawVActions()
     end
 
     if ImGui.IsItemHovered() then
-      ImGui.SetTooltip("Photo mode expressions won't work while Animated Head is enabled.")
+      ImGui.SetTooltip(AMM.LocalizableString("Warn_AnimatedHead_PhotoMode_Info"))
     end
 
     -- ImGui.Spacing()
-    Tools.invisibleBody, invisClicked = ImGui.Checkbox("Invisible V", Tools.invisibleBody)
+    Tools.invisibleBody, invisClicked = ImGui.Checkbox(AMM.LocalizableString("Invisible_V"), Tools.invisibleBody)
 
     if invisClicked then
       Tools:ToggleInvisibleBody(AMM.player)
@@ -521,9 +518,12 @@ function Tools:ToggleAccessories()
 end
 
 function Tools:ToggleInvisibleBody(playerHandle)
-  for cname in db:urows("SELECT cname FROM components WHERE cname NOT LIKE '%hh_%'") do
-    local comp = playerHandle:FindComponentByName(CName.new(cname))
-	  if comp then comp:Toggle(not(Tools.invisibleBody)) end
+  local player = Game.GetPlayer()
+  local components = player:GetComponents()
+  for _, comp in ipairs(components) do
+    if string.find(NameToString(comp:GetClassName()), "Mesh") then
+	    comp:Toggle(not(Tools.invisibleBody))
+    end
   end
 end
 
@@ -779,7 +779,7 @@ end
 function Tools:DrawTeleportActions()
 
   ImGui.PushItemWidth(250)
-  Tools.locationSearch = ImGui.InputTextWithHint(" ", "Filter Locations", Tools.locationSearch, 100)
+  Tools.locationSearch = ImGui.InputTextWithHint(" ", AMM.LocalizableString("Filter_Locations"), Tools.locationSearch, 100)
   Tools.locationSearch = Tools.locationSearch:gsub('"', '')
   ImGui.PopItemWidth()
 
@@ -790,7 +790,7 @@ function Tools:DrawTeleportActions()
 
   ImGui.SameLine()
   
-  if ImGui.BeginCombo("Locations", Tools.selectedLocation.loc_name, ImGuiComboFlags.HeightLarge) then
+  if ImGui.BeginCombo(AMM.LocalizableString("Locations"), Tools.selectedLocation.loc_name, ImGuiComboFlags.HeightLarge) then
     for i, location in ipairs(Tools.locations) do
       if location.loc_name then
         if ImGui.Selectable(location.loc_name.."##"..i, (location == Tools.selectedLocation.loc_name)) then
@@ -805,18 +805,18 @@ function Tools:DrawTeleportActions()
 
   ImGui.Spacing()
 
-  if Tools.selectedLocation.loc_name ~= "Select Location" then
+  if Tools.selectedLocation.loc_name ~= AMM.LocalizableString("Select_Location") then
 
-    if ImGui.Button("Teleport To Location", Tools.style.buttonWidth, Tools.style.buttonHeight) then
+    if ImGui.Button(AMM.LocalizableString("Button_TeleportToLocation"), Tools.style.buttonWidth, Tools.style.buttonHeight) then
       Tools:TeleportToLocation(Tools.selectedLocation)
     end
 
     ImGui.Spacing()
 
     local isFavorite, favIndex = Tools:IsFavorite(Tools.selectedLocation)
-    local favLabel = "Favorite Selected Location"
+    local favLabel = AMM.LocalizableString("Favorite_Selected_Location")
     if isFavorite then
-      favLabel = "Unfavorite Selected Location"
+      favLabel = AMM.LocalizableString("Unfavorite_Selected_Location")
     end
 
     if ImGui.Button(favLabel, Tools.style.buttonWidth, Tools.style.buttonHeight) then
@@ -826,38 +826,38 @@ function Tools:DrawTeleportActions()
     ImGui.Spacing()
   end
 
-  if ImGui.Button("Share Current Location", Tools.style.buttonWidth, Tools.style.buttonHeight) then
+  if ImGui.Button(AMM.LocalizableString("Button_ShareCurrentLocation"), Tools.style.buttonWidth, Tools.style.buttonHeight) then
     Tools:GetShareablePlayerLocation()
   end
 
   if ImGui.IsItemHovered() then
     refreshLocationListDebounced()
-    ImGui.SetTooltip("User locations are saved in AppearanceMenuMod/User/Locations folder")
+    ImGui.SetTooltip(AMM.LocalizableString("Warn_UserLocationsFolder_Info"))
   end
 
   ImGui.Spacing()
 
   if Tools.lastLocation then
-    if ImGui.Button("Go Back To Last Location", Tools.style.buttonWidth, Tools.style.buttonHeight) then
+    if ImGui.Button(AMM.LocalizableString("Button_GoBackToLastLocation"), Tools.style.buttonWidth, Tools.style.buttonHeight) then
       Tools:TeleportToLocation(Tools.lastLocation)
     end
   end
 
   if Tools:IsUserLocation(Tools.selectedLocation) then
-    if ImGui.Button("Delete Selected User Location", Tools.style.buttonWidth, Tools.style.buttonHeight) then
+    if ImGui.Button(AMM.LocalizableString("Button_DeleteSelectedUserLocation"), Tools.style.buttonWidth, Tools.style.buttonHeight) then
       Tools:DeleteLocation(Tools.selectedLocation)
     end
   end
 
   if AMM.TeleportMod then
     ImGui.Spacing()
-    Tools.useTeleportAnimation, clicked = ImGui.Checkbox("Use Teleport Animation", Tools.useTeleportAnimation)
+    Tools.useTeleportAnimation, clicked = ImGui.Checkbox(AMM.LocalizableString("Use_Teleport_Animation"), Tools.useTeleportAnimation)
     if clicked then
       AMM.userSettings.teleportAnimation = Tools.useTeleportAnimation
       AMM:UpdateSettings()
     end
     ImGui.SameLine()
-    AMM.UI:TextColored("by GTA Travel")
+    AMM.UI:TextColored(AMM.LocalizableString("LikeGTA_byGTATravel"))
   end
 
   local sizeX = ImGui.GetWindowSize()
@@ -865,22 +865,22 @@ function Tools:DrawTeleportActions()
   ImGui.SetNextWindowPos(x + ((sizeX / 2) - 200), y - 40)
   ImGui.SetNextWindowSize(400, ImGui.GetFontSize() * 8)
 
-  if ImGui.BeginPopupModal("Share Location") then
+  if ImGui.BeginPopupModal(AMM.LocalizableString("Share_Location")) then
     local style = {
         buttonHeight = ImGui.GetFontSize() * 2,
         halfButtonWidth = ((ImGui.GetWindowContentRegionWidth() / 2) - 12)
     }
 
     if Tools.shareLocationName == 'existing' then
-      ImGui.TextColored(1, 0.16, 0.13, 0.75, "Existing Name")
+      ImGui.TextColored(1, 0.16, 0.13, 0.75, AMM.LocalizableString("Existing_Name"))
 
       if ImGui.Button("Ok", -1, style.buttonHeight) then
         Tools.shareLocationName = ''
       end
     else
-      Tools.shareLocationName = ImGui.InputText("Name", Tools.shareLocationName, 50)
+      Tools.shareLocationName = ImGui.InputText(AMM.LocalizableString("Name"), Tools.shareLocationName, 50)
 
-      if ImGui.Button("Save", style.halfButtonWidth + 8, style.buttonHeight) then
+      if ImGui.Button(AMM.LocalizableString("Save"), style.halfButtonWidth + 8, style.buttonHeight) then
         if not(io.open(f("./User/Locations/%s.json", Tools.shareLocationName), "r")) then
           local currentLocation = Tools:GetPlayerLocation()
           local newLoc = Tools:NewLocationData(Tools.shareLocationName, currentLocation)
@@ -894,7 +894,7 @@ function Tools:DrawTeleportActions()
       end
 
       ImGui.SameLine()
-      if ImGui.Button("Cancel", style.halfButtonWidth + 8, style.buttonHeight) then
+      if ImGui.Button(AMM.LocalizableString("Button_Cancel"), style.halfButtonWidth + 8, style.buttonHeight) then
         Tools.shareLocationName = ''
         ImGui.CloseCurrentPopup()
       end
@@ -911,7 +911,7 @@ function Tools:GetLocations()
   local locations = {}
 
   if next(Tools.favoriteLocations) ~= nil then
-    table.insert(locations, {loc_name = '--------- Favorites ----------'})
+    table.insert(locations, {loc_name = AMM.LocalizableString("Locations_Favorites")})
 
     for _, loc in ipairs(Tools.favoriteLocations) do
       if Tools.locationSearch ~= '' and string.find(loc.loc_name, Tools.locationSearch) then
@@ -925,7 +925,7 @@ function Tools:GetLocations()
   end
 
   if next(Tools.userLocations) ~= nil then
-    table.insert(locations, {loc_name = '------- User Locations -------'})
+    table.insert(locations, {loc_name = AMM.LocalizableString("Locations_UserLocs")})
 
     for _, loc in ipairs(Tools.userLocations) do
       if Tools.locationSearch ~= '' and string.find(loc.loc_name, Tools.locationSearch) then
@@ -939,7 +939,7 @@ function Tools:GetLocations()
   end
 
   if separator then
-    table.insert(locations, {loc_name = '----------- Default ----------'})
+    table.insert(locations, {loc_name = AMM.LocalizableString("Locations_DefaultLocs")})
   end
 
   if #Tools.defaultLocations > 0 then
@@ -1009,7 +1009,7 @@ end
 
 function Tools:DeleteLocation(loc)
   os.remove("./User/Locations/"..loc.file_name)
-  Tools.selectedLocation = {loc_name = "Select Location"}
+  Tools.selectedLocation = {loc_name = AMM.LocalizableString("Select_Location")}
 end
 
 function Tools:ToggleFavoriteLocation(isFavorite, favIndex)
@@ -1072,7 +1072,7 @@ end
 
 function Tools:SetLocationNamePopup()
 	Tools.shareLocationName = ''
-	ImGui.OpenPopup("Share Location")
+	ImGui.OpenPopup(AMM.LocalizableString("Share_Location"))
 end
 
 -- Target actions
@@ -1089,13 +1089,13 @@ function Tools:DrawNPCActions()
   if target ~= nil or (Tools.currentTarget and Tools.currentTarget ~= '') then
 
     if not AMM.userSettings.floatingTargetTools then
-      AMM.UI:TextCenter("Movement", true)
+      AMM.UI:TextCenter(AMM.LocalizableString("Movement"), true)
     end
 
     if AMM.userSettings.floatingTargetTools then
-      local buttonLabel = "Open Target Tools"
+      local buttonLabel = AMM.LocalizableString("Button_Label_OpenTargetTools")
       if Tools.movementWindow.shouldDraw then
-        buttonLabel = "Close Target Tools"
+        buttonLabel = AMM.LocalizableString("Button_Label_CloseTargetTools")
       end
 
       if ImGui.Button(buttonLabel, Tools.style.buttonWidth, Tools.style.buttonHeight) then
@@ -1114,9 +1114,9 @@ function Tools:DrawNPCActions()
     AMM.UI:Spacing(3)
 
     if AMM.playerInPhoto then
-      AMM.UI:TextCenter("Target V or NPC to see More Actions")
+      AMM.UI:TextCenter(AMM.LocalizableString("Warn_SeeMoreActions_Info"))
     else
-      AMM.UI:TextCenter("Target NPC or Prop to see More Actions")
+      AMM.UI:TextCenter(AMM.LocalizableString("Warn_SeeMoreActionProp_Info"))
     end
 
     AMM.UI:Spacing(4)
@@ -1125,39 +1125,39 @@ function Tools:DrawNPCActions()
   if not AMM.playerInPhoto then
     AMM.UI:Spacing(4)
 
-    AMM.UI:TextCenter("General Actions", true)
+    AMM.UI:TextCenter(AMM.LocalizableString("General_Actions"), true)
     ImGui.Spacing()
 
-    if ImGui.Button("Protect NPC from Actions", Tools.style.buttonWidth, Tools.style.buttonHeight) then
+    if ImGui.Button(AMM.LocalizableString("Button_ProtectNPCfromActions"), Tools.style.buttonWidth, Tools.style.buttonHeight) then
       if target and target.handle and target.handle.IsNPC and target.handle:IsNPC() then
         Tools:ProtectTarget(target)
       end
     end
 
-    if ImGui.Button("All Friendly", Tools.style.halfButtonWidth, Tools.style.buttonHeight) then
+    if ImGui.Button(AMM.LocalizableString("Button_AllFriendly"), Tools.style.halfButtonWidth, Tools.style.buttonHeight) then
       Tools:UseGeneralAction(function(ent) Tools:SetNPCAttitude(ent, EAIAttitude.AIA_Friendly) end, 10)
     end
 
     ImGui.SameLine()
-    if ImGui.Button("All Follower", Tools.style.halfButtonWidth, Tools.style.buttonHeight) then
+    if ImGui.Button(AMM.LocalizableString("Button_AllFollower"), Tools.style.halfButtonWidth, Tools.style.buttonHeight) then
       Tools:UseGeneralAction(function(ent) AMM.Spawn:SetNPCAsCompanion(ent.handle) end, 10)
     end
 
-    if ImGui.Button("All Fake Die", Tools.style.halfButtonWidth, Tools.style.buttonHeight) then
+    if ImGui.Button(AMM.LocalizableString("Button_AllFakeDie"), Tools.style.halfButtonWidth, Tools.style.buttonHeight) then
       Tools:UseGeneralAction(function(ent) ent.handle:SendAIDeathSignal() end, 20)
     end
 
     ImGui.SameLine()
-    if ImGui.Button("All Die", Tools.style.halfButtonWidth, Tools.style.buttonHeight) then
+    if ImGui.Button(AMM.LocalizableString("Button_AllDie"), Tools.style.halfButtonWidth, Tools.style.buttonHeight) then
       Tools:UseGeneralAction(function(ent) ent.handle:Kill(ent.handle, false, false) end, 20)
     end
 
-    if ImGui.Button("All Despawn", Tools.style.halfButtonWidth, Tools.style.buttonHeight) then
+    if ImGui.Button(AMM.LocalizableString("Button_AllDespawn"), Tools.style.halfButtonWidth, Tools.style.buttonHeight) then
       Tools:UseGeneralAction(function(ent) ent.handle:Dispose() end, 20)
     end
 
     ImGui.SameLine()
-    if ImGui.Button("Cycle Appearance", Tools.style.halfButtonWidth, Tools.style.buttonHeight) then
+    if ImGui.Button(AMM.LocalizableString("Button_CyclesAppearances"), Tools.style.halfButtonWidth, Tools.style.buttonHeight) then
       Tools:UseGeneralAction(function(ent) AMM:ChangeScanAppearanceTo(ent, "Cycle") end, 20)
     end
   end
@@ -1468,11 +1468,12 @@ function Tools:OpenMovementWindow()
   end
 
   Tools.movementWindow.open = true
+  Tools.movementWindow.shouldDraw = true
 end
 
 function Tools:DrawMovementWindow()
   if AMM.userSettings.floatingTargetTools then
-    Tools.movementWindow.open, Tools.movementWindow.shouldDraw = ImGui.Begin("Target Tools", Tools.movementWindow.open, ImGuiWindowFlags.AlwaysAutoResize)
+    Tools.movementWindow.open, Tools.movementWindow.shouldDraw = ImGui.Begin(AMM.LocalizableString("Target_Tools"), Tools.movementWindow.open, ImGuiWindowFlags.AlwaysAutoResize)
   end
 
   if Tools.movementWindow.shouldDraw then
@@ -1499,9 +1500,9 @@ function Tools:DrawMovementWindow()
       end
     end
 
-    local buttonLabel = " Lock Target "
+    local buttonLabel = AMM.LocalizableString("Button_LabelLockTarget")
     if Tools.lockTarget then
-      buttonLabel = " Unlock Target "
+      buttonLabel = AMM.LocalizableString("Button_LabelUnlockTarget")
     end
 
     ImGui.SameLine()
@@ -1512,7 +1513,7 @@ function Tools:DrawMovementWindow()
 
     if AMM.userSettings.experimental then
       ImGui.SameLine()
-      if ImGui.SmallButton(" Despawn ") then
+      if ImGui.SmallButton(AMM.LocalizableString("Button_SmallDespawn_WithSpace")) then
         Tools.currentTarget:Despawn()
       end
     end
@@ -1523,7 +1524,7 @@ function Tools:DrawMovementWindow()
     if Tools.relativeMode then adjustmentValue = 0.005 end
     if Tools.precisionMode then adjustmentValue = 0.001 end
 
-    local upDownRowWidth = ImGui.GetWindowContentRegionWidth() - ImGui.CalcTextSize("Tilt/Rotation ")
+    local upDownRowWidth = ImGui.GetWindowContentRegionWidth() - (ImGui.CalcTextSize(AMM.LocalizableString("Tilt_Rotation")) + 10)
 
     if Tools.axisIndicator then
       if Tools.relativeMode then
@@ -1536,6 +1537,7 @@ function Tools:DrawMovementWindow()
     end
 
     local surfaceWiseRowWidth = (upDownRowWidth / 3) - 6
+    local leftUsed, rightUsed, upDownUsed = false, false, false
 
     ImGui.PushItemWidth(surfaceWiseRowWidth)
     Tools.npcLeft, leftUsed = ImGui.DragFloat("", Tools.npcLeft, adjustmentValue)
@@ -1605,9 +1607,11 @@ function Tools:DrawMovementWindow()
       sliderLabel = "##Z"
     end
 
-    ImGui.SameLine()    
+    ImGui.SameLine()
 
     Tools.npcUpDown, upDownUsed = ImGui.DragFloat(sliderLabel, Tools.npcUpDown, adjustmentValue)
+
+    ImGui.PopItemWidth() -- surfaceWiseRowidth
 
     if Tools.axisIndicator then
       ImGui.PopStyleColor(2)
@@ -1623,17 +1627,70 @@ function Tools:DrawMovementWindow()
       if Tools.axisIndicator then
         Tools:UpdateAxisIndicatorPosition()
       end
-
-      if Tools.axisIndicator then
-        Tools:UpdateAxisIndicatorPosition()
-      end
     end
 
     if Tools.relativeMode and ImGui.IsItemDeactivatedAfterEdit() then
       Tools.npcUpDown = 0
     end
 
-    ImGui.PopItemWidth() -- surfaceWiseRowidth
+    if AMM.userSettings.advancedRotation then
+      ImGui.PushItemWidth((upDownRowWidth / 3) - 82)
+      
+      if AMM.UI:GlyphButton(IconGlyphs.MinusThick.."##X") then
+        Tools.npcLeft = Tools.npcLeft - (Tools.advX / 10000)
+        leftUsed = true
+      end
+
+      ImGui.SameLine()
+
+      Tools.advX = ImGui.DragInt("##advX", Tools.advX, 1, 0, 360)
+      
+      ImGui.SameLine()
+
+      if AMM.UI:GlyphButton(IconGlyphs.PlusThick.."##X") then
+        Tools.npcLeft = Tools.npcLeft + (Tools.advX / 10000)
+        leftUsed = true
+      end
+
+      ImGui.SameLine()
+
+      if AMM.UI:GlyphButton(IconGlyphs.MinusThick.."##Y") then
+        Tools.npcRight = Tools.npcRight - (Tools.advY / 10000)
+        rightUsed = true
+      end
+
+      ImGui.SameLine()
+
+      Tools.advY = ImGui.DragInt("##advY", Tools.advY, 1, 0, 360)
+      
+      ImGui.SameLine()
+
+      if AMM.UI:GlyphButton(IconGlyphs.PlusThick.."##Y") then
+        Tools.npcRight = Tools.npcRight + (Tools.advY / 10000)
+        rightUsed = true
+      end
+
+      ImGui.SameLine()
+
+      if AMM.UI:GlyphButton(IconGlyphs.MinusThick.."##Z") then
+        Tools.npcUpDown = Tools.npcUpDown - (Tools.advZ / 10000)
+        upDownUsed = true
+      end
+
+      ImGui.SameLine()
+
+      Tools.advZ = ImGui.DragInt("##advZ", Tools.advZ, 1, 0, 360)
+      
+      ImGui.SameLine()
+
+      if AMM.UI:GlyphButton(IconGlyphs.PlusThick.."##Z") then
+        Tools.npcUpDown = Tools.npcUpDown + (Tools.advZ / 10000)
+        upDownUsed = true
+      end
+
+      ImGui.PopItemWidth()
+    end
+   
 
     local forward = {x = 0, y = 0, z = 0}
     local right = {x = 0, y = 0, z = 0}
@@ -1716,10 +1773,10 @@ function Tools:DrawMovementWindow()
 
     local isNPC = false
     if Tools.currentTarget ~= '' and (Tools.currentTarget.type ~= 'Prop' and Tools.currentTarget.type ~= 'entEntity' and Tools.currentTarget.type ~= 'Player' and Tools.currentTarget.name ~= 'Replacer' and Tools.currentTarget.handle:IsNPC()) then
-      Tools.npcRotation[3], rotationUsed = ImGui.SliderFloat("Rotation", Tools.npcRotation[3], -180, 180)
+      Tools.npcRotation[3], rotationUsed = ImGui.SliderFloat(AMM.LocalizableString("Rotation"), Tools.npcRotation[3], -180, 180)
       isNPC = true
     elseif Tools.currentTarget ~= '' then
-      Tools.npcRotation, rotationUsed = ImGui.DragFloat3("Tilt/Rotation", Tools.npcRotation, 0.1)
+      Tools.npcRotation, rotationUsed = ImGui.DragFloat3(AMM.LocalizableString("Tilt_Rotation"), Tools.npcRotation, rotationValue)
     end
 
     ImGui.PopItemWidth() -- rotationRowWidth
@@ -1819,25 +1876,25 @@ function Tools:DrawMovementWindow()
 
     ImGui.Spacing()
 
-    AMM.UI:TextColored("Mode:  ")
+    AMM.UI:TextColored(AMM.LocalizableString("Mode"))
 
     ImGui.SameLine()
-    Tools.precisionMode = AMM.UI:SmallCheckbox(Tools.precisionMode, "Precision")
+    Tools.precisionMode = AMM.UI:SmallCheckbox(Tools.precisionMode, AMM.LocalizableString("Precision"))
 
     ImGui.SameLine()
-    Tools.relativeMode, relativeToggle = AMM.UI:SmallCheckbox(Tools.relativeMode, "Relative")
+    Tools.relativeMode, relativeToggle = AMM.UI:SmallCheckbox(Tools.relativeMode, AMM.LocalizableString("Relative"))
 
     ImGui.SameLine()
-    Tools.directMode, directToggle = AMM.UI:SmallCheckbox(Tools.directMode, "Direct")
+    Tools.directMode, directToggle = AMM.UI:SmallCheckbox(Tools.directMode, AMM.LocalizableString("Direct"))
 
     ImGui.SameLine()
-    AMM.userSettings.advancedRotation = AMM.UI:SmallCheckbox(AMM.userSettings.advancedRotation, "Adv. Rotation")
+    AMM.userSettings.advancedRotation = AMM.UI:SmallCheckbox(AMM.userSettings.advancedRotation, AMM.LocalizableString("AdvMovement"))
 
     ImGui.SameLine()
     Tools.axisIndicatorToggle, axisToggle = AMM.UI:SmallCheckbox(Tools.axisIndicatorToggle, IconGlyphs.AxisArrow)
 
     if ImGui.IsItemHovered() then
-      ImGui.SetTooltip("Show X, Y and Z arrows for easier orientation when moving the target.")
+      ImGui.SetTooltip(AMM.LocalizableString("Warn_ShowXYZ_Orientation_Info"))
     end
     
     if axisToggle then
@@ -1867,7 +1924,7 @@ function Tools:DrawMovementWindow()
 
     if Tools.directMode then
       local speed = Tools.currentTarget.speed * 1000
-      speed = ImGui.DragFloat("Movement Speed", speed, 1, 1, 1000, "%.0f")
+      speed = ImGui.DragFloat(AMM.LocalizableString("Drag_MovementSpeed"), speed, 1, 1, 1000, "%.0f")
       Tools.currentTarget.speed = speed / 1000
     end
 
@@ -1875,7 +1932,7 @@ function Tools:DrawMovementWindow()
 
     local hash = Tools.currentTarget.hash
     if AMM.Poses.activeAnims[hash] then
-      Tools.slowMotionSpeed, used = ImGui.SliderFloat("Slow Motion", Tools.slowMotionSpeed, 0.000001, Tools.slowMotionMaxValue)
+      Tools.slowMotionSpeed, used = ImGui.SliderFloat(AMM.LocalizableString("Slider_SlowMotion"), Tools.slowMotionSpeed, 0.000001, Tools.slowMotionMaxValue)
       if used then
         Tools:SetSlowMotionSpeed(Tools.slowMotionSpeed)
       end
@@ -1883,11 +1940,11 @@ function Tools:DrawMovementWindow()
 
     AMM.UI:Spacing(3)
 
-    AMM.UI:TextCenter("Position", true)
+    AMM.UI:TextCenter(AMM.LocalizableString("Position"), true)
 
-    local buttonLabel = "Save"
+    local buttonLabel = AMM.LocalizableString("Save")
     if Tools.savedPosition ~= '' then
-      buttonLabel = "Restore"
+      buttonLabel = AMM.LocalizableString("Restore")
     end
 
     if ImGui.Button(buttonLabel, Tools.style.halfButtonWidth, Tools.style.buttonHeight) then
@@ -1905,11 +1962,11 @@ function Tools:DrawMovementWindow()
           scale = Util:ShallowCopy({}, Tools.currentTarget.scale)
         }
       end
-    end    
+    end
 
     ImGui.SameLine()
 
-    if ImGui.Button("Reset To Player", Tools.style.halfButtonWidth, Tools.style.buttonHeight) then
+    if ImGui.Button(AMM.LocalizableString("Button_ResetToPlayer"), Tools.style.halfButtonWidth, Tools.style.buttonHeight) then
       local pos = AMM.player:GetWorldPosition()
 
       if Tools.currentTarget.type == "vehicle" then
@@ -1921,7 +1978,7 @@ function Tools:DrawMovementWindow()
     end
 
     if Tools.savedPosition ~= '' then
-      if ImGui.Button("Clear Saved", Tools.style.buttonWidth, Tools.style.buttonHeight) then
+      if ImGui.Button(AMM.LocalizableString("Button_ClearSaved"), Tools.style.buttonWidth, Tools.style.buttonHeight) then
         Tools.savedPosition = ''
       end
     end
@@ -1930,9 +1987,9 @@ function Tools:DrawMovementWindow()
 
     if not AMM.playerInPhoto and Tools.currentTarget ~= '' and Tools.currentTarget.type ~= 'entEntity' then
 
-      local buttonLabel = "Pick Up Target"
+      local buttonLabel = AMM.LocalizableString("Button_Label_PickUpTarget")
       if Tools.holdingNPC then
-        buttonLabel = "Drop Target"
+        buttonLabel = AMM.LocalizableString("Button_Label_DropTarget")
       end
 
       local buttonWidth = Tools.style.buttonWidth
@@ -1951,9 +2008,9 @@ function Tools:DrawMovementWindow()
     and Tools.currentTarget.handle:IsNPC()) then
 
       if not AMM.playerInPhoto or AMM.userSettings.freezeInPhoto then
-        local buttonLabel = " Freeze Target "
+        local buttonLabel = AMM.LocalizableString("Button_Label_FreezeTarget")
         if Tools.frozenNPCs[tostring(Tools.currentTarget.handle:GetEntityID().hash)] then
-          buttonLabel = " Unfreeze Target "
+          buttonLabel = AMM.LocalizableString("Button_Label_UnfreezeTarget")
         end
 
         local buttonWidth = Tools.style.halfButtonWidth
@@ -1968,7 +2025,7 @@ function Tools:DrawMovementWindow()
           if ImGui.IsItemHovered() then
             ImGui.BeginTooltip()
             ImGui.PushTextWrapPos(500)
-            ImGui.TextWrapped("In Photo Mode, Unfreeze Target will skip frames in animated poses. For the full (un)freeze functionality, you need to use Otis Camera Tools (IGCS).")
+            ImGui.TextWrapped(AMM.LocalizableString("Warn_Photomode_UnfreezeSkipFrames_Info"))
             ImGui.PopTextWrapPos()
             ImGui.EndTooltip()
           end
@@ -1977,9 +2034,9 @@ function Tools:DrawMovementWindow()
         if not AMM.playerInPhoto and not Tools.currentTarget.handle.isPlayerCompanionCached then
 
           if Tools:ShouldCrouchButtonAppear(Tools.currentTarget) then
-            local buttonLabel = " Change To Crouch Stance "
+            local buttonLabel = AMM.LocalizableString("Button_Label_ChangeToCrouchStance")
             if Tools.isCrouching then
-              buttonLabel = " Change To Stand Stance "
+              buttonLabel = AMM.LocalizableString("Button_Label_ChangeToStandStance")
             end
 
             if ImGui.Button(buttonLabel, Tools.style.buttonWidth, Tools.style.buttonHeight) then
@@ -2017,12 +2074,12 @@ function Tools:DrawMovementWindow()
 
       local targetIsPlayer = Tools.currentTarget.type == "Player"
       if not AMM.playerInPhoto or AMM.userSettings.allowLookAtForNPCs or (AMM.playerInPhoto and targetIsPlayer and Tools.animatedHead) then
-        AMM.UI:TextCenter("Facial Expression", true)
+        AMM.UI:TextCenter(AMM.LocalizableString("Facial_Expression"), true)
         ImGui.Spacing()
 
         local isSelecting = false
 
-        if ImGui.BeginCombo("Expressions", Tools.selectedFace.name) then
+        if ImGui.BeginCombo(AMM.LocalizableString("Expressions"), Tools.selectedFace.name) then
           for i, face in ipairs(Tools.expressions) do
             if ImGui.Selectable(face.name, (face.name == Tools.selectedFace.name)) then
               Tools.selectedFace = face
@@ -2033,7 +2090,7 @@ function Tools:DrawMovementWindow()
           ImGui.EndCombo()
         end
 
-        if not isSelecting and Tools.selectedFace.name ~= "Select Expression" and not Tools.activatedFace then
+        if not isSelecting and Tools.selectedFace.name ~= AMM.LocalizableString("Select_Expression") and not Tools.activatedFace then
           if Tools.lookAtTarget then
             local ent = Game.FindEntityByID(Tools.lookAtTarget.handle:GetEntityID())
             if not ent then Tools.lookAtTarget = nil end
@@ -2049,7 +2106,7 @@ function Tools:DrawMovementWindow()
 
           local npcHash = tostring(Tools.currentTarget.handle:GetEntityID().hash)
 
-          AMM.UI:TextCenter("Look At", true)
+          AMM.UI:TextCenter(AMM.LocalizableString("Look_At"), true)
           for _, option in ipairs(Tools.lookAtOptions) do
             if ImGui.RadioButton(option.name, Tools.selectedLookAt.name == option.name) then
               Tools.selectedLookAt = option
@@ -2064,26 +2121,26 @@ function Tools:DrawMovementWindow()
           ImGui.SameLine()
 
           local reset = false
-          if ImGui.SmallButton("  Reset  ") then
+          if ImGui.SmallButton(AMM.LocalizableString("Button_SmallReset")) then
             Tools:ResetLookAt()
             reset = true
           end
 
           ImGui.Spacing()
 
-          if Tools.selectedLookAt.name ~= "Eyes Only" then
-            Tools.headStiffness, used = ImGui.SliderFloat("Head Stiffness", Tools.headStiffness, 0.0, 1.0, "%.1f")
+          if Tools.selectedLookAt.name ~= AMM.LocalizableString("Eyes_Only") then
+            Tools.headStiffness, used = ImGui.SliderFloat(AMM.LocalizableString("Slider_HeadStiffness"), Tools.headStiffness, 0.0, 1.0, "%.1f")
             if Tools.lookAtActiveNPCs[npcHash] and (used or reset) then Tools:ActivateLookAt() end
 
-            Tools.headPoseOverride, used = ImGui.SliderFloat("Head Pose Override", Tools.headPoseOverride, 0.0, 1.0, "%.1f")
+            Tools.headPoseOverride, used = ImGui.SliderFloat(AMM.LocalizableString("Slider_HeadPoseOverride"), Tools.headPoseOverride, 0.0, 1.0, "%.1f")
             if Tools.lookAtActiveNPCs[npcHash] and (used or reset) then Tools:ActivateLookAt() end
           end
 
-          if Tools.selectedLookAt.name == "All" then
-            Tools.chestStiffness, used = ImGui.SliderFloat("Chest Stiffness", Tools.chestStiffness, 0.0, 2.0, "%.1f")
+          if Tools.selectedLookAt.name == AMM.LocalizableString("All") then
+            Tools.chestStiffness, used = ImGui.SliderFloat(AMM.LocalizableString("Silder_ChestStiffness"), Tools.chestStiffness, 0.0, 2.0, "%.1f")
             if Tools.lookAtActiveNPCs[npcHash] and (used or reset) then Tools:ActivateLookAt() end
 
-            Tools.chestPoseOverride, used = ImGui.SliderFloat("Chest Pose Override", Tools.chestPoseOverride, 0.0, 2.0, "%.1f")
+            Tools.chestPoseOverride, used = ImGui.SliderFloat(AMM.LocalizableString("Silder_ChestPoseOverride"), Tools.chestPoseOverride, 0.0, 2.0, "%.1f")
             if Tools.lookAtActiveNPCs[npcHash] and (used or reset) then Tools:ActivateLookAt() end
           end
 
@@ -2122,7 +2179,7 @@ function Tools:DrawMovementWindow()
             end
           end
 
-          ImGui.Text("Current Target:")
+          ImGui.Text(AMM.LocalizableString("Current_Target"))
 
           if ImGui.BeginCombo("##LookAt", lookAtTargetName) then
             for i, t in ipairs(availableTargets) do
@@ -2135,9 +2192,9 @@ function Tools:DrawMovementWindow()
           end
 
           ImGui.SameLine()
-          local buttonLabel = "   Activate   "
+          local buttonLabel = AMM.LocalizableString("Button_Label_Activate")
           if Tools.lookAtActiveNPCs[npcHash] then
-            buttonLabel = "  Deactivate  "
+            buttonLabel = AMM.LocalizableString("Button_Label_Deactivate")
           end
 
           if ImGui.SmallButton(buttonLabel) then
@@ -2153,13 +2210,13 @@ function Tools:DrawMovementWindow()
 
           ImGui.SameLine()
 
-          if ImGui.SmallButton("   Reset   ") then
+          if ImGui.SmallButton(AMM.LocalizableString("Button_SmallReset")) then
             if target ~= nil then
               Tools.lookAtTarget = nil
             end
           end
           
-          Tools.enablePropsInLookAtTarget = ImGui.Checkbox("Enable Spawned Props", Tools.enablePropsInLookAtTarget)
+          Tools.enablePropsInLookAtTarget = ImGui.Checkbox(AMM.LocalizableString("EnableSpawnedProps"), Tools.enablePropsInLookAtTarget)
         end
       end
 
@@ -2171,12 +2228,12 @@ function Tools:DrawMovementWindow()
 
         if npcHasWeapon or weapon then
           AMM.UI:Spacing(4)
-          AMM.UI:TextCenter("Equipment", true)
+          AMM.UI:TextCenter(AMM.LocalizableString("Equipment"), true)
           ImGui.Spacing()
         end
 
         if npcHasWeapon then
-          if ImGui.Button("Toggle Primary Weapon", Tools.style.halfButtonWidth, Tools.style.buttonHeight) then
+          if ImGui.Button(AMM.LocalizableString("Button_TogglePrimaryWeapon"), Tools.style.halfButtonWidth, Tools.style.buttonHeight) then
             local npcHash = tostring(Tools.currentTarget.handle:GetEntityID().hash)
             if Tools.equippedWeaponNPCs[npcHash] == nil then
               Tools.equippedWeaponNPCs[npcHash] = {primary = true, secondary = false}
@@ -2188,7 +2245,7 @@ function Tools:DrawMovementWindow()
           end
 
           ImGui.SameLine()
-          if ImGui.Button("Toggle Secondary Weapon", Tools.style.halfButtonWidth, Tools.style.buttonHeight) then
+          if ImGui.Button(AMM.LocalizableString("Button_ToggleSecondaryWeapon"), Tools.style.halfButtonWidth, Tools.style.buttonHeight) then
             local npcHash = tostring(Tools.currentTarget.handle:GetEntityID().hash)
             if Tools.equippedWeaponNPCs[npcHash] == nil then
               Tools.equippedWeaponNPCs[npcHash] = {primary = false, secondary = true}
@@ -2201,20 +2258,20 @@ function Tools:DrawMovementWindow()
         end
 
         if weapon then
-          if ImGui.Button("Give Current Equipped Weapon", Tools.style.buttonWidth, Tools.style.buttonHeight) then
+          if ImGui.Button(AMM.LocalizableString("Button_GiveCurrentEquippedWeapon"), Tools.style.buttonWidth, Tools.style.buttonHeight) then
             local weaponTDBID = weapon:GetItemID().tdbid
             Util:EquipGivenWeapon(Tools.currentTarget.handle, weaponTDBID, Tools.forceWeapon)
           end
 
           if ImGui.IsItemHovered() then
-            ImGui.SetTooltip("Note: Out of combat, the NPC will unequip the given weapon immediately.")
+            ImGui.SetTooltip(AMM.LocalizableString("Warn_OutOfCombat_NpcUnequip_Info"))
           end
 
           ImGui.Spacing()
-          Tools.forceWeapon = ImGui.Checkbox("Force Given Weapon", Tools.forceWeapon)
+          Tools.forceWeapon = ImGui.Checkbox(AMM.LocalizableString("ForceGivenWeapon"), Tools.forceWeapon)
 
           if ImGui.IsItemHovered() then
-            ImGui.SetTooltip("This will stop the NPC from unequipping your given weapon. Note: the NPC will still unequip at will during combat.")
+            ImGui.SetTooltip(AMM.LocalizableString("Warn_StopNpc_UnequipWeapon_Info"))
           end
         end
       end
@@ -2228,7 +2285,7 @@ function Tools:DrawMovementWindow()
             
       if components and Tools.currentTarget.scale then
         AMM.UI:Spacing(4)
-        AMM.UI:TextCenter("Scale", true)
+        AMM.UI:TextCenter(AMM.LocalizableString("Scale"), true)
 
         Tools.currentTarget.scale = Tools.currentTarget.scale or { x = 1, y = 1, z = 1 }
 
@@ -2264,13 +2321,13 @@ function Tools:DrawMovementWindow()
           Tools:SetScale(components, Tools.currentTarget.scale, Tools.proportionalMode)
         end
 
-        Tools.proportionalMode, proportionalModeChanged = ImGui.Checkbox("Proportional Mode", Tools.proportionalMode)
+        Tools.proportionalMode, proportionalModeChanged = ImGui.Checkbox(AMM.LocalizableString("ProportionalMode"), Tools.proportionalMode)
 
         if proportionalModeChanged then
           Tools:SetScale(components, Tools.currentTarget.scale, Tools.proportionalMode)
         end
 
-        if ImGui.Button("Reset Scale", Tools.style.buttonWidth, Tools.style.buttonHeight) then
+        if ImGui.Button(AMM.LocalizableString("Button_ResetScale"), Tools.style.buttonWidth, Tools.style.buttonHeight) then
           Tools:SetScale(components, Tools.currentTarget.defaultScale, true)
           Tools.currentTarget.scaleHasChanged = false
           Tools.currentTarget.scale = {
@@ -2288,31 +2345,31 @@ function Tools:DrawMovementWindow()
         lookAtTargetName = Tools.lookAtTarget.name
       end
 
-      ImGui.Text("Current Target:")
+      ImGui.Text(AMM.LocalizableString("Current_Target"))
       ImGui.SameLine()
       AMM.UI:TextColored(lookAtTargetName)
 
-      if ImGui.Button("Show As Look At Target", Tools.style.halfButtonWidth, Tools.style.buttonHeight) then
+      if ImGui.Button(AMM.LocalizableString("Button_ShowAsLookAtTarget"), Tools.style.halfButtonWidth, Tools.style.buttonHeight) then
         if Tools.currentTarget ~= '' then
           Tools.lookAtTarget = Tools.currentTarget
         end
       end
 
       ImGui.SameLine()
-      if ImGui.Button("Reset Look At Target", Tools.style.halfButtonWidth, Tools.style.buttonHeight) then
+      if ImGui.Button(AMM.LocalizableString("Button_ResetLookAtTarget"), Tools.style.halfButtonWidth, Tools.style.buttonHeight) then
         if target ~= nil then
           Tools.lookAtTarget = nil
         end
       end
     end
 
-    if Tools.currentTarget and Tools.currentTarget ~= '' then      
+    if Tools.currentTarget and Tools.currentTarget ~= '' then
       local appOptions = Tools.currentTarget.options or AMM:GetAppearanceOptions(Tools.currentTarget.handle, Tools.currentTarget.id)
 
       if appOptions then
         AMM.UI:Spacing(4)
 
-        AMM.UI:TextCenter("List of Appearances", true)
+        AMM.UI:TextCenter(AMM.LocalizableString("List_of_Appearances"), true)
 
         local selectedApp = Tools.currentTarget.appearance
         if ImGui.BeginCombo("##Appearances", selectedApp, ImGuiComboFlags.HeightLarge) then
@@ -2332,9 +2389,9 @@ function Tools:DrawMovementWindow()
       if AMM.Light:GetLightComponent(Tools.currentTarget.handle) then
         AMM.UI:Spacing(4)
 
-        AMM.UI:TextCenter("Light Control", true)
+        AMM.UI:TextCenter(AMM.LocalizableString("LightControl"), true)
 
-        if ImGui.Button("Toggle Light", Tools.style.halfButtonWidth, Tools.style.buttonHeight) then
+        if ImGui.Button(AMM.LocalizableString("Button_ToggleLight"), Tools.style.halfButtonWidth, Tools.style.buttonHeight) then
           if AMM.Props.hiddenProps[Tools.currentTarget.hash] then
             AMM.Props.hiddenProps[Tools.currentTarget.hash] = nil
           end
@@ -2342,9 +2399,9 @@ function Tools:DrawMovementWindow()
         end
 
         ImGui.SameLine()
-        local buttonLabel ="Open Light Settings"
+        local buttonLabel = AMM.LocalizableString("Button_Label_OpenLightSettings")
         if AMM.Light.isEditing then
-          buttonLabel = "Update Light Target"
+          buttonLabel = AMM.LocalizableString("Button_Label_UpdateLightTarget")
         end
 
         if ImGui.Button(buttonLabel, Tools.style.halfButtonWidth, Tools.style.buttonHeight) then
@@ -2370,7 +2427,7 @@ function Tools:DrawTimeActions()
 
   if AMM.CodewareVersion >= 4 and Tools.weatherSystem then
     local selectedWeatherOption = Tools.weatherOptions[Tools.selectedWeather]
-    if ImGui.BeginCombo("Weather Control", selectedWeatherOption.name) then
+    if ImGui.BeginCombo(AMM.LocalizableString("BeginCombo_WeatherControl"), selectedWeatherOption.name) then
       for i, weather in ipairs(Tools.weatherOptions) do
         if ImGui.Selectable(weather.name.."##"..i, (weather == selectedWeatherOption.name)) then
           Tools.selectedWeather = i
@@ -2388,13 +2445,13 @@ function Tools:DrawTimeActions()
     ImGui.SameLine()
 
     if Tools.selectedWeather ~= 1 then
-      if ImGui.SmallButton("Reset") then
+      if ImGui.SmallButton(AMM.LocalizableString("Button_Reset")) then
         Tools.selectedWeather = 1
         Tools.weatherSystem:ResetWeather(true)
       end
     end
   else
-    AMM.UI:TextError("Weather Control requires Codeware 1.4+")
+    AMM.UI:TextError(AMM.LocalizableString("Warn_WeatherControl_RequireCodeware"))
   end
 
   AMM.UI:Spacing(3)
@@ -2402,7 +2459,7 @@ function Tools:DrawTimeActions()
   local gameTime = Tools:GetCurrentHour()
   Tools.timeValue = Tools:ConvertTime(gameTime)
 
-  ImGui.PushItemWidth((ImGui.GetWindowContentRegionWidth() - ImGui.CalcTextSize("Time of Day ")) - 82)
+  ImGui.PushItemWidth((ImGui.GetWindowContentRegionWidth() - ImGui.CalcTextSize(AMM.LocalizableString("TimeofDay"))) - 82)
 
   Tools.timeValue, used = ImGui.SliderInt("##", Tools.timeValue, 0, 1440, "")
 
@@ -2432,7 +2489,7 @@ function Tools:DrawTimeActions()
 
   ImGui.SameLine()
 
-  ImGui.Text("Time of Day")
+  ImGui.Text(AMM.LocalizableString("TimeofDay"))
 
   if used then
     if Tools.relicEffect then
@@ -2445,20 +2502,20 @@ function Tools:DrawTimeActions()
     Tools:SetTime(Tools.timeValue)
   end
 
-  ImGui.PushItemWidth(ImGui.GetWindowContentRegionWidth() - ImGui.CalcTextSize("Time of Day "))
+  ImGui.PushItemWidth(ImGui.GetWindowContentRegionWidth() - ImGui.CalcTextSize(AMM.LocalizableString("TimeofDay")))
 
   ImGui.SameLine(250)
   ImGui.Text(f("%02d:%02d", gameTime.hour, gameTime.minute))
 
   if not AMM.playerInPhoto or AMM.userSettings.freezeInPhoto then
-    Tools.slowMotionSpeed, used = ImGui.SliderFloat("Slow Motion", Tools.slowMotionSpeed, 0.000001, Tools.slowMotionMaxValue)
+    Tools.slowMotionSpeed, used = ImGui.SliderFloat(AMM.LocalizableString("Slider_SlowMotion"), Tools.slowMotionSpeed, 0.000001, Tools.slowMotionMaxValue)
     if used then
       Tools:SetSlowMotionSpeed(Tools.slowMotionSpeed)
     end
 
     if AMM.playerInPhoto then
       if ImGui.IsItemHovered() then
-        ImGui.SetTooltip("Slow Motion in Photo Mode only works if you unpause using IGCS")
+        ImGui.SetTooltip(AMM.LocalizableString("Warn_SlowMotion_PhotoMode_Info"))
       end
     end
   end
@@ -2467,9 +2524,9 @@ function Tools:DrawTimeActions()
 
   if not AMM.playerInPhoto then
 
-    local buttonLabel = "Pause Time Progression"
+    local buttonLabel = AMM.LocalizableString("Button_Label_PauseTimeProgression")
     if Tools.pauseTime then
-      buttonLabel = "Unpause Time Progression"
+      buttonLabel = AMM.LocalizableString("Button_Label_UnpauseTimeProgression")
     end
 
     ImGui.Spacing()
@@ -2491,9 +2548,9 @@ function Tools:DrawTimeActions()
       -- end)
     end
 
-    local buttonLabel = "Unfreeze Time"
+    local buttonLabel = AMM.LocalizableString("Button_Label_UnfreezeTime")
     if Tools.timeState then
-      buttonLabel = "Freeze Time"
+      buttonLabel = AMM.LocalizableString("Button_Label_FreezeTime")
     end
 
     ImGui.Spacing()
@@ -2503,7 +2560,7 @@ function Tools:DrawTimeActions()
 
     if not Tools.timeState then
       ImGui.Spacing()
-      if ImGui.Button("Skip Frame", Tools.style.buttonWidth, Tools.style.buttonHeight) then
+      if ImGui.Button(AMM.LocalizableString("Button_SkipFrame"), Tools.style.buttonWidth, Tools.style.buttonHeight) then
         Tools:SkipFrame()
       end
     end
@@ -2593,7 +2650,7 @@ function Tools:DrawNibblesReplacer()
     ImGui.Spacing()
     ImGui.Text("Photomode_NPCs_AMM.lua")
     ImGui.SameLine()
-    AMM.UI:TextError("file not found in Collabs folder")
+    AMM.UI:TextError(AMM.LocalizableString("Warn_FileNotFound_CollabsFolder_Error"))
   else
     for i, option in ipairs(Tools.nibblesEntityOptions) do
       local selectedEntity = Tools.nibblesEntityOptions[Tools.selectedNibblesEntity]
@@ -2610,7 +2667,7 @@ function Tools:DrawNibblesReplacer()
 
     AMM.UI:Spacing(3)
 
-    if ImGui.Button("Reset Replacer Database", Tools.style.halfButtonWidth, Tools.style.buttonHeight) then
+    if ImGui.Button(AMM.LocalizableString("Button_ResetReplacerDatabase"), Tools.style.halfButtonWidth, Tools.style.buttonHeight) then
       db:execute("DELETE FROM appearances WHERE collab_tag = 'Replacer'")
       Tools:SetupReplacerAppearances()
     end
@@ -2769,20 +2826,20 @@ end
 function Tools:DrawPhotoModeEnhancements()
 
   if AMM.CETVersion >= 18 and AMM.userSettings.photoModeEnhancements then
-    Tools.defaultAperture = ImGui.SliderFloat("Default Aperture", Tools.defaultAperture, 1.2, 16, "%.1f")
+    Tools.defaultAperture = ImGui.SliderFloat(AMM.LocalizableString("Slider_DefaultAperture"), Tools.defaultAperture, 1.2, 16, "%.1f")
     if ImGui.IsItemHovered() then
-      ImGui.SetTooltip("Requires game restart to take effect")
+      ImGui.SetTooltip(AMM.LocalizableString("Warn_RequiresRestart_Info"))
     end
 
-    Tools.defaultFOV = ImGui.SliderInt("Default Field of View", Tools.defaultFOV, 15, 90)
+    Tools.defaultFOV = ImGui.SliderInt(AMM.LocalizableString("Slider_DefaultFieldofView"), Tools.defaultFOV, 15, 90)
     if ImGui.IsItemHovered() then
-      ImGui.SetTooltip("Requires game restart to take effect")
+      ImGui.SetTooltip(AMM.LocalizableString("Warn_RequiresRestart_Info"))
     end
 
     AMM.UI:Spacing(4)
   end
 
-  AMM.UI:TextColored("Look At Camera:")
+  AMM.UI:TextColored(AMM.LocalizableString("Look_At_Camera"))
   for _, option in ipairs(Tools.lookAtOptions) do
     if ImGui.RadioButton(option.name, Tools.selectedLookAt.name == option.name) then
       Tools.selectedLookAt = option
@@ -2790,7 +2847,7 @@ function Tools:DrawPhotoModeEnhancements()
     end
 
     if ImGui.IsItemHovered() then
-      ImGui.SetTooltip("Turn Look At Camera option OFF once after changing this setting")
+      ImGui.SetTooltip(AMM.LocalizableString("Warn_LookAtCamera_OptionOff_Info"))
     end
 
     ImGui.SameLine()
@@ -2801,7 +2858,7 @@ function Tools:DrawPhotoModeEnhancements()
   ImGui.SameLine()
 
   local reset = false
-  if ImGui.SmallButton("Reset") then
+  if ImGui.SmallButton(AMM.LocalizableString("Button_Reset")) then
     TweakDB:SetFlat('LookatPreset.PhotoMode_LookAtCamera.lookAtParts', Tools.selectedLookAt.parts)
     Tools:ResetLookAt()
     reset = true
@@ -2809,42 +2866,42 @@ function Tools:DrawPhotoModeEnhancements()
 
   ImGui.Spacing()
 
-  Tools.lookAtSpeed, used = ImGui.SliderFloat("Movement Speed", Tools.lookAtSpeed, 0.0, 140.0, "%.1f")
+  Tools.lookAtSpeed, used = ImGui.SliderFloat(AMM.LocalizableString("Slider_MovementSpeed"), Tools.lookAtSpeed, 0.0, 140.0, "%.1f")
   if used or reset then
     TweakDB:SetFlat('LookatPreset.PhotoMode_LookAtCamera.outTransitionSpeed', Tools.lookAtSpeed)
     TweakDB:SetFlat('LookatPreset.PhotoMode_LookAtCamera.transitionSpeed', Tools.lookAtSpeed)
   end
 
   if Tools.selectedLookAt.name ~= "Eyes Only" then
-    Tools.headStiffness, used = ImGui.SliderFloat("Head Stiffness", Tools.headStiffness, 0.0, 1.0, "%.1f")
+    Tools.headStiffness, used = ImGui.SliderFloat(AMM.LocalizableString("Slider_HeadStiffness"), Tools.headStiffness, 0.0, 1.0, "%.1f")
     if used or reset then TweakDB:SetFlat('LookatPreset.PhotoMode_LookAtCamera_inline0.weight', Tools.headStiffness) end
 
-    Tools.headPoseOverride, used = ImGui.SliderFloat("Head Pose Override", Tools.headPoseOverride, 0.0, 1.0, "%.1f")
+    Tools.headPoseOverride, used = ImGui.SliderFloat(AMM.LocalizableString("Slider_HeadPoseOverride"), Tools.headPoseOverride, 0.0, 1.0, "%.1f")
     if used or reset then TweakDB:SetFlat('LookatPreset.PhotoMode_LookAtCamera_inline0.suppress', Tools.headPoseOverride) end
   end
 
   if Tools.selectedLookAt.name == "All" then
-    Tools.chestStiffness, used = ImGui.SliderFloat("Chest Stiffness", Tools.chestStiffness, 0.0, 1.0, "%.1f")
+    Tools.chestStiffness, used = ImGui.SliderFloat(AMM.LocalizableString("Slider_ChestStiffness"), Tools.chestStiffness, 0.0, 1.0, "%.1f")
     if used or reset then TweakDB:SetFlat('LookatPreset.PhotoMode_LookAtCamera_inline1.weight', Tools.chestStiffness) end
 
-    Tools.chestPoseOverride, used = ImGui.SliderFloat("Chest Pose Override", Tools.chestPoseOverride, 0.0, 1.0, "%.1f")
+    Tools.chestPoseOverride, used = ImGui.SliderFloat(AMM.LocalizableString("Slider_ChestPoseOverride"), Tools.chestPoseOverride, 0.0, 1.0, "%.1f")
     if used or reset then TweakDB:SetFlat('LookatPreset.PhotoMode_LookAtCamera_inline1.suppress', Tools.chestPoseOverride) end
   end
 
   ImGui.Spacing()
 
-  AMM.UI:TextWrappedWithColor("Disable 'Look At Camera' in Photo Mode once to take effect", "ButtonActive")
+  AMM.UI:TextWrappedWithColor(AMM.LocalizableString("Warn_DisableLookAtCamera_PhotoMode_Info"), "ButtonActive")
 
   AMM.UI:Spacing(3)
 
-  Tools.cursorDisabled, clicked = ImGui.Checkbox("Disable Photo Mode Cursor", Tools.cursorDisabled)
+  Tools.cursorDisabled, clicked = ImGui.Checkbox(AMM.LocalizableString("DisablePhotoModeCursor"), Tools.cursorDisabled)
   if clicked then
     Tools:ToggleCursor()
   end
 
   if Tools.cursorDisabled then
     ImGui.SameLine()
-    Tools.cursorStateLock = ImGui.Checkbox("Lock State", Tools.cursorStateLock)
+    Tools.cursorStateLock = ImGui.Checkbox(AMM.LocalizableString("Cursor_LockState"), Tools.cursorStateLock)
   end
 end
 

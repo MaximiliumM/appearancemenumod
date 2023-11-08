@@ -14,7 +14,7 @@ function Swap:Initialize()
 end
 
 function Swap:RevertModelSwap(swapID)
-  Game.GetPlayer():SetWarningMessage("Reload your save game to update changes!")
+  Game.GetPlayer():SetWarningMessage(AMM.LocalizableString("Warn_ReloadSaveUpdateChanges"))
   local swapObj = self.activeSwaps[swapID]
   self:ChangeEntityTemplateTo(swapObj.name, swapObj.id, swapObj.id)
 end
@@ -51,14 +51,14 @@ function Swap:NewSwap(name, id, template, newID)
 end
 
 function Swap:Draw(AMM, t)
-  if (ImGui.BeginTabItem("Swap")) then
+  if (ImGui.BeginTabItem(AMM.LocalizableString("BeginItem_TabNameSwap"))) then
     -- Same dumb fix from Tools tab
     target = t
 
     AMM.UI:DrawCrossHair()
 
     if next(Swap.activeSwaps) ~= nil then
-      AMM.UI:TextColored("Active Model Swaps")
+      AMM.UI:TextColored(AMM.LocalizableString("Active_Model_Swaps"))
 
       for swapID, swapObj in pairs(Swap.activeSwaps) do
         local toID = swapObj.newID
@@ -71,26 +71,26 @@ function Swap:Draw(AMM, t)
         ImGui.Text(swapObj.name..' --> '..toName)
 
         -- Swapped NPC Actions --
-        if ImGui.SmallButton("  Revert  ##"..swapID) then
+        if ImGui.SmallButton(AMM.LocalizableString("Button_SmallRevert").."##"..swapID) then
           Swap:RevertModelSwap(swapID)
         end
 
         ImGui.SameLine()
-        local buttonLabel = "Save"
+        local buttonLabel = AMM.LocalizableString("Save")
         if self.savedSwaps[swapID] ~= nil then
-          buttonLabel = "Clear"
+          buttonLabel = AMM.LocalizableString("Clear")
         end
 
         if ImGui.SmallButton(f("  %s  ##", buttonLabel)..swapID) then
-          if buttonLabel == "Save" then self:SaveModelSwap(swapID)
+          if buttonLabel == AMM.LocalizableString("Save") then self:SaveModelSwap(swapID)
           else self:ClearSavedSwap(swapID) end
         end
 
         if self:ShouldDrawFavoriteButton(swapObj.newID) then
           local isFavorite = self:CheckIfFavorite(swapObj.newID)
-          local buttonLabel = 'Favorite'
+          local buttonLabel = AMM.LocalizableString("Label_Favorite")
           if isFavorite then
-            buttonLabel = 'Unfavorite'
+            buttonLabel = AMM.LocalizableString("Label_Unfavorite")
           end
 
           ImGui.SameLine()
@@ -103,30 +103,30 @@ function Swap:Draw(AMM, t)
       end
     end
 
-    if target ~= nil and (target.type == 'Player' or target.handle:IsNPC() or target.handle:IsVehicle() or target.handle:IsReplacer()) then
-      AMM.UI:TextColored("Current Target:")
+    if target ~= nil and (target.type == 'Player' or (target.handle and target.handle:IsNPC() or target.handle:IsVehicle() or target.handle:IsReplacer())) then
+      AMM.UI:TextColored(AMM.LocalizableString("Current_Target"))
       ImGui.Text(target.name)
 
-      AMM.UI:TextColored("Target ID:")
+      AMM.UI:TextColored(AMM.LocalizableString("Target_ID"))
       ImGui.Text(target.id)
 
       AMM.UI:Separator()
 
       ImGui.PushItemWidth(Swap.searchBarWidth)
-      Swap.searchQuery = ImGui.InputTextWithHint(" ", "Search", Swap.searchQuery, 100)
+      Swap.searchQuery = ImGui.InputTextWithHint(" ", AMM.LocalizableString("Search"), Swap.searchQuery, 100)
       Swap.searchQuery = Swap.searchQuery:gsub('"', '')
       ImGui.PopItemWidth()
 
       if Swap.searchQuery ~= '' then
         ImGui.SameLine()
-        if ImGui.Button("Clear") then
+        if ImGui.Button(AMM.LocalizableString("Clear")) then
           Swap.searchQuery = ''
         end
       end
 
       ImGui.Spacing()
 
-      AMM.UI:TextColored("Select To Swap With Current Target:")
+      AMM.UI:TextColored(AMM.LocalizableString("SelectSwap_CurrentTarget"))
 
       if Swap.searchQuery ~= '' then
         local entities = {}
@@ -138,7 +138,7 @@ function Swap:Draw(AMM, t)
         if #entities ~= 0 then
           Swap:DrawEntitiesButtons(entities, "ALL")
         else
-          ImGui.Text("No Results")
+          ImGui.Text(AMM.LocalizableString("No_Results"))
         end
       else
         if ImGui.BeginChild("Categories", ImGui.GetWindowContentRegionWidth(), ImGui.GetWindowHeight() / 1.5) then
@@ -156,7 +156,7 @@ function Swap:Draw(AMM, t)
                 end
                 if #entities == 0 then
                   if ImGui.CollapsingHeader(category.cat_name) then
-                    ImGui.Text("It's empty :(")
+                    ImGui.Text(AMM.LocalizableString("ItsEmpty"))
                   end
                 end
               else
@@ -184,15 +184,15 @@ function Swap:Draw(AMM, t)
     else
       ImGui.NewLine()
       ImGui.PushTextWrapPos()
-      ImGui.TextColored(1, 0.16, 0.13, 0.75, "No NPC Found! Look at NPC to begin")
+      ImGui.TextColored(1, 0.16, 0.13, 0.75, AMM.LocalizableString("NoNPC_LookNPC"))
       ImGui.PopTextWrapPos()
     end
 
     AMM.UI:Separator()
 
-    AMM.UI:TextColored("WARNING")
+    AMM.UI:TextColored(AMM.LocalizableString("Warning"))
     ImGui.PushTextWrapPos()
-    ImGui.Text("You will need to reload your save to update changes.")
+    ImGui.Text(AMM.LocalizableString("Warn_NeedReloadSaveUpdateChanges"))
     ImGui.PopTextWrapPos()
 
     ImGui.EndTabItem()
@@ -292,7 +292,7 @@ function Swap:DrawEntitiesButtons(entities, categoryName)
 		end
 
 		if ImGui.Button(name, style.buttonWidth - favOffset, style.buttonHeight) then
-      Game.GetPlayer():SetWarningMessage("Reload your save game to update changes!")
+      Game.GetPlayer():SetWarningMessage(AMM.LocalizableString("Warn_ReloadSaveUpdateChanges"))
       if targetID ~= "0x5E611B16, 24" or categoryName ~= "Cameos" or Swap.specialSwap then
         Swap:ChangeEntityTemplateTo(target.name, targetID, id)
       end
@@ -308,8 +308,8 @@ end
 function Swap:ChangeEntityTemplateTo(targetName, fromID, toID)
   if targetName == "Replacer" then 
   -- todo: Show this on the GUI somewhere, somehow
-    Game.GetPlayer():SetWarningMessage("Can't swap Replacer")
-    spdlog.info("You can't swap the replacer! Use the tools tab in photo mode to target them, then switch their appearance from the Spawn Tab or the Target Tools.")  
+    Game.GetPlayer():SetWarningMessage(AMM.LocalizableString("CantSwapReplacer"))
+    spdlog.info(AMM.LocalizableString("Warn_ReplacerSwap"))
     return
   end
   if toID == "0x5E611B16, 24" and not Swap.specialSwap then toID = '0xB1B50FFA, 14' end

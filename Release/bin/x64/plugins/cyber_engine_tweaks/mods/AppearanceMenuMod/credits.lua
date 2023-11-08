@@ -12,6 +12,8 @@ return {
 	{
 		'Community Contributors',
 		'',
+		[[PaieLCitra]],
+		[[-- Help with the Localization System]],
 		[[86maylin]],
 		[[-- Cheri Skin color fix]],
 		[[-- Hanako No Makeup]],

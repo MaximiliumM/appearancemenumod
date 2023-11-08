@@ -226,6 +226,8 @@ end
 
 function Util:FreezePlayer()
   local player = Game.GetPlayer()
+  if not player then return end
+
   local pos = player:GetWorldPosition()
   local angles = player:GetWorldOrientation():ToEulerAngles()
 
@@ -234,12 +236,16 @@ end
 
 function Util:ApplyEffectOnPlayer(effect)
   local player = Game.GetPlayer()
+  if not player then return end
+
   local effectID = TweakDBID.new(effect)
   Game.GetStatusEffectSystem():ApplyStatusEffect(player:GetEntityID(), effectID, player:GetRecordID(), player:GetEntityID())
 end
 
 function Util:RemoveEffectOnPlayer(effect)
   local player = Game.GetPlayer()
+  if not player then return end
+  
   local effectID = TweakDBID.new(effect)
   Game.GetStatusEffectSystem():RemoveStatusEffect(player:GetEntityID(), effectID, 999)
 end
@@ -619,14 +625,16 @@ function Util:RestoreElevator(handle)
   end
 end
 
-function Util:UnlockDoor(handle)
+function Util:ToggleDoorLock(handle)
   local handlePS = handle:GetDevicePS()
 
-  if handlePS:IsLocked() then handlePS:ToggleLockOnDoor() end
   if handlePS:IsSealed() then handlePS:ToggleSealOnDoor() end
+  
+  handlePS:ToggleLockOnDoor()
 
-  handle:OpenDoor()
-
+  if not handlePS:IsLocked() then
+    handle:OpenDoor()
+  end
 end
 
 function Util:RepairVehicle(handle)
