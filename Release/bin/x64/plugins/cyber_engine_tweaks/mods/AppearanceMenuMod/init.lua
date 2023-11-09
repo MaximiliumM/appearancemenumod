@@ -74,7 +74,7 @@ function AMM:new()
 	 AMM.nibblesReplacer = false
 
 	 -- Main Properties --
-	 AMM.currentVersion = "2.5.1"
+	 AMM.currentVersion = "2.5.2"
 	 AMM.CETVersion = parseVersion(GetVersion())
 	 AMM.CodewareVersion = 0
 	 AMM.updateNotes = require('update_notes.lua')
@@ -1174,8 +1174,8 @@ function AMM:new()
 								local appParam = handle:FindComponentByName(CName.new(param.app_param))
 								if appParam then
 									if param.mesh_path and appParam.ChangeResource then
-										if appParam:ChangeResource(param.mesh_path, true) then
-											Cron.After(0.1, function()
+										if appParam:ChangeResource(param.mesh_path) then
+											Cron.After(0.2, function()
 												appParam:Toggle(false)
 												
 												if param.app_toggle or param.mesh_type == "body" then
@@ -1190,12 +1190,14 @@ function AMM:new()
 										appParam.meshAppearance = CName.new(param.mesh_app)
 										if appParam.LoadAppearance then
 											if appParam:LoadAppearance() then
-												appParam:Toggle(false)
+												Cron.After(0.2, function()
+													appParam:Toggle(false)
 
-												if param.app_toggle or param.mesh_type == "body" then
-													appParam:TemporaryHide(false)
-													appParam:Toggle(true)
-												end
+													if param.app_toggle or param.mesh_type == "body" then
+														appParam:TemporaryHide(false)
+														appParam:Toggle(true)
+													end
+												end)
 											end
 										end
 									end
@@ -1659,13 +1661,17 @@ function AMM:DrawGeneralSettingsTab(style)
 		end
 
 		if ImGui.Button(AMM.LocalizableString("Button_ClearAllAppearanceTriggers"), style.buttonWidth, style.buttonHeight) then
-			popupDelegate = AMM:OpenPopup("AppearanceTriggers")
+			popupDelegate = AMM:OpenPopup("Appearance Triggers")
 		end
 
 		if AMM.userSettings.experimental then
 			if ImGui.Button(AMM.LocalizableString("Button_ClearAllSavedDespawns"), style.buttonWidth, style.buttonHeight) then
-				popupDelegate = AMM:OpenPopup("SavedDespawns")
+				popupDelegate = AMM:OpenPopup("Saved Despawns")
 			end
+		end
+
+		if ImGui.Button(AMM.LocalizableString("Button_ReloadAppearances"), style.buttonWidth, style.buttonHeight) then
+			AMM:ReloadCustomAppearances()
 		end
 
 		AMM:BeginPopup(AMM.LocalizableString("Warning"), nil, true, popupDelegate, style)
@@ -1857,7 +1863,7 @@ function AMM:DrawExperimentalSettingsTab(style)
 			AMM.Spawn.categories = AMM.Spawn:GetCategories()
 
 			if AMM.userSettings.experimental then
-				popupDelegate = AMM:OpenPopup(AMM.LocalizableString("BeginItem_TabNameExperimental"))
+				popupDelegate = AMM:OpenPopup("Experimental")
 			end
 		end
 
@@ -1865,7 +1871,7 @@ function AMM:DrawExperimentalSettingsTab(style)
 			settingChanged = true
 
 			if AMM.userSettings.weaponizeNPC then
-				popupDelegate = AMM:OpenPopup(AMM.LocalizableString("Weaponize"))
+				popupDelegate = AMM:OpenPopup("Weaponize")
 			end
 		end
 
@@ -1984,12 +1990,16 @@ function AMM:SaveFileFromACM(filename, data)
 		-- Close the file
 		file:close()
 
-		db:execute("DELETE FROM custom_appearances WHERE collab_tag IS NOT NULL")
-		AMM.collabs = AMM:SetupCollabAppearances()
-		AMM.cachedAppearanceOptions = {}
+		AMM:ReloadCustomAppearances()
 	else
 		log("[AMM Error] Unable to open the file for writing.")
 	end
+end
+
+function AMM:ReloadCustomAppearances()
+	db:execute("DELETE FROM custom_appearances WHERE collab_tag IS NOT NULL AND collab_tag != 'AMM'")
+	AMM.collabs = AMM:SetupCollabAppearances()
+	AMM.cachedAppearanceOptions = {}
 end
 
 function AMM:CheckMissingArchives()
@@ -3985,6 +3995,7 @@ function AMM:OpenPopup(name)
 		popupDelegate.message = AMM.LocalizableString("Warn_ConfirmEnableExperimentalAndSave_Info")
 		table.insert(popupDelegate.buttons, {label = AMM.LocalizableString("Button_Yes"), action = ''})
 		table.insert(popupDelegate.buttons, {label = AMM.LocalizableString("Button_No"), action = function() AMM.userSettings.experimental = false end})
+		name = AMM.LocalizableString("Warning")
 	elseif name == "Favorites" then
 		ImGui.SetNextWindowSize(400, 140)
 		popupDelegate.message = AMM.LocalizableString("Warn_DeleteFavoritesAskWhichOne_Info")
@@ -3992,39 +4003,44 @@ function AMM:OpenPopup(name)
 		table.insert(popupDelegate.buttons, {label = AMM.LocalizableString("Label_SwapFavorites"), action = function() AMM:ClearAllSwapFavorites() end})
 		table.insert(popupDelegate.buttons, {label = AMM.LocalizableString("Label_FavoriteAppearances"), action = function() AMM:ClearAllFavoriteAppearances() end})
 		table.insert(popupDelegate.buttons, {label = AMM.LocalizableString("Label_Cancel"), action = ''})
+		name = AMM.LocalizableString("Warning")
 	elseif name == "Appearances" then
 		ImGui.SetNextWindowSize(400, 140)
 		popupDelegate.message = AMM.LocalizableString("Warn_ConfirmDeleteSavedAppearances")
 		table.insert(popupDelegate.buttons, {label = AMM.LocalizableString("Button_Yes"), action = function() AMM:ClearAllSavedAppearances() end})
 		table.insert(popupDelegate.buttons, {label = AMM.LocalizableString("Button_No"), action = ''})
+		name = AMM.LocalizableString("Warning")
 	elseif name == "Blacklist" then
 		ImGui.SetNextWindowSize(400, 140)
 		popupDelegate.message = AMM.LocalizableString("Warn_ConfirmDeleteBlacklistedAppearances")
 		table.insert(popupDelegate.buttons, {label = AMM.LocalizableString("Button_Yes"), action = function() AMM:ClearAllBlacklistedAppearances() end})
 		table.insert(popupDelegate.buttons, {label = AMM.LocalizableString("Button_No"), action = ''})
+		name = AMM.LocalizableString("Warning")name = AMM.LocalizableString("Warning")
 	elseif name == "Saved Despawns" then
 		ImGui.SetNextWindowSize(400, 140)
 		popupDelegate.message = AMM.LocalizableString("Warn_ConfirmDeleteSavedDespawns")
 		table.insert(popupDelegate.buttons, {label = AMM.LocalizableString("Button_Yes"), action = function() AMM:ClearAllSavedDespawns() end})
 		table.insert(popupDelegate.buttons, {label = AMM.LocalizableString("Button_No"), action = ''})
+		name = AMM.LocalizableString("Warning")
 	elseif name == "Appearance Triggers" then
 		ImGui.SetNextWindowSize(400, 140)
 		popupDelegate.message = AMM.LocalizableString("Warn_ConfirmDeleteAppearanceTriggers")
 		table.insert(popupDelegate.buttons, {label = AMM.LocalizableString("Button_Yes"), action = function() AMM:ClearAllAppearanceTriggers() end})
 		table.insert(popupDelegate.buttons, {label = AMM.LocalizableString("Button_No"), action = ''})
+		name = AMM.LocalizableString("Warning")
 	elseif name == "Preset" then
 		ImGui.SetNextWindowSize(400, 140)
 		popupDelegate.message = AMM.LocalizableString("Warn_ConfirmDeleteCurrentAppearance")
 		table.insert(popupDelegate.buttons, {label = AMM.LocalizableString("Button_Yes"), action = function() AMM.Props:DeletePreset(AMM.Props.activePreset) end})
 		table.insert(popupDelegate.buttons, {label = AMM.LocalizableString("Button_No"), action = ''})
+		name = AMM.LocalizableString("Warning")
 	elseif name == "Weaponize" then
 		ImGui.SetNextWindowSize(400, 140)
 		popupDelegate.message = AMM.LocalizableString("Warn_WeaponizeNpcAnimationIssues")
 		table.insert(popupDelegate.buttons, {label = AMM.LocalizableString("Button_Yes"), action = ''})
 		table.insert(popupDelegate.buttons, {label = AMM.LocalizableString("Button_No"), action = function() AMM.userSettings.weaponizeNPC = false end})
+		name = AMM.LocalizableString("Warning")
 	end
-
-	name = AMM.LocalizableString("Warning")
 
 	ImGui.OpenPopup(name)
 	return popupDelegate

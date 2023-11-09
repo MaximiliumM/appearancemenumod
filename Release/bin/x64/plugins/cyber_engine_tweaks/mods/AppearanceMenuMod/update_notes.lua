@@ -1,5 +1,14 @@
 return {
 	{
+		'2.5.2',
+		'2023 Nov 9',
+		[[Added new Reload Appearances button to Settings]],
+		[[-- This button allows you to reload files without restarting the game or using Reload All Mods that is too disruptive]],
+		[[Fixed issue where some popups like Equipment and Warnings would not appear]],
+		[[Fixed issue where some Custom Appearances would not load correctly]],
+		[[Fixed issue where Tools tab would increase the width of the window constantly]],
+	},
+	{
 		'2.5.1',
 		'2023 Nov 8',
 		[[Added a new "Character": Helicopter Companion]],

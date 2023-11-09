@@ -521,6 +521,7 @@ return {
 	Button_ClearAllSavedDespawns = "Clear All Saved Despawns",
 	Button_SmallCreateTheme = "  Create Theme  ",
 	Button_SmallDeleteTheme = "  Delete Theme  ",
+	Button_ReloadAppearances = "Reload Custom Appearances",
 	
     --Button Label
     --Checkbox
