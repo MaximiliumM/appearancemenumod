@@ -2459,7 +2459,7 @@ function Tools:DrawTimeActions()
   local gameTime = Tools:GetCurrentHour()
   Tools.timeValue = Tools:ConvertTime(gameTime)
 
-  ImGui.PushItemWidth((ImGui.GetWindowContentRegionWidth() - ImGui.CalcTextSize(AMM.LocalizableString("TimeofDay"))) - 82)
+  ImGui.PushItemWidth(ImGui.GetWindowContentRegionWidth() - (ImGui.CalcTextSize(AMM.LocalizableString("TimeofDay")) + 90))
 
   Tools.timeValue, used = ImGui.SliderInt("##", Tools.timeValue, 0, 1440, "")
 
@@ -2502,7 +2502,7 @@ function Tools:DrawTimeActions()
     Tools:SetTime(Tools.timeValue)
   end
 
-  ImGui.PushItemWidth(ImGui.GetWindowContentRegionWidth() - ImGui.CalcTextSize(AMM.LocalizableString("TimeofDay")))
+  ImGui.PushItemWidth(ImGui.GetWindowContentRegionWidth() - (ImGui.CalcTextSize(AMM.LocalizableString("Slider_SlowMotion")) + 10))
 
   ImGui.SameLine(250)
   ImGui.Text(f("%02d:%02d", gameTime.hour, gameTime.minute))

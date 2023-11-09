@@ -13,6 +13,19 @@ local UI = {
 local heightConstraint = nil
 local childViews = {}
 
+local function calculateWidthConstraint(fontSize)
+  -- You can adjust the multiplier value as needed to fit your requirements
+  local multiplier = 100
+  
+  -- Calculate the minimum width constraint
+  local widthConstraint = fontSize * multiplier
+  
+  -- Make sure the width constraint is at least a certain minimum value
+  local minimumWidthConstraint = math.max(widthConstraint, 700)
+  
+  return minimumWidthConstraint
+end
+
 local function calculateChildViewHeight(itemCount, itemHeight)
   local windowHeight = ImGui.GetWindowHeight()
   local availableSpace = heightConstraint - windowHeight
@@ -21,16 +34,20 @@ local function calculateChildViewHeight(itemCount, itemHeight)
     additionalItems = 4
   end
 
+  itemCount = itemCount + 2
+
   if itemCount > 9 and availableSpace > 0 then
-    itemCount = 9
-    itemCount = itemCount + additionalItems
+    if not(itemCount < (additionalItems + 9)) then
+      itemCount = 9
+      itemCount = itemCount + additionalItems
+    end
   end
 
   local childViewHeight = itemCount * itemHeight
   if childViewHeight > windowHeight then
       childViewHeight = windowHeight
   end
-  return childViewHeight
+  return childViewHeight + 10
 end
 
 function UI:Preload(theme)
@@ -166,8 +183,9 @@ function UI:Start()
   ImGui.PushStyleVar(ImGuiStyleVar.WindowBorderSize, 1)
 
   local x, y = GetDisplayResolution()
+  local widthConstraint = calculateWidthConstraint(ImGui.GetFontSize())
   heightConstraint = y / 1.2
-  ImGui.SetNextWindowSizeConstraints(650, 100, 700, heightConstraint)
+  ImGui.SetNextWindowSizeConstraints(650, 100, widthConstraint, heightConstraint)
 end
 
 function UI:End()

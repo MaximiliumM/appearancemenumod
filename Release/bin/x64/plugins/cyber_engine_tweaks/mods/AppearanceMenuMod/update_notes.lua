@@ -1,10 +1,17 @@
 return {
 	{
+		'2.5.1',
+		'2023 Nov 8',
+		[[Added a new "Character": Helicopter Companion]],
+		[[Fixed issue where the width of the window in AMM and ACM would not be enough to display the content properly]],
+		[[Fixed issue where Tools tab would increase the width of the window constantly]],
+	},
+	{
 		'2.5',
 		'2023 Nov 8',
 		[[Introducing new Custom Appearances functionality: Mesh Swaps]],
 		[[-- This feature requires Codeware 1.5+]],
-		[[-- Now you can make new appearances without any file change using the Custom Appearance Collab feature]],
+		[[-- Now you can make new appearances without any file changes using the Custom Appearance Collab feature]],
 		[[-- I've made a new tool called Appearance Creator Mod to make it easier to create new appearances]],
 		[[-- The first to get new Appearances is our beloved Songbird. Check out her new outfits!]],
 		[[-- You can also remove the AMM_Evelyn_Naked archive if you have it installed]],
