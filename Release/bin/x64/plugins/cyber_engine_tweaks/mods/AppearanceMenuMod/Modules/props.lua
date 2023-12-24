@@ -115,13 +115,16 @@ function Props:new()
   Props.totalPerTag = {}
   Props.cachedTagPosStrings = {}
   Props.cachedFilteredByCategoryProps = {}
-  Props.savedPropsDisplayMode = "Tags"
-  Props.displayModeOptions = {"Tags", "Categories", "Both"}
+  Props.savedPropsDisplayMode = ''
+  Props.displayModeOptions = {}
 
   return Props
 end
 
 function Props:Initialize()
+
+  Props.savedPropsDisplayMode = AMM.LocalizableString("Tags")
+  Props.displayModeOptions = {AMM.LocalizableString("Tags"), AMM.LocalizableString("Categories"), AMM.LocalizableString("Both")}
 
   Props.modesStatesBeforeBuild = {god = AMM.Tools.godMode, passive = AMM.Tools.playerVisibility}
 
@@ -166,7 +169,7 @@ function Props:Update()
 end
 
 function Props:Draw(AMM)
-  if ImGui.BeginTabItem("Decor") then
+  if ImGui.BeginTabItem(AMM.LocalizableString("BeginItem_TabDecor")) then
 
     Props.style = {
       buttonHeight = ImGui.GetFontSize() * 2,
@@ -179,8 +182,8 @@ function Props:Draw(AMM)
     end
 
     if AMM.userSettings.tabDescriptions then
-      AMM.UI:TextColored("Decorating")
-      ImGui.TextWrapped("Spawn Props to decorate your house or anywhere you want to your heart's content! Save Props to make them persist!")
+      AMM.UI:TextColored(AMM.LocalizableString("Decorating"))
+      ImGui.TextWrapped(AMM.LocalizableString("Warn_PersistPropSave"))
       AMM.UI:Spacing(2)
       Props:DrawBuildModeCheckbox()
     end
@@ -212,7 +215,7 @@ function Props:Draw(AMM)
 end
 
 function Props:DrawSpawnTab()
-  if ImGui.BeginTabItem("Spawn") then
+  if ImGui.BeginTabItem(AMM.LocalizableString("BeginItem_TabNameSpawn")) then
     Props:DrawSpawnedProps()
     Props:DrawCategories()
     ImGui.EndTabItem()
@@ -220,14 +223,14 @@ function Props:DrawSpawnTab()
 end
 
 function Props:DrawSavedPropsTab()
-  if ImGui.BeginTabItem("Saved Props") then
+  if ImGui.BeginTabItem(AMM.LocalizableString("Saved_Props")) then
     Props:DrawHeaders()
     ImGui.EndTabItem()
   end
 end
 
 function Props:DrawPresetsTab()
-  if ImGui.BeginTabItem("Presets") then
+  if ImGui.BeginTabItem(AMM.LocalizableString("BeginItem_TabPresets")) then
     Props:DrawPresetConfig()
     ImGui.EndTabItem()
   end
@@ -254,16 +257,16 @@ local function drawSpawnedPropsList()
         ImGui.Text(" -  "..spawn.appearance)
       end
 
-      local favoritesLabels = {"Favorite", "Unfavorite"}
+      local favoritesLabels = {AMM.LocalizableString("Label_Favorite"), AMM.LocalizableString("Label_Unfavorite")}
       AMM.Spawn:DrawFavoritesButton(favoritesLabels, spawn)
 
       ImGui.SameLine()
 
       if Props.savingProp == spawn.name then
-        AMM.UI:TextColored(f("Moving %s to Saved Props", nameLabel))
+        AMM.UI:TextColored(f(AMM.LocalizableString("MovingSavedProps"), nameLabel))
       else
 
-        if AMM.UI:SmallButton(" Save ##"..spawn.name) then
+        if AMM.UI:SmallButton(AMM.LocalizableString("Button_SmallSave").."##"..spawn.name) then
           -- Cron.Halt()
           if spawn.handle and spawn.handle ~= '' then
             Props:SavePropPosition(spawn)
@@ -272,7 +275,7 @@ local function drawSpawnedPropsList()
         end
 
         ImGui.SameLine()
-        if AMM.UI:SmallButton("Despawn##"..spawn.name) then
+        if AMM.UI:SmallButton(AMM.LocalizableString("Button_SmallDespawn").."##"..spawn.name) then
           if spawn.handle and spawn.handle ~= '' then
             spawn:Despawn()
           end
@@ -280,10 +283,10 @@ local function drawSpawnedPropsList()
 
         if spawn.handle and spawn.handle ~= '' then
                     
-          local buttonLabel = " Hide "
+          local buttonLabel = AMM.LocalizableString("Button_LabelHide")
           local entID = tostring(spawn.handle:GetEntityID().hash)
           if Props.hiddenProps[entID] ~= nil then
-            buttonLabel = " Unhide "
+            buttonLabel = AMM.LocalizableString("Button_LabelUnhide")
           end
 
           ImGui.SameLine()
@@ -292,13 +295,13 @@ local function drawSpawnedPropsList()
           end
 
           ImGui.SameLine()
-          if AMM.UI:SmallButton("Target".."##"..spawn.name) then
+          if AMM.UI:SmallButton(AMM.LocalizableString("Button_SmallTarget").."##"..spawn.name) then
             AMM.Tools.lockTarget = true
             AMM.Tools:SetCurrentTarget(spawn)
           end
 
           ImGui.SameLine()
-          if AMM.UI:SmallButton("Clone".."##"..spawn.name) then
+          if AMM.UI:SmallButton(AMM.LocalizableString("Button_SmallClone").."##"..spawn.name) then
             Props:DuplicateProp(spawn)
           end
         end
@@ -308,18 +311,18 @@ end
 
 function Props:DrawSpawnedProps()
   if #Props.spawnedPropsList > 0 then
-    AMM.UI:TextColored("Spawned Props")    
-    local buttonLength = ImGui.CalcTextSize("  Save All  ")
+    AMM.UI:TextColored(AMM.LocalizableString("Spawned_Props"))    
+    local buttonLength = ImGui.CalcTextSize(AMM.LocalizableString("Save_All"))
     ImGui.SameLine(ImGui.GetWindowContentRegionWidth() - buttonLength)
     
-    if AMM.UI:SmallButton("  Save All  ") then
+    if AMM.UI:SmallButton(AMM.LocalizableString("Save_All")) then
       Props.savingProp = 'all'
       Props:SaveAllProps()
     end
 
     if saveAllInProgress then
       ImGui.Spacing()
-      AMM.UI:TextColored("Moving all Props to Saved Props")
+      AMM.UI:TextColored(AMM.LocalizableString("MovingAll_PropsTo_SavedProps"))
     else
       drawSpawnedPropsList()
     end
@@ -330,32 +333,32 @@ end
 
 function Props:DrawCategories()
   ImGui.PushItemWidth(Props.searchBarWidth)
-  Props.searchQuery = ImGui.InputTextWithHint(" ", "Search", Props.searchQuery, 100)
+  Props.searchQuery = ImGui.InputTextWithHint(" ", AMM.LocalizableString("Search"), Props.searchQuery, 100)
   Props.searchQuery = Props.searchQuery:gsub('"', '')
   ImGui.PopItemWidth()
 
   if Props.searchQuery ~= '' then
     ImGui.SameLine()
-    if ImGui.Button("Clear") then
+    if ImGui.Button(AMM.LocalizableString("Clear")) then
       Props.searchQuery = ''
     end
   end
 
   ImGui.Spacing()
 
-  Props.showCustomizableOnly, used = ImGui.Checkbox("Show Customizable Only", Props.showCustomizableOnly)
+  Props.showCustomizableOnly, used = ImGui.Checkbox(AMM.LocalizableString("Show_Customizable_Only"), Props.showCustomizableOnly)
   if used then Props.entities = {} end
 
   if AMM.hasCustomProps then
     ImGui.SameLine()
 
-    Props.showCustomPropsOnly, used = ImGui.Checkbox("Show Custom Props Only", Props.showCustomPropsOnly)
+    Props.showCustomPropsOnly, used = ImGui.Checkbox(AMM.LocalizableString("Show_CustomProps_Only"), Props.showCustomPropsOnly)
     if used then Props.entities = {} end
   end
 
   ImGui.Spacing()
 
-  AMM.UI:TextColored("Select Prop To Spawn:")
+  AMM.UI:TextColored(AMM.LocalizableString("SelectPropSpawn"))
 
   local validCatIDs = Util:GetAllCategoryIDs(Props.categories)
   local customizableIDs = " AND entity_id IN (SELECT entity_id FROM appearances)"
@@ -374,7 +377,7 @@ function Props:DrawCategories()
     if #entities ~= 0 then
       AMM.Spawn:DrawEntitiesButtons(entities, "ALL", Props.style)
     else
-      ImGui.Text("No Results")
+      ImGui.Text(AMM.LocalizableString("No_Results"))
     end
   else
     local x, y = GetDisplayResolution()
@@ -395,7 +398,7 @@ function Props:DrawCategories()
             end
             if #entities == 0 then
               if ImGui.CollapsingHeader(category.cat_name) then
-                ImGui.Text("It's empty :(")
+                ImGui.Text(AMM.LocalizableString("ItsEmpty"))
               end
             end
           else
@@ -514,15 +517,15 @@ function Props:DrawSavedProp(prop)
 
   if Props.activeProps[prop.uid] ~= nil and Props.activeProps[prop.uid].handle ~= '' then
     ImGui.SameLine()
-    AMM.UI:TextColored("  In World")
+    AMM.UI:TextColored(AMM.LocalizableString("In_World"))
   end
 
-  if AMM.UI:SmallButton("Remove##"..prop.uid) then    
+  if AMM.UI:SmallButton(AMM.LocalizableString("Button_SmallRemove").."##"..prop.uid) then    
     Props:RemoveProp(prop)
   end
 
   ImGui.SameLine()
-  if AMM.UI:SmallButton("Rename##"..prop.uid) then
+  if AMM.UI:SmallButton(AMM.LocalizableString("Button_SmallRename").."##"..prop.uid) then
     Props.rename = ''
 	  ImGui.OpenPopup("Rename Prop##"..prop.uid)
   end
@@ -531,14 +534,14 @@ function Props:DrawSavedProp(prop)
 
   if Props.activeProps[prop.uid] ~= nil and Props.activeProps[prop.uid].handle ~= '' then
     ImGui.SameLine()
-    if AMM.UI:SmallButton("Update##"..prop.uid) then
+    if AMM.UI:SmallButton(AMM.LocalizableString("Button_SmallUpdate").."##"..prop.uid) then
       Props:SavePropPosition(Props.activeProps[prop.uid])
     end
 
-    local buttonLabel = " Hide "
+    local buttonLabel = AMM.LocalizableString("Button_LabelHide")
     local entID = tostring(Props.activeProps[prop.uid].handle:GetEntityID().hash)
     if Props.hiddenProps[entID] ~= nil then
-      buttonLabel = " Unhide "
+      buttonLabel = AMM.LocalizableString("Button_LabelUnhide")
     end
     ImGui.SameLine()
     if AMM.UI:SmallButton(buttonLabel.."##"..prop.uid) then
@@ -546,12 +549,12 @@ function Props:DrawSavedProp(prop)
     end
 
     ImGui.SameLine()
-    if AMM.UI:SmallButton("Clone".."##"..prop.uid) then
+    if AMM.UI:SmallButton(AMM.LocalizableString("Button_SmallClone").."##"..prop.uid) then
       Props:DuplicateProp(Props.activeProps[prop.uid])
     end
 
     ImGui.SameLine()
-    if AMM.UI:SmallButton("Target".."##"..prop.uid) then      
+    if AMM.UI:SmallButton(AMM.LocalizableString("Button_SmallTarget").."##"..prop.uid) then      
       AMM.Tools:SetCurrentTarget(Props.activeProps[prop.uid])    
       AMM.Tools.lockTarget = true
 
@@ -568,7 +571,7 @@ function Props:DrawSavedProp(prop)
 
     ImGui.SameLine(272)
 
-    if AMM.UI:SmallButton(" Move To Tag ##"..prop.uid) and Props.editingTags[prop.uid] ~= '' then
+    if AMM.UI:SmallButton(AMM.LocalizableString("Move_To_Tag").."##"..prop.uid) and Props.editingTags[prop.uid] ~= '' then
       Props:UpdatePropTag(prop, Props.editingTags[prop.uid])
 
       Props:Update()
@@ -577,9 +580,9 @@ function Props:DrawSavedProp(prop)
 
     ImGui.SameLine()
 
-    local buttonLabel = "Show On Map"
+    local buttonLabel = AMM.LocalizableString("ShowOnMap")
     if Props.activeProps[prop.uid].mappinData ~= nil then
-      buttonLabel = "Hide From Map"
+      buttonLabel = AMM.LocalizableString("HideFromMap")
     end
 
     if AMM.UI:SmallButton(buttonLabel.."##"..prop.uid) then
@@ -609,9 +612,9 @@ function Props:DrawPresetConfig()
 
   if despawnInProgress then
     ImGui.Spacing()
-    ImGui.Text("Despawn In Progress. Please Wait.")
+    ImGui.Text(AMM.LocalizableString("Warn_DespawnInProgress_PleaseWait"))
     ImGui.Spacing()
-  elseif ImGui.BeginCombo("Presets", Props.selectedPreset.name, ImGuiComboFlags.HeightLarge) then
+  elseif ImGui.BeginCombo(AMM.LocalizableString("Begin_ComboPresets"), Props.selectedPreset.name, ImGuiComboFlags.HeightLarge) then
     for i, preset in ipairs(Props.presets) do
       if ImGui.Selectable(f("%s##%s", preset.name, i), (preset.name == Props.selectedPreset.name)) then
         Props.selectedPreset = preset
@@ -625,13 +628,13 @@ function Props:DrawPresetConfig()
   end
 
   if ImGui.IsItemHovered() then
-    ImGui.SetTooltip("User presets are saved in AppearanceMenuMod/User/Decor folder")
+    ImGui.SetTooltip(AMM.LocalizableString("Warn_PresetsFolder_Info"))
   end
 
   ImGui.Spacing()
 
   if Props.activePreset.customIncluded then
-    ImGui.Text("This preset includes Custom Props")
+    ImGui.Text(AMM.LocalizableString("Warn_CustomPresets_Info"))
 
     ImGui.SameLine()
     AMM.UI:SmallButton(" ? ")
@@ -644,7 +647,7 @@ function Props:DrawPresetConfig()
 
       ImGui.BeginTooltip()
       ImGui.PushTextWrapPos(500)
-      ImGui.TextWrapped("Custom Props made by: \n"..table.concat(modders, "\n"))
+      ImGui.TextWrapped(AMM.LocalizableString("Warn_CustomPropsModders_Info")..table.concat(modders, "\n"))
       ImGui.PopTextWrapPos()
       ImGui.EndTooltip()
     end
@@ -652,7 +655,7 @@ function Props:DrawPresetConfig()
     AMM.UI:Spacing(8)
   end
 
-  if ImGui.Button("New Preset", Props.style.buttonWidth, Props.style.buttonHeight) then
+  if ImGui.Button(AMM.LocalizableString("New_Preset"), Props.style.buttonWidth, Props.style.buttonHeight) then
     if #Props.savedProps['all_props'] > 0 then
       Props:SavePreset(Props.activePreset)
     end
@@ -666,20 +669,20 @@ function Props:DrawPresetConfig()
 
   if Props.activePreset ~= '' then
 
-    if ImGui.Button("Save", Props.style.buttonWidth, Props.style.buttonHeight) then        
+    if ImGui.Button(AMM.LocalizableString("Button_Save"), Props.style.buttonWidth, Props.style.buttonHeight) then        
       Props:SavePreset(Props.activePreset, nil, true)
     end
 
-    if ImGui.Button("Rename", Props.style.buttonWidth, Props.style.buttonHeight) then        
+    if ImGui.Button(AMM.LocalizableString("Rename"), Props.style.buttonWidth, Props.style.buttonHeight) then        
       Props.rename = ''
       ImGui.OpenPopup("Rename Preset")
     end
 
-    if ImGui.Button("Delete", Props.style.buttonWidth, Props.style.buttonHeight) then
+    if ImGui.Button(AMM.LocalizableString("Delete"), Props.style.buttonWidth, Props.style.buttonHeight) then
       popupDelegate = AMM:OpenPopup("Preset")
     end
 
-    if ImGui.Button("Backup", Props.style.buttonWidth, Props.style.buttonHeight) then
+    if ImGui.Button(AMM.LocalizableString("Backup"), Props.style.buttonWidth, Props.style.buttonHeight) then
       Props:BackupPreset(Props.activePreset)
     end
   end
@@ -696,20 +699,20 @@ function Props:DrawPresetConfig()
 end
 
 function Props:DrawBuildModeCheckbox()
-  local offSet = Props.sizeX - ImGui.CalcTextSize("Build Mode")
+  local offSet = Props.sizeX - ImGui.CalcTextSize(AMM.LocalizableString("Build_Mode"))
 
   if AMM.userSettings.tabDescriptions then
     ImGui.Dummy(offSet - 70, 10)
     ImGui.SameLine()
   end
 
-  AMM.UI:TextColored("Build Mode")
+  AMM.UI:TextColored(AMM.LocalizableString("Build_Mode"))
   ImGui.SameLine()
   
   Props.buildMode, modeChange = AMM.UI:SmallCheckbox(Props.buildMode)
 
   if ImGui.IsItemHovered() then
-    ImGui.SetTooltip("This allows better integration with Direct mode when using gamepad. It also enables a small information window that sticks around.")
+    ImGui.SetTooltip(AMM.LocalizableString("Warn_GamepadDirectMode_Info"))
   end
 
   if modeChange then
@@ -721,7 +724,7 @@ function Props:DrawHeaders()
   if #Props.savedProps['all_props'] > 0 then
 
     ImGui.PushItemWidth(Props.searchBarWidth)
-    Props.savedPropsSearchQuery = ImGui.InputTextWithHint(" ", "Search", Props.savedPropsSearchQuery, 100)
+    Props.savedPropsSearchQuery = ImGui.InputTextWithHint(" ", AMM.LocalizableString("Search"), Props.savedPropsSearchQuery, 100)
     Props.savedPropsSearchQuery = Props.savedPropsSearchQuery:gsub('"', '')
     ImGui.PopItemWidth()
 
@@ -735,7 +738,7 @@ function Props:DrawHeaders()
 
     if Props.savedPropsSearchQuery ~= '' then
       ImGui.SameLine()
-      if ImGui.Button("Clear") then
+      if ImGui.Button(AMM.LocalizableString("Clear")) then
         Props.savedPropsSearchQuery = ''
       end
     end
@@ -744,13 +747,13 @@ function Props:DrawHeaders()
 
     local filtersChanged = false
 
-    Props.showNearbyOnly, clicked = ImGui.Checkbox("Show Nearby Only", Props.showNearbyOnly)    
+    Props.showNearbyOnly, clicked = ImGui.Checkbox(AMM.LocalizableString("Show_Nearby_Only"), Props.showNearbyOnly)    
     if clicked then filtersChanged = true end
 
     if Props.showNearbyOnly then
       ImGui.SameLine()
       ImGui.PushItemWidth(200)
-      Props.showNearbyRange = ImGui.InputFloat("Distance", Props.showNearbyRange, 0.5, 10, "%.1f")
+      Props.showNearbyRange = ImGui.InputFloat(AMM.LocalizableString("Distance"), Props.showNearbyRange, 0.5, 10, "%.1f")
       ImGui.PopItemWidth()
       
       ImGui.Spacing()
@@ -759,7 +762,7 @@ function Props:DrawHeaders()
     if not Props.showNearbyOnly then
       ImGui.SameLine(300)
     end
-    Props.showLightsOnly, clicked = ImGui.Checkbox("Show Lights Only", Props.showLightsOnly)
+    Props.showLightsOnly, clicked = ImGui.Checkbox(AMM.LocalizableString("Show_Lights_Only"), Props.showLightsOnly)
     if clicked then filtersChanged = true end
 
 
@@ -772,7 +775,7 @@ function Props:DrawHeaders()
         ImGui.SameLine(300)
       end
       ImGui.Spacing()
-      Props.showTargetOnly, clicked = ImGui.Checkbox("Show Locked Target Only", Props.showTargetOnly)      
+      Props.showTargetOnly, clicked = ImGui.Checkbox(AMM.LocalizableString("Show_LockedTarget_Only"), Props.showTargetOnly)      
       if clicked then filtersChanged = true end
     else
       Props.showTargetOnly = false
@@ -785,13 +788,13 @@ function Props:DrawHeaders()
 
     ImGui.Spacing()
 
-    Props.showSaveToTag = ImGui.Checkbox("Save To Specific Tag", Props.showSaveToTag)
+    Props.showSaveToTag = ImGui.Checkbox(AMM.LocalizableString("Save_ToSpecific_Tag"), Props.showSaveToTag)
 
     if Props.showSaveToTag then
       ImGui.SameLine()
       local txt = Props.saveToTag or ''
       ImGui.PushItemWidth(400)
-      txt = ImGui.InputTextWithHint(" ##"..'saveToTag', "Type Tag here", txt, 100)
+      txt = ImGui.InputTextWithHint(" ##"..'saveToTag', AMM.LocalizableString("Type_Tag_here"), txt, 100)
       ImGui.PopItemWidth()
       if txt ~= '' then 
         Props.saveToTag = txt
@@ -815,7 +818,7 @@ function Props:DrawHeaders()
 
     ImGui.Spacing()
 
-    AMM.UI:TextColored("Saved Props:")
+    AMM.UI:TextColored(AMM.LocalizableString("Saved_Props2"))
 
     ImGui.Spacing()
 
@@ -872,12 +875,12 @@ function Props:DrawHeaders()
     end
 
     if shouldShowNoPropsLabel then
-      AMM.UI:TextError("No Props With These Conditions")
+      AMM.UI:TextError(AMM.LocalizableString("NoProps_WithThese_Conditions"))
     end
 
     AMM.UI:Spacing(3)
 
-    ImGui.Text("Total Props: "..Props.total)
+    ImGui.Text(AMM.LocalizableString("Total_Props")..Props.total)
   end
 end
 
@@ -891,9 +894,9 @@ function Props:DrawTagActions(props, tag)
     Props.editingTags[tag] = tag
   end
 
-  Props.editingTags[tag] = ImGui.InputText("Tag##"..tag, Props.editingTags[tag], 100)
+  Props.editingTags[tag] = ImGui.InputText(AMM.LocalizableString("Tag").."##"..tag, Props.editingTags[tag], 100)
 
-  if AMM.UI:SmallButton("  Update Tag  ##"..tag) and Props.editingTags[tag] ~= '' then
+  if AMM.UI:SmallButton(AMM.LocalizableString("UpdateTag")..tag) and Props.editingTags[tag] ~= '' then
     for _, prop in ipairs(props) do
       Props:UpdatePropTag(prop, Props.editingTags[tag])
     end
@@ -904,14 +907,14 @@ function Props:DrawTagActions(props, tag)
 
   ImGui.SameLine()
   if Props.removingFromTag == tag then
-    ImGui.Text("Removing all Props from tag...")
+    ImGui.Text(AMM.LocalizableString("RemovingAllPropsFromTag"))
 
     ImGui.SameLine()
-    if AMM.UI:SmallButton(" Cancel ##"..tag) then
+    if AMM.UI:SmallButton(AMM.LocalizableString("Button_SmallCancel").."##"..tag) then
       Props.removingFromTag = "cancel"
     end
   else
-    if AMM.UI:SmallButton("  Remove All Props  ##"..tag) then
+    if AMM.UI:SmallButton(AMM.LocalizableString("RemoveAllProps").."##"..tag) then
       Props.removingFromTag = tag
 
       Cron.After(3.0, function()
@@ -928,14 +931,14 @@ function Props:DrawTagActions(props, tag)
 
   AMM.UI:Spacing(3)
 
-  local buttonLabel = " Add Home Marker To Map "
+  local buttonLabel = AMM.LocalizableString("AddHomeMarkerMap")
 
   if Props.homes[tag] ~= nil then
-    buttonLabel = " Remove Home Marker From Map "
+    buttonLabel = AMM.LocalizableString("RemoveHomeMarkerMap")
   end
 
   if ImGui.Button(buttonLabel.."##"..tag, Props.style.halfButtonWidth, Props.style.buttonHeight) then
-    if buttonLabel == " Add Home Marker To Map " then
+    if buttonLabel == AMM.LocalizableString("AddHomeMarkerMap") then
       Props.homes[tag] = Props:AddHomeMarker(tag)  
     else
       Props:RemoveFromMap(Props.homes[tag])
@@ -945,22 +948,22 @@ function Props:DrawTagActions(props, tag)
 
   ImGui.SameLine()
 
-  if ImGui.Button("Teleport To Location", Props.style.halfButtonWidth, Props.style.buttonHeight) then
+  if ImGui.Button(AMM.LocalizableString("TeleportToLocation"), Props.style.halfButtonWidth, Props.style.buttonHeight) then
     Props:TeleportToTag(tag)
   end
 
-  if ImGui.Button("Update Tag Location", Props.style.halfButtonWidth, Props.style.buttonHeight) then
+  if ImGui.Button(AMM.LocalizableString("UpdateTagLocation"), Props.style.halfButtonWidth, Props.style.buttonHeight) then
     Props:UpdateTagLocation(tag)    
   end
 
   ImGui.SameLine()
   if Props.savingPreset == '' then
-    if ImGui.Button("Share Preset With This Tag Only", Props.style.halfButtonWidth, Props.style.buttonHeight) then
+    if ImGui.Button(AMM.LocalizableString("SharePresetWith_ThisTagOnly"), Props.style.halfButtonWidth, Props.style.buttonHeight) then
       Props:SharePresetWithTag(tag)
       Props.savingPreset = tag
     end
   elseif Props.savingPreset == tag then
-    AMM.UI:TextCenter("Saved Preset to AppearanceMenuMod/User/Decor folder")
+    AMM.UI:TextCenter(AMM.LocalizableString("SavedPresetFolder_Info"))
 
     Cron.After(3.0, function()
       Props.savingPreset = ''
@@ -1002,7 +1005,7 @@ function Props:RenamePresetPopup(style)
   if ImGui.BeginPopupModal("Rename Preset") then
     
     if Props.rename == 'existing' then
-      ImGui.TextColored(1, 0.16, 0.13, 0.75, "Existing Name")
+      ImGui.TextColored(1, 0.16, 0.13, 0.75, AMM.LocalizableString("Existing_Name"))
 
       if ImGui.Button("Ok", -1, style.buttonHeight) then
         Props.rename = ''
@@ -1012,11 +1015,11 @@ function Props:RenamePresetPopup(style)
         Props.rename = Props.activePreset.name
       end
 
-      Props.rename = ImGui.InputText("Name", Props.rename, 30):gsub(".json", "")
+      Props.rename = ImGui.InputText(AMM.LocalizableString("Name"), Props.rename, 30):gsub(".json", "")
 
       AMM.UI:Spacing(8)
 
-      if ImGui.Button("Save", style.buttonWidth, style.buttonHeight) then
+      if ImGui.Button(AMM.LocalizableString("Button_Save"), style.buttonWidth, style.buttonHeight) then
         if not(io.open(f("./User/Decor/%s.json", Props.rename), "r")) then
           local fileName = (Props.activePreset.file_name or Props.activePreset.name):gsub(".json", "")..".json"
           os.remove("./User/Decor/"..fileName)
@@ -1030,7 +1033,7 @@ function Props:RenamePresetPopup(style)
         end
       end
 
-      if ImGui.Button("Cancel", style.buttonWidth, style.buttonHeight) then
+      if ImGui.Button(AMM.LocalizableString("Button_Cancel"), style.buttonWidth, style.buttonHeight) then
         Props.rename = ''
         ImGui.CloseCurrentPopup()
       end
@@ -1057,11 +1060,11 @@ function Props:RenamePropPopup(prop)
       Props.rename = prop.name
     end
 
-    Props.rename = ImGui.InputText("Name", Props.rename, 50)
+    Props.rename = ImGui.InputText(AMM.LocalizableString("Name"), Props.rename, 50)
 
     AMM.UI:Spacing(3)
 
-    if ImGui.Button("Save", style.buttonWidth, style.buttonHeight) then
+    if ImGui.Button(AMM.LocalizableString("Button_Save"), style.buttonWidth, style.buttonHeight) then
       prop.name = Props.rename
 
       db:execute(f('UPDATE saved_props SET name = "%s" WHERE uid = %i', Props.rename, prop.uid))
@@ -1070,7 +1073,7 @@ function Props:RenamePropPopup(prop)
       ImGui.CloseCurrentPopup()
     end
 
-    if ImGui.Button("Cancel", style.buttonWidth, style.buttonHeight) then
+    if ImGui.Button(AMM.LocalizableString("Button_Cancel"), style.buttonWidth, style.buttonHeight) then
       Props.rename = ''
       ImGui.CloseCurrentPopup()
     end

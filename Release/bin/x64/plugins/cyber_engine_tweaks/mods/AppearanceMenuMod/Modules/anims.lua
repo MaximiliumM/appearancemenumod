@@ -43,7 +43,7 @@ function Poses:Initialize()
 end
 
 function Poses:Draw(AMM, target)
-  if (ImGui.BeginTabItem("Poses")) then
+  if (ImGui.BeginTabItem(AMM.LocalizableString("BeginItem_TabPoses"))) then
 
     AMM.UI:DrawCrossHair()
 
@@ -54,7 +54,7 @@ function Poses:Draw(AMM, target)
     end
 
     if next(Poses.activeAnims) ~= nil then
-      AMM.UI:TextColored("Active Animations")
+      AMM.UI:TextColored(AMM.LocalizableString("Active Animations"))
 
       for hash, anim in pairs(Poses.activeAnims) do
 
@@ -111,14 +111,14 @@ function Poses:Draw(AMM, target)
 
         if anim.target.handle ~= '' then
           ImGui.SameLine()
-          if AMM.UI:SmallButton("Target".."##"..hash) then
+          if AMM.UI:SmallButton(AMM.LocalizableString("Button_SmallTarget").."##"..hash) then
             AMM.Tools:SetCurrentTarget(anim.target)
             AMM.Tools.lockTarget = true
           end
         end
 
         ImGui.SameLine()
-        if AMM.UI:SmallButton("  Copy To Clipboard  ##"..hash) then
+        if AMM.UI:SmallButton(AMM.LocalizableString("Button_SmallCopyClipboard").."##"..hash) then
           ImGui.SetClipboardText(name)
         end
 
@@ -143,30 +143,30 @@ function Poses:Draw(AMM, target)
     end
 
     if target ~= nil and (target.type == 'Player' or (target.handle.IsNPC and target.handle:IsNPC()) or (target.handle.IsReplacer and target.handle:IsReplacer())) then
-      AMM.UI:TextColored("Current Target:")
+      AMM.UI:TextColored(AMM.LocalizableString("Current_Target"))
       ImGui.Text(target.name)
 
       AMM.UI:Separator()
 
       ImGui.PushItemWidth(Poses.searchBarWidth)
-      Poses.searchQuery = ImGui.InputTextWithHint(" ", "Search", Poses.searchQuery, 100)
+      Poses.searchQuery = ImGui.InputTextWithHint(" ", AMM.LocalizableString("Search"), Poses.searchQuery, 100)
       Poses.searchQuery = Poses.searchQuery:gsub('"', '')
       ImGui.PopItemWidth()
 
       if Poses.searchQuery ~= '' then
         ImGui.SameLine()
-        if ImGui.Button("Clear") then
+        if ImGui.Button(AMM.LocalizableString("Clear")) then
           Poses.searchQuery = ''
         end
       end
 
       if next(Poses.historyAnims) ~= nil then
-        Poses.historyEnabled = ImGui.Checkbox("Show History", Poses.historyEnabled)
+        Poses.historyEnabled = ImGui.Checkbox(AMM.LocalizableString("ShowHistory"), Poses.historyEnabled)
       end
 
       ImGui.Spacing()
 
-      AMM.UI:TextColored("Select Pose For Current Target:")
+      AMM.UI:TextColored(AMM.LocalizableString("SelectPoseForCurrentTarget"))
 
       local anims = Poses.currentAnims
 
@@ -185,7 +185,7 @@ function Poses:Draw(AMM, target)
       end
 
       if Poses.searchQuery ~= '' and next(anims) == nil then
-        ImGui.Text("No Results")
+        ImGui.Text(AMM.LocalizableString("No_Results"))
       else
         local resX, resY = GetDisplayResolution()
         local y = resY / 3
@@ -246,7 +246,7 @@ function Poses:Draw(AMM, target)
               else -- it's not a collab category
                 if (ImGui.CollapsingHeader(category)) then
                   if category == 'Favorites' and #Poses.anims['Favorites'] == 0 then
-                    ImGui.Text("It's empty :(")
+                    ImGui.Text(AMM.LocalizableString("ItsEmpty"))
                   else
                     Poses:DrawAnimsButton(target, category, anims[category])
                   end
@@ -259,7 +259,7 @@ function Poses:Draw(AMM, target)
 
         if Poses.historyEnabled then
           ImGui.SetNextWindowSize(600, 700)
-          if ImGui.Begin("Last Used Poses", ImGuiWindowFlags.AlwaysAutoResize) then
+          if ImGui.Begin(AMM.LocalizableString("LastUsedPoses"), ImGuiWindowFlags.AlwaysAutoResize) then
             if next(Poses.historyAnims) ~= nil then
               for _, category in ipairs(Poses.historyCategories) do
                 if Poses.historyAnims[category] ~= nil and next(Poses.historyAnims[category]) ~= nil and category ~= 'Favorites' then
@@ -271,7 +271,7 @@ function Poses:Draw(AMM, target)
 
               AMM.UI:Separator()
 
-              if ImGui.Button("Clear History", ImGui.GetWindowContentRegionWidth(), 40) then
+              if ImGui.Button(AMM.LocalizableString("ClearHistory"), ImGui.GetWindowContentRegionWidth(), 40) then
                 Poses.history = {}
                 Poses.historyEnabled = false
               end
@@ -283,7 +283,7 @@ function Poses:Draw(AMM, target)
     else
       ImGui.NewLine()
       ImGui.PushTextWrapPos()
-      ImGui.TextColored(1, 0.16, 0.13, 0.75, "No NPC Found! Look at NPC to begin")
+      ImGui.TextColored(1, 0.16, 0.13, 0.75, AMM.LocalizableString("NoNPC_LookNPC"))
       ImGui.PopTextWrapPos()
 
       AMM.UI:Spacing(3)

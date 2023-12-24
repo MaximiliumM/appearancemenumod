@@ -153,7 +153,7 @@ return {
 	Button_SmallRemove = "Remove##",
 	Button_SmallRename = "Rename##",
 	Button_SmallUpdate = "Update##",
-	Button_SmallCancel = " Cancel ##",
+	Button_SmallCancel = " Cancel ",
 	
     --Button Label
 	Button_LabelHide = " Hide ",
@@ -175,7 +175,7 @@ return {
 	New_Preset = "New Preset",
 	No_Preset_Available = "No Preset Available",
 	MovingSavedProps = "Moving %s to Saved Props",
-	UpdateTag = "  Update Tag  ##",
+	UpdateTag = "  Update Tag  ",
 	Categories = "Categories",
 	Decorating = "Decorating",
 	Decor_Tabs = "Decor Tabs",
@@ -192,14 +192,15 @@ return {
 	Save_All = "  Save All  ",
 	Save_ToSpecific_Tag = "Save To Specific Tag",
 	Saved_Props2 = "Saved Props:",
-	Move_To_Tag = "Move To Tag ##",
+	Move_To_Tag = "Move To Tag",
 	HideFromMap = "Hide From Map",
 	RemovingAllPropsFromTag = "Removing all Props from tag...",
-	RemoveAllProps = "  Remove All Props  ##",
+	RemoveAllProps = "  Remove All Props  ",
 	RemoveHomeMarkerMap = " Remove Home Marker From Map ",
 	TeleportToLocation = "Teleport To Location",
 	UpdateTagLocation = "Update Tag Location",
 	SharePresetWith_ThisTagOnly = "Share Preset With This Tag Only",
+	SavedPresetFolder_Info = "Saved Preset to AppearanceMenuMod/User/Decor folder",
 	NoProps_WithThese_Conditions = "No Props With These Conditions",
 	AddHomeMarkerMap = " Add Home Marker To Map ",
 	Distance = "Distance",
@@ -207,7 +208,7 @@ return {
 	Type_Tag_here = "Type Tag here",
 	In_World = "  In World",
 	Tags = "Tags",
-	Tag = "Tag##",
+	Tag = "Tag",
 	Both = "Both",
 	
 	
@@ -216,7 +217,7 @@ return {
 	BeginItem_TabPoses = "Poses",
 	
 	--Button
-	Button_SmallCopyClipboard = "  Copy To Clipboard  ##",
+	Button_SmallCopyClipboard = "  Copy To Clipboard  ",
 	
     --Button Label
     --Checkbox
@@ -232,6 +233,7 @@ return {
 	
 	-- >> TOOLS TAB
 	BeginItem_TabTools = "Tools",
+	BeginItem_TabPhotoModeNibblesReplacer = "Photo Mode Nibbles Replacer",
 	BeginCombo_LookAt = "##LookAt",
 	BeginCombo_LookAt2 = "Look At",
 	BeginCombo_Appearances = "##Appearances",
@@ -521,6 +523,7 @@ return {
 	Button_ClearAllSavedDespawns = "Clear All Saved Despawns",
 	Button_SmallCreateTheme = "  Create Theme  ",
 	Button_SmallDeleteTheme = "  Delete Theme  ",
+	Button_SmallSet = "Set",
 	Button_ReloadAppearances = "Reload Custom Appearances",
 	
     --Button Label
@@ -586,6 +589,7 @@ return {
 	DisablePhotoModeTabs = "Disable Photo Mode Tabs:",
 	Listbox_Themes = "Themes",
 	Weaponize = "Weaponize",
+	NoAppearanceSet = "No Appearance Set",
 	
 	
 	
@@ -606,7 +610,6 @@ return {
 	MISSING_ARCHIVES = "MISSING ARCHIVES",
 	VERSION_INFORMATION = " VERSION INFORMATION ",
 	CREDITS = "CREDITS",
-	Button_Credits = " Credits ",
 	UPDATE_HISTORY = "UPDATE HISTORY",
 	Updates = " Updates ",
 	MISSING = " MISSING",
@@ -616,6 +619,7 @@ return {
 
 	--Button
 	Button_Ignorewarningsforthisversion = "Ignore warnings for this version",
+	Button_Credits = " Credits ",
 	Button_Cool = "Cool!",
 
 	--Button Label
@@ -629,8 +633,8 @@ return {
 
 	--Node - Function Error(nil value) 
 	Top = "Top", --Line 116
-	Bottom = "Bottom", 
-	Off = "Off", 
+	Bottom = "Bottom",
+	Off = "Off",
 	
 	--Voice Overs
 	Label_GreetV = "Greet V",

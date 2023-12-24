@@ -1,12 +1,24 @@
 return {
 	{
+		'2.6',
+		'2023 Dec 24',
+		[[Added 2.1 and PL animations to Poses tab]],
+		[[-- Please update Scenes Pack that is available on the Nexus page]],
+		[[Added new Vehicle: NCART Metro]],
+		[[-- Known issue: It seems to work better when spawned from Spawn tab instead of Props]],
+		[[Added new Localization language: Chinese]],
+		[[-- Thanks Skippy!]],
+		[[Made PP archives optional]],
+		[[-- Now you have to download RiverPP, KerryPP and YorinobuPP archives from Nexus page]],
+		[[Fixed issue where Props and Decor tabs couldn't be localized]],
+	},
+	{
 		'2.5.2',
 		'2023 Nov 9',
 		[[Added new Reload Appearances button to Settings]],
 		[[-- This button allows you to reload files without restarting the game or using Reload All Mods that is too disruptive]],
 		[[Fixed issue where some popups like Equipment and Warnings would not appear]],
 		[[Fixed issue where some Custom Appearances would not load correctly]],
-		[[Fixed issue where Tools tab would increase the width of the window constantly]],
 	},
 	{
 		'2.5.1',

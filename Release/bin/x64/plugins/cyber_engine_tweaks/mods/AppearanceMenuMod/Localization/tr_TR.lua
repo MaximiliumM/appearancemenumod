@@ -10,7 +10,7 @@ return {
 	Button_SavesAppearance = "Görünümü Kaydet",
 	Button_ClearSavedAppearance = "Kaydedilen Görünümü Temizle",
 	Button_UnlockDoor = "Kapi Kilidini Aç",
-	Button_RestoreAccess = "Erisimi Geri Yükle",
+	Button_RestoreAccess = "Erisimi Yenile",
 	Button_UnlockVehicle = "Araç Kilidini Aç",
 	Button_RepairVehicle = "Araci Tamir Et",
 	Button_OpenCloseDoors = "Kapilari Aç/Kapat",
@@ -30,21 +30,21 @@ return {
     --Button Label
 	Button_Label_Unfollower = "Takibi Birak",
 	Button_Label_Follower = "Takip Et",
-	Button_Label_SaveDespawn = "Yok Edileni Kaydet",
-	Button_Label_ClearSavedDespawn = "Kaydedilmis Yok Edileni Sil",
-	Button_LabelLockTarget = "Hedefe Kitlen",
-	Button_LabelUnlockTarget = "Vazgec",
-	Label_AddToSpawnFavs = "Olusturulabilir Favorilere Ekle",
-	Label_RemoveFromSpawnFavs = "Olusturulabilir Favorilerden Kaldir",
+	Button_Label_SaveDespawn = "Kaldirilani Kaydet",
+	Button_Label_ClearSavedDespawn = "Kaydedilmis Kaldirilani Sil",
+	Button_LabelLockTarget = "Hedef Kitle",
+	Button_LabelUnlockTarget = "Hedef Kilit Kaldir",
+	Label_AddToSpawnFavs = "Yaratilabilir Favorilere Ekle",
+	Label_RemoveFromSpawnFavs = "Yaratilabilir Favorilerden Kaldir",
 	
     --Checkbox
-	Checkbox_SavedDespawnsActive = "Kaydedilmis Yok Edilenler Aktif",
+	Checkbox_SavedDespawnsActive = "Kaydedilmis Kaldirilanlar Aktif",
 	
     --Warning / Info / Tool Tip
 	WarnTextAI_FastTravel = "Seyahat etmek icin haritanizdan bir Hizli Seyahat noktasi seçin.",
 	WarnText_DontReloadMods = "Reload All Mods butonunu kullanmayin.\nLütfen kayit dosyanizi yeniden yükleyin veya farkli bir alana gidin.",
-	Warning_NoTarget_Desc = "Hedef bulunamadi! Bir NPC, Araç veya Nesneye Bakin.",
-	ToolTip_DisableCheckboxReloadSave_AbleTotargetClearSavedDespawns = "Bu onay kutusunu devre disi birakin ve Kaydedilmis Yok Edileni Sili seçebilmek için kaydinizi yeniden yükleyin.",
+	Warning_NoTarget_Desc = "Hedef bulunamadi! Bir NPC'ye, Araca veya Nesneye Bakin.",
+	ToolTip_DisableCheckboxReloadSave_AbleTotargetClearSavedDespawns = "Bu onay kutusunu devre disi birakin ve Kaydedilmis Kaldirilani Sili seçebilmek için kaydinizi yeniden yükleyin.",
 	
     --Text
 	Build_Mode = "Insa Modu",
@@ -53,7 +53,9 @@ return {
 	Clear = "Temizle",
 	Player = "Oyuncu",
 	Saved = "Kaydedildi",
+	Saved_ = "Kaydedildi_",
 	Current = "Mevcut",
+	Current_ = "Mevcut ",
 	Select_Seat = "Koltuk Seç",
 	Target_Info = "Hedef Bilgisi",
 	Target_Actions = "Hedef Eylemleri",
@@ -65,12 +67,11 @@ return {
 	Unblacklist_Appearance = "Görünümü Kara Listeden Çikar",
 	Saved_Appearance = "Kaydedilen Görünüm:",
 	Current_Appearance = "Mevcut Görünüm:",
-	Default_TargetAppearance = "Hedef Görünümü Varsayilan",
 	List_of_Appearances = "Görünüm Listesi",
 	Appearance_Trigger = "Görünüm Tetikleyici",
 	Tpp_Close = "Yakin",
 	Tpp_Far = "Uzak",
-	None = "Hic",
+	None = "Hiç",
 	Default = "Varsayilan",
 	Combat = "Çatisma",
 	Zone = "Bölge",
@@ -80,15 +81,15 @@ return {
 	
 	
 	-- >> SPAWN TAB
-	BeginItem_TabNameSpawn = "Olustur",
+	BeginItem_TabNameSpawn = "Yarat",
 	
 	--Button
 	Button_Save = "Kaydet",
 	Button_Cancel = "Iptal",
 	Button_SmallSave = " Kaydet ",
-	Button_SmallRespawn = "Yeniden Olustur",
+	Button_SmallRespawn = "Yeniden Yarat",
 	Button_SmallDespawn = "Kaldir",
-	Button_SmallDespawn_WithSpace = "Kaldir ",
+	Button_SmallDespawn_WithSpace = " Kaldir ",
 	Button_SmallTarget = "Hedef",
 	Button_SmallEquipment = "Ekipman",
 	Button_LabelHostile = "Düsman",
@@ -101,17 +102,17 @@ return {
     --Checkbox
     --Warning / Info / Tool Tip
 	Warn_PlayerInMenu = "Oyuncu Menüde",
-	Warn_AMMonlyfunctions_ingame = "AMM sadece oyun içi çalisir",
-	Warn_SpawnWorksInGame = "Olusturma Sadece Oyun Icinde Çalisir",
+	Warn_AMMonlyfunctions_ingame = "AMM sadece oyun içinde çalisir",
+	Warn_SpawnWorksInGame = "Yarat sadece oyun içinde çalisir",
 	
     --Text
-	Active_Spawns = "Aktif Olusturulanlar",
-	NoActiveSpawns = "Aktif Olusturulan Yok",
-	Select_To_Spawn = "Olusturmak Için Seç",
+	Active_Spawns = "Aktif Yaratilmislar",
+	NoActiveSpawns = "Aktif Yaratilmis Yok",
+	Select_To_Spawn = "Yaratmak Için Seç",
 	No_Results = "Sonuç Yok",
 	ItsEmpty = "Bos :(",
 	Existing_Name = "Varolan Isim",
-	Name = "Isim",
+	Name = "Ad",
 	
 	
 	
@@ -119,25 +120,25 @@ return {
 	BeginItem_TabNameSwap = "Degistir",
 	
 	--Button
-	Button_SmallRevert = "Geri Al  ",
+	Button_SmallRevert = "  Geri Al  ",
 	
     --Button Label
     --Checkbox
     --Warning / Info / Tool Tip
 	Warn_ReloadSaveUpdateChanges = "Degisikliklerin güncellenmesi için kayit dosyasini Yeniden Yükleyin!",
 	Warn_NeedReloadSaveUpdateChanges = "Degisiklikleri güncellemek için kaydinizi yeniden yüklemeniz gerekecek!",
-	Warn_ReplacerSwap = "Replacer'ı, degistiremezsiniz! Hedef almak için fotograf modunda 'Araçlar' sekmesini kullanin, ardindan görünümlerini 'Olustur' Sekmesi veya 'Hedef Araçlari'ndan degistirin.",
+	Warn_ReplacerSwap = "Replacer'ı, degistiremezsiniz! Hedef almak için fotograf modunda 'Araçlar' sekmesini kullanin, ardindan görünümlerini 'Yarat' Sekmesi veya 'Hedef Araçlari'ndan degistirin.",
 	Warning = "UYARI",
 	Warning2 = "UYARI:",
 	
     --Text
 	CantSwapReplacer = "Replacer Degistirilemiyor",
-	Active_Model_Swaps = "Aktif Model Degisimleri",
+	Active_Model_Swaps = "Degistirilmis Aktif Modeller",
 	Save = "Kaydet",
 	Restore = "Geri Yükle",
 	Current_Target = "Mevcut Hedef:",
 	Target_ID = "Hedef ID:",
-	SelectSwap_CurrentTarget = "Mevcut Hedef ile Degistirmek için Seç:",
+	SelectSwap_CurrentTarget = "Mevcut hedefle degistirmek için seçin:",
 	NoNPC_LookNPC = "NPC Bulunamadi! Baslamak için NPC'ye bakin.",
 	
 	
@@ -149,9 +150,9 @@ return {
 	
 	--Button
 	Button_SmallClone = "Klonla",
-	Button_SmallRemove = "Kaldir",
-	Button_SmallRename = "Yeniden adlandir",
-	Button_SmallUpdate = "Güncelle",
+	Button_SmallRemove = "Kaldir##",
+	Button_SmallRename = "Yeniden Adlandir##",
+	Button_SmallUpdate = "Güncelle##",
 	Button_SmallCancel = " Iptal ",
 	
     --Button Label
@@ -160,7 +161,7 @@ return {
 	
     --Checkbox
     --Warning / Info / Tool Tip
-	Warn_PersistPropSave = "Ev veya istediginiz herhangi bir yere dekorasyon amaçli nesneler olusturun! Kalici olmalari için nesneleri kaydedin!",
+	Warn_PersistPropSave = "Ev veya istediginiz herhangi bir yere dekorasyon amaçli nesneler yerlestirmek için yaratin! Kalici olmalari için nesneleri kaydedin!",
 	Warn_DespawnInProgress_PleaseWait = "Kaldirma Islemi Devam ediyor. Lütfen Bekleyin.",
 	Warn_PresetsFolder_Info = "Kullanici ön ayarlari AppearanceMenuMod/User/Decor klasörüne kaydedilir.",
 	Warn_CustomPresets_Info = "Bu ön ayar Özel Nesneleri içerir",
@@ -169,11 +170,11 @@ return {
 	
     --Text
 	MovingAll_PropsTo_SavedProps = "Tüm Nesneler Kaydedilen Nesnelere Tasiniyor",
-	SelectPropSpawn = "Olusturmak Için Nesne Seç:",
-	Spawned_Props = "Olusturulmus Nesneler",
+	SelectPropSpawn = "Yaratmak için nesne seçin:",
+	Spawned_Props = "Yaratilmis Nesneler",
 	New_Preset = "Yeni Ön Ayar",
 	No_Preset_Available = "Ön Ayar Mevcut Degil",
-	MovingSavedProps = "Kaydedilen Nesnelere Tasiniyor %s",
+	MovingSavedProps = "Tasiniyor %s Kaydedilen Nesneler",
 	UpdateTag = "  Etiketi Güncelle  ",
 	Categories = "Kategoriler",
 	Decorating = "Dekore ediliyor",
@@ -187,7 +188,7 @@ return {
 	ShowOnMap = "Harita Üzerinde Göster",
 	Rename = "Yeniden Adlandir",
 	Delete = "Sil",
-	Backup = "Yedek",
+	Backup = "Yedekle",
 	Save_All = "  Tümünü Kaydet  ",
 	Save_ToSpecific_Tag = "Belirli Bir Etikete Kaydet",
 	Saved_Props2 = "Kaydedilen Nesneler:",
@@ -199,6 +200,7 @@ return {
 	TeleportToLocation = "Konuma Isinla",
 	UpdateTagLocation = "Etiket Konumunu Güncelle",
 	SharePresetWith_ThisTagOnly = "Ön ayari Sadece Bu Etiket Ile Paylas",
+	SavedPresetFolder_Info = "Ön ayar AppearanceMenuMod/User/Decor klasörüne kaydedildi",
 	NoProps_WithThese_Conditions = "Bu Kosullarda Uygun Bir Nesne Yok",
 	AddHomeMarkerMap = " Haritaya Ev Isareti Ekle ",
 	Distance = "Uzaklik",
@@ -231,10 +233,11 @@ return {
 	
 	-- >> TOOLS TAB
 	BeginItem_TabTools = "Araçlar",
+	BeginItem_TabPhotoModeNibblesReplacer = "Fotograf Modu Nibbles Replacer",
 	BeginCombo_LookAt = "Bak",
 	BeginCombo_LookAt2 = "Bak",
 	BeginCombo_Appearances = "Görünümler",
-	BeginCombo_WeatherControl = "Hava Kontrol",
+	BeginCombo_WeatherControl = "Hava Kontrolü",
 	
 	--Button
 	Button_SkipFrame = "Kare Atla",
@@ -279,7 +282,7 @@ return {
     --Button Label
 	Button_Label_PauseTimeProgression = "Zaman Akisini Durdur",
 	Button_Label_UnpauseTimeProgression = "Zaman Akisini Devam Ettir",
-	Button_Label_UnfreezeTime = "Zamani Devam Ettir",
+	Button_Label_UnfreezeTime = "Zamani Oynat",
 	Button_Label_FreezeTime = "Zamani Durdur",
 	Button_Label_OpenLightSettings = "Isik Ayarlarini Aç",
 	Button_Label_UpdateLightTarget = "Isik Hedefini Güncelle",
@@ -287,7 +290,7 @@ return {
 	Button_Label_Deactivate = "   Deaktif   ",
 	Button_Label_ChangeToCrouchStance = " Egilme Durusuna Geç ",
 	Button_Label_ChangeToStandStance = " Dikilme Durusuna Geç ",
-	Button_Label_PickUpTarget = "Hedefi Al",
+	Button_Label_PickUpTarget = "Hedefi Tut",
 	Button_Label_DropTarget = "Hedefi Birak",
 	Button_Label_FreezeTarget = " Hedefi Dondur ",
 	Button_Label_UnfreezeTarget = " Hedefi Çöz ",
@@ -311,8 +314,8 @@ return {
 	Warn_SeeMoreActionProp_Info = "Daha fazla eylem görmek için, NPC yada bir Nesne'ye hedef al",
 	Warn_SeamfixPiercingToggle_Info = "Bu, siz oyunu kapatana kadar 'Makyaj', 'Pirsing' ve 'Dikis Yeri Düzeltme' seçeneklerinin açik/kapali durumlarini koruyacaktır.",
 	Warn_PassiveMode_Info = "Eger çatisma çikarirsan 'Düsmanlar' yine de saldiracaktir.",
-	Warn_TppCameraGameplay_Info = "TPP Kamera normal oynanis için uygun degildir, ancak yürüyüs yapmak eglencelidir ;)",
-	Warn_AnimatedHead_PhotoMode_Info = "'Animasyonlu Kafa' etkinken fotograf modu ifadeleri çalismaz.",
+	Warn_TppCameraGameplay_Info = "TPP Kamera normal oynanis için uygun degildir, ama bu modda yürümek eglencelidir ;)",
+	Warn_AnimatedHead_PhotoMode_Info = "'Kafa Animasyonu' etkinken fotograf modu ifadeleri çalismaz.",
 	Warn_ToolsOnly_WorksIngame = "Araçlar sadece oyun içi çalisir",
 	Warn_InvButtonMachineGun_Info = "Buldun! Agir Makineli Tüfek ekipmanlara eklendi.",
 	Warn_InvButton_Info = "Buldun! Hizli Çekim artik erisilebilir.",
@@ -325,12 +328,13 @@ return {
 	Look_At = "Bak",
 	Look_At_Camera = "Kameraya Bak:",
 	Target_Tools = "Hedef Araçlari",
+	Rotation = "Döndürme",
 	Tilt_Rotation = "Egme/Döndürme ",
 	Mode = "Mod:  ",
 	Precision = "Kesin",
 	Relative = "Yakin",
 	Direct = "Direkt",
-	AdvRotation = "Gel. Döndürme",
+	AdvMovement = "Gel. Hareket",
 	ForceGivenWeapon = "Verilen Silah Zorla",
 	Scale = "Ölcek",
 	ProportionalMode = "Orantili Mod",
@@ -353,7 +357,7 @@ return {
 	Locations_DefaultLocs = "----------- Varsayilan ----------",
 	Share_Location = "Konum Paylas",
 	TimeWeather_Actions = "Zaman & Hava Eylemleri",
-	TimeofDay = "Günün Zamani ",
+	TimeofDay = "Saat",
 	Time_Actions = "Zaman Eylemleri",
 	Rain = "Yagmur",
 	Light_Rain = "Hafif Yagmur",
@@ -371,12 +375,12 @@ return {
 	Rainy_Night = "Yagmurlu Gece",
 	Courier_Clouds = "Kurye Bulutlar",
 	Cursor_LockState = "Kilit Durumu",
-	Photomode_NPCs_AMM_lua = "Photomode_NPCs_AMM.lua",
 	PhotoMode_NibblesReplacer = "Fotograf Modu Nibbles Replacer",
 	PhotoModeEnhancements = "Fotograf Modu Gelistirmeleri",
+	Button_ResetReplacerDatabase = "Replacer Veri Bankasini Sifirla",
 	DisablePhotoModeCursor = "Fotograf Modu Isaretçisini Devre Disi Birak",
 	TPPCamera_Position = "TPP Kamera Konumu",
-	AnimatedHeadin_PhotoMode = "Fotograf Modunda Animasyonlu Kafa",
+	AnimatedHeadin_PhotoMode = "Fotograf Modunda Kafa Animasyonu",
 	LockLook_AtCamera = "Kameraya Bak Kilitle",
 	UnlockLook_AtCamera = "Kameraya Bak Kilit Aç",
 	Save_Toggles_State = "Açik/Kapali Durumunu Kaydet",
@@ -399,7 +403,7 @@ return {
 	V_Actions = "V Eylemleri",
 	Invisible_V = "Görünmez V",
 	LikeGTA_byGTATravel = "GTA Seyahati",
-	EnableSpawnedProps = "Olusturulmus Nesneleri Aktiflestir",
+	EnableSpawnedProps = "Yaratilmis Nesneleri Aktiflestir",
 	LightControl = "Isik Kontrol",
 	Equipment = "Ekipman",
 	
@@ -446,14 +450,13 @@ return {
 	
     --Checkbox
     --Warning / Info / Tool Tip
-	Warn_Stopping_Info = "Durdurmak için Aktörlerden uzaga bakman gerekir.",
 	Warn_ActorSingleMark_Info = "Aktör tek bir isarette kalacak",
 	Warn_ActorRandomMark_Info = "Aktör rastgele isaretler arasinda hareket edecek",
 	Warn_ActorSequentialMark_Info = "Aktör, Isaretler arasinda sayisal siraya göre hareket edecek",
 	Warn_DeleteScript_Info = "Bu senaryoyu silmek istediginizden emin misiniz?",
 	Warn_CloseCamForMove_Info = "Kamerayi hareket ettirebilmek için menüyü kapatin",
 	Warn_CreateScriptsDesc_Info = "Machinima, ekran görüntüleri ve rol yapma için performans sergileyecek Aktörleri eklemek, giydirmek ve yönlendirmek için Senaryolar olusturun.",
-	Warn_PremadeScriptsDesc_Info = "Temas halinde önceden hazirlanmis Senaryolari etkinlestirmek için Tetikleyiciler olusturun",
+	Warn_PremadeScriptsDesc_Info = "Temas halinde önceden hazirlanmis Senaryolari etkinlestirmek için Tetikleyici olusturun",
 	Warn_CreateCamera_FovZoomDesc_Info = "Serbestçe hareket etmek, farkli görüs alanlari ve yakinlastirma düzeyleri ayarlamak için Kameralar olusturun.",
 	Warn_ShowMarksLocations_Info = "Isaret konumlarinda görünecek bir simge gösterir",
 	Warn_AutoTalkNpc_Info = "Bu, NPC'lerin menzil içinde dakikada bir konusmasini saglayacaktir.(Sadece seslendirilmis NPC'ler)",
@@ -462,7 +465,6 @@ return {
 	
     --Text
 	DirectorMode = "Yönetmen Modu",
-	DirectorTabs = "Yönetmen Sekmeleri",
 	SelectActorToReplace = "Degistirilecek Aktörü Seç:",
 	AddActorToCurrentScript = "Mevcut Senaryoya Aktör Ekle:",
 	FacialExpression_WithColon = "Yüz Ifadesi:",
@@ -477,13 +479,13 @@ return {
 	Marks_Sequence = "Sekansi Isaretle:",	
 	ShowMarks = "Isaretleri Göster",
 	Triggers = "Tetikleyiciler",
-	NewTrigger = "Yeni Tetik",
+	NewTrigger = "Yeni Tetikleyici",
 	ShowTrigger = "Tetigi Göster",
 	Title = "Baslik",
-	Select_Trigger = "Tetik Seç",
+	Select_Trigger = "Tetikleyici Seç",
 	Select_Script = "Senaryo Seç",
 	Delete_Trigger = "Tetigi Sil",
-	Triggers_On_Off = "Tetikler Açik/Kapali",
+	Triggers_On_Off = "Tetikleyiciler Açik/Kapali",
 	Running = "Baslatiliyor",
 	Script_Running = "Senaryo Baslatiliyor...",
 	Delete_Script = "Senaryoyu Sil",
@@ -509,11 +511,10 @@ return {
 	BeginItem_TabNameGeneral = "Genel",
 	BeginItem_TabNameUI = "Kullanici Arayüzü",
 	BeginItem_TabNameExperimental = "Deneysel",
-	BeginCombo_InterfaceLang = " Arayüz Dili",
 	
 	--Button
 	Button_RevertAllModelSwaps = "Tüm Model Degisimlerini Geri Al",
-	Button_RespawnAll = "Hepsini Yeniden Olustur",
+	Button_RespawnAll = "Hepsini Yeniden Yarat",
 	Button_ForceDespawnAll = "Hepsini Kaldirmaya Zorla",
 	Button_ClearFavorites = "Favorileri Temizle",
 	Button_ClearAllSavedAppearances = "Tüm Kaydedilmis Görünümleri Temizle",
@@ -522,21 +523,23 @@ return {
 	Button_ClearAllSavedDespawns = "Tüm Kaldirilmis Kaydedilenleri Temizle",
 	Button_SmallCreateTheme = "  Tema Olustur  ",
 	Button_SmallDeleteTheme = "  Tema Sil  ",
+	Button_SmallSet = "Seç",
+	Button_ReloadAppearances = "Özel Görünümleri Yeniden Yükle",
 	
     --Button Label
     --Checkbox
-	Checkbox_SpawnAsCompanion = "Yoldas Olarak Olustur",
-	Checkbox_SpawnAsFriendly = "Dost Olarak Olustur",
+	Checkbox_SpawnAsCompanion = "Yoldas Olarak Yarat",
+	Checkbox_SpawnAsFriendly = "Dost Olarak Yarat",
 	Checkbox_InvulnerableCompanion = "Ölümsüz Yoldas",
-	Checkbox_RespawnOnLaunch = "Baslatmada Yeniden Olustur",
-	Checkbox_LockTargetAfterSpawn = "Olusturduktan Sonra Hedefe Kilitlen",
-	Checkbox_OpenTargetToolsAfterSpawn = "Olusturduktan Sonra Hedef Araçlarini Aç",
+	Checkbox_RespawnOnLaunch = "Baslatmada Yeniden Yarat",
+	Checkbox_LockTargetAfterSpawn = "Yarattiktan Sonra Hedefe Kilitlen",
+	Checkbox_OpenTargetToolsAfterSpawn = "Yarattiktan Sonra Hedef Araçlarini Aç",
 	Checkbox_DisplayAxisIndicatorByDefault = "Eksen Göstergesini Varsayilan Olarak Göster",
 	Checkbox_PhotoModeEnhancements = "Fotograf Modu Gelistirmeleri",
 	Checkbox_GodModeOnLaunch = "Baslatmada Tanri Modu",
 	Checkbox_StreamerMode = "Yayinci Modu",
 	Checkbox_OpenWCETOverlay = "CET Arayüzü ile birlikte aç",
-	Checkbox_AutoResizingWindow = "Oto-Yeniden Boyut. Penceresi",
+	Checkbox_AutoResizingWindow = "Pencere Oto-Yeniden Boyutlandirma",
 	Checkbox_ScanningReticle = "Retikül Tarama",
 	Checkbox_FloatingTargetTools = "Yüzen Hedef Araçlari",
 	Checkbox_TabHeaderDescriptions = "Sekme Basligi Aciklamalari",
@@ -556,15 +559,16 @@ return {
 	Checkbox_AllowExpressionOnNpcPM = "Fotograf Modunda Ifadelere ve NPC'lere Bak'a Izin Ver",
 	
     --Warning / Info / Tool Tip
-	Warn_RespawnOnLaunch_Info = "Bu ayar, önceden kaydedilmis NPC'lerin oyun yüklendiginde yeniden dogmasini etkin/devre disi birakir. AMM, oyundan çiktiginizda olusturulan NPC'lerinizi otomatik olarak kaydeder.",
+	Warn_RespawnOnLaunch_Info = "Bu ayar, önceden kaydedilmis NPC'lerin oyun yüklendiginde yeniden dogmasini etkin/devre disi birakir. AMM, oyundan çiktiginizda yaratilan NPC'lerinizi otomatik olarak kaydeder.",
 	Warn_BannedWords_Info = "Bu ayar, içinde bu kelimeleri içeren NPC görünümlerini etkin/devre disi birakir: naked(çiplak), nude(Çiplak), xxx, shower(Banyo), birthday_suit(Dogum günü kiyafeti), pp(çük) ve penis.",
 	Warn_TargetNpcVehicleHotkey = "Kisayol Tuslarini Ayarlamak için NPC'yi veya Araci Hedefleyin",
-	Warn_FirstLaunchDecideTabsExpand_Info = "Bu ayar, AMM ilk çalistiginda Olustur, Degistir ve Dekor sekmelerinde ki Favorileri varsayilan olarak genisletecektir.",
-	Warn_ExperimentalTabDesc_Info = "Deneysel özellikler, daha fazla islevsellik ekler, ancak iyi çalismayabilir, bu yüzden deneysel etiketi var. Aslinda, AMM kullanicilarinin çogunlugu deneysel özellikleri etkin durumda. Bu yüzden fazla endiselenmeyin ve eglenin!",
+	Warn_FirstLaunchDecideTabsExpand_Info = "Bu ayar, AMM ilk çalistiginda Yarat, Degistir ve Dekor sekmelerinde ki Favorileri varsayilan olarak genisletecektir.",
+	Warn_ExperimentalTabDesc_Info = "Deneysel özellikler, daha fazla islevsellik ekler, ancak iyi çalismayabilir, bundan dolayi deneysel olarak etiketlenmistir. Aslinda, AMM kullanicilarinin çogunlugu deneysel secenegini etkinlestirmis durumda kullaniyor. Bu yüzden endise etmeyin ve eglenin!",
 	Warn_FreezeTargetPhotoMode_Info = "Bu ayar, Fotograf Modu pozlarina özel animasyon ekleyen modlardan gelen animasyonlari dondurmaya veya IGCS kullanarak oyunu devam ettirdiginizde yardimci olmasi için amaçlanmistir.",
 	Warn_WeaponizeCompanions_Info = "Bu, tüm NPC'lere silah ve çatisma yetenekleri verecek. T-poz ve garip animasyonlar olabilir.",
 	Warn_PlayerAnimsOnNpc_Info = "Eger NPC'lerde Oyuncu Animasyonlarinin kullanilmasina izin veren bir mod kullaniyorsaniz bunu etkinlestirin",
 	Warn_UnpauseRequiresIGSC = "Bu ayari kullanabilmek için IGCS'nin zamani duraklatmayi kaldirmasi gerekir.",
+	Warn_NotInstalled = "YÜKLENMEDI",
 	
     --Text
 	AMM_Version = "AMM Versiyonu:",
@@ -573,7 +577,7 @@ return {
 	Game_Version = "Oyun Versiyonu: ",
 	Companion_Damage = "Yoldas Hasari:",
 	xDamage = "x Hasar",
-	SavedAppearancesHotkeys = "Kaydedilmis Görünümler Kisayollari",
+	SavedAppearancesHotkeys = "Kaydedilmis Görünüm Kisayollari",
 	Favorites = "Favoriler",
 	Appearances = "Görünümler",
 	Blacklist = "Kara Liste",
@@ -585,14 +589,12 @@ return {
 	DisablePhotoModeTabs = "Fotograf Sekmelerini Devre Disi Birak:",
 	Listbox_Themes = "Temalar",
 	Weaponize = "Silahlandir",
+	NoAppearanceSet = "Görünüm Seçilmedi",
 	
 	
 	
 	-- >> EXTRA	
 	--Texts, warns, tips, info's, buttons and labels etc.
-	ClaireSeat_FrontRight = "Ön Koltuk Sag",
-	ClaireSeat_BackLeft = "Arka Koltuk Sol",
-	ClaireSeat_FrontLeft = "Ön Koltuk Sol",
 	Seat_FrontRight = "Ön Sag",
 	Seat_BackRight = "Arka Sag",
 	Seat_FrontLeft = "Ön Sol",
@@ -608,30 +610,31 @@ return {
 	MISSING_ARCHIVES = "KAYIP ARSIVLER",
 	VERSION_INFORMATION = " VERSIYON BILGISI ",
 	CREDITS = "EMEGI GEÇENLER",
-	Credits2 = " Emegi Geçenler ",
 	UPDATE_HISTORY = "GÜNCELLEME GEÇMISI",
 	Updates = " Güncellemeler ",
 	MISSING = " KAYIP",
 	REQUIRED = "GEREKLI",
 	OPTIONAL = "ISTEGE BAGLI",
 	WHATS_NEW = "NELER YENI", --Line 83 Function Error
+	
 	--Button
 	Button_Ignorewarningsforthisversion = "Bu versiyon için uyarilari görmezden gel",
+	Button_Credits = "Emegi Geçenler",
 	Button_Cool = "Havali!",
+	
 	--Button Label
-	Label_SpawnFavorites = "Favorileri Olustur",
+	Label_SpawnFavorites = "Favorileri Yarat",
 	Label_SwapFavorites = "Favorileri Degistir",
 	Label_FavoriteAppearances = "Favori Görünümler",
 	Label_Cancel = "Iptal",
+	
 	--Text
-	Hotkey_i = "Kisayol Tusu %i",
+	Hotkey_i = "Kisayol %i",
+	
 	--Node - Function Error(nil value) 
 	Top = "Üst", --Line 116
 	Bottom = "Alt",
 	Off = "Kapali",
-	--Setup
-	BeginBar_TABS = "SEKMELER",
-	BeginBar_SettingsTabs = "Ayarlar Sekmeleri",
 	
 	--Voice Overs
 	Label_GreetV = "Selam V",
@@ -691,9 +694,9 @@ return {
 	
 	--Props
 	AMM_Props_Desc = "Objeleri, Karakterleri ve Araçlari ekler. AMM bunlar olmadan çalismaz.",
-	AMM_JohnnyCompanion_Desc = "Johnny Silverhand'i olusturulabilir bir karakter olarak ekler.",
+	AMM_JohnnyCompanion_Desc = "Johnny Silverhand'i yaratilabilir bir karakter olarak ekler.",
 	AMM_ScenesPack_Desc = "Poz sistemine 9358 adet sahne animasyonu ekler.\nAMM'nin nexus üzerinde ki sayfasindan indirin.",
-	AMM_SoundPack_Desc = "Olusturulabilir ses efekleri ekler.",
+	AMM_SoundPack_Desc = "Yaratilabilir ses efekleri ekler.",
 	AMM_KerryPP_Desc = "Yeni çiplak bir görünüm ekler.",
 	AMM_BenjaminStonePP_Desc = "Yeni çiplak bir görünüm ekler.",
 	AMM_RiverPP_Desc = "Yeni çiplak bir görünüm ekler.",
@@ -736,9 +739,8 @@ return {
 	Handgun = "Tabanca", --Line 2391
 	
 	--Warning / Info / Tooltip
-	Warn_CantSave_BlaclistedAppearance = "Kara Listeye alinmis bir görünümü kayıt edemezsiniz!",
-	Warn_NoRecIDAvailable_ForThisTarget = "Bu hedef için kayitli bir ID bulunamadi",
-	Warn_ConfirmDeleteSavedAppearances = "Tüm kayıt edilmis görünümleri silmek istediginize emin misiniz?",
+	Warn_CantSave_BlacklistedAppearance = "Kara Listeye alinmis bir görünümü kayit edemezsiniz!",
+	Warn_ConfirmDeleteSavedAppearances = "Tüm kayit edilmis görünümleri silmek istediginize emin misiniz?",
 	Warn_ConfirmDeleteBlacklistedAppearances = "Tüm Kara Liste'ye alinmis görünümleri silmek istediğinize emin misiniz?",
 	Warn_ConfirmDeleteSavedDespawns = "Tüm kayit edilen kaldirilmislari silmek istediginizden emin misiniz?",
 	Warn_ConfirmDeleteAppearanceTriggers = "Tüm görünüm tetikleyicilerini silmek istediginizden emin misiniz?",

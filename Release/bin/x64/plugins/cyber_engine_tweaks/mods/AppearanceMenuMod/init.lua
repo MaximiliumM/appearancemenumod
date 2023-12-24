@@ -74,7 +74,7 @@ function AMM:new()
 	 AMM.nibblesReplacer = false
 
 	 -- Main Properties --
-	 AMM.currentVersion = "2.5.2"
+	 AMM.currentVersion = "2.6"
 	 AMM.CETVersion = parseVersion(GetVersion())
 	 AMM.CodewareVersion = 0
 	 AMM.updateNotes = require('update_notes.lua')
@@ -1164,7 +1164,7 @@ function AMM:new()
 				end
 
 				-- After Custom Appearance Set --
-				if AMM.setCustomApp ~= '' then
+				if AMM.setCustomApp ~= '' and not buttonPressed then
 					waitTimer = waitTimer + deltaTime
 					if waitTimer > 0.1 then
 						local handle, customAppearance = AMM.setCustomApp[1], AMM.setCustomApp[2]
@@ -1175,8 +1175,10 @@ function AMM:new()
 								if appParam then
 									if param.mesh_path and appParam.ChangeResource then
 										if appParam:ChangeResource(param.mesh_path) then
+											buttonPressed = true
 											Cron.After(0.2, function()
 												appParam:Toggle(false)
+												buttonPressed = false
 												
 												if param.app_toggle or param.mesh_type == "body" then
 													appParam:TemporaryHide(false)
@@ -1190,8 +1192,10 @@ function AMM:new()
 										appParam.meshAppearance = CName.new(param.mesh_app)
 										if appParam.LoadAppearance then
 											if appParam:LoadAppearance() then
+												buttonPressed = true
 												Cron.After(0.2, function()
 													appParam:Toggle(false)
+													buttonPressed = false
 
 													if param.app_toggle or param.mesh_type == "body" then
 														appParam:TemporaryHide(false)
@@ -2011,10 +2015,6 @@ function AMM:CheckMissingArchives()
 				{name = "basegame_johnny_companion", desc = AMM.LocalizableString("AMM_JohnnyCompanion_Desc"), active = true, optional = false},
 				{name = "basegame_AMM_ScenesPack", desc = AMM.LocalizableString("AMM_ScenesPack_Desc"), active = true, optional = true, extra = true},
 				{name = "basegame_AMM_SoundEffects", desc = AMM.LocalizableString("AMM_SoundPack_Desc"), active = true, optional = true},
-				{name = "basegame_AMM_KerryPP", desc = AMM.LocalizableString("AMM_KerryPP_Desc"), active = true, optional = true},
-				{name = "basegame_AMM_BenjaminStonePP", desc = AMM.LocalizableString("AMM_BenjaminStonePP_Desc"), active = true, optional = true},
-				{name = "basegame_AMM_RiverPP", desc = AMM.LocalizableString("AMM_RiverPP_Desc"), active = true, optional = true},
-				{name = "basegame_AMM_YorinobuPP", desc = AMM.LocalizableString("AMM_YorinobuPP_Desc"), active = true, optional = true},
 				{name = "basegame_AMM_LizzyIncognito", desc = AMM.LocalizableString("AMM_LizzyIncognito_Desc"), active = true, optional = true},
 				{name = "basegame_AMM_MeredithXtra", desc = AMM.LocalizableString("AMM_MeredithXtra_Desc"), active = true, optional = true},
 				{name = "basegame_AMM_Delamain_Fix", desc = AMM.LocalizableString("AMM_DelamainFix_Desc"), active = true, optional = true},
@@ -2028,6 +2028,10 @@ function AMM:CheckMissingArchives()
 				{name = "AMM_Dino_TattooFix", desc = AMM.LocalizableString("AMM_DinoTattooFixArchive_Desc"), active = true, optional = true},
 				{name = "AMM_Songbird_BodyFix", desc = AMM.LocalizableString("AMM_SongbirdBodyFixArchive_Desc"), active = true, optional = true},
 				{name = "AMM_RitaWheeler_CombatEnabler", desc = AMM.LocalizableString("AMM_RitaWheelerCombatEnablerArchive_Desc"), active = true, optional = true},
+				{name = "basegame_AMM_KerryPP", desc = AMM.LocalizableString("AMM_KerryPP_Desc"), active = true, optional = true, extra = true},
+				{name = "basegame_AMM_BenjaminStonePP", desc = AMM.LocalizableString("AMM_BenjaminStonePP_Desc"), active = true, optional = true, extra = true},
+				{name = "basegame_AMM_RiverPP", desc = AMM.LocalizableString("AMM_RiverPP_Desc"), active = true, optional = true, extra = true},
+				{name = "basegame_AMM_YorinobuPP", desc = AMM.LocalizableString("AMM_YorinobuPP_Desc"), active = true, optional = true, extra = true},
 				{name = "AMM_Cheri_Appearances", desc = AMM.LocalizableString("AMM_CheriAppearances_Desc"), active = true, optional = true, extra = true},
 				{name = "AMM_Bryce_Naked", desc = AMM.LocalizableString("AMM_BryceNaked_Desc"), active = true, optional = true, extra = true},
 				{name = "AMM_Saburo_Appearances", desc = AMM.LocalizableString("AMM_SaburoAppearances_Desc"), active = true, optional = true, extra = true},
@@ -2601,6 +2605,22 @@ function AMM:SetupExtraFromArchives()
 
 			db:execute(sql)
 
+		elseif archive.name == "basegame_AMM_YorinobuPP" and archive.active then
+			local appearances = {"yorinobu_arasaka_naked", "yorinobu_arasaka_yorinobu_arasaka_kimono", "yorinobu_arasaka_yorinobu_kimono"}
+			local entity_id = "0x8D34B4F2, 18"
+			local uid = "AMM"
+			for _, app in ipairs(appearances) do
+				db:execute(f('INSERT INTO appearances (entity_id, app_name, collab_tag) VALUES ("%s", "%s", "%s")', entity_id, app, uid))
+			end
+
+		elseif archive.name == "basegame_AMM_KerryPP" and archive.active then
+			local appearances = {"kerry_eurodyne_young_naked", "kerry_eurodyne_young_2013_naked"}
+			local entity_id = "0x3024F03E, 15"
+			local uid = "AMM"
+			for _, app in ipairs(appearances) do
+				db:execute(f('INSERT INTO appearances (entity_id, app_name, collab_tag) VALUES ("%s", "%s", "%s")', entity_id, app, uid))
+			end
+
 		elseif archive.name == "AMM_8ug8ear_Appearances" and archive.active then
 			local appearances = {"8ug8ear_casual", "8ug8ear_naked"}
 			local entity_id = "0x5F7049F1, 31"
@@ -3066,6 +3086,7 @@ function AMM:SetupCollabAppearances()
             local tables = '("entity_id", "app_name", "app_base", "app_param", "app_toggle", "mesh_app", "mesh_type", "mesh_mask", "mesh_path", "collab_tag")'
             local values = f('("%s", "%s", "%s", "%s", "%s", "%s", "%s", "%s", "%s", "%s")', newApp.entity_id, customApp.app_name, newApp.appearance, customApp.app_param, customApp.app_toggle, customApp.mesh_app, customApp.mesh_type, customApp.mesh_mask, customApp.mesh_path, newApp.tag)
             values = values:gsub('"nil"', "NULL")
+				values = values:gsub('""', "NULL")
             db:execute(f('INSERT INTO custom_appearances %s VALUES %s', tables, values))
           end
         end
@@ -4102,12 +4123,12 @@ function AMM:DrawHotkeySelection(target)
 	end
 
 	for i, hotkey in ipairs(AMM.selectedHotkeys[target.id]) do
-		local app = hotkey ~= '' and hotkey or "No Appearance Set"
-		ImGui.InputText(f("Hotkey %i", i), app, 100, ImGuiInputTextFlags.ReadOnly)
+		local app = hotkey ~= '' and hotkey or AMM.LocalizableString("NoAppearanceSet")
+		ImGui.InputText(f(AMM.LocalizableString("Hotkey_i"), i), app, 100, ImGuiInputTextFlags.ReadOnly)
 
 		ImGui.SameLine()
 
-		if ImGui.SmallButton("Set##"..i) then
+		if ImGui.SmallButton(AMM.LocalizableString("Button_SmallSet").."##"..i) then
 			AMM.selectedHotkeys[target.id][i] = target.appearance
 		end
 	end

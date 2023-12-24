@@ -12,31 +12,6 @@ local target = nil
 -- Constant --
 local PLAYER_TRIGGER_DIST = 5
 
--- Calculate delay based on framerate
-local function calculateDelay(base)
-  local currentFPS = 1 / AMM.deltaTime
-  local targetFPS = 30
-  local baseDelay = base
-  local maxDelay = base + 10
-
-  -- Calculate the scaling factor
-  local scalingFactor = 0.2 -- You can adjust this factor based on your preference
-
-  -- Calculate the adjusted delay
-  local adjustedDelay = baseDelay + (currentFPS - targetFPS) * scalingFactor
-
-  -- Ensure the delay is not lower than base delay
-  if adjustedDelay < base then
-      adjustedDelay = base
-
-  -- Ensure the delay isn't too high
-  elseif adjustedDelay > maxDelay then
-    adjustedDelay = maxDelay
-  end
-
-  return adjustedDelay
-end
-
 function Tools:new()
 
   -- Layout Properties
@@ -647,10 +622,10 @@ function Tools:ToggleHead(userActivated)
   toggleHeadInProgress = true
 
   local playerIsLeavingVehicle = AMM.Tools.TPPCameraBeforeVehicle
-  local delay = calculateDelay(5)
+  local delay = Util:CalculateDelay(5)
 
   if playerIsLeavingVehicle then
-    delay = calculateDelay(20)
+    delay = Util:CalculateDelay(20)
   end
 
   Tools.tppHead = not Tools.tppHead
