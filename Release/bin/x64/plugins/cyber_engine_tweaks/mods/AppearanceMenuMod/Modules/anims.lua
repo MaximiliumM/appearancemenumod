@@ -54,7 +54,7 @@ function Poses:Draw(AMM, target)
     end
 
     if next(Poses.activeAnims) ~= nil then
-      AMM.UI:TextColored(AMM.LocalizableString("Active Animations"))
+      AMM.UI:TextColored(AMM.LocalizableString("Active_Animations"))
 
       for hash, anim in pairs(Poses.activeAnims) do
 

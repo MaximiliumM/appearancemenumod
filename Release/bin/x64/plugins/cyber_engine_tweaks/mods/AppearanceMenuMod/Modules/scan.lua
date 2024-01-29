@@ -47,11 +47,12 @@ local lastTarget = nil
 local style = nil
 
 function Scan:Initialize()
+
   Scan.possibleSeats = {
-    { name = AMM.LocalizableString("Seat_FrontRight"), cname = "seat_front_right" },
-    { name = AMM.LocalizableString("Seat_BackRight"), cname = "seat_back_right" },
-    { name = AMM.LocalizableString("Seat_BackLeft"), cname = "seat_back_left" },
-    { name = AMM.LocalizableString("Seat_FrontLeft"), cname = "seat_front_left" },
+    { name = AMM.LocalizableString("Seat_FrontLeft"), cname = "seat_front_left", enum = 0},
+    { name = AMM.LocalizableString("Seat_FrontRight"), cname = "seat_front_right", enum = 1},
+    { name = AMM.LocalizableString("Seat_BackLeft"), cname = "seat_back_left", enum = 2},
+    { name = AMM.LocalizableString("Seat_BackRight"), cname = "seat_back_right", enum = 3},
   }
   
   Scan.TPPCameraOptions = {
@@ -360,22 +361,62 @@ function Scan:DrawTargetActions(target)
       Util:RepairVehicle(target.handle)
     end
 
-    if ImGui.Button(AMM.LocalizableString("Button_OpenCloseDoors"), style.halfButtonWidth, style.buttonHeight - 5) then
-      Util:ToggleDoors(target.handle)
+    local vehicleSeats = {}
+
+    -- vehicleSeats is created by doubling the seats in possibleSeats
+    -- Since the UI has to be organized in the following manner:
+    -- [Doors][Windows]
+    -- [Doors][Windows]
+    -- I had to adjust the offset after index 3 to avoid seats not being inserted
+    -- since the index position would already be occupied by another seat
+    for i, seat in ipairs(Scan.possibleSeats) do
+      if Game['VehicleComponent::HasSlot;GameInstanceVehicleObjectCName'](target.handle, CName.new(seat.cname)) then
+        table.insert(vehicleSeats, seat)
+        local offset = 2
+        if i >= 3 then offset = 4 end
+        vehicleSeats[i + offset] = seat
+      end
     end
 
-    ImGui.SameLine()
-    if ImGui.Button(AMM.LocalizableString("Button_OpenCloseWindows"), style.halfButtonWidth, style.buttonHeight - 5) then
-      Util:ToggleWindows(target.handle)
+    for i, seat in ipairs(vehicleSeats) do
+      local doorState = Util:GetDoorState(target.handle, seat.enum)
+      local doorGlyph = IconGlyphs.Close
+      if doorState then doorGlyph = IconGlyphs.CheckBold end
+
+      local windowState = Util:GetWindowState(target.handle, seat.enum)
+      local windowGlyph = IconGlyphs.Close
+      if windowState then windowGlyph = IconGlyphs.CheckBold end
+
+      if i == 1 or i == 2 or i == 5 or i == 6 then
+        if ImGui.Button(doorGlyph.." "..AMM.LocalizableString("Label_Door").." "..seat.name, (ImGui.GetWindowContentRegionWidth() / 4) - 7, style.buttonHeight - 5) then
+          Util:ToggleDoor(target.handle:GetVehiclePS(), seat.cname, doorState)
+        end
+      else
+        if ImGui.Button(windowGlyph.." "..AMM.LocalizableString("Label_Window").." "..seat.name, (ImGui.GetWindowContentRegionWidth() / 4) - 7, style.buttonHeight - 5) then
+          Util:ToggleWindow(target.handle:GetVehiclePS(), seat.cname, windowState)
+        end
+      end
+
+      if i ~= 4 and i ~= #vehicleSeats then ImGui.SameLine() end
     end
+
+    -- if ImGui.Button(AMM.LocalizableString("Button_OpenCloseDoors"), style.halfButtonWidth, style.buttonHeight - 5) then
+    --   Util:ToggleDoors(target.handle)
+    -- end
+
+    -- ImGui.SameLine()
+    -- if ImGui.Button(AMM.LocalizableString("Button_OpenCloseWindows"), style.halfButtonWidth, style.buttonHeight - 5) then
+    --   Util:ToggleWindows(target.handle)
+    -- end
 
     local qm = AMM.player:GetQuickSlotsManager()
     local mountedVehicle = qm:GetVehicleObject()
     local shouldAssignSeats = Scan:ShouldDisplayAssignSeatsButton()
     local width = style.buttonWidth
     local isDelamain = false
-    if mountedVehicle then 
-      isDelamain = AMM:GetScanID(mountedVehicle) == "0xC4C260DB, 25"
+    if mountedVehicle then
+      local vehicleID = AMM:GetScanID(mountedVehicle)
+      isDelamain = vehicleID == "0xC4C260DB, 25" or vehicleID == "0xF74C2EA3, 52"
     end
 
     if shouldAssignSeats or isDelamain then

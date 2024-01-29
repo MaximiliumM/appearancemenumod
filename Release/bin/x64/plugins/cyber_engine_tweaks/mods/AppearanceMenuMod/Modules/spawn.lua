@@ -164,7 +164,7 @@ function Spawn:DrawActiveSpawns(style)
           popupDelegate = AMM:OpenPopup(spawn.name.."'s Equipment")
         end
 
-        AMM:BeginPopup(spawn.name.."'s Equipment", spawn.path, false, popupDelegate, style)
+        AMM:BeginPopup(spawn.name.."'s Equipment", spawn, false, popupDelegate, style)
       end
     end
 
@@ -389,9 +389,12 @@ function Spawn:DrawFavoritesButton(buttonLabels, entity, fullButton)
 					newEntity.name = Spawn.currentFavoriteName
 					
 					if (entity.type == "Spawn" or entity.type == "NPCPuppet") and not Util:CheckVByID(entity.id) then
-						Spawn.spawnedNPCs[entity.uniqueName()] = nil
 						newEntity.parameters = AMM:GetScanAppearance(entity.handle)
-						Spawn.spawnedNPCs[newEntity.uniqueName()] = newEntity
+
+						if entity.type == "Spawn" then
+							Spawn.spawnedNPCs[entity.uniqueName()] = nil
+							Spawn.spawnedNPCs[newEntity.uniqueName()] = newEntity
+						end
 					end
 
 					Spawn.currentFavoriteName = ''
@@ -653,8 +656,13 @@ function Spawn:SetNPCAsCompanion(targetPuppet)
 		targetPuppet:GetAttitudeAgent():SetAttitudeTowards(player:GetAttitudeAgent(), EAIAttitude.AIA_Friendly)
 
 		for _, ent in pairs(Spawn.spawnedNPCs) do
+			local isInPlayerGroup = player:GetAttitudeAgent():GetAttitudeGroup() == ent.handle:GetAttitudeAgent():GetAttitudeGroup()
 			if ent.handle.IsNPC and ent.handle:IsNPC() then
-				ent.handle:GetAttitudeAgent():SetAttitudeTowards(targetPuppet:GetAttitudeAgent(), EAIAttitude.AIA_Friendly)
+				if isInPlayerGroup then
+					ent.handle:GetAttitudeAgent():SetAttitudeTowards(targetPuppet:GetAttitudeAgent(), EAIAttitude.AIA_Friendly)
+				else
+					ent.handle:GetAttitudeAgent():SetAttitudeTowards(targetPuppet:GetAttitudeAgent(), EAIAttitude.AIA_Hostile)
+				end
 			end
 		end
 

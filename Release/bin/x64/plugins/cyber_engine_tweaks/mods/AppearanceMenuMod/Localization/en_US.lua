@@ -190,6 +190,7 @@ return {
 	Delete = "Delete",
 	Backup = "Backup",
 	Save_All = "  Save All  ",
+	Despawn_All = " Despawn All ",
 	Save_ToSpecific_Tag = "Save To Specific Tag",
 	Saved_Props2 = "Saved Props:",
 	Move_To_Tag = "Move To Tag",
@@ -210,8 +211,6 @@ return {
 	Tags = "Tags",
 	Tag = "Tag",
 	Both = "Both",
-	
-	
 	
 	-- >> POSES TAB
 	BeginItem_TabPoses = "Poses",
@@ -569,6 +568,7 @@ return {
 	Warn_PlayerAnimsOnNpc_Info = "Enable this if you are using a mod that allows Player Animations to be used on NPCs.",
 	Warn_UnpauseRequiresIGSC = "This setting requires IGCS to unpause time.",
 	Warn_NotInstalled = "NOT INSTALLED",
+	Warn_DespawnAllProps = "Are you sure you want to Despawn All Props?",
 	
     --Text
 	AMM_Version = "AMM Version:",
@@ -599,6 +599,9 @@ return {
 	Seat_BackRight = "Back Right",
 	Seat_FrontLeft = "Front Left",
 	Seat_BackLeft = "Back Left",
+
+	Label_Door = "Door",
+	Label_Window = "Window",
 	
 	-- >> Archives Screen
 	Warning_MissingRequiredArchives = "AMM is missing one or more required archives. Please install any missing required archive in your archive/pc/mod folder.",

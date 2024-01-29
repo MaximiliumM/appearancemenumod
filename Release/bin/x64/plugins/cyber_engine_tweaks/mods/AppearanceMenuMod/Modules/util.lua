@@ -544,6 +544,12 @@ function Util:SetHostileRole(targetPuppet)
   targetPuppet:GetAttitudeAgent():SetAttitudeGroup('Hostile')
   targetPuppet:GetAttitudeAgent():SetAttitudeTowards(Game.GetPlayer():GetAttitudeAgent(), EAIAttitude.AIA_Hostile)
 
+  for _, ent in pairs(Spawn.spawnedNPCs) do
+    if ent.handle.IsNPC and ent.handle:IsNPC() then
+      ent.handle:GetAttitudeAgent():SetAttitudeTowards(targetPuppet:GetAttitudeAgent(), EAIAttitude.AIA_Hostile)
+    end
+  end
+
   targetPuppet.isPlayerCompanionCached = false
   targetPuppet.isPlayerCompanionCachedTimeStamp = 0
   
@@ -680,9 +686,41 @@ function Util:ToggleDoors(handle)
   local state = vehPS:GetDoorState(1).value
 
   if state == "Closed" then
-    vehPS:OpenAllRegularVehDoors(false)
+    vehPS:OpenAllRegularVehDoors()
   elseif state == "Open" then
-    vehPS:CloseAllVehDoors(false)
+    vehPS:CloseAllVehDoors()
+  end
+end
+
+function Util:ToggleDoor(vehPS, doorName, open)
+  open = not open
+  local doorEvent = VehicleDoorOpen.new()
+  if not open then doorEvent = VehicleDoorClose.new() end
+
+  doorEvent.slotID = doorName
+  doorEvent.forceScene = false
+  vehPS:QueuePSEvent(vehPS, doorEvent)
+end
+
+function Util:GetDoorState(handle, doorEnum)
+  local vehPS = handle:GetVehiclePS()
+  local state = vehPS:GetDoorState(doorEnum).value
+
+  if state == "Closed" then
+    return false
+  elseif state == "Open" then
+    return true
+  end
+end
+
+function Util:GetWindowState(handle, doorEnum)
+  local vehPS = handle:GetVehiclePS()
+  local state = vehPS:GetWindowState(doorEnum).value
+
+  if state == "Closed" then
+    return false
+  elseif state == "Open" then
+    return true
   end
 end
 
@@ -695,6 +733,16 @@ function Util:ToggleWindows(handle)
   elseif state == "Open" then
     vehPS:CloseAllVehWindows()
   end
+end
+
+function Util:ToggleWindow(vehPS, doorName, open)
+  open = not open
+  local doorEvent = VehicleWindowOpen.new()
+  if not open then doorEvent = VehicleWindowClose.new() end
+
+  doorEvent.slotID = doorName
+  doorEvent.forceScene = false
+  vehPS:QueuePSEvent(vehPS, doorEvent)
 end
 
 function Util:ToggleEngine(handle)

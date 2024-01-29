@@ -312,13 +312,20 @@ end
 function Props:DrawSpawnedProps()
   if #Props.spawnedPropsList > 0 then
     AMM.UI:TextColored(AMM.LocalizableString("Spawned_Props"))    
-    local buttonLength = ImGui.CalcTextSize(AMM.LocalizableString("Save_All"))
+    local buttonLength = ImGui.CalcTextSize(AMM.LocalizableString("Save_All")..AMM.LocalizableString("Despawn_All"))
     ImGui.SameLine(ImGui.GetWindowContentRegionWidth() - buttonLength)
     
     if AMM.UI:SmallButton(AMM.LocalizableString("Save_All")) then
       Props.savingProp = 'all'
       Props:SaveAllProps()
     end
+
+    ImGui.SameLine()
+    if AMM.UI:SmallButton(AMM.LocalizableString("Despawn_All")) then
+      popupDelegate = AMM:OpenPopup("Despawn All")
+    end
+
+    AMM:BeginPopup(AMM.LocalizableString("Warning"), nil, true, popupDelegate, AMM.UI.style)
 
     if saveAllInProgress then
       ImGui.Spacing()
@@ -1372,7 +1379,7 @@ function Props:SaveAllProps()
 
   Cron.After(1.0, function()
     for _, spawn in ipairs(Props.spawnedPropsList) do
-      if spawn.handle and spawn.handle ~= '' then        
+      if spawn.handle and spawn.handle ~= '' then
         Props:SavePropPosition(spawn)
       end
     end
@@ -1760,7 +1767,7 @@ function Props:DespawnProp(ent)
   
 end
 
-function Props:despawnEntity(ent)
+function Props:DespawnEntity(ent)
   if not ent or not ent.handle then return end
     
   if ent.handle.Dispose then 
@@ -1789,13 +1796,32 @@ function Props:DespawnAllSavedProps()
       if type(ent.handle) == typeEntEntity then
         exEntitySpawner.Despawn(ent.handle)
        else
-         Props:despawnEntity(ent)
+         Props:DespawnEntity(ent)
       end
     end
   end
 
   Props.activeProps = {}
   Props.activeLights = {}
+  despawnInProgress = false
+end
+
+function Props:DespawnAllSpawnedProps()
+  despawnInProgress = true
+  local ent = nil
+  
+  for _, ent in pairs(Props.spawnedProps) do
+    if ent and ent.handle ~= '' then 
+      if type(ent.handle) == typeEntEntity then
+        exEntitySpawner.Despawn(ent.handle)
+       else
+         Props:DespawnEntity(ent)
+      end
+    end
+  end
+
+  Props.spawnedProps = {}
+  Props.spawnedPropsList = {}
   despawnInProgress = false
 end
 

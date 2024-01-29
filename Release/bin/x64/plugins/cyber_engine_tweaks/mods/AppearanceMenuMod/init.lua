@@ -74,7 +74,7 @@ function AMM:new()
 	 AMM.nibblesReplacer = false
 
 	 -- Main Properties --
-	 AMM.currentVersion = "2.6"
+	 AMM.currentVersion = "2.7"
 	 AMM.CETVersion = parseVersion(GetVersion())
 	 AMM.CodewareVersion = 0
 	 AMM.updateNotes = require('update_notes.lua')
@@ -1316,11 +1316,14 @@ function AMM:new()
    return AMM
 end
 
+local nonLocalizedStrings = {}
+
 -- AMM Localization Function
 function AMM.LocalizableString(str)
 	if AMM.currentLanguage[str] then
 		return AMM.currentLanguage[str]
-	else
+	elseif nonLocalizedStrings[str] == false then
+		nonLocalizedStrings[str] = true
 		log("[AMM Error] Non-localized string found:"..str)
 		return str
 	end
@@ -2448,7 +2451,8 @@ function AMM:GetEquipmentOptions(HMG)
 	local equipments = {
 		{name = 'Fists', path = 'Character.wraiths_strongarms_hmelee3_fists_mb_elite_inline0'},
 		{name = 'Katana', path = 'Character.afterlife_rare_fmelee3_katana_wa_elite_inline0'},
-		{name = 'Mantis Blades', path = 'Character.afterlife_rare_fmelee3_mantis_ma_elite_inline0'},
+		{name = 'Mantis Blades', path = 'Character.afterlife_rare_fmelee3_mantis_ma_elite_inline2'},
+		{name = 'Neon Red Mantis Blades', path = 'Character.main_boss_oda_inline0'},
 		{name = 'Machete', path = 'Character.aldecaldos_grunt2_melee2__ma_inline0'},
 		{name = 'Hammer', path = 'Character.maelstrom_grunt2_melee2_hammer_wa_inline0'},
 		{name = 'Baton', path = 'Character.animals_bouncer1_melee1_baton_mb_inline0'},
@@ -2604,6 +2608,14 @@ function AMM:SetupExtraFromArchives()
 			]]
 
 			db:execute(sql)
+
+		elseif archive.name == "basegame_AMM_RiverPP" and archive.active then
+			local appearances = {"river_ward_naked_erect"}
+			local entity_id = "0x7B2CB67C, 17"
+			local uid = "AMM"
+			for _, app in ipairs(appearances) do
+				db:execute(f('INSERT INTO appearances (entity_id, app_name, collab_tag) VALUES ("%s", "%s", "%s")', entity_id, app, uid))
+			end
 
 		elseif archive.name == "basegame_AMM_YorinobuPP" and archive.active then
 			local appearances = {"yorinobu_arasaka_naked", "yorinobu_arasaka_yorinobu_arasaka_kimono", "yorinobu_arasaka_yorinobu_kimono"}
@@ -3899,8 +3911,21 @@ function AMM:SetFollowDistance(followDistance)
 	TweakDB:Update(TweakDBID.new('FollowerActions.FollowGetOutOfWayMovePolicy'))
 end
 
-function AMM:ChangeNPCEquipment(npcPath, equipmentPath)
+function AMM:ChangeNPCEquipment(ent, equipmentPath)
+	local npcPath = ent.path
 	TweakDB:SetFlat(TweakDBID.new(npcPath..".primaryEquipment"), TweakDBID.new(equipmentPath))
+	Util:EquipPrimaryWeaponCommand(ent.handle, false)
+	-- AMM.Spawn:Respawn(ent)
+
+	-- New Approach: Inventory
+	-- local equipmentItems = TweakDB:GetFlat(equipmentPath..".equipmentItems")
+	-- local primaryEquipRecord = TweakDB:GetFlat(TweakDBID.new(equipmentItems[1], ".item"))
+	-- local weaponTDBID = TweakDB:GetRecord(primaryEquipRecord)
+	-- local itemID = ItemID.FromTDBID(weaponTDBID.tdbid)
+  	-- local quantity = 1
+
+  	-- Game.GetTransactionSystem():GiveItem(ent.handle, itemID, quantity)
+   -- Util:EquipGivenWeapon(ent.handle, weaponTDBID, true)
 end
 
 function AMM:ProcessCompanionAttack(hitEvent)
@@ -4009,7 +4034,7 @@ function AMM:OpenPopup(name)
 		ImGui.SetNextWindowSize(400, 520)
 		popupDelegate.message = "Select "..name..":"
 		for _, equipment in ipairs(self.equipmentOptions) do
-			table.insert(popupDelegate.buttons, {label = equipment.name, action = function(fromPath) AMM:ChangeNPCEquipment(fromPath, equipment.path) end})
+			table.insert(popupDelegate.buttons, {label = equipment.name, action = function(ent) AMM:ChangeNPCEquipment(ent, equipment.path) end})
 		end
 	elseif name == "Experimental" then
 		ImGui.SetNextWindowSize(400, 140)
@@ -4060,6 +4085,12 @@ function AMM:OpenPopup(name)
 		popupDelegate.message = AMM.LocalizableString("Warn_WeaponizeNpcAnimationIssues")
 		table.insert(popupDelegate.buttons, {label = AMM.LocalizableString("Button_Yes"), action = ''})
 		table.insert(popupDelegate.buttons, {label = AMM.LocalizableString("Button_No"), action = function() AMM.userSettings.weaponizeNPC = false end})
+		name = AMM.LocalizableString("Warning")
+	elseif name == "Despawn All" then
+		ImGui.SetNextWindowSize(400, 140)
+		popupDelegate.message = AMM.LocalizableString("Warn_DespawnAllProps")
+		table.insert(popupDelegate.buttons, {label = AMM.LocalizableString("Button_Yes"), action = function() AMM.Props:DespawnAllSpawnedProps() end})
+		table.insert(popupDelegate.buttons, {label = AMM.LocalizableString("Button_No"), action = ''})
 		name = AMM.LocalizableString("Warning")
 	end
 

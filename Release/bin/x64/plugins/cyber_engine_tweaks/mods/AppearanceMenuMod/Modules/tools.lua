@@ -889,7 +889,7 @@ function Tools:GetLocations()
     table.insert(locations, {loc_name = AMM.LocalizableString("Locations_Favorites")})
 
     for _, loc in ipairs(Tools.favoriteLocations) do
-      if Tools.locationSearch ~= '' and string.find(loc.loc_name, Tools.locationSearch) then
+      if Tools.locationSearch ~= '' and string.find(string.lower(loc.loc_name), string.lower(Tools.locationSearch)) then
         table.insert(locations, loc)
       elseif Tools.locationSearch == '' then
         table.insert(locations, loc)
@@ -903,7 +903,7 @@ function Tools:GetLocations()
     table.insert(locations, {loc_name = AMM.LocalizableString("Locations_UserLocs")})
 
     for _, loc in ipairs(Tools.userLocations) do
-      if Tools.locationSearch ~= '' and string.find(loc.loc_name, Tools.locationSearch) then
+      if Tools.locationSearch ~= '' and string.find(string.lower(loc.loc_name), string.lower(Tools.locationSearch)) then
         table.insert(locations, loc)
       elseif Tools.locationSearch == '' then
         table.insert(locations, loc)
@@ -919,7 +919,7 @@ function Tools:GetLocations()
 
   if #Tools.defaultLocations > 0 then
     for _, loc in ipairs(Tools.defaultLocations) do
-      if Tools.locationSearch ~= '' and string.find(loc.loc_name, Tools.locationSearch) then
+      if Tools.locationSearch ~= '' and string.find(string.lower(loc.loc_name), string.lower(Tools.locationSearch)) then
         table.insert(locations, loc)
       elseif Tools.locationSearch == '' then
         table.insert(locations, loc)
