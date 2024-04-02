@@ -776,7 +776,7 @@ function Scan:AutoAssignSeats()
         end
       elseif counter <= seatsNumber then
         if Scan.selectedSeats[ent.name] == nil then
-          Scan.selectedSeats[ent.name] = {name = ent.name, entity = ent.handle, seat = Scan.vehicleSeats[counter], vehicle = Scan.vehicle}
+          Scan.selectedSeats[ent.name] = {name = ent.name, entity = ent.handle, seat = Scan.vehicleSeats[counter+1], vehicle = Scan.vehicle}
         end
       elseif counter > seatsNumber then
         table.insert(Scan.leftBehind, { ent = ent.handle, cmd = Util:HoldPosition(ent.handle, 99999) })
