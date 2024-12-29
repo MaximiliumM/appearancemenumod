@@ -311,7 +311,7 @@ end
 
 function Props:DrawSpawnedProps()
   if #Props.spawnedPropsList > 0 then
-    AMM.UI:TextColored(AMM.LocalizableString("Spawned_Props"))    
+    AMM.UI:TextColored(AMM.LocalizableString("Spawned_Props"))
     local buttonLength = ImGui.CalcTextSize(AMM.LocalizableString("Save_All")..AMM.LocalizableString("Despawn_All"))
     ImGui.SameLine(ImGui.GetWindowContentRegionWidth() - buttonLength)
     

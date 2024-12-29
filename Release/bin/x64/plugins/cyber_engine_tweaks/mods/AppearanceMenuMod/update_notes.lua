@@ -1,5 +1,22 @@
 return {
 	{
+		'2.8',
+		'2024 Dec 29',
+		[[Added Poses to Director scripts:]],
+		[[-- To simplify the UI, I'm only displaying Poses that are in your Favorites]],
+		[[-- Pose will play when the actor reaches the Mark]],
+		[[-- If you want the Pose to play for longer, increase that Mark hold duration]],
+		[[Removed Nibbles Replacer]],
+		[[-- There will be a better replacer feature in the future]],
+		[[Added new Hotkeys to control doors, engine and windows]],
+		[[Fixed issue where Director list of actors would not be displayed correctly]],
+		[[Fixed issue where Companions would sit on Player's lap instead of passenger seat]],
+		[[Fixed issue where the new Photo mode drone camera would not move correctly]],
+		[[Fixed issue where the new Photo mode tabs would not appear]],
+		[[Fixed issue where Songbird Custom Appearances would crash the game]],
+		[[-- I will be honest, I don't think this is completely resolved, but it is better now]],
+	},
+	{
 		'2.7',
 		'2024 Jan 29',
 		[[Added new NPCs including:]],

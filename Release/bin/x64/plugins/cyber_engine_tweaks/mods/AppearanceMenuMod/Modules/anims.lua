@@ -218,7 +218,7 @@ function Poses:Draw(AMM, target)
 
           for _, category in ipairs(categories) do
             if anims[category] ~= nil and next(anims[category]) ~= nil or (category == 'Favorites' and Poses.searchQuery == '') then
-              if anims[category][1] == nil and category ~= 'Favorites' then -- This means it's a Collab category
+              if type(anims[category]) == "table" and anims[category][1] == nil and category ~= 'Favorites' then -- This means it's a Collab category
                 if (ImGui.CollapsingHeader(category)) then
                   local count = 0
                   local usableRig = nil
@@ -317,7 +317,7 @@ function Poses:DrawAnimsButton(target, category, anims)
   end)
 end
 
-function Poses:PlayAnimationOnTarget(t, anim, instant)
+function Poses:PlayAnimationOnTarget(t, anim, instant, caller)
   if Poses.activeAnims[t.hash] then
     Game.GetWorkspotSystem():StopInDevice(t.handle)
 
@@ -347,7 +347,10 @@ function Poses:PlayAnimationOnTarget(t, anim, instant)
       anim.handle = ent
       anim.hash = t.hash
       anim.target = t
-      Poses.activeAnims[t.hash] = anim
+
+      if not caller then
+        Poses.activeAnims[t.hash] = anim
+      end
       
       Game.GetWorkspotSystem():PlayInDeviceSimple(anim.handle, t.handle, false, anim.comp, nil, nil, 0, 1, nil)
       Game.GetWorkspotSystem():SendJumpToAnimEnt(t.handle, anim.name, instant)

@@ -467,6 +467,8 @@ return {
 	SelectActorToReplace = "Select Actor To Replace:",
 	AddActorToCurrentScript = "Add Actor To Current Script:",
 	FacialExpression_WithColon = "Facial Expression:",
+	FavoritePoses_WithColon = "Favorite Poses:",
+	AddFavorites_Desc = "Add Poses to Favorites in Poses tab first",
 	HoldDuration = "Hold Duration",
 	Movement2 = "Movement:",
 	Actions = "Actions:",

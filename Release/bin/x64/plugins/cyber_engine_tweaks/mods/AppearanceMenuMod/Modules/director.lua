@@ -84,6 +84,7 @@ function Director:NewActor(name)
   obj.name = name
   obj.uniqueName = name.."##"..tostring(os.clock())
   obj.id = ''
+  obj.hash = nil
   obj.nodes = {}
   obj.entityID = nil
   obj.handle = nil
@@ -116,6 +117,7 @@ function Director:NewNode(name)
   obj.yaw = 0
   obj.startApp = nil
   obj.endApp = nil
+  obj.pose = nil
   obj.holdDuration = 1
   obj.movementType = "Walk"
   obj.goTo = nil
@@ -665,7 +667,7 @@ function Director:DrawScriptTab()
           ImGui.Spacing()
 
           if ImGui.BeginListBox(AMM.LocalizableString("Current_Actors")) then
-            if Director.selectedScript and #Director.selectedScript.actors > 0 then
+            if Director.selectedScript and count(Director.selectedScript.actors) > 0 then
               for i, actor in pairs(Director.selectedScript.actors) do
 
                 local selectedName = Director.selectedActor.uniqueName or ''
@@ -1084,6 +1086,10 @@ function Director:MoveActors(script, actors)
             if node.expression ~= nil then
               Director:SetFacialExpression(actor.handle, node.expression)
             end
+
+            if node.pose then
+              AMM.Poses:PlayAnimationOnTarget(actor, node.pose, true, 'Director')
+            end
           end)
         elseif actor.activeCommand == 'done' then          
           if timer.tick > (node.holdDuration * 10) then
@@ -1175,7 +1181,8 @@ end
 function Director:NodeIsDone(script, actor, node)
   local isDone = false
   if actor.handle ~= '' and actor.activeCommand ~= "done" then
-    isDone = not Util:CheckIfCommandIsActive(actor.handle, actor.activeCommand)
+    -- isDone = not Util:CheckIfCommandIsActive(actor.handle, actor.activeCommand)
+    isDone = Util:VectorDistance(actor.handle:GetWorldPosition(), node.pos) < 1
 
     if isDone then
       actor.activeCommand = "done"
@@ -1297,6 +1304,7 @@ function Director:SpawnActors(script, actors)
           Util:SetGodMode(entity, true)
           entity:GetAttitudeAgent():SetAttitudeTowards(AMM.player:GetAttitudeAgent(), Enum.new("EAIAttitude", "AIA_Friendly"))
           actor.handle = entity
+          actor.hash = tostring(entity:GetEntityID().hash)
           Director:GenerateSequence(actor)
           counter = counter - 1
         end
@@ -1543,6 +1551,21 @@ function Director:DrawNodesPopup()
       ImGui.EndCombo()
     end
 
+    AMM.UI:Spacing(3)
+    AMM.UI:TextColored(AMM.LocalizableString("FavoritePoses_WithColon"))
+    if #AMM.Poses.anims['Favorites'] > 0 then
+      if ImGui.BeginCombo("##SelectPose", Director.newNode.pose and Director.newNode.pose.name or "Select Pose") then
+        for i, pose in ipairs(AMM.Poses.anims['Favorites']) do
+          if ImGui.Selectable(pose.name, (pose.name == (Director.newNode.pose and Director.newNode.pose.name))) then
+            Director.newNode.pose = pose
+          end
+        end
+        ImGui.EndCombo()
+      end
+    else
+      AMM.UI:TextError(AMM.LocalizableString("AddFavorites_Desc"))
+    end
+
     AMM.UI:Separator()
 
     local buttonLabel = AMM.LocalizableString("Button_Label_AddMark")
@@ -1765,6 +1788,10 @@ function Director:PrepareExportData(script)
       exportNode.expression = node.expression
       exportNode.movementType = node.movementType
 
+      if node.pose then
+        exportNode.pose = node.pose
+      end
+
       if node.startApp then
         exportNode.startApp = node.startApp
       end
@@ -1831,6 +1858,7 @@ function Director:LoadScriptData(title)
         newNode.playVO = node.playVO or nil
         newNode.expression = node.expression or nil
         newNode.movementType = node.movementType or "Walk"
+        newNode.pose = node.pose or nil
         table.insert(newActor.nodes, newNode)
       end
 

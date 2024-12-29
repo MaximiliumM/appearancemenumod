@@ -47,6 +47,16 @@ local function calculateChildViewHeight(itemCount, itemHeight)
   if childViewHeight > windowHeight then
       childViewHeight = windowHeight
   end
+  -- print("item count")
+  -- print(itemCount)
+  -- print("item height")
+  -- print(itemHeight)
+  -- print("availableSpace")
+  -- print(availableSpace)
+  -- print("additionalItems")
+  -- print(additionalItems)
+  -- print("childViewHeight")
+  -- print(childViewHeight)
   return childViewHeight + 10
 end
 

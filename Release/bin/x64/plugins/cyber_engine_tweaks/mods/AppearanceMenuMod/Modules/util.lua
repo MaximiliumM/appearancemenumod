@@ -686,9 +686,9 @@ function Util:ToggleDoors(handle)
   local state = vehPS:GetDoorState(1).value
 
   if state == "Closed" then
-    vehPS:OpenAllRegularVehDoors()
+    vehPS:OpenAllRegularVehDoors(true)
   elseif state == "Open" then
-    vehPS:CloseAllVehDoors()
+    vehPS:CloseAllVehDoors(true)
   end
 end
 

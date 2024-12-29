@@ -466,6 +466,8 @@ return {
 	SelectActorToReplace = "选择要替换的演员:",
 	AddActorToCurrentScript = "在当前脚本内添加演员:",
 	FacialExpression_WithColon = "面部表情:",
+	FavoritePoses_WithColon = "最喜欢的姿势:",
+	AddFavorites_Desc = "请先在姿势选项卡中将姿势添加到收藏夹",
 	HoldDuration = "持续时间",
 	Movement2 = "移动:",
 	Actions = "行为:",

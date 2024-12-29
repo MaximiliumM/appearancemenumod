@@ -468,6 +468,8 @@ return {
 	SelectActorToReplace = "Degistirilecek Aktörü Seç:",
 	AddActorToCurrentScript = "Mevcut Senaryoya Aktör Ekle:",
 	FacialExpression_WithColon = "Yüz Ifadesi:",
+	FavoritePoses_WithColon = "Favori Pozlar:",
+	AddFavorites_Desc = "İlk olarak Pozlar sekmesinde Favorilere Pozlar ekleyin",
 	HoldDuration = "Bekleme Süresi",
 	Movement2 = "Hareket:",
 	Actions = "Eylemler:",

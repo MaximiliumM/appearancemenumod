@@ -554,19 +554,7 @@ function Scan:DrawListOfAppearances(target)
   ImGui.Spacing()
 
   if target.options ~= nil then
-    local selectedEntity = AMM.Tools.nibblesEntityOptions[AMM.Tools.selectedNibblesEntity]
-    if AMM.nibblesReplacer and selectedEntity and selectedEntity.ent and target.id == AMM:GetScanID(selectedEntity.ent) then
-      local categories = AMM.Tools:PrepareCategoryHeadersForNibblesReplacer(target.options)
-      for i, category in ipairs(categories) do
-        local categoryHeader = ImGui.CollapsingHeader(category.name.."##"..i)
-  
-        if categoryHeader then
-          Scan:DrawAppearanceOptions(target, category.options, i)
-        end
-      end
-    else
-      Scan:DrawAppearanceOptions(target, target.options)
-    end
+    Scan:DrawAppearanceOptions(target, target.options)
   else
     ImGui.TextColored(1, 0.16, 0.13, 0.75, AMM.LocalizableString("No_Appearances"))
   end
@@ -765,10 +753,9 @@ function Scan:AutoAssignSeats()
   for _, ent in pairs(AMM.Spawn.spawnedNPCs) do
     if ent.handle:IsNPC() then
       local seatsNumber = #Scan.vehicleSeats - 1
-
       if Scan.selectedSeats[ent.name] then
         if Game.FindEntityByID(Scan.selectedSeats[ent.name].vehicle.handle:GetEntityID()) then
-          if Scan.selectedSeats[ent.name].seat.name == "Front Left" then
+          if Scan.selectedSeats[ent.name].seat.name == AMM.LocalizableString("Seat_FrontLeft") then
             Scan.drivers[AMM:GetScanID(ent.handle)] = Scan.selectedSeats[ent.name]
           end
         else
@@ -776,7 +763,14 @@ function Scan:AutoAssignSeats()
         end
       elseif counter <= seatsNumber then
         if Scan.selectedSeats[ent.name] == nil then
-          Scan.selectedSeats[ent.name] = {name = ent.name, entity = ent.handle, seat = Scan.vehicleSeats[counter], vehicle = Scan.vehicle}
+          local currentSeat = Scan.vehicleSeats[counter]
+
+          if currentSeat.cname == "seat_front_left" then
+            counter = counter + 1
+            currentSeat = Scan.vehicleSeats[counter]
+          end
+          
+          Scan.selectedSeats[ent.name] = {name = ent.name, entity = ent.handle, seat = currentSeat, vehicle = Scan.vehicle}
         end
       elseif counter > seatsNumber then
         table.insert(Scan.leftBehind, { ent = ent.handle, cmd = Util:HoldPosition(ent.handle, 99999) })

@@ -11,6 +11,14 @@ log = spdlog.error
 f = string.format
 
 -- Helper global function --
+function count(tbl)
+	local count = 0
+	for _ in pairs(tbl) do
+			count = count + 1
+	end
+	return count
+end
+
 function printTable(t)
 	if #t == 0 then
 		for k,v in pairs(t) do
@@ -74,7 +82,7 @@ function AMM:new()
 	 AMM.nibblesReplacer = false
 
 	 -- Main Properties --
-	 AMM.currentVersion = "2.7"
+	 AMM.currentVersion = "2.8"
 	 AMM.CETVersion = parseVersion(GetVersion())
 	 AMM.CodewareVersion = 0
 	 AMM.updateNotes = require('update_notes.lua')
@@ -287,9 +295,9 @@ function AMM:new()
 		 ObserveAfter('gameuiPhotoModeMenuController', 'OnSetCategoryEnabled', function(this)
 			this.topButtonsController:SetToggleEnabled(0, not(AMM.userSettings.disableCameraTab))
 			this.topButtonsController:SetToggleEnabled(1, not(AMM.userSettings.disableDOFTab))
-			this.topButtonsController:SetToggleEnabled(3, not(AMM.userSettings.disableEffectTab))
-			this.topButtonsController:SetToggleEnabled(4, not(AMM.userSettings.disableStickersTab))
-			this.topButtonsController:SetToggleEnabled(5, not(AMM.userSettings.disableLoadSaveTab))
+			this.topButtonsController:SetToggleEnabled(6, not(AMM.userSettings.disableEffectTab))
+			this.topButtonsController:SetToggleEnabled(7, not(AMM.userSettings.disableStickersTab))
+			this.topButtonsController:SetToggleEnabled(8, not(AMM.userSettings.disableLoadSaveTab))
 		 end)
 
 		 Override("CursorGameController", "ProcessCursorContext", function(self, context, data, force, wrapped)
@@ -602,7 +610,7 @@ function AMM:new()
 
 			-- Nibbles Replacer LocKey Update --
 			if AMM.Tools.replacer then
-				TweakDB:SetFlat('photo_mode.general.localizedNameForPhotoModePuppet', {"LocKey#48683", "LocKey#34414", 'Replacer'})
+				-- TweakDB:SetFlat('photo_mode.general.localizedNameForPhotoModePuppet', {"LocKey#48683", "LocKey#34414", 'Replacer'})
 				-- TweakDB:SetFlat('photo_mode.character.quadrupedPoses', AMM.Tools.replacer.poses)
 			end
 
@@ -613,10 +621,10 @@ function AMM:new()
 				TweakDB:SetFlat('photo_mode.camera.min_fov', 1.0)
 				TweakDB:SetFlat('photo_mode.camera.max_roll', 180)
 				TweakDB:SetFlat('photo_mode.camera.min_roll', -180)
-				TweakDB:SetFlat('photo_mode.camera.max_dist', 1000)
-				TweakDB:SetFlat('photo_mode.camera.min_dist', 0.2)
-				TweakDB:SetFlat('photo_mode.camera.max_dist_up_down', 1000)
-				TweakDB:SetFlat('photo_mode.camera.max_dist_left_right', 1000)
+				-- TweakDB:SetFlat('photo_mode.camera.max_dist', 1000)
+				-- TweakDB:SetFlat('photo_mode.camera.min_dist', 0.2)
+				-- TweakDB:SetFlat('photo_mode.camera.max_dist_up_down', 1000)
+				-- TweakDB:SetFlat('photo_mode.camera.max_dist_left_right', 1000)
 				TweakDB:SetFlat('photo_mode.character.max_position_adjust', 100)
 				TweakDB:SetFlat('photo_mode.general.collisionRadiusForPhotoModePuppet', {0, 0, 0})
 				TweakDB:SetFlat('photo_mode.general.collisionRadiusForNpcs', 0)
@@ -778,6 +786,154 @@ function AMM:new()
 		 	Util:RepairVehicle(handle)
 		 end
 	 end)
+
+	 registerHotkey("amm_toggle_doors", "Toggle Doors", function()
+		local handle
+		local target = AMM:GetTarget()
+		if target ~= nil and target.handle:IsVehicle() then
+			 handle = target.handle
+		else
+			 local qm = AMM.player:GetQuickSlotsManager()
+			 handle = qm:GetVehicleObject()
+		end
+  
+		if handle ~= nil then
+			 Util:ToggleDoors(handle)
+		end
+  	 end)
+
+	registerHotkey("amm_toggle_windows", "Toggle Windows", function()
+			local handle
+			local target = AMM:GetTarget()
+			if target ~= nil and target.handle:IsVehicle() then
+				 handle = target.handle
+			else
+				 local qm = AMM.player:GetQuickSlotsManager()
+				 handle = qm:GetVehicleObject()
+			end
+	  
+			if handle ~= nil then
+				 Util:ToggleWindows(handle)
+			end
+	  end)
+
+	  
+	registerHotkey("amm_toggle_engine", "Toggle Engine", function()
+		local handle
+		local target = AMM:GetTarget()
+		if target ~= nil and target.handle:IsVehicle() then
+			 handle = target.handle
+		else
+			 local qm = AMM.player:GetQuickSlotsManager()
+			 handle = qm:GetVehicleObject()
+		end
+  
+		if handle ~= nil then
+			 Util:ToggleEngine(handle)
+		end
+  	 end)
+  
+	local SEAT_FRONT_LEFT = 1
+	local SEAT_FRONT_RIGHT = 2
+	local SEAT_BACK_LEFT = 3
+	local SEAT_BACK_RIGHT = 4
+	
+	-- Toggle Front Left Door
+	registerHotkey("amm_toggle_front_left_door", "Toggle Front Left Door", function()
+			local handle
+			local target = AMM:GetTarget()
+			if target and target.handle:IsVehicle() then
+				handle = target.handle
+			else
+				local qm = AMM.player:GetQuickSlotsManager()
+				handle = qm:GetVehicleObject()
+			end
+	
+			if handle then
+				local seat = AMM.Scan.possibleSeats[SEAT_FRONT_LEFT]  -- Index 1
+				if Game['VehicleComponent::HasSlot;GameInstanceVehicleObjectCName'](handle, CName.new(seat.cname)) then
+					local doorState = Util:GetDoorState(handle, seat.enum)
+					Util:ToggleDoor(handle:GetVehiclePS(), seat.cname, doorState)
+				else
+					log("This vehicle does not have a Front Left door.")
+				end
+			else
+				log("No vehicle handle found.")
+			end
+	end)
+	
+	-- Toggle Front Right Door
+	registerHotkey("amm_toggle_front_right_door", "Toggle Front Right Door", function()
+			local handle
+			local target = AMM:GetTarget()
+			if target and target.handle:IsVehicle() then
+				handle = target.handle
+			else
+				local qm = AMM.player:GetQuickSlotsManager()
+				handle = qm:GetVehicleObject()
+			end
+	
+			if handle then
+				local seat = AMM.Scan.possibleSeats[SEAT_FRONT_RIGHT]  -- Index 2
+				if Game['VehicleComponent::HasSlot;GameInstanceVehicleObjectCName'](handle, CName.new(seat.cname)) then
+					local doorState = Util:GetDoorState(handle, seat.enum)
+					Util:ToggleDoor(handle:GetVehiclePS(), seat.cname, doorState)
+				else
+					log("This vehicle does not have a Front Right door.")
+				end
+			else
+				log("No vehicle handle found.")
+			end
+	end)
+	
+	-- Toggle Back Left Door
+	registerHotkey("amm_toggle_back_left_door", "Toggle Back Left Door", function()
+			local handle
+			local target = AMM:GetTarget()
+			if target and target.handle:IsVehicle() then
+				handle = target.handle
+			else
+				local qm = AMM.player:GetQuickSlotsManager()
+				handle = qm:GetVehicleObject()
+			end
+	
+			if handle then
+				local seat = AMM.Scan.possibleSeats[SEAT_BACK_LEFT]  -- Index 3
+				if Game['VehicleComponent::HasSlot;GameInstanceVehicleObjectCName'](handle, CName.new(seat.cname)) then
+					local doorState = Util:GetDoorState(handle, seat.enum)
+					Util:ToggleDoor(handle:GetVehiclePS(), seat.cname, doorState)
+				else
+					log("This vehicle does not have a Back Left door.")
+				end
+			else
+				log("No vehicle handle found.")
+			end
+	end)
+	
+	-- Toggle Back Right Door
+	registerHotkey("amm_toggle_back_right_door", "Toggle Back Right Door", function()
+			local handle
+			local target = AMM:GetTarget()
+			if target and target.handle:IsVehicle() then
+				handle = target.handle
+			else
+				local qm = AMM.player:GetQuickSlotsManager()
+				handle = qm:GetVehicleObject()
+			end
+	
+			if handle then
+				local seat = AMM.Scan.possibleSeats[SEAT_BACK_RIGHT]  -- Index 4
+				if Game['VehicleComponent::HasSlot;GameInstanceVehicleObjectCName'](handle, CName.new(seat.cname)) then
+					local doorState = Util:GetDoorState(handle, seat.enum)
+					Util:ToggleDoor(handle:GetVehiclePS(), seat.cname, doorState)
+				else
+					log("This vehicle does not have a Back Right door.")
+				end
+			else
+				log("No vehicle handle found.")
+			end
+	end)
+  
 
 	 registerHotkey("amm_last_expression", "Last Expression Used", function()
 		local target = AMM:GetTarget()
@@ -1171,37 +1327,44 @@ function AMM:new()
 						local currentAppearance = AMM:GetScanAppearance(handle)
 						if currentAppearance == customAppearance[1].app_base then
 							for _, param in ipairs(customAppearance) do
+								local physics_delay = param.app_param == "SkinnedCloth0441"
 								local appParam = handle:FindComponentByName(CName.new(param.app_param))
 								if appParam then
 									if param.mesh_path and appParam.ChangeResource then
-										if appParam:ChangeResource(param.mesh_path) then
-											buttonPressed = true
-											Cron.After(0.2, function()
-												appParam:Toggle(false)
-												buttonPressed = false
-												
-												if param.app_toggle or param.mesh_type == "body" then
-													appParam:TemporaryHide(false)
-													appParam:Toggle(true)
-												end
-											end)
+										if appParam:ChangeResource(param.mesh_path, true) then
+											buttonPressed = false
+											-- if appParam.LoadResource then
+											-- 	if appParam:LoadResource() then													
+											-- 		Cron.After(0.5, function()
+											-- 			appParam:RefreshAppearance()
+											-- 			buttonPressed = false
+											-- 			-- appParam:Toggle(false)
+														
+											-- 			-- if param.app_toggle or param.mesh_type == "body" then
+											-- 			-- 	appParam:TemporaryHide(false)
+											-- 			-- 	appParam:Toggle(true)
+											-- 			-- end
+											-- 		end)
+											-- 	end
+											-- end
 										end
 									end
 
 									if param.mesh_app then
 										appParam.meshAppearance = CName.new(param.mesh_app)
 										if appParam.LoadAppearance then
-											if appParam:LoadAppearance() then
-												buttonPressed = true
-												Cron.After(0.2, function()
-													appParam:Toggle(false)
-													buttonPressed = false
+											if appParam:LoadAppearance(true) then
+												buttonPressed = false
+												-- Cron.After(0.5, function()
+													-- appParam:RefreshAppearance()
+													-- buttonPressed = false
+													-- appParam:Toggle(false)
 
-													if param.app_toggle or param.mesh_type == "body" then
-														appParam:TemporaryHide(false)
-														appParam:Toggle(true)
-													end
-												end)
+													-- if param.app_toggle or param.mesh_type == "body" then
+													-- 	appParam:TemporaryHide(false)
+													-- 	appParam:Toggle(true)
+													-- end
+												-- end)
 											end
 										end
 									end
@@ -1225,13 +1388,19 @@ function AMM:new()
 										end
 									end
 
-									appParam:Toggle(false)
-
-									if param.app_toggle or param.mesh_type == "body" then
-										appParam:TemporaryHide(false)
-										appParam:Toggle(true)
+									if physics_delay then
+										Cron.After(1, function()
+											appParam:Toggle(false)
+										end)
 									else
-										appParam:TemporaryHide(true)
+										appParam:Toggle(false)
+
+										if param.app_toggle or param.mesh_type == "body" then
+											appParam:TemporaryHide(false)
+											appParam:Toggle(true)
+										else
+											appParam:TemporaryHide(true)
+										end
 									end
 								end
 							end
@@ -1327,6 +1496,9 @@ function AMM.LocalizableString(str)
 		log("[AMM Error] Non-localized string found:"..str)
 		return str
 	end
+
+	log("[AMM Error] Localizable String error:", str)
+	return "AMM_ERROR"
 end
 
 function AMM:InitializeModules()
@@ -1486,12 +1658,12 @@ function AMM:Begin()
 							AMM:DrawUISettingsTab(style)
 							AMM:DrawExperimentalSettingsTab(style)
 
-							if Tools.replacer then
-								if ImGui.BeginTabItem("Photo Mode Nibbles Replacer") then
-									AMM.Tools.DrawNibblesReplacer()
-									ImGui.EndTabItem()
-								end
-							end
+							-- if Tools.replacer then
+							-- 	if ImGui.BeginTabItem("Photo Mode Nibbles Replacer") then
+							-- 		AMM.Tools.DrawNibblesReplacer()
+							-- 		ImGui.EndTabItem()
+							-- 	end
+							-- end
 
 							ImGui.EndTabBar()
 						end
@@ -1921,18 +2093,18 @@ function AMM:NewTarget(handle, targetType, id, name, app, options)
 
 	-- Check if target is Nibbles
 	if obj.name == "Nibbles" or Util:CheckNibblesByID(obj.id) then
-		if AMM.nibblesReplacer then
-			local selectedEntity = AMM.Tools.nibblesEntityOptions[AMM.Tools.selectedNibblesEntity]
-			if selectedEntity.ent then
-				obj.name = "Replacer"
-				obj.id = AMM:GetScanID(selectedEntity.ent)
-				obj.options = AMM:GetAppearanceOptions(handle, obj.id)
-				obj.type = "NPCPuppet"
-			end
-		else
+		-- if AMM.nibblesReplacer then
+		-- 	local selectedEntity = AMM.Tools.nibblesEntityOptions[AMM.Tools.selectedNibblesEntity]
+		-- 	if selectedEntity.ent then
+		-- 		obj.name = "Replacer"
+		-- 		obj.id = AMM:GetScanID(selectedEntity.ent)
+		-- 		obj.options = AMM:GetAppearanceOptions(handle, obj.id)
+		-- 		obj.type = "NPCPuppet"
+		-- 	end
+		-- else
 			obj.name = "Nibbles"
 			obj.type = "Player"
-		end
+		-- end
 	end
 
 	-- Check if target is V
@@ -2708,7 +2880,7 @@ function AMM:SetupAMMCharacters()
 		{og = "Character.TPP_Player_Cutscene_Female", tdbid = "AMM_Character.TPP_Player_Female", path = "player_wa_tpp_walking"..uniqueV},
 		{og = "Character.Takemura", tdbid = "AMM_Character.Silverhand", path = "silverhand"},
 		{og = "Character.Hanako", tdbid = "AMM_Character.Hanako", path = "hanako"},
-		{og = "Character.generic_netrunner_netrunner_chao_wa_rare_ow_city_scene", tdbid = "AMM_Character.Songbird", path = "songbird"},
+		{og = "Character.songbird", tdbid = "AMM_Character.Songbird", path = "songbird"},
 		{og = "Character.mq030_melisa", tdbid = "AMM_Character.E3_V_Female", path = "e3_v_female"},
 		{og = "Character.afterlife_rare_fmelee3_mantis_ma_elite", tdbid = "AMM_Character.E3_V_Male", path = "e3_v_male"},
 		{og = "Character.Voodoo_Queen", tdbid = "AMM_Character.Rache_Bartmoss", path = "rache_bartmoss"},
@@ -2779,10 +2951,6 @@ function AMM:SetupAMMCharacters()
 	TweakDB:SetFlats("AMM_Character.Songbird",{
 		fullDisplayName = TweakDB:GetFlat("Character.q110_vdb_elder_1.fullDisplayName"),
 		displayName = TweakDB:GetFlat("Character.jpn_tygerclaw_gangster3_netrunner_nue_wa_rare.displayName"),
-		reactionPreset = TweakDB:GetFlat("Character.Judy.reactionPreset"),
-		baseAttitudeGroup = "judy",
-		abilities = TweakDB:GetFlat("Character.jpn_tygerclaw_gangster3_netrunner_nue_wa_rare.abilities"),
-		statModifierGroups = TweakDB:GetFlat("Character.jpn_tygerclaw_gangster3_netrunner_nue_wa_rare.statModifierGroups"),
 	})
 
 	TweakDB:SetFlats("AMM_Character.Rache_Bartmoss",{
@@ -3617,7 +3785,7 @@ function AMM:GetAppearanceOptionsWithID(id, t)
 	-- That means less database access needed
 	if AMM.cachedAppearanceOptions[id] and AMM.Scan.searchQuery == '' then return AMM.cachedAppearanceOptions[id] end
 
-	if (t and t:IsPlayer()) or Util:CheckVByID(id) then return nil end
+	if (t and t.IsPlayer and t:IsPlayer()) or Util:CheckVByID(id) then return nil end
 
 	options = AMM:GetFavoritesAppearances(id)
 
