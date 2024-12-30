@@ -1093,6 +1093,9 @@ function Director:MoveActors(script, actors)
           end)
         elseif actor.activeCommand == 'done' then          
           if timer.tick > (node.holdDuration * 10) then
+            if node.pose then
+              AMM.Poses:StopAnimation(node.pose)
+            end
             if node.attackTarget then
               actor.activeCommand = 'attack'
             else
