@@ -263,6 +263,7 @@ return {
 	Button_TogglePiercings = "Pirsingleri Aç/Kapat",
 	Button_ToggleSeamfix = "Dikis Yeri Fix Aç/Kapat",
 	Button_TargetV = "Hedef V",
+	Button_Target = "Hedef ",
 	Button_TeleportToLocation = "Konuma Isinla",
 	Button_ShareCurrentLocation = "Mevcut Konumu Paylas",
 	Button_GoBackToLastLocation = "Son Konuma Geri Dön",
@@ -271,8 +272,8 @@ return {
 	--Slider / Drag 
 	Slider_HeadStiffness = "Kafa Hareketliligi",
 	Slider_HeadPoseOverride = "Kafa Pozu Geçersiz Kilma",
-	Silder_ChestStiffness = "Gövde Hareketliligi",
-	Silder_ChestPoseOverride = "Gövde Pozu Geçersiz Kilma",
+	Slider_ChestStiffness = "Gövde Hareketliligi",
+	Slider_ChestPoseOverride = "Gövde Pozu Geçersiz Kilma",
 	Slider_SlowMotion = "Agir Çekim",
 	Slider_DefaultAperture = "Varsayilan Diyafram",
 	Slider_DefaultFieldofView = "Varsayilan Bakis Acisi",

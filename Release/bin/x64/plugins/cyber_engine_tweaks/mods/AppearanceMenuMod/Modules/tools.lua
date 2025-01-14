@@ -98,6 +98,8 @@ function Tools:new()
   Tools.photoModePuppet = nil
   Tools.currentTargetComponents = nil
   Tools.enablePropsInLookAtTarget = false
+  Tools.listOfPuppets = {}
+  Tools.puppetsIDs = {}
 
   -- Axis Indicator Properties --
   Tools.axisIndicator = nil
@@ -318,11 +320,6 @@ function Tools:DrawVActions()
 
     if AMM.playerInPhoto then
       ImGui.SameLine()
-      if ImGui.Button(AMM.LocalizableString("Button_TargetV"), Tools.style.halfButtonWidth, Tools.style.buttonHeight) then
-        Tools:SetCurrentTarget(Tools:GetVTarget())
-        Tools.lockTarget = true
-      end
-
       local buttonLabel = AMM.LocalizableString("LockLook_AtCamera")
       if Tools.lookAtLocked then
         buttonLabel = AMM.LocalizableString("UnlockLook_AtCamera")
@@ -332,12 +329,13 @@ function Tools:DrawVActions()
         Tools:ToggleLookAt()
       end
 
-      ImGui.SameLine()
-      local buttonLabel = AMM.LocalizableString("Target_Nibbles")
-      if Tools.selectedNibblesEntity ~= 1 then buttonLabel = AMM.LocalizableString("Target_Replacer") end
-      if ImGui.Button(buttonLabel, Tools.style.halfButtonWidth, Tools.style.buttonHeight) then
-        Tools:SetCurrentTarget(Tools:GetNibblesTarget())
-        Tools.lockTarget = true
+      if AMM.CETVersion < 34 then
+        local buttonLabel = AMM.LocalizableString("Target_Nibbles")
+        if Tools.selectedNibblesEntity ~= 1 then buttonLabel = AMM.LocalizableString("Target_Replacer") end
+        if ImGui.Button(buttonLabel, Tools.style.halfButtonWidth, Tools.style.buttonHeight) then
+          Tools:SetCurrentTarget(Tools:GetNibblesTarget())
+          Tools.lockTarget = true
+        end
       end
 
       Tools.savePhotoModeToggles = ImGui.Checkbox(AMM.LocalizableString("Save_Toggles_State"), Tools.savePhotoModeToggles)
@@ -723,7 +721,8 @@ function Tools:GetNibblesTarget()
 end
 
 function Tools:GetVTarget()
-  local entity = Tools.photoModePuppet
+  local entity = Tools.listOfPuppets[1]
+
   if not entity then
     if Util:CheckVByID(Tools.currentTarget.id) then
       return Tools.currentTarget
@@ -732,7 +731,21 @@ function Tools:GetVTarget()
     end
   end
 
-  return AMM:NewTarget(entity, "NPCPuppet", AMM:GetScanID(entity), AMM:GetNPCName(entity),AMM:GetScanAppearance(entity), nil)
+  return entity
+end
+
+function Tools:ClearListOfPuppets()
+
+  for puppetHash, puppetID in pairs(Tools.puppetsIDs) do
+    if not Game.FindEntityByID(puppetID) then
+      for i, puppet in ipairs(Tools.listOfPuppets) do
+        if puppet.hash == puppetHash then
+          Tools.listOfPuppets[i] = nil
+          Tools.puppetsIDs[puppetHash] = nil
+        end
+      end
+    end
+  end
 end
 
 local locationRefreshDebounce = false
@@ -1026,7 +1039,11 @@ function Tools:GetUserLocations()
     for _, loc in ipairs(files) do
       if string.find(loc.name, '.json') then
         local loc_name, x, y, z, w, yaw = Tools:LoadLocationData(loc.name)
-        table.insert(userLocations, {file_name = loc.name, loc_name = loc_name, x = x, y = y, z = z, w = w, yaw = yaw})
+        if loc_name then
+          table.insert(userLocations, {file_name = loc.name, loc_name = loc_name, x = x, y = y, z = z, w = w, yaw = yaw})
+        else
+          Util:AMMError(f("The file %s does not have location data", loc.name))
+        end
       end
     end
     return userLocations
@@ -1054,6 +1071,33 @@ end
 function Tools:DrawNPCActions()
 
   AMM.UI:DrawCrossHair()
+
+  if AMM.playerInPhoto then
+    local buttonWidth = Tools.style.buttonWidth
+    if #Tools.listOfPuppets > 1 then buttonWidth = Tools.style.halfButtonWidth end
+
+    if ImGui.Button(AMM.LocalizableString("Button_TargetV"), buttonWidth, Tools.style.buttonHeight) then
+      Tools:SetCurrentTarget(Tools:GetVTarget())
+      Tools.lockTarget = true
+    end
+
+    Tools:ClearListOfPuppets()
+
+    if #Tools.listOfPuppets > 1 then
+      for i, puppet in ipairs(Tools.listOfPuppets) do
+        if i ~= 1 then
+          if i % 2 == 0 then
+            ImGui.SameLine()
+          end
+
+          if ImGui.Button(f(AMM.LocalizableString("Button_Target").."%s##%i", puppet.name, i), Tools.style.halfButtonWidth, Tools.style.buttonHeight) then
+            Tools:SetCurrentTarget(puppet)
+            Tools.lockTarget = true
+          end
+        end
+      end
+    end
+  end
 
   if Tools.currentTarget and Tools.currentTarget ~= '' and Tools.currentTarget.handle then
     if not Game.FindEntityByID(Tools.currentTarget.handle:GetEntityID()) then
@@ -1089,7 +1133,7 @@ function Tools:DrawNPCActions()
     AMM.UI:Spacing(3)
 
     if AMM.playerInPhoto then
-      AMM.UI:TextCenter(AMM.LocalizableString("Warn_SeeMoreActions_Info"))
+      AMM.UI:TextCenter(AMM.LocalizableString("Warn_SeeMoreAction_Info"))
     else
       AMM.UI:TextCenter(AMM.LocalizableString("Warn_SeeMoreActionProp_Info"))
     end
@@ -1143,7 +1187,7 @@ function Tools:SetTargetPosition(pos, angles)
     if not Tools.movingProp then
       Tools:TeleportPropTo(Tools.currentTarget, pos, angles or EulerAngles.new(Tools.npcRotation[1], Tools.npcRotation[2], Tools.npcRotation[3]))
     end
-  elseif Tools.currentTarget.type ~= 'Player' and Tools.currentTarget.name ~= 'Replacer' and Tools.currentTarget.handle:IsNPC() then
+  elseif Tools.currentTarget.type ~= 'Player' and Tools.currentTarget.name ~= 'Replacer' and Tools.currentTarget.handle:IsNPC() and not Tools.currentTarget.isPuppet then
     local yaw = Tools.npcRotation[3]
     if angles then yaw = angles.yaw end
     Tools:TeleportNPCTo(Tools.currentTarget.handle, pos, yaw)
@@ -1720,7 +1764,7 @@ function Tools:DrawMovementWindow()
         if not Tools.movingProp then          
           Tools:TeleportPropTo(Tools.currentTarget, pos, EulerAngles.new(Tools.npcRotation[1], Tools.npcRotation[2], Tools.npcRotation[3]))
         end
-      elseif Tools.currentTarget.type ~= 'Player' and Tools.currentTarget.name ~= 'Replacer' and Tools.currentTarget.handle:IsNPC() then
+      elseif Tools.currentTarget.type ~= 'Player' and Tools.currentTarget.name ~= 'Replacer' and Tools.currentTarget.handle:IsNPC() and not Tools.currentTarget.isPuppet then
         Tools:TeleportNPCTo(Tools.currentTarget.handle, pos, Tools.npcRotation[3])
       else
         Game.GetTeleportationFacility():Teleport(Tools.currentTarget.handle, pos, EulerAngles.new(Tools.npcRotation[1], Tools.npcRotation[2], Tools.npcRotation[3]))
@@ -1732,7 +1776,7 @@ function Tools:DrawMovementWindow()
         if not Tools.movingProp then
           Tools:TeleportPropTo(Tools.currentTarget, pos, EulerAngles.new(Tools.npcRotation[1], Tools.npcRotation[2], Tools.npcRotation[3]))
         end
-      elseif Tools.currentTarget.type ~= 'Player' and Tools.currentTarget.name ~= 'Replacer' and Tools.currentTarget.handle:IsNPC() then
+      elseif Tools.currentTarget.type ~= 'Player' and Tools.currentTarget.name ~= 'Replacer' and Tools.currentTarget.handle:IsNPC() and not Tools.currentTarget.isPuppet then
         Tools:TeleportNPCTo(Tools.currentTarget.handle, pos, Tools.npcRotation[3])
       else
         Game.GetTeleportationFacility():Teleport(Tools.currentTarget.handle, pos, EulerAngles.new(Tools.npcRotation[1], Tools.npcRotation[2], Tools.npcRotation[3]))
@@ -1747,7 +1791,7 @@ function Tools:DrawMovementWindow()
     if Tools.precisionMode then rotationValue = 0.01 end
 
     local isNPC = false
-    if Tools.currentTarget ~= '' and (Tools.currentTarget.type ~= 'Prop' and Tools.currentTarget.type ~= 'entEntity' and Tools.currentTarget.type ~= 'Player' and Tools.currentTarget.name ~= 'Replacer' and Tools.currentTarget.handle:IsNPC()) then
+    if Tools.currentTarget ~= '' and (Tools.currentTarget.type ~= 'Prop' and Tools.currentTarget.type ~= 'entEntity' and Tools.currentTarget.type ~= 'Player' and Tools.currentTarget.name ~= 'Replacer' and Tools.currentTarget.handle:IsNPC() and not Tools.currentTarget.isPuppet) then
       Tools.npcRotation[3], rotationUsed = ImGui.SliderFloat(AMM.LocalizableString("Rotation"), Tools.npcRotation[3], -180, 180)
       isNPC = true
     elseif Tools.currentTarget ~= '' then
@@ -1838,7 +1882,7 @@ function Tools:DrawMovementWindow()
         if not Tools.movingProp then
           Tools:TeleportPropTo(Tools.currentTarget, pos, EulerAngles.new(Tools.npcRotation[1], Tools.npcRotation[2], Tools.npcRotation[3]))
         end
-      elseif Tools.currentTarget.type ~= 'Player' and Tools.currentTarget.name ~= 'Replacer' and Tools.currentTarget.handle:IsNPC() then
+      elseif Tools.currentTarget.type ~= 'Player' and Tools.currentTarget.name ~= 'Replacer' and Tools.currentTarget.handle:IsNPC() and not Tools.currentTarget.isPuppet then
         Tools:TeleportNPCTo(Tools.currentTarget.handle, pos, Tools.npcRotation[3])
       else
         Game.GetTeleportationFacility():Teleport(Tools.currentTarget.handle, pos, EulerAngles.new(Tools.npcRotation[1], Tools.npcRotation[2], Tools.npcRotation[3]))
@@ -3124,6 +3168,8 @@ function Tools:ExitPhotoMode()
   AMM.playerInPhoto = false
   Tools.photoModePuppet = nil
   Tools.cursorDisabled = false
+  Tools.listOfPuppets = {}
+  Tools.puppetsIDs = {}
 
   -- Trigger User Data save in case the user changed FOV and Aperture defaults
   AMM:UpdateSettings()

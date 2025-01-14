@@ -34,6 +34,7 @@ function Entity:new(ent)
   obj.scaleHasChanged = ent.scaleHasChanged
 
   obj.isVehicle = ent.isVehicle or false
+  obj.isPuppet = ent.isPuppet or false
 
   -- Check if model is swappedModels
 	if AMM.Swap.activeSwaps[obj.id] ~= nil then

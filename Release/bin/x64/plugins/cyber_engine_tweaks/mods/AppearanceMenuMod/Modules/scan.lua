@@ -554,7 +554,23 @@ function Scan:DrawListOfAppearances(target)
   ImGui.Spacing()
 
   if target.options ~= nil then
-    Scan:DrawAppearanceOptions(target, target.options)
+    if AMM.CETVersion < 34 then
+      local selectedEntity = AMM.Tools.nibblesEntityOptions[AMM.Tools.selectedNibblesEntity]
+      if AMM.nibblesReplacer and selectedEntity and selectedEntity.ent and target.id == AMM:GetScanID(selectedEntity.ent) then
+        local categories = AMM.Tools:PrepareCategoryHeadersForNibblesReplacer(target.options)
+        for i, category in ipairs(categories) do
+          local categoryHeader = ImGui.CollapsingHeader(category.name.."##"..i)
+    
+          if categoryHeader then
+            Scan:DrawAppearanceOptions(target, category.options, i)
+          end
+        end
+      else
+        Scan:DrawAppearanceOptions(target, target.options)
+      end
+    else
+      Scan:DrawAppearanceOptions(target, target.options)
+    end
   else
     ImGui.TextColored(1, 0.16, 0.13, 0.75, AMM.LocalizableString("No_Appearances"))
   end

@@ -261,6 +261,7 @@ return {
 	Button_TogglePiercings = "切换饰品",
 	Button_ToggleSeamfix = "切换接缝修复",
 	Button_TargetV = "切换 V",
+	Button_Target = "切换 ",
 	Button_TeleportToLocation = "传送到地点",
 	Button_ShareCurrentLocation = "保存当前的地点",
 	Button_GoBackToLastLocation = "回到上次所在的地点",
@@ -269,8 +270,8 @@ return {
 	--Slider / Drag 
 	Slider_HeadStiffness = "头部硬度",
 	Slider_HeadPoseOverride = "头部姿势覆盖",
-	Silder_ChestStiffness = "胸部硬度",
-	Silder_ChestPoseOverride = "胸部姿势覆盖",
+	Slider_ChestStiffness = "胸部硬度",
+	Slider_ChestPoseOverride = "胸部姿势覆盖",
 	Slider_SlowMotion = "慢动作",
 	Slider_DefaultAperture = "默认的相机孔径",
 	Slider_DefaultFieldofView = "默认视野",

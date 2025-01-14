@@ -792,6 +792,15 @@ function Util:OpenPopup(popupInfo)
   ImGui.OpenPopup("Error")
 end
 
+function Util:CheckForPhotoComponent(ent)
+  if ent:FindComponentByName("PhotoModePlayerEntity") ~= nil then
+    return true
+  end
+
+  return false
+end
+
+
 function Util:CheckNibblesByID(id)
   local possibleIDs = {
     "0xA1166EF4, 34"

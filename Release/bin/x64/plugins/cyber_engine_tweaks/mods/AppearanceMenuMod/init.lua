@@ -82,7 +82,7 @@ function AMM:new()
 	 AMM.nibblesReplacer = false
 
 	 -- Main Properties --
-	 AMM.currentVersion = "2.8"
+	 AMM.currentVersion = "2.8.2"
 	 AMM.CETVersion = parseVersion(GetVersion())
 	 AMM.CodewareVersion = 0
 	 AMM.updateNotes = require('update_notes.lua')
@@ -423,7 +423,18 @@ function AMM:new()
 		end)
 
 		 Observe('PhotoModePlayerEntityComponent', 'ListAllCurrentItems', function(self)
-			 AMM.Tools.photoModePuppet = self.fakePuppet
+			 AMM.Tools:ClearListOfPuppets()
+			 
+			 local puppetID = self.fakePuppet:GetEntityID()
+			 local puppetHash = tostring(puppetID.hash)
+
+			 if not AMM.Tools.puppetsIDs[puppetHash] then
+				local entity = self.fakePuppet
+				local newTarget = AMM:NewTarget(entity, "NPCPuppet", AMM:GetScanID(entity), AMM:GetNPCName(entity), AMM:GetScanAppearance(entity), AMM:GetAppearanceOptions(entity))
+				table.insert(AMM.Tools.listOfPuppets, newTarget)
+				AMM.Tools.puppetsIDs[puppetHash] = puppetID
+				AMM.Tools.photoModePuppet = self.fakePuppet
+			 end
 		 end)
 
 		 Observe("VehicleComponent", "OnVehicleStartedMountingEvent", function(self, event)
@@ -609,9 +620,9 @@ function AMM:new()
 		registerForEvent('onTweak', function()
 
 			-- Nibbles Replacer LocKey Update --
-			if AMM.Tools.replacer then
-				-- TweakDB:SetFlat('photo_mode.general.localizedNameForPhotoModePuppet', {"LocKey#48683", "LocKey#34414", 'Replacer'})
-				-- TweakDB:SetFlat('photo_mode.character.quadrupedPoses', AMM.Tools.replacer.poses)
+			if AMM.CETVersion < 34 and AMM.Tools.replacer then
+				TweakDB:SetFlat('photo_mode.general.localizedNameForPhotoModePuppet', {"LocKey#48683", "LocKey#34414", 'Replacer'})
+				TweakDB:SetFlat('photo_mode.character.quadrupedPoses', AMM.Tools.replacer.poses)
 			end
 
 			if AMM.userSettings.photoModeEnhancements then
@@ -621,17 +632,45 @@ function AMM:new()
 				TweakDB:SetFlat('photo_mode.camera.min_fov', 1.0)
 				TweakDB:SetFlat('photo_mode.camera.max_roll', 180)
 				TweakDB:SetFlat('photo_mode.camera.min_roll', -180)
+				TweakDB:SetFlat('photo_mode.general.onlyFPPPhotoModeInPlayerStates', {})
+				TweakDB:SetFlat('LookatPreset.PhotoMode_LookAtCamera.followingSpeedFactorOverride', 1200.0)
+				-- TweakDB:SetFlat('photo_mode.character.max_position_adjust', 100)
 				-- TweakDB:SetFlat('photo_mode.camera.max_dist', 1000)
 				-- TweakDB:SetFlat('photo_mode.camera.min_dist', 0.2)
 				-- TweakDB:SetFlat('photo_mode.camera.max_dist_up_down', 1000)
 				-- TweakDB:SetFlat('photo_mode.camera.max_dist_left_right', 1000)
-				TweakDB:SetFlat('photo_mode.character.max_position_adjust', 100)
-				TweakDB:SetFlat('photo_mode.general.collisionRadiusForPhotoModePuppet', {0, 0, 0})
-				TweakDB:SetFlat('photo_mode.general.collisionRadiusForNpcs', 0)
+				-- TweakDB:SetFlat('photo_mode.general.collisionRadiusForPhotoModePuppet', {0, 0, 0})
+				-- TweakDB:SetFlat('photo_mode.general.collisionRadiusForNpcs', 0)
 				-- TweakDB:SetFlat('photo_mode.general.force_lod0_characters_dist', 0)
 				-- TweakDB:SetFlat('photo_mode.general.force_lod0_vehicles_dist', 0)
-				TweakDB:SetFlat('photo_mode.general.onlyFPPPhotoModeInPlayerStates', {})
-				TweakDB:SetFlat('LookatPreset.PhotoMode_LookAtCamera.followingSpeedFactorOverride', 1200.0)
+
+				-- Fix Record Names for Photo Mode Puppets (CDPR, :facepalm:)
+				TweakDB:SetFlat('Character.AdamSmasher_Puppet_Photomode.displayName', TweakDB:GetFlat('Character.kurtz.displayName'))
+				TweakDB:SetFlat('Character.AltJohnny_Puppet_Photomode.displayName', TweakDB:GetFlat('Character.Silverhand.displayName'))
+				TweakDB:SetFlat('Character.Alt_Puppet_Photomode.displayName', TweakDB:GetFlat('Character.Alt.displayName'))
+				TweakDB:SetFlat('Character.BlueMoon_Puppet_Photomode.displayName', TweakDB:GetFlat('Character.sq017_blue_moon.displayName'))
+				TweakDB:SetFlat('Character.Evelyn_Puppet_Photomode.displayName', TweakDB:GetFlat('Character.Evelyn.displayName'))
+				TweakDB:SetFlat('Character.Goro_Puppet_Photomode.displayName', TweakDB:GetFlat('Character.Takemura.displayName'))
+				TweakDB:SetFlat('Character.Hanako_Puppet_Photomode.displayName', TweakDB:GetFlat('Character.Hanako.displayName'))
+				TweakDB:SetFlat('Character.Jackie_Puppet_Photomode.displayName', TweakDB:GetFlat('Character.Jackie.displayName'))
+				TweakDB:SetFlat('Character.JohnnyNPC_Puppet_Photomode.displayName', TweakDB:GetFlat('Character.Silverhand.displayName'))
+				TweakDB:SetFlat('Character.Johnny_Puppet_Photomode.displayName', TweakDB:GetFlat('Character.Silverhand.displayName'))
+				TweakDB:SetFlat('Character.Judy_Puppet_Photomode.displayName', TweakDB:GetFlat('Character.Judy.displayName'))
+				TweakDB:SetFlat('Character.Kerry_Puppet_Photomode.displayName', TweakDB:GetFlat('Character.Kerry.displayName'))
+				TweakDB:SetFlat('Character.Kurt_Puppet_Photomode.displayName', TweakDB:GetFlat('Character.kurtz.displayName'))
+				TweakDB:SetFlat('Character.Lizzy_Puppet_Photomode.displayName', TweakDB:GetFlat('Character.Lizzy_Wizzy.displayName'))
+				TweakDB:SetFlat('Character.Meredith_Puppet_Photomode.displayName', TweakDB:GetFlat('Character.Stout.displayName'))
+				TweakDB:SetFlat('Character.Myers_Puppet_Photomode.displayName', TweakDB:GetFlat('Character.myers.displayName'))
+				TweakDB:SetFlat('Character.Nibbles_Puppet_Photomode.displayName', TweakDB:GetFlat('Character.q003_cat.displayName'))
+				TweakDB:SetFlat('Character.Panam_Puppet_Photomode.displayName', TweakDB:GetFlat('Character.Panam.displayName'))
+				TweakDB:SetFlat('Character.PurpleForce_Puppet_Photomode.displayName', TweakDB:GetFlat('Character.sq017_purple_force.displayName'))
+				TweakDB:SetFlat('Character.RedMenace_Puppet_Photomode.displayName', TweakDB:GetFlat('Character.sq017_red_menace.displayName'))
+				TweakDB:SetFlat('Character.Reed_Puppet_Photomode.displayName', TweakDB:GetFlat('Character.reed.displayName'))
+				TweakDB:SetFlat('Character.River_Puppet_Photomode.displayName', TweakDB:GetFlat('Character.Sobchak.displayName'))
+				TweakDB:SetFlat('Character.RogueOld_Puppet_Photomode.displayName', TweakDB:GetFlat('Character.Rogue.displayName'))
+				TweakDB:SetFlat('Character.RogueYoung_Puppet_Photomode.displayName', TweakDB:GetFlat('Character.Rogue.displayName'))
+				TweakDB:SetFlat('Character.Songbird_Puppet_Photomode.displayName', TweakDB:GetFlat('Character.songbird.displayName'))
+				TweakDB:SetFlat('Character.Viktor_Puppet_Photomode.displayName', TweakDB:GetFlat('Character.Victor_Vector.displayName'))
 
 				for pose in db:nrows("SELECT * FROM photomode_poses") do
 					local poseID = 'PhotoModePoses.'..pose.pose_name
@@ -1111,6 +1150,7 @@ function AMM:new()
 	    GameSettings.Toggle('/interface/hud/npc_healthbar')
 	    GameSettings.Toggle('/interface/hud/quest_tracker')
 	    GameSettings.Toggle('/interface/hud/stamina_oxygen')
+	    GameSettings.Toggle('/interface/hud/crouch_indicator')
 	 end)
 
 	 for i = 1, 3 do
@@ -1391,6 +1431,7 @@ function AMM:new()
 									if physics_delay then
 										Cron.After(1, function()
 											appParam:Toggle(false)
+											appParam:TemporaryHide(true)
 										end)
 									else
 										appParam:Toggle(false)
@@ -1497,7 +1538,17 @@ function AMM.LocalizableString(str)
 		return str
 	end
 
-	log("[AMM Error] Localizable String error:", str)
+	if str == nil then
+		log("[AMM Debug] The string is nil")
+  elseif str == "" then
+		log("[AMM Debug] The string is an empty string ('')")
+  else
+		log(string.format("[AMM Debug] The string has content (length: %d): '%s'", #str, str))
+		for i = 1, #str do
+			 log(string.format("[AMM Debug] Char %d: '%s' (Hex: %02X)", i, str:sub(i, i), str:byte(i)))
+		end
+  end
+
 	return "AMM_ERROR"
 end
 
@@ -1658,12 +1709,12 @@ function AMM:Begin()
 							AMM:DrawUISettingsTab(style)
 							AMM:DrawExperimentalSettingsTab(style)
 
-							-- if Tools.replacer then
-							-- 	if ImGui.BeginTabItem("Photo Mode Nibbles Replacer") then
-							-- 		AMM.Tools.DrawNibblesReplacer()
-							-- 		ImGui.EndTabItem()
-							-- 	end
-							-- end
+							if AMM.CETVersion < 34 and Tools.replacer then
+								if ImGui.BeginTabItem("Photo Mode Nibbles Replacer") then
+									AMM.Tools.DrawNibblesReplacer()
+									ImGui.EndTabItem()
+								end
+							end
 
 							ImGui.EndTabBar()
 						end
@@ -2072,6 +2123,8 @@ function AMM:NewTarget(handle, targetType, id, name, app, options)
 	obj.type = targetType
 	obj.options = options or nil
 
+	obj.isPuppet = Util:CheckForPhotoComponent(handle)
+
 	local components = self.Props:CheckForValidComponents(handle)
 	if components then
 		obj.defaultScale = {
@@ -2093,18 +2146,18 @@ function AMM:NewTarget(handle, targetType, id, name, app, options)
 
 	-- Check if target is Nibbles
 	if obj.name == "Nibbles" or Util:CheckNibblesByID(obj.id) then
-		-- if AMM.nibblesReplacer then
-		-- 	local selectedEntity = AMM.Tools.nibblesEntityOptions[AMM.Tools.selectedNibblesEntity]
-		-- 	if selectedEntity.ent then
-		-- 		obj.name = "Replacer"
-		-- 		obj.id = AMM:GetScanID(selectedEntity.ent)
-		-- 		obj.options = AMM:GetAppearanceOptions(handle, obj.id)
-		-- 		obj.type = "NPCPuppet"
-		-- 	end
-		-- else
+		if AMM.CETVersion < 34 and AMM.nibblesReplacer then
+			local selectedEntity = AMM.Tools.nibblesEntityOptions[AMM.Tools.selectedNibblesEntity]
+			if selectedEntity.ent then
+				obj.name = "Replacer"
+				obj.id = AMM:GetScanID(selectedEntity.ent)
+				obj.options = AMM:GetAppearanceOptions(handle, obj.id)
+				obj.type = "NPCPuppet"
+			end
+		else
 			obj.name = "Nibbles"
 			obj.type = "Player"
-		-- end
+		end
 	end
 
 	-- Check if target is V
@@ -3728,39 +3781,20 @@ function AMM:GetFavoritesAppearances(id)
 	return favorites
 end
 
-local listener
-local waiting = {}
 local entitiesChecked = {}
-
 function AMM:GetAppearancesFromEntity(id)
 	log("Appearances From Entity: "..id)
 	entitiesChecked[id] = true
 
-	listener = NewProxy({
-		OnResourceReady = {
-			args = {'whandle:ResourceToken'},
-			callback = function(token)
-				local template = token:GetResource()
-				local valueList = {}
-				for _, appearance in ipairs(template.appearances) do
-					table.insert(valueList, f("('%s', '%s')", id, NameToString(appearance.name)))
-				end
-
-				db:execute(f("INSERT INTO appearances (entity_id, app_name) VALUES " .. table.concat(valueList, ",")))
-				waiting[token:GetHash()] = nil
-			end
-		}
-	})
-
 	local recordID = loadstring("return TweakDBID.new("..id..")", '')()
 	local path = TweakDB:GetFlat(TweakDBID.new(recordID, '.entityTemplatePath'))
-	if path then
-		local token = Game.GetResourceDepot():LoadResource(path)
-		if not token:IsFailed() then
-			token:RegisterCallback(listener:Target(), listener:Function('OnResourceReady'))
-			waiting[token:GetHash()] = token
-		end
+	local template = Game.GetResourceDepot():LoadResource(path):GetResource()
+	local valueList = {}
+	for _, appearance in ipairs(template.appearances) do
+		table.insert(valueList, f("('%s', '%s')", id, NameToString(appearance.name)))
 	end
+
+	db:execute(f("INSERT INTO appearances (entity_id, app_name) VALUES " .. table.concat(valueList, ",")))
 end
 
 function AMM:GetAppearanceOptions(t, id)
@@ -3790,7 +3824,7 @@ function AMM:GetAppearanceOptionsWithID(id, t)
 	options = AMM:GetFavoritesAppearances(id)
 
 	if self.customAppPosition == "Top" then
-		options = self:LoadCustomAppearances(options, id)
+		options = self:LoadCustomAppearances(options, id, t)
 	end
 
 	if self.Swap.activeSwaps[id] == nil then
@@ -3822,7 +3856,7 @@ function AMM:GetAppearanceOptionsWithID(id, t)
 	end
 
 	if self.customAppPosition == "Bottom" then
-		options = self:LoadCustomAppearances(options, id)
+		options = self:LoadCustomAppearances(options, id, t)
 	end
 
 	if next(options) ~= nil then
@@ -3833,7 +3867,7 @@ function AMM:GetAppearanceOptionsWithID(id, t)
 	return nil
 end
 
-function AMM:LoadCustomAppearances(options, id)
+function AMM:LoadCustomAppearances(options, id, t)
 	local searchQuery = ""
 	if AMM.Scan.searchQuery ~= "" then
 		searchQuery = "app_name LIKE '%"..AMM.Scan.searchQuery.."%' AND "
@@ -3849,6 +3883,22 @@ function AMM:LoadCustomAppearances(options, id)
 			end
 		end
 		collabsAppBase = collabsAppBase..")"
+
+	-- PM spawned NPCs could have custom appearances added by name
+	-- But since their appearance names are different, it will cause issues anyways
+	-- 	local check = 0
+	-- 	for count in db:urows(f("SELECT COUNT(1) FROM custom_appearances WHERE entity_id = '%s'", id)) do
+	-- 		check = count
+	-- 		break
+	--   end
+
+	-- 	if check == 0 then
+	-- 		local name = AMM:GetNPCName(t)
+
+	-- 		for entity_id in db:urows(f("SELECT entity_id FROM entities WHERE entity_name LIKE '%%%s%%' AND entity_path LIKE '%%Character.%%'", name)) do
+	-- 			id = entity_id
+	-- 		end
+	-- 	end
 
 		for app in db:urows(f("SELECT DISTINCT app_name FROM custom_appearances WHERE %s(collab_tag IS NULL OR collab_tag = 'AMM') AND app_base NOT IN %s AND entity_id = '%s' ORDER BY app_name ASC", searchQuery, collabsAppBase, id)) do
 			table.insert(options, app)

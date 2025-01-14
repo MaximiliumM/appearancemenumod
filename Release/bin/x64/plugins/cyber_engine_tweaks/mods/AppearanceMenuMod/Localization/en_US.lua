@@ -262,6 +262,7 @@ return {
 	Button_TogglePiercings = "Toggle Piercings",
 	Button_ToggleSeamfix = "Toggle Seamfix",
 	Button_TargetV = "Target V",
+	Button_Target = "Target ",
 	Button_TeleportToLocation = "Teleport To Location",
 	Button_ShareCurrentLocation = "Share Current Location",
 	Button_GoBackToLastLocation = "Go Back To Last Location",
@@ -270,8 +271,8 @@ return {
 	--Slider / Drag 
 	Slider_HeadStiffness = "Head Stiffness",
 	Slider_HeadPoseOverride = "Head Pose Override",
-	Silder_ChestStiffness = "Chest Stiffness",
-	Silder_ChestPoseOverride = "Chest Pose Override",
+	Slider_ChestStiffness = "Chest Stiffness",
+	Slider_ChestPoseOverride = "Chest Pose Override",
 	Slider_SlowMotion = "Slow Motion",
 	Slider_DefaultAperture = "Default Aperture",
 	Slider_DefaultFieldofView = "Default Field of View",

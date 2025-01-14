@@ -1291,7 +1291,7 @@ function Director:SpawnActors(script, actors)
 
         actor.entitySpec.recordID = TweakDBID.new(path)
         actor.entitySpec.tags = { "AMM_NPC" }
-        actor.entitySpec.position = Util:GetPosition(1, 0)
+        actor.entitySpec.position = Util:GetPosition(-1, 0)
         actor.entitySpec.orientation = Util:GetOrientation(-180)
 
         actor.entityID = getEntitySystem():CreateEntity(actor.entitySpec)
