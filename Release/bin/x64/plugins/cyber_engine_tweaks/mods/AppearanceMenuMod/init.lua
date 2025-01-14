@@ -82,7 +82,7 @@ function AMM:new()
 	 AMM.nibblesReplacer = false
 
 	 -- Main Properties --
-	 AMM.currentVersion = "2.8.2"
+	 AMM.currentVersion = "2.8.3"
 	 AMM.CETVersion = parseVersion(GetVersion())
 	 AMM.CodewareVersion = 0
 	 AMM.updateNotes = require('update_notes.lua')
