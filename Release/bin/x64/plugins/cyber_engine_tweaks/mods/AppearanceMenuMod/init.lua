@@ -295,9 +295,16 @@ function AMM:new()
 		 ObserveAfter('gameuiPhotoModeMenuController', 'OnSetCategoryEnabled', function(this)
 			this.topButtonsController:SetToggleEnabled(0, not(AMM.userSettings.disableCameraTab))
 			this.topButtonsController:SetToggleEnabled(1, not(AMM.userSettings.disableDOFTab))
-			this.topButtonsController:SetToggleEnabled(6, not(AMM.userSettings.disableEffectTab))
-			this.topButtonsController:SetToggleEnabled(7, not(AMM.userSettings.disableStickersTab))
-			this.topButtonsController:SetToggleEnabled(8, not(AMM.userSettings.disableLoadSaveTab))
+
+			if AMM.CETVersion < 34 then
+				this.topButtonsController:SetToggleEnabled(3, not(AMM.userSettings.disableEffectTab))
+				this.topButtonsController:SetToggleEnabled(4, not(AMM.userSettings.disableStickersTab))
+				this.topButtonsController:SetToggleEnabled(5, not(AMM.userSettings.disableLoadSaveTab))
+			else
+				this.topButtonsController:SetToggleEnabled(6, not(AMM.userSettings.disableEffectTab))
+				this.topButtonsController:SetToggleEnabled(7, not(AMM.userSettings.disableStickersTab))
+				this.topButtonsController:SetToggleEnabled(8, not(AMM.userSettings.disableLoadSaveTab))
+			end
 		 end)
 
 		 Override("CursorGameController", "ProcessCursorContext", function(self, context, data, force, wrapped)
@@ -622,7 +629,7 @@ function AMM:new()
 			-- Nibbles Replacer LocKey Update --
 			if AMM.CETVersion < 34 and AMM.Tools.replacer then
 				TweakDB:SetFlat('photo_mode.general.localizedNameForPhotoModePuppet', {"LocKey#48683", "LocKey#34414", 'Replacer'})
-				TweakDB:SetFlat('photo_mode.character.quadrupedPoses', AMM.Tools.replacer.poses)
+				-- TweakDB:SetFlat('photo_mode.character.quadrupedPoses', AMM.Tools.replacer.poses)
 			end
 
 			if AMM.userSettings.photoModeEnhancements then
