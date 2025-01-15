@@ -378,26 +378,28 @@ function Scan:DrawTargetActions(target)
       end
     end
 
-    for i, seat in ipairs(vehicleSeats) do
-      local doorState = Util:GetDoorState(target.handle, seat.enum)
-      local doorGlyph = IconGlyphs.Close
-      if doorState then doorGlyph = IconGlyphs.CheckBold end
+    if #vehicleSeats > 1 then
+      for i, seat in ipairs(vehicleSeats) do
+        local doorState = Util:GetDoorState(target.handle, seat.enum)
+        local doorGlyph = IconGlyphs.Close
+        if doorState then doorGlyph = IconGlyphs.CheckBold end
 
-      local windowState = Util:GetWindowState(target.handle, seat.enum)
-      local windowGlyph = IconGlyphs.Close
-      if windowState then windowGlyph = IconGlyphs.CheckBold end
+        local windowState = Util:GetWindowState(target.handle, seat.enum)
+        local windowGlyph = IconGlyphs.Close
+        if windowState then windowGlyph = IconGlyphs.CheckBold end
 
-      if i == 1 or i == 2 or i == 5 or i == 6 then
-        if ImGui.Button(doorGlyph.." "..AMM.LocalizableString("Label_Door").." "..seat.name, (ImGui.GetWindowContentRegionWidth() / 4) - 7, style.buttonHeight - 5) then
-          Util:ToggleDoor(target.handle:GetVehiclePS(), seat.cname, doorState)
+        if i == 1 or i == 2 or i == 5 or i == 6 then
+          if ImGui.Button(doorGlyph.." "..AMM.LocalizableString("Label_Door").." "..seat.name, (ImGui.GetWindowContentRegionWidth() / 4) - 7, style.buttonHeight - 5) then
+            Util:ToggleDoor(target.handle:GetVehiclePS(), seat.cname, doorState)
+          end
+        else
+          if ImGui.Button(windowGlyph.." "..AMM.LocalizableString("Label_Window").." "..seat.name, (ImGui.GetWindowContentRegionWidth() / 4) - 7, style.buttonHeight - 5) then
+            Util:ToggleWindow(target.handle:GetVehiclePS(), seat.cname, windowState)
+          end
         end
-      else
-        if ImGui.Button(windowGlyph.." "..AMM.LocalizableString("Label_Window").." "..seat.name, (ImGui.GetWindowContentRegionWidth() / 4) - 7, style.buttonHeight - 5) then
-          Util:ToggleWindow(target.handle:GetVehiclePS(), seat.cname, windowState)
-        end
+
+        if i ~= 4 and i ~= #vehicleSeats then ImGui.SameLine() end
       end
-
-      if i ~= 4 and i ~= #vehicleSeats then ImGui.SameLine() end
     end
 
     -- if ImGui.Button(AMM.LocalizableString("Button_OpenCloseDoors"), style.halfButtonWidth, style.buttonHeight - 5) then

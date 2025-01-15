@@ -740,7 +740,7 @@ function Tools:ClearListOfPuppets()
     if not Game.FindEntityByID(puppetID) then
       for i, puppet in ipairs(Tools.listOfPuppets) do
         if puppet.hash == puppetHash then
-          Tools.listOfPuppets[i] = nil
+          table.remove(Tools.listOfPuppets, i)
           Tools.puppetsIDs[puppetHash] = nil
         end
       end
@@ -1090,13 +1090,19 @@ function Tools:DrawNPCActions()
             ImGui.SameLine()
           end
 
-          if ImGui.Button(f(AMM.LocalizableString("Button_Target").."%s##%i", puppet.name, i), Tools.style.halfButtonWidth, Tools.style.buttonHeight) then
+          if ImGui.Button(f(AMM.LocalizableString("Button_Target").."%s##%i", puppet.name, i), Tools.style.halfButtonWidth, Tools.style.buttonHeight) then            
+            if Tools.currentTarget.pos then
+              Tools:SetTargetPosition(Tools.currentTarget.pos, Tools.currentTarget.angles)
+            end
+            
             Tools:SetCurrentTarget(puppet)
             Tools.lockTarget = true
           end
         end
       end
     end
+
+    AMM.UI:Spacing(2)
   end
 
   if Tools.currentTarget and Tools.currentTarget ~= '' and Tools.currentTarget.handle then
@@ -1182,27 +1188,52 @@ function Tools:DrawNPCActions()
   end
 end
 
-function Tools:SetTargetPosition(pos, angles)
-  if Tools.currentTarget.type == 'entEntity' then
-    if not Tools.movingProp then
-      Tools:TeleportPropTo(Tools.currentTarget, pos, angles or EulerAngles.new(Tools.npcRotation[1], Tools.npcRotation[2], Tools.npcRotation[3]))
+function Tools:UpdateTargetPosition()
+  if Tools.currentTarget.type ~= 'Player' and Tools.currentTarget.name ~= 'Replacer' and Tools.currentTarget.handle:IsNPC() and not Tools.currentTarget.isPuppet then
+    Cron.After(0.2, function()
+      if Tools.currentTarget.UpdatePosition then
+        Tools.currentTarget:UpdatePosition()
+      end
+      
+      if Tools.axisIndicator then
+        Tools:UpdateAxisIndicatorPosition()
+      end
+    end)
+  else
+    if Tools.currentTarget.UpdatePosition then
+      Tools.currentTarget:UpdatePosition()
     end
-  elseif Tools.currentTarget.type ~= 'Player' and Tools.currentTarget.name ~= 'Replacer' and Tools.currentTarget.handle:IsNPC() and not Tools.currentTarget.isPuppet then
+    
+    if Tools.axisIndicator then
+      Tools:UpdateAxisIndicatorPosition()
+    end
+  end
+end
+
+function Tools:SetTargetPosition(pos, angles, target)
+  local t = Tools.currentTarget
+  if target then t = target end
+
+  if t.type == 'entEntity' then
+    if not Tools.movingProp then
+      Tools:TeleportPropTo(t, pos, angles or EulerAngles.new(Tools.npcRotation[1], Tools.npcRotation[2], Tools.npcRotation[3]))
+    end
+  elseif t.type ~= 'Player' and t.name ~= 'Replacer' and t.handle:IsNPC() and not t.isPuppet then
     local yaw = Tools.npcRotation[3]
     if angles then yaw = angles.yaw end
-    Tools:TeleportNPCTo(Tools.currentTarget.handle, pos, yaw)
+    Tools:TeleportNPCTo(t.handle, pos, yaw)
   else
-    Game.GetTeleportationFacility():Teleport(Tools.currentTarget.handle, pos, angles or EulerAngles.new(Tools.npcRotation[1], Tools.npcRotation[2], Tools.npcRotation[3]))
+    Game.GetTeleportationFacility():Teleport(t.handle, pos, angles or EulerAngles.new(Tools.npcRotation[1], Tools.npcRotation[2], Tools.npcRotation[3]))
   end
 
   Cron.After(0.2, function()
-    local hash = Tools.currentTarget.hash
+    local hash = t.hash
     if AMM.Poses.activeAnims[hash] then
       local anim = AMM.Poses.activeAnims[hash]
       AMM.Poses:RestartAnimation(anim)
     end
 
-    Tools:SetCurrentTarget(Tools.currentTarget)
+    Tools:SetCurrentTarget(t)
   end)
 end
 
@@ -1559,7 +1590,7 @@ function Tools:DrawMovementWindow()
     local leftUsed, rightUsed, upDownUsed = false, false, false
 
     ImGui.PushItemWidth(surfaceWiseRowWidth)
-    Tools.npcLeft, leftUsed = ImGui.DragFloat("", Tools.npcLeft, adjustmentValue)
+    Tools.npcLeft, leftUsed = ImGui.DragFloat("##X", Tools.npcLeft, adjustmentValue)
 
     if Tools.axisIndicator then
       ImGui.PopStyleColor(2)
@@ -1572,11 +1603,9 @@ function Tools:DrawMovementWindow()
         AMM.Poses:RestartAnimation(anim)
       end
 
-      if Tools.axisIndicator then
-        Tools:UpdateAxisIndicatorPosition()
-      end
+      Tools:UpdateTargetPosition()
     end
-
+      
     if Tools.relativeMode and ImGui.IsItemDeactivatedAfterEdit() then
       Tools.npcLeft = 0
     end
@@ -1605,9 +1634,7 @@ function Tools:DrawMovementWindow()
         AMM.Poses:RestartAnimation(anim)
       end
 
-      if Tools.axisIndicator then
-        Tools:UpdateAxisIndicatorPosition()
-      end
+      Tools:UpdateTargetPosition()
     end
 
     if Tools.relativeMode and ImGui.IsItemDeactivatedAfterEdit() then
@@ -1643,9 +1670,7 @@ function Tools:DrawMovementWindow()
         AMM.Poses:RestartAnimation(anim)
       end
 
-      if Tools.axisIndicator then
-        Tools:UpdateAxisIndicatorPosition()
-      end
+      Tools:UpdateTargetPosition()
     end
 
     if Tools.relativeMode and ImGui.IsItemDeactivatedAfterEdit() then
@@ -1888,9 +1913,7 @@ function Tools:DrawMovementWindow()
         Game.GetTeleportationFacility():Teleport(Tools.currentTarget.handle, pos, EulerAngles.new(Tools.npcRotation[1], Tools.npcRotation[2], Tools.npcRotation[3]))
       end
 
-      if Tools.axisIndicator then
-        Tools:UpdateAxisIndicatorPosition()
-      end
+      Tools:UpdateTargetPosition()      
     end
 
     ImGui.Spacing()
@@ -2156,10 +2179,10 @@ function Tools:DrawMovementWindow()
           end
 
           if Tools.selectedLookAt.name == AMM.LocalizableString("All") then
-            Tools.chestStiffness, used = ImGui.SliderFloat(AMM.LocalizableString("Silder_ChestStiffness"), Tools.chestStiffness, 0.0, 2.0, "%.1f")
+            Tools.chestStiffness, used = ImGui.SliderFloat(AMM.LocalizableString("Slider_ChestStiffness"), Tools.chestStiffness, 0.0, 2.0, "%.1f")
             if Tools.lookAtActiveNPCs[npcHash] and (used or reset) then Tools:ActivateLookAt() end
 
-            Tools.chestPoseOverride, used = ImGui.SliderFloat(AMM.LocalizableString("Silder_ChestPoseOverride"), Tools.chestPoseOverride, 0.0, 2.0, "%.1f")
+            Tools.chestPoseOverride, used = ImGui.SliderFloat(AMM.LocalizableString("Slider_ChestPoseOverride"), Tools.chestPoseOverride, 0.0, 2.0, "%.1f")
             if Tools.lookAtActiveNPCs[npcHash] and (used or reset) then Tools:ActivateLookAt() end
           end
 

@@ -1,5 +1,25 @@
 return {
 	{
+		'2.8.4',
+		'2025 Jan 15',
+		[[Added new Vehicle: NCPD Apollo]],
+		[[Adjusted the Photo Mode Target buttons to reset the NPC position when pressed]],
+		[[-- This will help with the issue where using the Photo Mode UI will change the NPC position]],
+		[[Fixed issue where Target buttons for Photo Mode NPCs would not appear correctly]],
+		[[Fixed issue where the new Target buttons would overlap with text in the UI when Floating Target Tools was disabled]],
+		[[Fixed issue where the X slider movement would not move the character in certain conditions]],
+		[[Fixed issue where disabling Photo Mode tabs in Interface Settings would not work correctly]],
+		[[Fixed issue where Spawning a new Camera using the hotkey would crash the game in certain conditions]],
+		[[Fixed issue where Despawning Cameras using the hotkey would not remove the camera from the Director tab]],
+		[[Fixed issue where Door Left would appear when targeting Bikes]],
+	},
+	{
+		'2.8.3',
+		'2025 Jan 14',
+		[[Fixed issue where Nibbles Replacer option would not appear in Photo Mode in old versions]],
+		[[Fixed issue where Photo mode tabs in Settings would not work in old versions]],
+	},
+	{
 		'2.8.2',
 		'2025 Jan 14',
 		[[Added new Target buttons for spawned NPCs in Photo Mode]],

@@ -4,6 +4,9 @@ Entity = {}
 function Entity:new(ent)
   local obj = {}
 
+  self.__index = self
+  setmetatable(obj, self)
+
   -- Entity Properties
   obj.handle = ent.handle
   obj.name = ent.name
@@ -27,8 +30,8 @@ function Entity:new(ent)
   obj.mappinData = ent.mappinData or nil
   obj.spawned = ent.spawned or false
 
-  obj.pos = ent.pos or Entity:GetPosition()
-  obj.angles = ent.angles or Entity:GetAngles()
+  obj.pos = ent.pos or obj:GetPosition()
+  obj.angles = ent.angles or obj:GetAngles()
   obj.scale = ent.scale or nil
   obj.defaultScale = ent.defaultScale or nil
   obj.scaleHasChanged = ent.scaleHasChanged
@@ -71,8 +74,7 @@ function Entity:new(ent)
 
   obj.uniqueName = function() return string.format("%s##%s", obj.name or '', obj.id or tostring(math.random()*10000)) end
 
-  self.__index = self
-  return setmetatable(obj, self)
+  return obj
 end
 
 
@@ -80,6 +82,13 @@ local _entitySystem
 local function getEntitySystem()
 	_entitySystem = _entitySystem or Game.GetDynamicEntitySystem()
 	return _entitySystem
+end
+
+function Entity:UpdatePosition()
+  if self.handle then
+    self.pos = self.handle:GetWorldPosition()
+    self.angles = self.handle:GetWorldOrientation():ToEulerAngles()
+  end
 end
 
 function Entity:GetPosition()
@@ -90,8 +99,7 @@ end
 
 function Entity:GetAngles()
   if self.handle then
-    local angles = self.handle:GetWorldOrientation():ToEulerAngles()
-    return {roll = angles.roll, pitch = angles.pitch, yaw = angles.yaw}
+    return self.handle:GetWorldOrientation():ToEulerAngles()
   end
 end
 

@@ -82,7 +82,7 @@ function AMM:new()
 	 AMM.nibblesReplacer = false
 
 	 -- Main Properties --
-	 AMM.currentVersion = "2.8.3"
+	 AMM.currentVersion = "2.8.4"
 	 AMM.CETVersion = parseVersion(GetVersion())
 	 AMM.CodewareVersion = 0
 	 AMM.updateNotes = require('update_notes.lua')
@@ -301,9 +301,9 @@ function AMM:new()
 				this.topButtonsController:SetToggleEnabled(4, not(AMM.userSettings.disableStickersTab))
 				this.topButtonsController:SetToggleEnabled(5, not(AMM.userSettings.disableLoadSaveTab))
 			else
-				this.topButtonsController:SetToggleEnabled(6, not(AMM.userSettings.disableEffectTab))
-				this.topButtonsController:SetToggleEnabled(7, not(AMM.userSettings.disableStickersTab))
-				this.topButtonsController:SetToggleEnabled(8, not(AMM.userSettings.disableLoadSaveTab))
+				this.topButtonsController:SetToggleEnabled(5, not(AMM.userSettings.disableEffectTab))
+				this.topButtonsController:SetToggleEnabled(6, not(AMM.userSettings.disableStickersTab))
+				this.topButtonsController:SetToggleEnabled(7, not(AMM.userSettings.disableLoadSaveTab))
 			end
 		 end)
 
@@ -3795,13 +3795,18 @@ function AMM:GetAppearancesFromEntity(id)
 
 	local recordID = loadstring("return TweakDBID.new("..id..")", '')()
 	local path = TweakDB:GetFlat(TweakDBID.new(recordID, '.entityTemplatePath'))
-	local template = Game.GetResourceDepot():LoadResource(path):GetResource()
-	local valueList = {}
-	for _, appearance in ipairs(template.appearances) do
-		table.insert(valueList, f("('%s', '%s')", id, NameToString(appearance.name)))
+	if path then
+		local token = Game.GetResourceDepot():LoadResource(path)
+		Cron.After(0.1, function()
+			local template = token:GetResource()
+			local valueList = {}
+			for _, appearance in ipairs(template.appearances) do
+				table.insert(valueList, f("('%s', '%s')", id, NameToString(appearance.name)))
+			end
+	
+			db:execute(f("INSERT INTO appearances (entity_id, app_name) VALUES " .. table.concat(valueList, ",")))
+		end)
 	end
-
-	db:execute(f("INSERT INTO appearances (entity_id, app_name) VALUES " .. table.concat(valueList, ",")))
 end
 
 function AMM:GetAppearanceOptions(t, id)

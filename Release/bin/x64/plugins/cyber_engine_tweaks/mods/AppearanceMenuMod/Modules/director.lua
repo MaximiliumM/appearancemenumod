@@ -150,6 +150,12 @@ end
 function Director:DespawnActiveCamera()
   if Director.activeCamera then
     Director.activeCamera:Despawn()
+    for i, camera in ipairs(Director.cameras) do
+      if Director.activeCamera.hash == camera.hash then
+        table.remove(Director.cameras, i)
+        Director.activeCamera = nil
+      end
+    end
   end
 end
 

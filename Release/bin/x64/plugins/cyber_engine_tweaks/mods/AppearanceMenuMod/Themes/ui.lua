@@ -115,6 +115,7 @@ end
 function UI:TextCenter(text, colored)
   local textWidth = ImGui.CalcTextSize(text)
   local x = ImGui.GetWindowSize()
+  ImGui.Dummy(10, 1)
   ImGui.SameLine(x / 2 - textWidth + (textWidth / 2))
   if colored then
     UI:TextColored(text)
