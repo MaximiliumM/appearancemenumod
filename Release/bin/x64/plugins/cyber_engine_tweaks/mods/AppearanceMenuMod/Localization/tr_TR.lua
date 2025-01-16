@@ -579,6 +579,7 @@ return {
 	Codeware_Version = "Codeware Versiyonu:",
 	Game_Version = "Oyun Versiyonu: ",
 	Companion_Damage = "Yoldas Hasari:",
+	Companion_Distance = "Eşlikçi Mesafesi:",
 	xDamage = "x Hasar",
 	SavedAppearancesHotkeys = "Kaydedilmis Görünüm Kisayollari",
 	Favorites = "Favoriler",

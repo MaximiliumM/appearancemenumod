@@ -82,7 +82,7 @@ function AMM:new()
 	 AMM.nibblesReplacer = false
 
 	 -- Main Properties --
-	 AMM.currentVersion = "2.8.4"
+	 AMM.currentVersion = "2.8.5"
 	 AMM.CETVersion = parseVersion(GetVersion())
 	 AMM.CodewareVersion = 0
 	 AMM.updateNotes = require('update_notes.lua')
@@ -503,6 +503,10 @@ function AMM:new()
 						end
 					 end
 
+					 if next(AMM.Spawn.spawnedNPCs) ~= nil then
+						AMM:UpdateFollowDistance()
+					 end
+
 					 AMM.Scan.carCam = false
 					 AMM.Scan.vehicle = ''
 				 elseif AMM.playerInVehicle and next(AMM.Spawn.spawnedNPCs) ~= nil and AMM.userSettings.spawnAsCompanion then
@@ -632,6 +636,34 @@ function AMM:new()
 				-- TweakDB:SetFlat('photo_mode.character.quadrupedPoses', AMM.Tools.replacer.poses)
 			end
 
+			-- Fix Record Names for Photo Mode Puppets (CDPR, :facepalm:)
+			TweakDB:SetFlat('Character.AdamSmasher_Puppet_Photomode.displayName', TweakDB:GetFlat('Character.Smasher.displayName'))
+			TweakDB:SetFlat('Character.AltJohnny_Puppet_Photomode.displayName', TweakDB:GetFlat('Character.Silverhand.displayName'))
+			TweakDB:SetFlat('Character.Alt_Puppet_Photomode.displayName', TweakDB:GetFlat('Character.Alt.displayName'))
+			TweakDB:SetFlat('Character.BlueMoon_Puppet_Photomode.displayName', TweakDB:GetFlat('Character.sq017_blue_moon.displayName'))
+			TweakDB:SetFlat('Character.Evelyn_Puppet_Photomode.displayName', TweakDB:GetFlat('Character.Evelyn.displayName'))
+			TweakDB:SetFlat('Character.Goro_Puppet_Photomode.displayName', TweakDB:GetFlat('Character.Takemura.displayName'))
+			TweakDB:SetFlat('Character.Hanako_Puppet_Photomode.displayName', TweakDB:GetFlat('Character.Hanako.displayName'))
+			TweakDB:SetFlat('Character.Jackie_Puppet_Photomode.displayName', TweakDB:GetFlat('Character.Jackie.displayName'))
+			TweakDB:SetFlat('Character.JohnnyNPC_Puppet_Photomode.displayName', TweakDB:GetFlat('Character.Silverhand.displayName'))
+			TweakDB:SetFlat('Character.Johnny_Puppet_Photomode.displayName', TweakDB:GetFlat('Character.Silverhand.displayName'))
+			TweakDB:SetFlat('Character.Judy_Puppet_Photomode.displayName', TweakDB:GetFlat('Character.Judy.displayName'))
+			TweakDB:SetFlat('Character.Kerry_Puppet_Photomode.displayName', TweakDB:GetFlat('Character.Kerry.displayName'))
+			TweakDB:SetFlat('Character.Kurt_Puppet_Photomode.displayName', TweakDB:GetFlat('Character.kurtz.displayName'))
+			TweakDB:SetFlat('Character.Lizzy_Puppet_Photomode.displayName', TweakDB:GetFlat('Character.Lizzy_Wizzy.displayName'))
+			TweakDB:SetFlat('Character.Meredith_Puppet_Photomode.displayName', TweakDB:GetFlat('Character.Stout.displayName'))
+			TweakDB:SetFlat('Character.Myers_Puppet_Photomode.displayName', TweakDB:GetFlat('Character.myers.displayName'))
+			TweakDB:SetFlat('Character.Nibbles_Puppet_Photomode.displayName', TweakDB:GetFlat('Character.q003_cat.displayName'))
+			TweakDB:SetFlat('Character.Panam_Puppet_Photomode.displayName', TweakDB:GetFlat('Character.Panam.displayName'))
+			TweakDB:SetFlat('Character.PurpleForce_Puppet_Photomode.displayName', TweakDB:GetFlat('Character.sq017_purple_force.displayName'))
+			TweakDB:SetFlat('Character.RedMenace_Puppet_Photomode.displayName', TweakDB:GetFlat('Character.sq017_red_menace.displayName'))
+			TweakDB:SetFlat('Character.Reed_Puppet_Photomode.displayName', TweakDB:GetFlat('Character.reed.displayName'))
+			TweakDB:SetFlat('Character.River_Puppet_Photomode.displayName', TweakDB:GetFlat('Character.Sobchak.displayName'))
+			TweakDB:SetFlat('Character.RogueOld_Puppet_Photomode.displayName', TweakDB:GetFlat('Character.Rogue.displayName'))
+			TweakDB:SetFlat('Character.RogueYoung_Puppet_Photomode.displayName', TweakDB:GetFlat('Character.Rogue.displayName'))
+			TweakDB:SetFlat('Character.Songbird_Puppet_Photomode.displayName', TweakDB:GetFlat('Character.songbird.displayName'))
+			TweakDB:SetFlat('Character.Viktor_Puppet_Photomode.displayName', TweakDB:GetFlat('Character.Victor_Vector.displayName'))
+
 			if AMM.userSettings.photoModeEnhancements then
 				-- Adjust Photomode Defaults
 				TweakDB:SetFlat('photo_mode.attributes.dof_aperture_default', AMM.Tools.defaultAperture)
@@ -650,34 +682,6 @@ function AMM:new()
 				-- TweakDB:SetFlat('photo_mode.general.collisionRadiusForNpcs', 0)
 				-- TweakDB:SetFlat('photo_mode.general.force_lod0_characters_dist', 0)
 				-- TweakDB:SetFlat('photo_mode.general.force_lod0_vehicles_dist', 0)
-
-				-- Fix Record Names for Photo Mode Puppets (CDPR, :facepalm:)
-				TweakDB:SetFlat('Character.AdamSmasher_Puppet_Photomode.displayName', TweakDB:GetFlat('Character.kurtz.displayName'))
-				TweakDB:SetFlat('Character.AltJohnny_Puppet_Photomode.displayName', TweakDB:GetFlat('Character.Silverhand.displayName'))
-				TweakDB:SetFlat('Character.Alt_Puppet_Photomode.displayName', TweakDB:GetFlat('Character.Alt.displayName'))
-				TweakDB:SetFlat('Character.BlueMoon_Puppet_Photomode.displayName', TweakDB:GetFlat('Character.sq017_blue_moon.displayName'))
-				TweakDB:SetFlat('Character.Evelyn_Puppet_Photomode.displayName', TweakDB:GetFlat('Character.Evelyn.displayName'))
-				TweakDB:SetFlat('Character.Goro_Puppet_Photomode.displayName', TweakDB:GetFlat('Character.Takemura.displayName'))
-				TweakDB:SetFlat('Character.Hanako_Puppet_Photomode.displayName', TweakDB:GetFlat('Character.Hanako.displayName'))
-				TweakDB:SetFlat('Character.Jackie_Puppet_Photomode.displayName', TweakDB:GetFlat('Character.Jackie.displayName'))
-				TweakDB:SetFlat('Character.JohnnyNPC_Puppet_Photomode.displayName', TweakDB:GetFlat('Character.Silverhand.displayName'))
-				TweakDB:SetFlat('Character.Johnny_Puppet_Photomode.displayName', TweakDB:GetFlat('Character.Silverhand.displayName'))
-				TweakDB:SetFlat('Character.Judy_Puppet_Photomode.displayName', TweakDB:GetFlat('Character.Judy.displayName'))
-				TweakDB:SetFlat('Character.Kerry_Puppet_Photomode.displayName', TweakDB:GetFlat('Character.Kerry.displayName'))
-				TweakDB:SetFlat('Character.Kurt_Puppet_Photomode.displayName', TweakDB:GetFlat('Character.kurtz.displayName'))
-				TweakDB:SetFlat('Character.Lizzy_Puppet_Photomode.displayName', TweakDB:GetFlat('Character.Lizzy_Wizzy.displayName'))
-				TweakDB:SetFlat('Character.Meredith_Puppet_Photomode.displayName', TweakDB:GetFlat('Character.Stout.displayName'))
-				TweakDB:SetFlat('Character.Myers_Puppet_Photomode.displayName', TweakDB:GetFlat('Character.myers.displayName'))
-				TweakDB:SetFlat('Character.Nibbles_Puppet_Photomode.displayName', TweakDB:GetFlat('Character.q003_cat.displayName'))
-				TweakDB:SetFlat('Character.Panam_Puppet_Photomode.displayName', TweakDB:GetFlat('Character.Panam.displayName'))
-				TweakDB:SetFlat('Character.PurpleForce_Puppet_Photomode.displayName', TweakDB:GetFlat('Character.sq017_purple_force.displayName'))
-				TweakDB:SetFlat('Character.RedMenace_Puppet_Photomode.displayName', TweakDB:GetFlat('Character.sq017_red_menace.displayName'))
-				TweakDB:SetFlat('Character.Reed_Puppet_Photomode.displayName', TweakDB:GetFlat('Character.reed.displayName'))
-				TweakDB:SetFlat('Character.River_Puppet_Photomode.displayName', TweakDB:GetFlat('Character.Sobchak.displayName'))
-				TweakDB:SetFlat('Character.RogueOld_Puppet_Photomode.displayName', TweakDB:GetFlat('Character.Rogue.displayName'))
-				TweakDB:SetFlat('Character.RogueYoung_Puppet_Photomode.displayName', TweakDB:GetFlat('Character.Rogue.displayName'))
-				TweakDB:SetFlat('Character.Songbird_Puppet_Photomode.displayName', TweakDB:GetFlat('Character.songbird.displayName'))
-				TweakDB:SetFlat('Character.Viktor_Puppet_Photomode.displayName', TweakDB:GetFlat('Character.Victor_Vector.displayName'))
 
 				for pose in db:nrows("SELECT * FROM photomode_poses") do
 					local poseID = 'PhotoModePoses.'..pose.pose_name
@@ -1551,9 +1555,6 @@ function AMM.LocalizableString(str)
 		log("[AMM Debug] The string is an empty string ('')")
   else
 		log(string.format("[AMM Debug] The string has content (length: %d): '%s'", #str, str))
-		for i = 1, #str do
-			 log(string.format("[AMM Debug] Char %d: '%s' (Hex: %02X)", i, str:sub(i, i), str:byte(i)))
-		end
   end
 
 	return "AMM_ERROR"
@@ -1724,20 +1725,7 @@ function AMM:Begin()
 							end
 
 							ImGui.EndTabBar()
-						end
-
-						-- AMM.UI:TextColored("Companion Distance:")
-
-						-- for _, option in ipairs(AMM.followDistanceOptions) do
-						-- 	if ImGui.RadioButton(option[1], AMM.followDistance[1] == option[1]) then
-						-- 		AMM.followDistance = option
-						-- 		AMM:UpdateFollowDistance()
-						-- 	end
-
-						-- 	ImGui.SameLine()
-						-- end
-
-						-- AMM.UI:Spacing(3)				
+						end			
 						
 						AMM.UI:Separator()
 
@@ -1853,6 +1841,19 @@ function AMM:DrawGeneralSettingsTab(style)
 		AMM.companionAttackMultiplier = ImGui.InputFloat(AMM.LocalizableString("xDamage"), AMM.companionAttackMultiplier, 0.5, 50, "%.1f")
 		if AMM.companionAttackMultiplier < 0 then AMM.companionAttackMultiplier = 0 end
 		ImGui.PopItemWidth()
+
+		AMM.UI:Spacing(3)
+
+		AMM.UI:TextColored(AMM.LocalizableString("Companion_Distance"))
+
+		for _, option in ipairs(AMM.followDistanceOptions) do
+			if ImGui.RadioButton(option[1], AMM.followDistance[1] == option[1]) then
+				AMM.followDistance = option
+				AMM:UpdateFollowDistance()
+			end
+
+			ImGui.SameLine()
+		end
 
 		AMM.UI:Spacing(3)
 
@@ -2706,18 +2707,6 @@ function AMM:GetEquipmentOptions(HMG)
 	return equipments
 end
 
-function AMM:GetFollowDistanceOptions()
-	local options = {
-		{"Close", -0.8, 2, 2.5},
-		{"Default", 1, 2, 2.5},
-		{"Far", 1.5, 2.5, 3},
-	}
-
-	-- Set Default
-	AMM.followDistance = options[2]
-	return options
-end
-
 function AMM:GetCustomAppearanceDefaults()
 	if AMM.collabs and #AMM.collabs > 0 then
 		local customs = {}
@@ -3269,71 +3258,76 @@ function AMM:SetupCollabAppearances()
 	local collabs = {}
 	if #files == 0 then return collabs end
 
-  for _, mod in ipairs(files) do
-    
-    local collab = require(mod)
-    
-    local metadata = collab.metadata
-    
-    if metadata == nil then
-      local entity_id = collab.entity_id
-      local archive = collab.archive or nil
-      local uid = collab.unique_identifier
-      local appearances = collab.appearances
-      local attributes = collab.attributes
-      
-      if archive then table.insert(AMM.collabArchives, {name = archive.name, desc = archive.description, active = true, optional = false}) end
-      
-      -- Setup Appearances
-      for _, app in ipairs(appearances) do
-        -- 'INSERT INTO appearances (entity_id, app_name, collab_tag) VALUES ("%s", "%s", "%s")'
-        db:execute(f(insertAppearanceFormat, entity_id, app, uid))
-      end
-      
-      if attributes ~= nil then
-        local entity_path = nil
-        for path in db:urows(f(selectEntityFormat, entity_id)) do -- "SELECT entity_path FROM entities WHERE entity_id = '%s'"
-          entity_path = path
-        end
-        
-        if entity_path then
-          local newAttributes = {}
-          for attr, value in pairs(attributes) do
-            newAttributes[attr] = TweakDB:GetFlat(value)
-          end
-          TweakDB:SetFlats(entity_path, newAttributes)
-        end
-      end
-      else -- if metadata != nil 
-      for _, newApp in ipairs(metadata) do
-        newApp.disabledByDefault = collab.disabledByDefault
-        table.insert(collabs, newApp)
-        
-        local customApps = collab.customApps[newApp.tag]
-        
-        if customApps then
+	local function addCollab(mod)
+		local collab = require(mod)
+		if not collab then     
+			spdlog.error(f("Failed to parse file: %s", mod))
+			return
+		end
 
-			local check = 0
-			for count in db:urows(f("SELECT COUNT(1) FROM custom_appearances WHERE collab_tag = '%s'", newApp.tag)) do
-				check = count
-			end
+		local metadata = collab.metadata
 
-			if check ~= 0 then
-				db:execute(f("DELETE FROM custom_appearances WHERE collab_tag = '%s'", newApp.tag))
+		if metadata == nil then
+			local entity_id = collab.entity_id
+			local archive = collab.archive or nil
+			local uid = collab.unique_identifier
+			local appearances = collab.appearances
+			local attributes = collab.attributes
+			
+			if archive then table.insert(AMM.collabArchives, {name = archive.name, desc = archive.description, active = true, optional = false}) end
+			
+			-- Setup Appearances
+			for _, app in ipairs(appearances) do
+				-- 'INSERT INTO appearances (entity_id, app_name, collab_tag) VALUES ("%s", "%s", "%s")'
+				db:execute(f(insertAppearanceFormat, entity_id, app, uid))
 			end
-          
-          for _, customApp in ipairs(customApps) do
-            local tables = '("entity_id", "app_name", "app_base", "app_param", "app_toggle", "mesh_app", "mesh_type", "mesh_mask", "mesh_path", "collab_tag")'
-            local values = f('("%s", "%s", "%s", "%s", "%s", "%s", "%s", "%s", "%s", "%s")', newApp.entity_id, customApp.app_name, newApp.appearance, customApp.app_param, customApp.app_toggle, customApp.mesh_app, customApp.mesh_type, customApp.mesh_mask, customApp.mesh_path, newApp.tag)
-            values = values:gsub('"nil"', "NULL")
-				values = values:gsub('""', "NULL")
-            db:execute(f('INSERT INTO custom_appearances %s VALUES %s', tables, values))
-          end
-        end
-      end
-    end
-  end
-  return collabs
+			
+			if attributes ~= nil then
+				local entity_path = nil
+				for path in db:urows(f(selectEntityFormat, entity_id)) do -- "SELECT entity_path FROM entities WHERE entity_id = '%s'"
+					entity_path = path
+				end
+				
+				if entity_path then
+					local newAttributes = {}
+					for attr, value in pairs(attributes) do
+						newAttributes[attr] = TweakDB:GetFlat(value)
+					end
+					TweakDB:SetFlats(entity_path, newAttributes)
+				end
+			end
+		else -- if metadata != nil 
+			for _, newApp in ipairs(metadata) do
+				newApp.disabledByDefault = collab.disabledByDefault
+				table.insert(collabs, newApp)
+				
+				local customApps = collab.customApps[newApp.tag]
+				
+				if customApps then
+
+					local check = 0
+					for count in db:urows(f("SELECT COUNT(1) FROM custom_appearances WHERE collab_tag = '%s'", newApp.tag)) do
+						check = count
+					end
+
+					if check ~= 0 then
+						db:execute(f("DELETE FROM custom_appearances WHERE collab_tag = '%s'", newApp.tag))
+					end
+				
+					for _, customApp in ipairs(customApps) do
+						local tables = '("entity_id", "app_name", "app_base", "app_param", "app_toggle", "mesh_app", "mesh_type", "mesh_mask", "mesh_path", "collab_tag")'
+						local values = f('("%s", "%s", "%s", "%s", "%s", "%s", "%s", "%s", "%s", "%s")', newApp.entity_id, customApp.app_name, newApp.appearance, customApp.app_param, customApp.app_toggle, customApp.mesh_app, customApp.mesh_type, customApp.mesh_mask, customApp.mesh_path, newApp.tag)
+						values = values:gsub('"nil"', "NULL")
+							values = values:gsub('""', "NULL")
+						db:execute(f('INSERT INTO custom_appearances %s VALUES %s', tables, values))
+					end
+				end
+			end
+		end
+	end
+
+	for _, mod in ipairs(files) do addCollab(mod) end
+	return collabs
 end
 
 local animCompType = "amm_workspot_collab"
@@ -3716,7 +3710,11 @@ function AMM:RemoveFromBlacklist(t)
 end
 
 function AMM:GetNPCName(t)
-	local n = t:GetTweakDBDisplayName(true)
+	local n
+	if t and t.GetTweakDBDisplayName then
+		n = t:GetTweakDBDisplayName(true)
+	end
+
 	return n
 end
 
@@ -3879,6 +3877,19 @@ function AMM:GetAppearanceOptionsWithID(id, t)
 	return nil
 end
 
+function AMM:GetTweakDBIDFromName(name)
+	local id
+
+	for entity_id in db:urows(f("SELECT entity_id FROM entities WHERE entity_name LIKE '%%%s%%' AND entity_path LIKE '%%Character.%%'", name)) do
+		id = entity_id
+		break
+	end
+
+	if id then return id end
+
+	return nil
+end
+
 function AMM:LoadCustomAppearances(options, id, t)
 	local searchQuery = ""
 	if AMM.Scan.searchQuery ~= "" then
@@ -3898,19 +3909,17 @@ function AMM:LoadCustomAppearances(options, id, t)
 
 	-- PM spawned NPCs could have custom appearances added by name
 	-- But since their appearance names are different, it will cause issues anyways
-	-- 	local check = 0
-	-- 	for count in db:urows(f("SELECT COUNT(1) FROM custom_appearances WHERE entity_id = '%s'", id)) do
-	-- 		check = count
-	-- 		break
-	--   end
+		local check = 0
+		for count in db:urows(f("SELECT COUNT(1) FROM custom_appearances WHERE entity_id = '%s'", id)) do
+			check = count
+			break
+	  	end
 
-	-- 	if check == 0 then
-	-- 		local name = AMM:GetNPCName(t)
-
-	-- 		for entity_id in db:urows(f("SELECT entity_id FROM entities WHERE entity_name LIKE '%%%s%%' AND entity_path LIKE '%%Character.%%'", name)) do
-	-- 			id = entity_id
-	-- 		end
-	-- 	end
+		if check == 0 then
+			local name = AMM:GetNPCName(t)
+			local tdbid = AMM:GetTweakDBIDFromName(name)
+			if tdbid then id = tdbid end
+	  	end
 
 		for app in db:urows(f("SELECT DISTINCT app_name FROM custom_appearances WHERE %s(collab_tag IS NULL OR collab_tag = 'AMM') AND app_base NOT IN %s AND entity_id = '%s' ORDER BY app_name ASC", searchQuery, collabsAppBase, id)) do
 			table.insert(options, app)
@@ -3938,7 +3947,12 @@ function AMM:GetAppearance(t)
 end
 
 function AMM:GetScanAppearance(t)
-	return tostring(t:GetCurrentAppearanceName()):match("%[ (%g+) -")
+	if t and t.GetCurrentAppearanceName then
+		return tostring(t:GetCurrentAppearanceName()):match("%[ (%g+) -")
+	end
+
+	log("[AMM Error] Target was invalid while trying to get appearance")
+	return nil
 end
 
 function AMM:CheckForReverseCustomAppearance(appearance, target)
@@ -3964,12 +3978,20 @@ end
 
 function AMM:GetCustomAppearanceParams(target, appearance, reverse)
 	local collabTag
+	local targetID = target.id
+
+	if target.isPuppet then
+		local name = AMM:GetNPCName(target.handle)
+		local tdbid = AMM:GetTweakDBIDFromName(name)
+		if tdbid then targetID = tdbid end
+	end
 
 	if #AMM.collabs > 0 then
 		for _, collab in ipairs(AMM.collabs) do
 			local check = 0
-			for count in db:urows(f("SELECT COUNT(1) FROM custom_appearances WHERE entity_id = '%s' AND app_name = '%s' AND collab_tag = '%s'", target.id, appearance, collab.tag)) do
+			for count in db:urows(f("SELECT COUNT(1) FROM custom_appearances WHERE entity_id = '%s' AND app_name = '%s' AND collab_tag = '%s'", targetID, appearance, collab.tag)) do
 				check = count
+				break
 			end
 
 			if check ~= 0 then
@@ -3982,8 +4004,9 @@ function AMM:GetCustomAppearanceParams(target, appearance, reverse)
 	-- Check for AMM archives Custom Appearances
 	if collabTag == nil then
 		local check = 0
-		for count in db:urows(f("SELECT COUNT(1) FROM custom_appearances WHERE entity_id = '%s' AND app_name = '%s' AND collab_tag = 'AMM'", target.id, appearance)) do
+		for count in db:urows(f("SELECT COUNT(1) FROM custom_appearances WHERE entity_id = '%s' AND app_name = '%s' AND collab_tag = 'AMM'", targetID, appearance)) do
 			check = count
+			break
 		end
 
 		if check ~= 0 then
@@ -3992,16 +4015,88 @@ function AMM:GetCustomAppearanceParams(target, appearance, reverse)
 	end
 
 	local custom = {}
-	local query = f("SELECT * FROM custom_appearances WHERE app_name = '%s' AND entity_id = '%s' AND collab_tag IS '%s'", appearance, target.id, collabTag)
+	local query = f("SELECT * FROM custom_appearances WHERE app_name = '%s' AND entity_id = '%s' AND collab_tag IS '%s'", appearance, targetID, collabTag)
 	query = query:gsub("'nil'", "NULL")
 	for app in db:nrows(query) do
 		app.app_toggle = intToBool(app.app_toggle)
+		if target.isPuppet then
+			local count = 0
+			for check in db:urows(f("SELECT COUNT(1) FROM appearances WHERE entity_id = '%s'", target.id)) do
+				count = check
+				break
+			end
+
+			if count == 0 then
+				AMM:GetAppearancesFromEntity(target.id)
+			end
+
+			local possibleAppearances = {}
+			for appearance in db:urows(f("SELECT app_name FROM appearances WHERE entity_id = '%s'", target.id)) do				
+				table.insert(possibleAppearances, appearance)
+			end
+
+			local found
+			if #possibleAppearances > 0 then
+				found = AMM:FindEquivalentAppearanceInRegularEntity(possibleAppearances, app.app_base)
+			end
+
+			if found then
+				app.app_base = found
+			else
+				log(f("[AMM Error] No equivalent appearance found for NPC: %s", target.name))
+			end			
+		end
 		table.insert(custom, app)
 	end
 	return custom
 end
 
+function AMM:FindEquivalentAppearanceInRegularEntity(possibleAppearances, app_base)
+	if possibleAppearances then
+		 local bestMatch = nil
+		 local bestScore = math.huge
+		 local fallbackMatch = nil
+
+		 -- Special Case for Songbird (for now she is the only one)
+		 local priorityFallbacks = {"dress"}
+
+		 for _, app in ipairs(possibleAppearances) do
+			  -- Skip appearances starting with "Custom"
+			  if not app:lower():match("^custom") then
+					local sanitizedBase = app_base:lower():gsub("_", ""):gsub("%s", "")
+					local sanitizedApp = app:lower():gsub("_", ""):gsub("%s", "")
+
+					-- Check if the app is in the priority fallback list
+					for _, fallback in ipairs(priorityFallbacks) do
+						 if sanitizedApp == fallback then
+							  fallbackMatch = app
+						 end
+					end
+
+					-- Levenshtein Distance as similarity metric
+					local distance = Util:StringMatch(sanitizedBase, sanitizedApp)
+
+					-- Check if this match is better
+					if distance < bestScore then
+						 bestScore = distance
+						 bestMatch = app
+					end
+			  end
+		 end
+
+		 -- If the best score is still too high, fall back to a prioritized match
+		 if bestScore > 10 and fallbackMatch then
+			  return fallbackMatch
+		 end
+
+		 return bestMatch
+	end
+
+	return app_base
+end
+
 function AMM:ChangeScanCustomAppearanceTo(t, customAppearance)
+	print(customAppearance[1].app_base)
 	self:ChangeScanAppearanceTo(t, customAppearance[1].app_base)
 	self.setCustomApp = {t.handle, customAppearance}
 	if self.activeCustomApps[t.hash] ~= 'reverse' then
@@ -4111,9 +4206,21 @@ function AMM:GetTarget()
 	return nil
 end
 
+function AMM:GetFollowDistanceOptions()
+	local options = {
+		{"Close", 1, 2, 3},
+		{"Nearby", 3, 5, 6},
+		{"Default", 99, 99, 99},
+	}
+
+	-- Set Default
+	AMM.followDistance = options[3]
+	return options
+end
+
 function AMM:UpdateFollowDistance()
 	local spawnsCounter = 0
-	-- for _ in pairs(AMM.Spawn.spawnedNPCs) do spawnsCounter = spawnsCounter + 1 end
+	for _ in pairs(AMM.Spawn.spawnedNPCs) do spawnsCounter = spawnsCounter + 1 end
 
 	if spawnsCounter < 3 then
 		self:SetFollowDistance(AMM.followDistance[2])
@@ -4125,20 +4232,16 @@ function AMM:UpdateFollowDistance()
 end
 
 function AMM:SetFollowDistance(followDistance)
-	TweakDB:SetFlatNoUpdate(TweakDBID.new('FollowerActions.FollowCloseMovePolicy.distance'), followDistance)
-
-	TweakDB:SetFlatNoUpdate(TweakDBID.new('FollowerActions.FollowCloseMovePolicy.avoidObstacleWithinTolerance'), true)
-	TweakDB:SetFlatNoUpdate(TweakDBID.new('FollowerActions.FollowCloseMovePolicy.ignoreCollisionAvoidance'), false)
-	TweakDB:SetFlatNoUpdate(TweakDBID.new('FollowerActions.FollowCloseMovePolicy.ignoreSpotReservation'), false)
-
-	TweakDB:SetFlatNoUpdate(TweakDBID.new('FollowerActions.FollowCloseMovePolicy.tolerance'), 0.0)
-
-	TweakDB:SetFlatNoUpdate(TweakDBID.new('FollowerActions.FollowStayPolicy.distance'), followDistance)
-	TweakDB:SetFlatNoUpdate(TweakDBID.new('FollowerActions.FollowGetOutOfWayMovePolicy.distance'), 0.0)
-
-	TweakDB:Update(TweakDBID.new('FollowerActions.FollowCloseMovePolicy'))
-	TweakDB:Update(TweakDBID.new('FollowerActions.FollowStayPolicy'))
-	TweakDB:Update(TweakDBID.new('FollowerActions.FollowGetOutOfWayMovePolicy'))
+	for _, companion in pairs(AMM.Spawn.spawnedNPCs) do
+		if companion.handle.isPlayerCompanionCached then
+			if followDistance == 99 and companion.activeCommand then
+				companion.activeCommand = nil
+				AMM.Spawn:Respawn(companion)
+			elseif followDistance ~= 99 then
+				companion.activeCommand, _ = Util:FollowTarget(companion.handle, Game.GetPlayer(), followDistance)
+			end
+		end
+	end
 end
 
 function AMM:ChangeNPCEquipment(ent, equipmentPath)

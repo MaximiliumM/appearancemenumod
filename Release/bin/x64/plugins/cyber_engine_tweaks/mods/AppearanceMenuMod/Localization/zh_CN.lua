@@ -576,6 +576,7 @@ return {
 	Codeware_Version = "Codeware 版本:",
 	Game_Version = "游戏版本: ",
 	Companion_Damage = "同伴伤害:",
+	Companion_Distance = "伙伴距离:",
 	xDamage = "倍伤害",
 	SavedAppearancesHotkeys = "保存外观热键",
 	Favorites = "收藏夹",

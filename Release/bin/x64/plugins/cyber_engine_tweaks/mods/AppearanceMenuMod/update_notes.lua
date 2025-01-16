@@ -1,5 +1,18 @@
 return {
 	{
+		'2.8.5',
+		'2025 Jan 16',
+		[[Added Companion Distance setting back!]],
+		[[-- Since this is a hacky solution, selecting Default in Settings will turn off the new system and use the default follower behavior]],
+		[[Added Custom Appearances to Photo Mode NPCs]],
+		[[-- Some appearances might not work]],
+		[[Added more robust Collab loading system by Manavortex]],
+		[[Fixed issue where NPC names would only be displayed correctly when Photo Mode Enhancements setting was enabled]],
+		[[Fixed issue where V would disappear when using Target V button in Photo Mode]],
+		[[Fixed issue where Nibbles would not spawn using the new Photo Mode system]],
+		[[Fixed issue where Target buttons would not reset the character position correctly]],
+	},
+	{
 		'2.8.4',
 		'2025 Jan 15',
 		[[Added new Vehicle: NCPD Apollo]],

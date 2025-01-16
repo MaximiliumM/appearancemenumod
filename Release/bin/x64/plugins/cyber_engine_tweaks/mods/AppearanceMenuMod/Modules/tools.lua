@@ -109,7 +109,13 @@ function Tools:new()
   Tools.cachedReplacerOptions = nil
   Tools.nibblesOG = nil
   Tools.selectedNibblesEntity = 1
-  Tools.replacer = require("Collabs/Photomode_NPCs_AMM.lua")
+
+  Tools.replacer = nil
+
+  if AMM.CETVersion < 34 then
+    Tools.replacer = require("Collabs/Photomode_NPCs_AMM.lua")
+  end
+
   Tools.replacerVersion = nil
   Tools.nibblesEntityOptions = {}
 
@@ -332,7 +338,7 @@ function Tools:DrawVActions()
       if AMM.CETVersion < 34 then
         local buttonLabel = AMM.LocalizableString("Target_Nibbles")
         if Tools.selectedNibblesEntity ~= 1 then buttonLabel = AMM.LocalizableString("Target_Replacer") end
-        if ImGui.Button(buttonLabel, Tools.style.halfButtonWidth, Tools.style.buttonHeight) then
+        if ImGui.Button(buttonLabel, Tools.style.buttonWidth, Tools.style.buttonHeight) then
           Tools:SetCurrentTarget(Tools:GetNibblesTarget())
           Tools.lockTarget = true
         end
@@ -1073,31 +1079,31 @@ function Tools:DrawNPCActions()
   AMM.UI:DrawCrossHair()
 
   if AMM.playerInPhoto then
+
+    local nibbles = Tools:GetNibblesTarget()
+    if nibbles and not Tools.puppetsIDs[nibbles.hash] then
+      Tools.puppetsIDs[nibbles.hash] = nibbles.entityID
+      table.insert(Tools.listOfPuppets, nibbles)
+    end
+
     local buttonWidth = Tools.style.buttonWidth
     if #Tools.listOfPuppets > 1 then buttonWidth = Tools.style.halfButtonWidth end
 
-    if ImGui.Button(AMM.LocalizableString("Button_TargetV"), buttonWidth, Tools.style.buttonHeight) then
-      Tools:SetCurrentTarget(Tools:GetVTarget())
-      Tools.lockTarget = true
-    end
-
     Tools:ClearListOfPuppets()
 
-    if #Tools.listOfPuppets > 1 then
-      for i, puppet in ipairs(Tools.listOfPuppets) do
-        if i ~= 1 then
-          if i % 2 == 0 then
-            ImGui.SameLine()
-          end
+    if #Tools.listOfPuppets > 0 then
+      for i, puppet in ipairs(Tools.listOfPuppets) do        
+        if i % 2 == 0 then
+          ImGui.SameLine()
+        end
 
-          if ImGui.Button(f(AMM.LocalizableString("Button_Target").."%s##%i", puppet.name, i), Tools.style.halfButtonWidth, Tools.style.buttonHeight) then            
-            if Tools.currentTarget.pos then
-              Tools:SetTargetPosition(Tools.currentTarget.pos, Tools.currentTarget.angles)
-            end
-            
-            Tools:SetCurrentTarget(puppet)
-            Tools.lockTarget = true
+        if ImGui.Button(f(AMM.LocalizableString("Button_Target").."%s##%i", puppet.name, i), buttonWidth, Tools.style.buttonHeight) then            
+          if puppet.pos then
+            Tools:SetTargetPosition(puppet.pos, puppet.angles, puppet)
           end
+          
+          Tools:SetCurrentTarget(puppet)
+          Tools.lockTarget = true
         end
       end
     end
@@ -1253,7 +1259,7 @@ function Tools:SetCurrentTarget(target, systemActivated)
   end
   local pos, angles
   target.appearance = AMM:GetAppearance(target)
-  Tools.currentTarget = AMM.Entity:new(target)
+  Tools.currentTarget = target
 
   if Tools.axisIndicatorToggle and not systemActivated then
     local timerFunc = function(timer)
@@ -3153,6 +3159,10 @@ function Tools:EnterPhotoMode()
 
     if Tools.photoModePuppet then
       AMM.playerInPhoto = true
+
+      Cron.After(0.5, function()
+        Tools.listOfPuppets[1]:UpdatePosition()
+      end)
       
       if Tools.cursorStateLock or AMM.userSettings.disablePhotoModeCursor then
         Tools:ToggleCursor(true)

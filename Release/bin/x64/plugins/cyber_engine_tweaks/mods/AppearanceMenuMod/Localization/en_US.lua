@@ -579,6 +579,7 @@ return {
 	Codeware_Version = "Codeware Version:",
 	Game_Version = "Game Version: ",
 	Companion_Damage = "Companion Damage:",
+	Companion_Distance = "Companion Distance:",
 	xDamage = "x Damage",
 	SavedAppearancesHotkeys = "Saved Appearances Hotkeys",
 	Favorites = "Favorites",

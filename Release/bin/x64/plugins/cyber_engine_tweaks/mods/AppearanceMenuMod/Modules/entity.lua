@@ -21,6 +21,7 @@ function Entity:new(ent)
   obj.appearance = ent.appearance
   obj.options = ent.options or nil
   obj.entitySpec = ent.entitySpec
+  obj.activeCommand = ent.activeCommand or nil
 
   obj.type = ent.type
   obj.archetype = ent.archetype

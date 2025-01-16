@@ -88,7 +88,12 @@ function Director:NewActor(name)
   obj.nodes = {}
   obj.entityID = nil
   obj.handle = nil
-  obj.entitySpec = DynamicEntitySpec.new()
+  
+  if DynamicEntitySpec then
+    obj.entitySpec = DynamicEntitySpec.new()
+  else
+    log("Codeware isn't loaded.")
+  end
 
 	obj.entitySpec.persistState = false
 	obj.entitySpec.persistSpawn = false

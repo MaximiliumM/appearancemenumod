@@ -394,6 +394,23 @@ function Util:EquipGivenWeapon(targetPuppet, weapon, override)
   targetPuppet:GetAIControllerComponent():SendCommand(cmd)
 end
 
+function Util:FollowTarget(targetPuppet, target, distance, walkType)
+
+  local cmd = NewObject('handle:AIFollowTargetCommand')
+  cmd.desiredDistance = distance or 2
+  cmd.matchSpeed = true
+  cmd.stopWhenDestinationReached = false
+  cmd.target = target
+  cmd.movementType = walkType or "Walk"
+  cmd.teleport = false
+  cmd.tolerance = 2
+  cmd.lookAtTarget = target
+
+  targetPuppet:GetAIControllerComponent():SendCommand(cmd)
+
+  return cmd, targetPuppet
+end
+
 function Util:MoveTo(targetPuppet, pos, walkType, stealth)
   local dest = NewObject('WorldPosition')
 
@@ -470,8 +487,8 @@ function Util:NPCLookAt(handle, target, headSettings, chestSettings)
     if headSettings then
       local lookAtPartRequest = LookAtPartRequest.new()
       lookAtPartRequest.partName = "Head"
-      lookAtPartRequest.weight = headSettings.weight
-      lookAtPartRequest.suppress = headSettings.suppress
+      lookAtPartRequest.weight = headSettings.weight or 0
+      lookAtPartRequest.suppress = headSettings.suppress or 1
       lookAtPartRequest.mode = 0
       table.insert(lookAtParts, lookAtPartRequest)
     end
@@ -479,8 +496,8 @@ function Util:NPCLookAt(handle, target, headSettings, chestSettings)
     if chestSettings then
       local lookAtPartRequest = LookAtPartRequest.new()
       lookAtPartRequest.partName = "Chest"
-      lookAtPartRequest.weight = chestSettings.weight
-      lookAtPartRequest.suppress = chestSettings.suppress
+      lookAtPartRequest.weight = chestSettings.weight or 0.1
+      lookAtPartRequest.suppress = chestSettings.suppress or 0.5
       lookAtPartRequest.mode = 0
       table.insert(lookAtParts, lookAtPartRequest)
     end
