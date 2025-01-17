@@ -82,7 +82,7 @@ function AMM:new()
 	 AMM.nibblesReplacer = false
 
 	 -- Main Properties --
-	 AMM.currentVersion = "2.8.5"
+	 AMM.currentVersion = "2.8.6"
 	 AMM.CETVersion = parseVersion(GetVersion())
 	 AMM.CodewareVersion = 0
 	 AMM.updateNotes = require('update_notes.lua')
@@ -292,6 +292,71 @@ function AMM:new()
 		 end)
 
 		 -- Setup Observers and Overrides --
+		 local puppetSpawned = false
+		 Observe('PhotoModePlayerEntityComponent', 'ListAllCurrentItems', function(self)
+			local isV = AMM:GetNPCName(self.fakePuppet) == "V"
+
+			if puppetSpawned or isV then
+				Cron.After(Util:CalculateDelay(0.2), function()
+					AMM.Tools:ClearListOfPuppets()
+					
+					local puppetID = self.fakePuppet:GetEntityID()
+					local puppetHash = tostring(puppetID.hash)
+
+					if not AMM.Tools.puppetsIDs[puppetHash] then
+						local entity = self.fakePuppet
+						local newTarget = AMM:NewTarget(entity, "NPCPuppet", AMM:GetScanID(entity), AMM:GetNPCName(entity), AMM:GetScanAppearance(entity), AMM:GetAppearanceOptions(entity))
+						table.insert(AMM.Tools.listOfPuppets, newTarget)
+						AMM.Tools.puppetsIDs[puppetHash] = puppetID
+						AMM.Tools.photoModePuppet = self.fakePuppet
+						puppetSpawned = false
+					end
+				end)
+			end
+		 end)
+
+		 Observe('gameuiPhotoModeMenuController', 'OnSetNpcImage', function(this)
+			puppetSpawned = true
+	 	 end)
+		 
+		 Observe('gameuiPhotoModeMenuController', 'OnCharacterSelected', function(this)
+				Cron.After(Util:CalculateDelay(0.02), function()
+					for _, puppet in ipairs(AMM.Tools.listOfPuppets) do
+						if AMM.Tools.updatedPosition[puppet.hash] then
+							AMM.Tools:SetTargetPosition(puppet.pos, puppet.angles, puppet)
+						end
+					end
+				end)
+			end)
+
+		 Observe('PhotoModeMenuListItem', 'OnSliderHandleReleased', function(this)
+			for _, puppet in ipairs(AMM.Tools.listOfPuppets) do
+				local currentPos = tostring(puppet.handle:GetWorldPosition())
+				local savedPos = tostring(puppet.pos)
+				local currentAngles = tostring(puppet.handle:GetWorldOrientation():ToEulerAngles())
+				local savedAngles = tostring(puppet.angles)
+
+				if AMM.Tools.updatedPosition[puppet.hash] and (currentPos ~= savedPos or currentAngles ~= savedAngles) then
+					AMM.Tools.updatedPosition[puppet.hash] = nil
+				end
+			end
+	 	end)
+
+		 Observe('PhotoModeMenuListItem', 'StartArrowClickedEffect', function(this)
+
+				local attribute = this:GetData().attributeKey
+				local delay = 0.01
+				if attribute == 5 or attribute == 65 or attribute == 68 then delay = 0.03 end
+
+				Cron.After(Util:CalculateDelay(delay), function()
+					for _, puppet in ipairs(AMM.Tools.listOfPuppets) do
+						if AMM.Tools.updatedPosition[puppet.hash] then
+							AMM.Tools:SetTargetPosition(puppet.pos, puppet.angles, puppet)
+						end
+					end
+				end)
+		 end)
+
 		 ObserveAfter('gameuiPhotoModeMenuController', 'OnSetCategoryEnabled', function(this)
 			this.topButtonsController:SetToggleEnabled(0, not(AMM.userSettings.disableCameraTab))
 			this.topButtonsController:SetToggleEnabled(1, not(AMM.userSettings.disableDOFTab))
@@ -428,21 +493,6 @@ function AMM:new()
 				wrappedMethod()
 			end
 		end)
-
-		 Observe('PhotoModePlayerEntityComponent', 'ListAllCurrentItems', function(self)
-			 AMM.Tools:ClearListOfPuppets()
-			 
-			 local puppetID = self.fakePuppet:GetEntityID()
-			 local puppetHash = tostring(puppetID.hash)
-
-			 if not AMM.Tools.puppetsIDs[puppetHash] then
-				local entity = self.fakePuppet
-				local newTarget = AMM:NewTarget(entity, "NPCPuppet", AMM:GetScanID(entity), AMM:GetNPCName(entity), AMM:GetScanAppearance(entity), AMM:GetAppearanceOptions(entity))
-				table.insert(AMM.Tools.listOfPuppets, newTarget)
-				AMM.Tools.puppetsIDs[puppetHash] = puppetID
-				AMM.Tools.photoModePuppet = self.fakePuppet
-			 end
-		 end)
 
 		 Observe("VehicleComponent", "OnVehicleStartedMountingEvent", function(self, event)
 			 if AMM.Scan.drivers[AMM:GetScanID(event.character)] ~= nil then

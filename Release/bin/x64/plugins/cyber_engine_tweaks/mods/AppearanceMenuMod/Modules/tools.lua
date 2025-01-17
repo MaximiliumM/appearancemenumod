@@ -100,6 +100,7 @@ function Tools:new()
   Tools.enablePropsInLookAtTarget = false
   Tools.listOfPuppets = {}
   Tools.puppetsIDs = {}
+  Tools.updatedPosition = {}
 
   -- Axis Indicator Properties --
   Tools.axisIndicator = nil
@@ -1099,6 +1100,7 @@ function Tools:DrawNPCActions()
 
         if ImGui.Button(f(AMM.LocalizableString("Button_Target").."%s##%i", puppet.name, i), buttonWidth, Tools.style.buttonHeight) then            
           if puppet.pos then
+            Tools.updatedPosition[puppet.hash] = true
             Tools:SetTargetPosition(puppet.pos, puppet.angles, puppet)
           end
           
@@ -1206,6 +1208,10 @@ function Tools:UpdateTargetPosition()
       end
     end)
   else
+    -- This flag is used to check if the user is using Target Tools
+    -- If they are, we reset puppets position when the PM UI is used
+    Tools.updatedPosition[Tools.currentTarget.hash] = true
+
     if Tools.currentTarget.UpdatePosition then
       Tools.currentTarget:UpdatePosition()
     end
@@ -1239,7 +1245,9 @@ function Tools:SetTargetPosition(pos, angles, target)
       AMM.Poses:RestartAnimation(anim)
     end
 
-    Tools:SetCurrentTarget(t)
+    if not target then
+      Tools:SetCurrentTarget(t)
+    end
   end)
 end
 
@@ -1529,7 +1537,7 @@ end
 
 function Tools:DrawMovementWindow()
   if AMM.userSettings.floatingTargetTools then
-    Tools.movementWindow.open, Tools.movementWindow.shouldDraw = ImGui.Begin(AMM.LocalizableString("Target_Tools"), Tools.movementWindow.open, ImGuiWindowFlags.AlwaysAutoResize)
+    Tools.movementWindow.open, Tools.movementWindow.shouldDraw = ImGui.Begin(AMM.LocalizableString("Target_Tools").."##Floating", Tools.movementWindow.open, ImGuiWindowFlags.AlwaysAutoResize)
   end
 
   if Tools.movementWindow.shouldDraw then
@@ -3160,7 +3168,7 @@ function Tools:EnterPhotoMode()
     if Tools.photoModePuppet then
       AMM.playerInPhoto = true
 
-      Cron.After(0.5, function()
+      Cron.After(Util:CalculateDelay(0.5), function()
         Tools.listOfPuppets[1]:UpdatePosition()
       end)
       
@@ -3201,6 +3209,7 @@ function Tools:ExitPhotoMode()
   AMM.playerInPhoto = false
   Tools.photoModePuppet = nil
   Tools.cursorDisabled = false
+  Tools.updatedPosition = {}
   Tools.listOfPuppets = {}
   Tools.puppetsIDs = {}
 

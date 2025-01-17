@@ -1,5 +1,11 @@
 return {
 	{
+		'2.8.6',
+		'2025 Jan 16',
+		[[Fixed more issues with Photo Mode NPCs]],
+		[[Fixed issues related to compatibility with Photo Mode Tweaks mod]],
+	},
+	{
 		'2.8.5',
 		'2025 Jan 16',
 		[[Added Companion Distance setting back!]],

@@ -65,29 +65,32 @@ function Util:GetPrefix(s)
 end
 
 -- Calculate delay based on framerate
-function Util:CalculateDelay(base)
+function Util:CalculateDelay(base, scalingFactor)
   local currentFPS = 1 / AMM.deltaTime
-  local targetFPS = 30
+  local targetFPS = 60
   local baseDelay = base
   local maxDelay = base + 10
+  scalingFactor = scalingFactor or 0.92 -- Default scaling factor
 
-  -- Calculate the scaling factor
-  local scalingFactor = 0.2 -- You can adjust this factor based on your preference
+  -- Calculate the difference between current FPS and target FPS
+  local fpsDelta = math.abs(currentFPS - targetFPS)
+
+  -- Adjust the scaling effect to minimize sensitivity near the target FPS
+  local adjustmentFactor = math.min(fpsDelta / targetFPS, 1) * scalingFactor
 
   -- Calculate the adjusted delay
-  local adjustedDelay = baseDelay + (currentFPS - targetFPS) * scalingFactor
+  local adjustedDelay = baseDelay + (currentFPS < targetFPS and adjustmentFactor or -adjustmentFactor)
 
-  -- Ensure the delay is not lower than base delay
+  -- Clamp the delay within bounds
   if adjustedDelay < base then
-      adjustedDelay = base
-
-  -- Ensure the delay isn't too high
+    adjustedDelay = base
   elseif adjustedDelay > maxDelay then
     adjustedDelay = maxDelay
   end
 
   return adjustedDelay
 end
+
 
 function Util:FirstToUpper(str)
   return (str:gsub("^%l", string.upper))
