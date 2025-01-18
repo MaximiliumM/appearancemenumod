@@ -84,7 +84,9 @@ return {
 	BeginItem_TabNameSpawn = "Yarat",
 	
 	--Button
+	Button_Refresh = "  Yenile  ",
 	Button_Save = "Kaydet",
+	Button_Confirm = "Onayla",
 	Button_Cancel = "Iptal",
 	Button_SmallSave = " Kaydet ",
 	Button_SmallRespawn = "Yeniden Yarat",
@@ -189,6 +191,7 @@ return {
 	Rename = "Yeniden Adlandir",
 	Delete = "Sil",
 	Backup = "Yedekle",
+	Merge = "Birleştir",
 	Save_All = "  Tümünü Kaydet  ",
 	Save_ToSpecific_Tag = "Belirli Bir Etikete Kaydet",
 	Saved_Props2 = "Kaydedilen Nesneler:",

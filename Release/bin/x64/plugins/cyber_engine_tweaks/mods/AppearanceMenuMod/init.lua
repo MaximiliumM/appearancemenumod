@@ -82,7 +82,7 @@ function AMM:new()
 	 AMM.nibblesReplacer = false
 
 	 -- Main Properties --
-	 AMM.currentVersion = "2.8.6"
+	 AMM.currentVersion = "2.8.7"
 	 AMM.CETVersion = parseVersion(GetVersion())
 	 AMM.CodewareVersion = 0
 	 AMM.updateNotes = require('update_notes.lua')
@@ -297,7 +297,7 @@ function AMM:new()
 			local isV = AMM:GetNPCName(self.fakePuppet) == "V"
 
 			if puppetSpawned or isV then
-				Cron.After(Util:CalculateDelay(0.2), function()
+				Cron.After(Util:CalculateDelay(1.0), function()
 					AMM.Tools:ClearListOfPuppets()
 					
 					local puppetID = self.fakePuppet:GetEntityID()
@@ -1212,6 +1212,7 @@ function AMM:new()
 	    GameSettings.Toggle('/interface/hud/quest_tracker')
 	    GameSettings.Toggle('/interface/hud/stamina_oxygen')
 	    GameSettings.Toggle('/interface/hud/crouch_indicator')
+	    GameSettings.Toggle('/interface/hud/hud_markers')
 	 end)
 
 	 for i = 1, 3 do
@@ -1304,6 +1305,7 @@ function AMM:new()
 							local count = 0
 							for x in db:urows("SELECT COUNT(1) FROM saved_appearances UNION ALL SELECT COUNT(1) FROM blacklist_appearances") do
 								count = count + x
+								break
 							end
 
 							if count ~= 0 then
@@ -1782,7 +1784,7 @@ function AMM:Begin()
 						local CETVersion = GetVersion()
 						local CodewareVersion = Codeware.Version()
 
-						ImGui.Text(AMM.LocalizableString("AMM_Version"))					
+						ImGui.Text(AMM.LocalizableString("AMM_Version"))
 						ImGui.SameLine()
 						AMM.UI:TextColored(AMM.currentVersion)
 						ImGui.SameLine()						
@@ -3845,14 +3847,24 @@ function AMM:GetAppearancesFromEntity(id)
 	local path = TweakDB:GetFlat(TweakDBID.new(recordID, '.entityTemplatePath'))
 	if path then
 		local token = Game.GetResourceDepot():LoadResource(path)
-		Cron.After(0.1, function()
-			local template = token:GetResource()
-			local valueList = {}
-			for _, appearance in ipairs(template.appearances) do
-				table.insert(valueList, f("('%s', '%s')", id, NameToString(appearance.name)))
-			end
+		Cron.Every(0.1, { tick = 1 }, function(timer)
+
+			timer.tick = timer.tick + 1
 	
-			db:execute(f("INSERT INTO appearances (entity_id, app_name) VALUES " .. table.concat(valueList, ",")))
+			if timer.tick > 10 then
+				Cron.Halt(timer)
+			end
+			
+			if token then
+				local template = token:GetResource()
+				local valueList = {}
+				for _, appearance in ipairs(template.appearances) do
+					table.insert(valueList, f("('%s', '%s')", id, NameToString(appearance.name)))
+				end
+		
+				db:execute(f("INSERT INTO appearances (entity_id, app_name) VALUES " .. table.concat(valueList, ",")))
+				Cron.Halt(timer)
+			end
 		end)
 	end
 end

@@ -84,7 +84,9 @@ return {
 	BeginItem_TabNameSpawn = "生成",
 	
 	--Button
+	Button_Refresh = "  刷新  ",
 	Button_Save = "保存",
+	Button_Confirm = "确认",
 	Button_Cancel = "取消",
 	Button_SmallSave = " 保存 ",
 	Button_SmallRespawn = "重新生成",
@@ -189,6 +191,7 @@ return {
 	Rename = "重命名",
 	Delete = "删除",
 	Backup = "备份",
+	Merge = "合并",
 	Save_All = "  全部保存  ",
 	Save_ToSpecific_Tag = "保存到特定标签",
 	Saved_Props2 = "保存的道具:",

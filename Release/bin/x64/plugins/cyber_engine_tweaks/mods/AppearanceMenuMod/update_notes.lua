@@ -1,7 +1,17 @@
 return {
 	{
+		'2.8.7',
+		'2025 Jan 18',
+		[[Added Netwatch Agent to Swap list]],
+		[[Added new Refresh button to manually reload Presets from Decor folder]],
+		[[Added new Merge Presets button to Decor tab]],
+		[[-- This is a non-destructive method that will create a new file in your Decor folder]],
+		[[Adjusted Decor preset trigger distance]],
+		[[One more attempt at fixing issue related to V disappearing in Photo mode]],
+	},
+	{
 		'2.8.6',
-		'2025 Jan 16',
+		'2025 Jan 17',
 		[[Fixed more issues with Photo Mode NPCs]],
 		[[Fixed issues related to compatibility with Photo Mode Tweaks mod]],
 	},

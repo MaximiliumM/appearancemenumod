@@ -6,7 +6,7 @@ local saveAllInProgress = false
 
 -- Constant: how far from a trigger should V be before it becomes active? E.g., Jamie sets 200 here
 -- TODO: Might hook that up to a user configurable setting.
-local PLAYER_TRIGGER_DIST = 60
+local PLAYER_TRIGGER_DIST = 200
 
 -- Constant: how many backups of each individual preset should we keep before deleting the oldest?
 -- TODO: Might hook that up to a user configurable setting.
@@ -117,6 +117,8 @@ function Props:new()
   Props.cachedFilteredByCategoryProps = {}
   Props.savedPropsDisplayMode = ''
   Props.displayModeOptions = {}
+  Props.mergeMode = false
+  Props.presetToMerge = {name = "No Preset Available"}
 
   return Props
 end
@@ -173,7 +175,7 @@ function Props:Draw(AMM)
 
     Props.style = {
       buttonHeight = ImGui.GetFontSize() * 2,
-      buttonWidth = -1,
+      buttonWidth = (ImGui.GetWindowContentRegionWidth() - 8),
       halfButtonWidth = ((ImGui.GetWindowContentRegionWidth() / 2) - 8)
     }
 
@@ -638,6 +640,12 @@ function Props:DrawPresetConfig()
     ImGui.SetTooltip(AMM.LocalizableString("Warn_PresetsFolder_Info"))
   end
 
+  ImGui.SameLine()
+
+  if ImGui.SmallButton(AMM.LocalizableString("Button_Refresh")) then
+    Props.presets = Props:LoadPresets()
+  end
+
   ImGui.Spacing()
 
   if Props.activePreset.customIncluded then
@@ -662,7 +670,10 @@ function Props:DrawPresetConfig()
     AMM.UI:Spacing(8)
   end
 
-  if ImGui.Button(AMM.LocalizableString("New_Preset"), Props.style.buttonWidth, Props.style.buttonHeight) then
+  local buttonWidth = Props.style.buttonWidth
+  if Props.activePreset ~= '' then buttonWidth = Props.style.halfButtonWidth end
+
+  if ImGui.Button(AMM.LocalizableString("New_Preset"), buttonWidth, Props.style.buttonHeight) then
     if #Props.savedProps['all_props'] > 0 then
       Props:SavePreset(Props.activePreset)
     end
@@ -676,21 +687,62 @@ function Props:DrawPresetConfig()
 
   if Props.activePreset ~= '' then
 
-    if ImGui.Button(AMM.LocalizableString("Button_Save"), Props.style.buttonWidth, Props.style.buttonHeight) then        
+    ImGui.SameLine()
+
+    if ImGui.Button(AMM.LocalizableString("Button_Save"), Props.style.halfButtonWidth, Props.style.buttonHeight) then        
       Props:SavePreset(Props.activePreset, nil, true)
     end
 
-    if ImGui.Button(AMM.LocalizableString("Rename"), Props.style.buttonWidth, Props.style.buttonHeight) then        
+    if ImGui.Button(AMM.LocalizableString("Rename"), Props.style.halfButtonWidth, Props.style.buttonHeight) then        
       Props.rename = ''
       ImGui.OpenPopup("Rename Preset")
     end
 
-    if ImGui.Button(AMM.LocalizableString("Delete"), Props.style.buttonWidth, Props.style.buttonHeight) then
+    ImGui.SameLine()
+
+    if ImGui.Button(AMM.LocalizableString("Delete"), Props.style.halfButtonWidth, Props.style.buttonHeight) then
       popupDelegate = AMM:OpenPopup("Preset")
     end
 
-    if ImGui.Button(AMM.LocalizableString("Backup"), Props.style.buttonWidth, Props.style.buttonHeight) then
+    if ImGui.Button(AMM.LocalizableString("Backup"), Props.style.halfButtonWidth, Props.style.buttonHeight) then
       Props:BackupPreset(Props.activePreset)
+    end
+
+    ImGui.SameLine()
+
+    if ImGui.Button(AMM.LocalizableString("Merge"), Props.style.halfButtonWidth, Props.style.buttonHeight) then
+      Props.mergeMode = true
+    end
+
+    if Props.mergeMode then
+
+      AMM.UI:Separator()
+      
+      ImGui.AlignTextToFramePadding()
+      ImGui.Text(Props.activePreset.name.. " + ")
+
+      ImGui.SameLine()
+
+      if ImGui.BeginCombo(AMM.LocalizableString("Begin_ComboPresets").."##MergeDropdown", Props.presetToMerge.name, ImGuiComboFlags.HeightLarge) then
+        for i, preset in ipairs(Props.presets) do
+          if ImGui.Selectable(f("%s##%s", preset.name, i), (preset.name == Props.presetToMerge.name)) then            
+            if Props.presetToMerge.name ~= Props.activePreset.name then
+              Props.presetToMerge = preset
+            end
+          end
+        end
+        ImGui.EndCombo()
+      end
+
+      if ImGui.Button(AMM.LocalizableString("Button_Confirm"), Props.style.halfButtonWidth, Props.style.buttonHeight) then        
+        Props:MergePresets(Props.presetToMerge, Props.activePreset)
+      end
+
+      ImGui.SameLine()
+
+      if ImGui.Button(AMM.LocalizableString("Button_Cancel"), Props.style.halfButtonWidth, Props.style.buttonHeight) then
+        Props.mergeMode = false
+      end
     end
   end
 
@@ -2070,6 +2122,120 @@ function Props:SavePreset(preset, path, fromDB)
     return true
   end
 end
+
+function Props:MergePresets(preset1, preset2)
+  -- Helper function to load preset from file
+  local function loadPresetData(fileName)
+    local path = './User/Decor/' .. fileName
+    local file = io.open(path, 'r')
+    if not file then
+      log("Could not open preset: " .. fileName)
+      return { name = "", props = {}, lights = {}, customIncluded = false }
+    end
+    
+    local contents = file:read("*a")
+    file:close()
+    local data = json.decode(contents)
+    if not data then
+      log("Invalid JSON in file: " .. fileName)
+      return { name = "", props = {}, lights = {}, customIncluded = false }
+    end
+
+    -- In case some fields are missing
+    data.props = data.props or {}
+    data.lights = data.lights or {}
+    data.customIncluded = data.customIncluded or false
+    data.name = data.name or ""
+    data.file_name = data.file_name or fileName
+
+    return data
+  end
+
+  -- Load both preset tables
+  local data1 = loadPresetData(preset1.file_name or preset1.name..".json")
+  local data2 = loadPresetData(preset2.file_name or preset2.name..".json")
+
+  -- Determine the maximum UID in the first preset to create an offset
+  local maxUid = 0
+  for _, prop in ipairs(data1.props) do
+    if prop.uid and prop.uid > maxUid then
+      maxUid = prop.uid
+    end
+  end
+
+  -- We'll copy props from preset1 as-is
+  local mergedProps = {}
+  for _, prop in ipairs(data1.props) do
+    table.insert(mergedProps, prop)
+  end
+
+  -- And same for lights
+  local mergedLights = {}
+  for _, light in ipairs(data1.lights) do
+    table.insert(mergedLights, light)
+  end
+
+  -- Now for preset2's props, we shift their UIDs to avoid collisions
+  local uidOffset = maxUid + 1
+
+  -- Make a quick map of oldUID -> newUID so we can fix references in the lights
+  local newUidMap = {}
+
+  for _, prop in ipairs(data2.props) do
+    local oldUid = prop.uid
+    local newUid = oldUid + uidOffset
+    newUidMap[oldUid] = newUid
+
+    -- Copy the prop but with adjusted UID
+    local newProp = {}
+    for k, v in pairs(prop) do
+      newProp[k] = v
+    end
+    newProp.uid = newUid
+    table.insert(mergedProps, newProp)
+  end
+
+  -- For the lights in preset2, we do the same. If a light's uid = x, we turn it into x + uidOffset
+  for _, light in ipairs(data2.lights) do
+    local oldUid = light.uid
+    local newUid = oldUid + uidOffset
+    -- Double check it's valid:
+    -- if the light references a UID that doesn't exist in props for some reason, you might handle that differently.
+    -- But typically the user wants matching UIDs. We'll assume it always matches in the second file.
+    
+    local newLight = {}
+    for k, v in pairs(light) do
+      newLight[k] = v
+    end
+    newLight.uid = newUid
+    table.insert(mergedLights, newLight)
+  end
+
+  -- customIncluded is true if either has it
+  local mergedCustomIncluded = (data1.customIncluded == true or data2.customIncluded == true)
+
+  -- Construct a new name
+  local mergedName = data1.name .. " + " .. data2.name
+
+  -- Now build the merged preset table
+  local mergedPreset = {
+    customIncluded = mergedCustomIncluded,
+    props = mergedProps,
+    lights = mergedLights,
+    name = mergedName
+  }
+
+  -- Write it out to a new file:
+  local newFileName = "Merged_"..data1.name.."_&_"..data2.name..".json"
+  local newFile = io.open('./User/Decor/'..newFileName, 'w')
+  newFile:write(json.encode(mergedPreset, { indent = true }))
+  newFile:close()
+
+  -- Refresh Presets
+  Props.presets = Props:LoadPresets()
+  Props.mergeMode = false
+end
+
 
 function Props:GetPropsCount(tag)
   local query = 'SELECT COUNT(1) FROM saved_props'

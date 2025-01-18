@@ -84,7 +84,9 @@ return {
 	BeginItem_TabNameSpawn = "Spawn",
 	
 	--Button
+	Button_Refresh = "  Refresh  ",
 	Button_Save = "Save",
+	Button_Confirm = "Confirm",
 	Button_Cancel = "Cancel",
 	Button_SmallSave = " Save ",
 	Button_SmallRespawn = "Respawn",
@@ -189,6 +191,7 @@ return {
 	Rename = "Rename",
 	Delete = "Delete",
 	Backup = "Backup",
+	Merge = "Merge",
 	Save_All = "  Save All  ",
 	Despawn_All = " Despawn All ",
 	Save_ToSpecific_Tag = "Save To Specific Tag",
