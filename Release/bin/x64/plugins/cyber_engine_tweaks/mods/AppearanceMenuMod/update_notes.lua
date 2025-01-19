@@ -1,5 +1,13 @@
 return {
 	{
+		'2.8.8',
+		'2025 Jan 20',
+		[[Added new Characters: Dogtown Voodoo Girl and Female Dogtown Scavenger]],
+		[[Added Female Guard to Swap list]],
+		[[Removed Reset Position when pressing Target buttons for Photo Mode NPCs]],
+		[[-- Now AMM will only reset position automatically if you change poses, categories etc in Photo Mode]],
+	},
+	{
 		'2.8.7',
 		'2025 Jan 18',
 		[[Added Netwatch Agent to Swap list]],

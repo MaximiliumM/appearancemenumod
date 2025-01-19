@@ -741,6 +741,97 @@ function Tools:GetVTarget()
   return entity
 end
 
+-- Table to track active timers for puppets
+Tools.activeTimers = {}
+
+function Tools:ResetPuppetsPosition()
+    -- Validate list of puppets
+    if not Tools.listOfPuppets or #Tools.listOfPuppets == 0 then
+        log("No puppets in the list!")
+        return
+    end
+
+    for _, puppet in ipairs(Tools.listOfPuppets) do
+        -- Validate puppet and handle
+        if not puppet or not puppet.handle then
+            log("Invalid puppet or missing handle!")
+            goto continue
+        end
+
+        -- Localize saved positions and angles
+        local savedPuppetPos = tostring(puppet.pos)
+        local savedPuppetAngles = tostring(puppet.angles)
+
+        -- Stop any active timer for this puppet before starting a new one
+        if Tools.activeTimers[puppet.hash] then
+            Cron.Halt(Tools.activeTimers[puppet.hash])
+            Tools.activeTimers[puppet.hash] = nil
+        end
+
+        -- Start a new timer and track it
+        Tools.activeTimers[puppet.hash] = Tools:CheckPuppetPosition(puppet, savedPuppetPos, savedPuppetAngles)
+
+        ::continue::
+    end
+end
+
+function Tools:CheckPuppetPosition(puppet, savedPuppetPos, savedPuppetAngles)
+    -- Cron logic to monitor changes in position
+    return Cron.Every(0.001, { tick = 1 }, function(timer)
+        timer.tick = timer.tick + 1
+
+        if timer.tick > 10 then
+          Tools.activeTimers[puppet.hash] = nil -- Clear the active timer
+            Cron.Halt(timer)
+            return
+        end
+
+        -- Validate puppet handle inside Cron
+        if puppet.handle then
+            local puppetPos = tostring(puppet.handle:GetWorldPosition())
+            local puppetAngles = tostring(puppet.handle:GetWorldOrientation():ToEulerAngles())
+
+            -- Check if position or angles have changed
+            if puppetPos ~= savedPuppetPos or puppetAngles ~= savedPuppetAngles then
+                if Tools.updatedPosition[puppet.hash] then
+                    Tools:SetTargetPosition(puppet.pos, puppet.angles, puppet)
+                    Cron.Halt(timer)
+                    Tools.activeTimers[puppet.hash] = nil -- Clear the active timer
+                end
+            end
+        else
+            log("Invalid handle for puppet during Cron.Every!")
+            Tools.activeTimers[puppet.hash] = nil -- Clear the active timer
+            Cron.Halt(timer)
+        end
+    end)
+end
+
+function Tools:AddNewPuppet(ent)
+  Cron.Every(0.1, { tick = 1 }, function(timer)
+    timer.tick = timer.tick + 1
+
+    if timer.tick > 10 then
+      Cron.Halt(timer)
+    end
+
+    local puppetID = ent:GetEntityID()
+    local puppetHash = tostring(puppetID.hash)
+
+    if Game.FindEntityByID(puppetID) then
+      if not Tools.puppetsIDs[puppetHash] then
+        local entity = ent
+        local newTarget = AMM:NewTarget(entity, "NPCPuppet", AMM:GetScanID(entity), AMM:GetNPCName(entity), AMM:GetScanAppearance(entity), AMM:GetAppearanceOptions(entity))
+        table.insert(Tools.listOfPuppets, newTarget)
+        Tools.puppetsIDs[puppetHash] = puppetID
+        Tools.photoModePuppet = ent
+        puppetSpawned = false
+        Cron.Halt(timer)
+      end
+    end
+  end)
+end
+
 function Tools:ClearListOfPuppets()
 
   for puppetHash, puppetID in pairs(Tools.puppetsIDs) do
@@ -1098,12 +1189,7 @@ function Tools:DrawNPCActions()
           ImGui.SameLine()
         end
 
-        if ImGui.Button(f(AMM.LocalizableString("Button_Target").."%s##%i", puppet.name, i), buttonWidth, Tools.style.buttonHeight) then            
-          if puppet.pos then
-            Tools.updatedPosition[puppet.hash] = true
-            Tools:SetTargetPosition(puppet.pos, puppet.angles, puppet)
-          end
-          
+        if ImGui.Button(f(AMM.LocalizableString("Button_Target").."%s##%i", puppet.name, i), buttonWidth, Tools.style.buttonHeight) then          
           Tools:SetCurrentTarget(puppet)
           Tools.lockTarget = true
         end
@@ -1196,11 +1282,16 @@ function Tools:DrawNPCActions()
   end
 end
 
-function Tools:UpdateTargetPosition()
-  if Tools.currentTarget.type ~= 'Player' and Tools.currentTarget.name ~= 'Replacer' and Tools.currentTarget.handle:IsNPC() and not Tools.currentTarget.isPuppet then
+function Tools:UpdateTargetPosition(target)
+  local t = Tools.currentTarget
+  if target then t = target end
+
+  Tools.updatedPosition[t.hash] = true
+
+  if t.type ~= 'Player' and t.name ~= 'Replacer' and t.handle.IsNPC and t.handle:IsNPC() and not t.isPuppet then
     Cron.After(0.2, function()
-      if Tools.currentTarget.UpdatePosition then
-        Tools.currentTarget:UpdatePosition()
+      if t.UpdatePosition then
+        t:UpdatePosition()
       end
       
       if Tools.axisIndicator then
@@ -1208,12 +1299,12 @@ function Tools:UpdateTargetPosition()
       end
     end)
   else
-    -- This flag is used to check if the user is using Target Tools
+    -- This flag is used to check if the user is using t Tools
     -- If they are, we reset puppets position when the PM UI is used
-    Tools.updatedPosition[Tools.currentTarget.hash] = true
+    Tools.updatedPosition[t.hash] = true
 
-    if Tools.currentTarget.UpdatePosition then
-      Tools.currentTarget:UpdatePosition()
+    if t.UpdatePosition then
+      t:UpdatePosition()
     end
     
     if Tools.axisIndicator then
@@ -1244,6 +1335,8 @@ function Tools:SetTargetPosition(pos, angles, target)
       local anim = AMM.Poses.activeAnims[hash]
       AMM.Poses:RestartAnimation(anim)
     end
+
+    Tools:UpdateTargetPosition(t)
 
     if not target then
       Tools:SetCurrentTarget(t)
@@ -1927,7 +2020,7 @@ function Tools:DrawMovementWindow()
         Game.GetTeleportationFacility():Teleport(Tools.currentTarget.handle, pos, EulerAngles.new(Tools.npcRotation[1], Tools.npcRotation[2], Tools.npcRotation[3]))
       end
 
-      Tools:UpdateTargetPosition()      
+      Tools:UpdateTargetPosition()    
     end
 
     ImGui.Spacing()
@@ -2005,7 +2098,7 @@ function Tools:DrawMovementWindow()
 
     if ImGui.Button(buttonLabel, Tools.style.halfButtonWidth, Tools.style.buttonHeight) then
       if Tools.savedPosition ~= '' then
-        Tools:SetTargetPosition(Tools.savedPosition.pos, Tools.savedPosition.angles)
+        Tools:SetTargetPosition(Tools.savedPosition.pos, Tools.savedPosition.angles)        
         local components = AMM.Props:CheckForValidComponents(Tools.currentTarget.handle)
         if components then
           Tools:SetScale(components, Tools.savedPosition.scale, Tools.proportionalMode)

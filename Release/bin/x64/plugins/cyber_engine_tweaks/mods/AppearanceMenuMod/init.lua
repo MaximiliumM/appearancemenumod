@@ -82,7 +82,7 @@ function AMM:new()
 	 AMM.nibblesReplacer = false
 
 	 -- Main Properties --
-	 AMM.currentVersion = "2.8.7"
+	 AMM.currentVersion = "2.8.8"
 	 AMM.CETVersion = parseVersion(GetVersion())
 	 AMM.CodewareVersion = 0
 	 AMM.updateNotes = require('update_notes.lua')
@@ -297,21 +297,8 @@ function AMM:new()
 			local isV = AMM:GetNPCName(self.fakePuppet) == "V"
 
 			if puppetSpawned or isV then
-				Cron.After(Util:CalculateDelay(1.0), function()
-					AMM.Tools:ClearListOfPuppets()
-					
-					local puppetID = self.fakePuppet:GetEntityID()
-					local puppetHash = tostring(puppetID.hash)
-
-					if not AMM.Tools.puppetsIDs[puppetHash] then
-						local entity = self.fakePuppet
-						local newTarget = AMM:NewTarget(entity, "NPCPuppet", AMM:GetScanID(entity), AMM:GetNPCName(entity), AMM:GetScanAppearance(entity), AMM:GetAppearanceOptions(entity))
-						table.insert(AMM.Tools.listOfPuppets, newTarget)
-						AMM.Tools.puppetsIDs[puppetHash] = puppetID
-						AMM.Tools.photoModePuppet = self.fakePuppet
-						puppetSpawned = false
-					end
-				end)
+				AMM.Tools:ClearListOfPuppets()
+				AMM.Tools:AddNewPuppet(self.fakePuppet)
 			end
 		 end)
 
@@ -320,13 +307,7 @@ function AMM:new()
 	 	 end)
 		 
 		 Observe('gameuiPhotoModeMenuController', 'OnCharacterSelected', function(this)
-				Cron.After(Util:CalculateDelay(0.02), function()
-					for _, puppet in ipairs(AMM.Tools.listOfPuppets) do
-						if AMM.Tools.updatedPosition[puppet.hash] then
-							AMM.Tools:SetTargetPosition(puppet.pos, puppet.angles, puppet)
-						end
-					end
-				end)
+				AMM.Tools:ResetPuppetsPosition()
 			end)
 
 		 Observe('PhotoModeMenuListItem', 'OnSliderHandleReleased', function(this)
@@ -344,17 +325,11 @@ function AMM:new()
 
 		 Observe('PhotoModeMenuListItem', 'StartArrowClickedEffect', function(this)
 
-				local attribute = this:GetData().attributeKey
-				local delay = 0.01
-				if attribute == 5 or attribute == 65 or attribute == 68 then delay = 0.03 end
+				-- local attribute = this:GetData().attributeKey
+				-- local delay = 0.01
+				-- if attribute == 5 or attribute == 65 or attribute == 68 then delay = 0.03 end
 
-				Cron.After(Util:CalculateDelay(delay), function()
-					for _, puppet in ipairs(AMM.Tools.listOfPuppets) do
-						if AMM.Tools.updatedPosition[puppet.hash] then
-							AMM.Tools:SetTargetPosition(puppet.pos, puppet.angles, puppet)
-						end
-					end
-				end)
+				AMM.Tools:ResetPuppetsPosition()
 		 end)
 
 		 ObserveAfter('gameuiPhotoModeMenuController', 'OnSetCategoryEnabled', function(this)
@@ -2301,6 +2276,8 @@ function AMM:CheckMissingArchives()
 			AMM.archives = {
 				{name = "basegame_AMM_Props", desc = AMM.LocalizableString("AMM_Props_Desc"), active = true, optional = false},
 				{name = "basegame_johnny_companion", desc = AMM.LocalizableString("AMM_JohnnyCompanion_Desc"), active = true, optional = false},
+
+				-- Optional Archives
 				{name = "basegame_AMM_ScenesPack", desc = AMM.LocalizableString("AMM_ScenesPack_Desc"), active = true, optional = true, extra = true},
 				{name = "basegame_AMM_SoundEffects", desc = AMM.LocalizableString("AMM_SoundPack_Desc"), active = true, optional = true},
 				{name = "basegame_AMM_LizzyIncognito", desc = AMM.LocalizableString("AMM_LizzyIncognito_Desc"), active = true, optional = true},
