@@ -80,9 +80,10 @@ function AMM:new()
 	 AMM.TeleportMod = nil
 	 AMM.UniqueVRig = false
 	 AMM.nibblesReplacer = false
+	 AMM.photoModeNPCsExtended = false
 
 	 -- Main Properties --
-	 AMM.currentVersion = "2.8.8"
+	 AMM.currentVersion = "2.9"
 	 AMM.CETVersion = parseVersion(GetVersion())
 	 AMM.CodewareVersion = 0
 	 AMM.updateNotes = require('update_notes.lua')
@@ -95,6 +96,7 @@ function AMM:new()
 	 AMM.equipmentOptions = AMM:GetEquipmentOptions()
 	 AMM.followDistanceOptions = AMM:GetFollowDistanceOptions()
 	 AMM.companionAttackMultiplier = 0
+	 AMM.companionResistanceMultiplier = 0
 	 AMM.originalVehicles = ''
 	 AMM.displayInteractionPrompt = false
 	 AMM.archives = nil
@@ -190,7 +192,15 @@ function AMM:new()
 		 -- Setup Nibbles Replacer --
 		 if ModArchiveExists("Photomode_NPCs_AMM.archive") then
 			AMM.nibblesReplacer = true
-		 end		 
+		 end
+
+		 -- Setup Photo Mode NPCs Extended
+		 if ModArchiveExists('Photomode_NPCs_Extended_xBaebsae.archive') then
+			AMM.photoModeNPCsExtended = true
+			local pattern = "photomode_appearance"
+			local query = f("DELETE FROM appearances WHERE app_name LIKE '%%%s%%';", pattern)
+			db:execute(query)
+		 end
 
 		 -- Setup content that requires specific archives
 		 AMM.archivesInfo = AMM:CheckMissingArchives()
@@ -1161,7 +1171,7 @@ function AMM:new()
 
 	 registerHotkey("amm_toggle_god", "Toggle God Mode", function()
 		AMM.Tools:ToggleGodMode()
-	end)
+	 end)
 
 	registerHotkey("amm_toggle_build", "Toggle Build Mode", function()
 		AMM.Props:ToggleBuildMode()
@@ -1400,95 +1410,129 @@ function AMM:new()
 				-- After Custom Appearance Set --
 				if AMM.setCustomApp ~= '' and not buttonPressed then
 					waitTimer = waitTimer + deltaTime
+
 					if waitTimer > 0.1 then
-						local handle, customAppearance = AMM.setCustomApp[1], AMM.setCustomApp[2]
+						local handle          = AMM.setCustomApp[1]
+						local customAppearance = AMM.setCustomApp[2]
 						local currentAppearance = AMM:GetScanAppearance(handle)
+
+						-- Only proceed if the current appearance matches the base appearance
 						if currentAppearance == customAppearance[1].app_base then
+
+							-- Iterate through each appearance parameter
 							for _, param in ipairs(customAppearance) do
-								local physics_delay = param.app_param == "SkinnedCloth0441"
-								local appParam = handle:FindComponentByName(CName.new(param.app_param))
-								if appParam then
-									if param.mesh_path and appParam.ChangeResource then
-										if appParam:ChangeResource(param.mesh_path, true) then
-											buttonPressed = false
-											-- if appParam.LoadResource then
-											-- 	if appParam:LoadResource() then													
-											-- 		Cron.After(0.5, function()
-											-- 			appParam:RefreshAppearance()
-											-- 			buttonPressed = false
-											-- 			-- appParam:Toggle(false)
-														
-											-- 			-- if param.app_toggle or param.mesh_type == "body" then
-											-- 			-- 	appParam:TemporaryHide(false)
-											-- 			-- 	appParam:Toggle(true)
-											-- 			-- end
-											-- 		end)
-											-- 	end
-											-- end
-										end
-									end
+									local physicsDelay = (param.app_param == "SkinnedCloth0441")
+									local appParam     = handle:FindComponentByName(CName.new(param.app_param))
 
-									if param.mesh_app then
-										appParam.meshAppearance = CName.new(param.mesh_app)
-										if appParam.LoadAppearance then
-											if appParam:LoadAppearance(true) then
-												buttonPressed = false
-												-- Cron.After(0.5, function()
-													-- appParam:RefreshAppearance()
-													-- buttonPressed = false
-													-- appParam:Toggle(false)
-
-													-- if param.app_toggle or param.mesh_type == "body" then
-													-- 	appParam:TemporaryHide(false)
-													-- 	appParam:Toggle(true)
-													-- end
-												-- end)
+									if appParam then
+										--------------------------------------------------------------
+										-- Resource change section
+										--------------------------------------------------------------
+										if param.mesh_path and appParam.ChangeResource then
+											if appParam:ChangeResource(param.mesh_path, true) then
+													buttonPressed = false
+													--[[
+													if appParam.LoadResource then
+														if appParam:LoadResource() then
+															Cron.After(0.5, function()
+																	appParam:RefreshAppearance()
+																	buttonPressed = false
+																	-- appParam:Toggle(false)
+																	
+																	-- if param.app_toggle or param.mesh_type == "body" then
+																	--     appParam:TemporaryHide(false)
+																	--     appParam:Toggle(true)
+																	-- end
+															end)
+														end
+													end
+													--]]
 											end
 										end
-									end
 
-									if param.mesh_mask ~= 'no_change' and appParam.chunkMask ~= param.mesh_mask and not(string.find(param.app_name, "Underwear")) then
-										if param.mesh_mask then
-											param.mesh_mask = loadstring("return "..param.mesh_mask, '')()
-											if param.app_toggle then
-												appParam.chunkMask = param.mesh_mask
-											elseif appParam.chunkMask ~= 18446744073709551615ULL then
-												appParam.chunkMask = bit32.bor(param.mesh_mask, appParam.chunkMask)
+										--------------------------------------------------------------
+										-- Mesh appearance section
+										--------------------------------------------------------------
+										if param.mesh_app then
+											appParam.meshAppearance = CName.new(param.mesh_app)
+											
+											if appParam.LoadAppearance then
+													if appParam:LoadAppearance(true) then
+														buttonPressed = false
+														--[[
+														Cron.After(0.5, function()
+															appParam:RefreshAppearance()
+															buttonPressed = false
+															appParam:Toggle(false)
+															
+															if param.app_toggle or param.mesh_type == "body" then
+																	appParam:TemporaryHide(false)
+																	appParam:Toggle(true)
+															end
+														end)
+														--]]
+													end
+											end
+										end
+
+										--------------------------------------------------------------
+										-- Mesh mask logic
+										--------------------------------------------------------------
+										if param.mesh_mask ~= 'no_change'
+										and appParam.chunkMask ~= param.mesh_mask
+										and not string.find(param.app_name, "Underwear") then
+
+											if param.mesh_mask then
+													-- Convert string value into actual numeric mask
+													param.mesh_mask = loadstring("return " .. param.mesh_mask)()
+
+													if param.app_toggle then
+														appParam.chunkMask = param.mesh_mask
+													elseif appParam.chunkMask ~= 18446744073709551615ULL then
+														appParam.chunkMask = bit32.bor(param.mesh_mask, appParam.chunkMask)
+													else
+														appParam.chunkMask = 18446744073709551615ULL
+													end
 											else
-												appParam.chunkMask = 18446744073709551615ULL
+													-- If no mesh mask is specified, determine default behavior
+													if param.mesh_type ~= "body" and not param.app_toggle then
+														appParam.chunkMask = 0
+													else
+														appParam.chunkMask = 18446744073709551615ULL
+													end
 											end
+										end
+
+										--------------------------------------------------------------
+										-- Toggling and visibility logic
+										--------------------------------------------------------------
+										if physicsDelay then
+											Cron.After(1, function()
+													appParam:Toggle(false)
+													appParam:TemporaryHide(true)
+											end)
 										else
-											if param.mesh_type ~= "body" and not param.app_toggle then
-												appParam.chunkMask = 0
-											else
-												appParam.chunkMask = 18446744073709551615ULL
-											end
-										end
-									end
-
-									if physics_delay then
-										Cron.After(1, function()
 											appParam:Toggle(false)
-											appParam:TemporaryHide(true)
-										end)
-									else
-										appParam:Toggle(false)
-
-										if param.app_toggle or param.mesh_type == "body" then
-											appParam:TemporaryHide(false)
-											appParam:Toggle(true)
-										else
-											appParam:TemporaryHide(true)
+											
+											if param.app_toggle or param.mesh_type == "body" then
+													appParam:TemporaryHide(false)
+													appParam:Toggle(true)
+											else
+													appParam:TemporaryHide(true)
+											end
 										end
-									end
-								end
-							end
+									end -- if appParam
+							end -- for loop
 
 							waitTimer = 0.0
 							AMM.setCustomApp = ''
-						end
-					end
-				end
+						elseif waitTimer > 10 then
+							waitTimer = 0.0
+							AMM.setCustomApp = ''
+						end -- if currentAppearance
+					end -- if waitTimer
+				end -- if AMM.setCustomApp
+
 			end
 	 end)
 
@@ -1738,10 +1782,11 @@ function AMM:Begin()
 						AMM.UI:Spacing(2)
 
 
-						if ImGui.BeginTabBar("Settings Tabs") then      
+						if ImGui.BeginTabBar("Settings Tabs") then
 
 							AMM:DrawGeneralSettingsTab(style)
 							AMM:DrawUISettingsTab(style)
+							AMM:DrawPhotoModeSettingsTab(style)
 							AMM:DrawExperimentalSettingsTab(style)
 
 							if AMM.CETVersion < 34 and Tools.replacer then
@@ -1865,8 +1910,17 @@ function AMM:DrawGeneralSettingsTab(style)
 		AMM.UI:TextColored(AMM.LocalizableString("Companion_Damage"))
 
 		ImGui.PushItemWidth(200)
-		AMM.companionAttackMultiplier = ImGui.InputFloat(AMM.LocalizableString("xDamage"), AMM.companionAttackMultiplier, 0.5, 50, "%.1f")
+		AMM.companionAttackMultiplier = ImGui.InputFloat(AMM.LocalizableString("xDamage").."##attack", AMM.companionAttackMultiplier, 0.5, 50, "%.1f")
 		if AMM.companionAttackMultiplier < 0 then AMM.companionAttackMultiplier = 0 end
+		ImGui.PopItemWidth()
+
+		AMM.UI:Spacing(3)
+
+		AMM.UI:TextColored(AMM.LocalizableString("Companion_Resistance"))
+
+		ImGui.PushItemWidth(200)
+		AMM.companionResistanceMultiplier = ImGui.InputFloat(AMM.LocalizableString("xResistance").."##resist", AMM.companionResistanceMultiplier, 0.5, 50, "%.1f")
+		if AMM.companionResistanceMultiplier < 0 then AMM.companionResistanceMultiplier = 0 end
 		ImGui.PopItemWidth()
 
 		AMM.UI:Spacing(3)
@@ -2014,11 +2068,48 @@ function AMM:DrawUISettingsTab(style)
 			ImGui.SameLine()
 		end
 
-		AMM.UI:Spacing(3)
+		if settingChanged then AMM:UpdateSettings() end
+
+		AMM.UI:Separator()
+
+		if AMM.settings then
+			if ImGui.BeginListBox(AMM.LocalizableString("Listbox_Themes")) then
+				for _, theme in ipairs(AMM.UI.userThemes) do
+					if (AMM.selectedTheme == theme.name) then selected = true else selected = false end
+					if(ImGui.Selectable(theme.name, selected)) then
+						AMM.selectedTheme = theme.name
+					end
+				end
+				ImGui.EndListBox()
+			end
+
+			if ImGui.SmallButton(AMM.LocalizableString("Button_SmallCreateTheme")) then
+				AMM.Editor:Setup()
+				AMM.Editor.isEditing = true
+			end
+
+			ImGui.SameLine()
+			if ImGui.SmallButton("  Delete Theme  ") then
+				AMM.UI:DeleteTheme(AMM.selectedTheme)
+				AMM.selectedTheme = "Default"
+			end
+		end
+
+		ImGui.EndTabItem()
+	end
+end
+
+function AMM:DrawPhotoModeSettingsTab(style)
+	if ImGui.BeginTabItem(AMM.LocalizableString("BeginItem_TabNamePhotoMode")) then
+
+		local settingsChanged = false
 
 		AMM.UI:TextColored(AMM.LocalizableString("PhotoModeAdjustments"))
 		AMM.userSettings.disablePhotoModeCursor, clicked = ImGui.Checkbox(AMM.LocalizableString("Checkbox_AlwaysDisablePhotoModeCursor"), AMM.userSettings.disablePhotoModeCursor)
 		if clicked then settingChanged = true end
+
+		AMM.userSettings.resetPositionTargetPhotoMode, clicked = ImGui.Checkbox(AMM.LocalizableString("Checkbox_ResetTargetPositionPM"), AMM.userSettings.resetPositionTargetPhotoMode)
+		if clicked then settingsChanged = true end
 
 		AMM.UI:Spacing(3)
 
@@ -2047,32 +2138,6 @@ function AMM:DrawUISettingsTab(style)
 		if clicked then settingChanged = true end
 
 		if settingChanged then AMM:UpdateSettings() end
-
-		AMM.UI:Separator()
-
-		if AMM.settings then
-			if ImGui.BeginListBox(AMM.LocalizableString("Listbox_Themes")) then
-				for _, theme in ipairs(AMM.UI.userThemes) do
-					if (AMM.selectedTheme == theme.name) then selected = true else selected = false end
-					if(ImGui.Selectable(theme.name, selected)) then
-						AMM.selectedTheme = theme.name
-					end
-				end
-				ImGui.EndListBox()
-			end
-
-			if ImGui.SmallButton(AMM.LocalizableString("Button_SmallCreateTheme")) then
-				AMM.Editor:Setup()
-				AMM.Editor.isEditing = true
-			end
-
-			ImGui.SameLine()
-			if ImGui.SmallButton("  Delete Theme  ") then
-				AMM.UI:DeleteTheme(AMM.selectedTheme)
-				AMM.selectedTheme = "Default"
-			end
-		end
-
 		ImGui.EndTabItem()
 	end
 end
@@ -2422,6 +2487,7 @@ function AMM:ImportUserData()
 				self.Tools.defaultFOV = userData['defaultFOV'] or 60
 				self.Tools.defaultAperture = userData['defaultAperture'] or 4
 				self.companionAttackMultiplier = userData['companionDamageMultiplier'] or 0
+				self.companionResistanceMultiplier = userData['companionResistanceMultiplier'] or 0
 				self.Poses.history = userData['posesHistory'] or {}
 				self.Tools.selectedNibblesEntity = userData['selectedNibblesEntity'] or 1
 				self.Tools.replacerVersion = userData['replacerVersion']
@@ -2567,6 +2633,7 @@ function AMM:ExportUserData()
 		userData['defaultFOV'] = self.Tools.defaultFOV
 		userData['defaultAperture'] = self.Tools.defaultAperture
 		userData['companionDamageMultiplier'] = self.companionAttackMultiplier
+		userData['companionResistanceMultiplier'] = self.companionResistanceMultiplier
 		userData['posesHistory'] = self.Poses.history
 		userData['savedPropsDisplayMode'] = self.Props.savedPropsDisplayMode
 		userData['selectedNibblesEntity'] = self.Tools.selectedNibblesEntity
@@ -3088,187 +3155,247 @@ function AMM:SetupAMMCharacters()
 	end
 end
 
-
+--------------------------------------------------------------------------------
+-- 1) Directory scanning helper (unchanged except for minor style adjustments)
+--------------------------------------------------------------------------------
 local typeDirectory = 'directory'
-local extensionLua = '.lua$'
+local extensionLua  = '.lua$'
 
 local function getFilesRecursively(_dir, tbl)
   tbl = tbl or {}
   local files = dir(_dir)
   if #files == 0 then return tbl end
+
   for _, file in ipairs(files) do
-    -- if it's a directory: call recursive
-    if file.type == typeDirectory then 
+    -- if it's a directory: recurse
+    if file.type == typeDirectory then
       getFilesRecursively(_dir .. '/' .. file.name, tbl)
+
     -- if it's a lua file: add to return list
     elseif string.find(file.name, extensionLua) then
       table.insert(tbl, _dir .. '/' .. file.name)
     end
   end
+
   return tbl
 end
 
+--------------------------------------------------------------------------------
+-- 2) Common DB helper functions
+--------------------------------------------------------------------------------
 
-function AMM:SetupCustomEntities()
-
-	local files = getFilesRecursively("./Collabs/Custom Entities", {})
-
-	if #files == 0 then return end
-  
-  	for _, mod in ipairs(files) do
-		local data = require(mod)
-		local modder = data.modder
-		local uid = data.unique_identifier
-		local archive = data.archive or nil
-		local entity = data.entity_info
-		local appearances = data.appearances
-		local attributes = data.attributes
-
-		AMM.modders[uid] = modder
-
-		if archive then table.insert(AMM.collabArchives, {name = archive.name, desc = archive.description, active = true, optional = false}) end
-
-		local ent = entity.path:match("[^\\]*.ent$"):gsub(".ent", "")
-		local entity_path = "Custom_"..uid.."_"..entity.type.."."..ent
-
-		local check = 0
-		for count in db:urows(f([[SELECT COUNT(1) FROM entities WHERE entity_path = "%s"]], entity_path)) do
-			check = count
-		end
-
-		if check == 0 then
-			local check = 0
-			for count in db:urows(f([[SELECT COUNT(1) FROM entities WHERE entity_name = "%s"]], entity.name)) do
-			check = count
-			end
-
-			if check ~= 0 then
-			entity.name = uid.." "..entity.name
-			end
-
-			local entity_id = AMM:GetScanID(entity_path)
-			local canBeComp = 1
-			local category = 55
-			if entity.type == "Vehicle" then
-			canBeComp = 0
-			category = 56
-			end
-
-			local tables = '(entity_id, entity_name, cat_id, parameters, can_be_comp, entity_path, is_spawnable, is_swappable, template_path, entity_rig)'
-			local values = f('("%s", "%s", %i, "%s", "%s", "%s", "%s", "%s", "%s", "%s")', entity_id, entity.name, category, nil, canBeComp, entity_path, 1, 1, entity.path, entity.rig)
-			values = values:gsub('"nil"', "NULL")
-			db:execute(f('INSERT INTO entities %s VALUES %s', tables, values))
-
-			if entity.customName then
-				AMM.customNames[entity_id] = entity.name
-			end
-
-			-- Setup Appearances
-			if appearances ~= nil then
-				for _, app in ipairs(appearances) do
-					db:execute(f('INSERT INTO appearances (entity_id, app_name, collab_tag) VALUES ("%s", "%s", "%s")', entity_id, app, uid))
-				end
-			end
-
-			-- Check if TweakDB record exists
-			if not TweakDB:GetRecord(entity_path) then
-				-- Setup TweakDB Records
-				if entity.record ~= nil then
-					TweakDB:CloneRecord(entity_path, entity.record)
-				else
-					TweakDB:CloneRecord(entity_path, "Character.CitizenRichFemaleCasual")
-				end
-			end
-
-   		TweakDB:SetFlat(entity_path..".entityTemplatePath", entity.path)
-
-			if attributes ~= nil then
-				local newAttributes = {}
-				for attr, value in pairs(attributes) do
-					newAttributes[attr] = TweakDB:GetFlat(value)
-				end
-				TweakDB:SetFlats(entity_path, newAttributes)
-			end
-    	end
-	end
+-- Simple helper to get a single integer count from the database
+local function getCount(db, query)
+  -- Example usage:
+  -- local c = getCount(db, 'SELECT COUNT(1) FROM entities WHERE ...')
+  for c in db:urows(query) do
+    return c
+  end
+  return 0
 end
 
-local propHandleFormat = "Custom_%s_Props.%s"
-local propSelectionPattern = "[^\\]*.ent$"
-local selectEntityPathFormat = 'SELECT COUNT(1) FROM entities WHERE entity_path = "%s"'
-local selectEntityNameFormat = 'SELECT COUNT(1) FROM entities WHERE entity_name = "%s"'
-local selectPropCategoryFormat = 'SELECT cat_id FROM categories WHERE cat_name = "%s"'
+-- Checks if an entity_path (or any other path) exists
+local function recordExists(db, tableName, columnName, value)
+  local query = string.format('SELECT COUNT(1) FROM %s WHERE %s = "%s"', tableName, columnName, value)
+  return getCount(db, query) > 0
+end
 
-local tablenamesAsString = '(entity_id, entity_name, cat_id, parameters, can_be_comp, entity_path, is_spawnable, is_swappable, template_path)'
-local valuesFormat = '("%s", "%s", %i, %s, "%s", "%s", "%s", "%s", "%s")'
+-- Insert with a simple format, returning any replaced "nil"/"NULL" fixes
+local function sanitizedInsert(db, tableName, columnsString, valuesString)
+  -- columnsString = '(a, b, c)'
+  -- valuesString  = '("valA", "valB", "valC")'
+  local cleanedValues = valuesString:gsub('"nil"', "NULL"):gsub('""', "NULL")
+  local sql = string.format('INSERT INTO %s %s VALUES %s', tableName, columnsString, cleanedValues)
+  db:execute(sql)
+end
 
-local insertEntitiesIntoTablesFormat = 'INSERT INTO entities %s VALUES %s'
+--------------------------------------------------------------------------------
+-- 3) Setup Custom Entities (Incremental)
+--------------------------------------------------------------------------------
+function AMM:SetupCustomEntities()
+  local files = getFilesRecursively("./Collabs/Custom Entities", {})
+  if #files == 0 then return end
 
+  -- Batch all changes in one DB transaction for speed
+  db:execute("BEGIN TRANSACTION")
 
-function AMM:SetupCustomProps()
-	db:execute("DELETE FROM entities WHERE entity_path LIKE '%Custom_%'")
-  
+  for _, mod in ipairs(files) do
+    local data        = require(mod)
+    local modder      = data.modder
+    local uid         = data.unique_identifier
+    local archive     = data.archive
+    local entity      = data.entity_info
+    local appearances = data.appearances
+    local attributes  = data.attributes
+
+    -- Track modder
+    AMM.modders[uid] = modder
+
+    -- Insert archive if any
+    if archive then
+      table.insert(AMM.collabArchives, {
+        name   = archive.name,
+        desc   = archive.description,
+        active = true,
+        optional = false
+      })
+    end
+
+    -- Build the "fake" entity_path in your DB from the .ent file
+    local ent         = entity.path:match("[^\\]*.ent$"):gsub(".ent", "")
+    local entity_path = "Custom_"..uid.."_"..entity.type.."."..ent
+
+    -- Only insert if we don’t already have it
+    if not recordExists(db, "entities", "entity_path", entity_path) then
+      -- If entity_name is already taken, rename it
+      if recordExists(db, "entities", "entity_name", entity.name) then
+        entity.name = uid.." "..entity.name
+      end
+
+      local entity_id  = AMM:GetScanID(entity_path)
+      local canBeComp  = (entity.type == "Vehicle") and 0 or 1
+      local category   = (entity.type == "Vehicle") and 56 or 55
+      local parameters = nil -- or whatever you had originally
+
+      local tables = '(entity_id, entity_name, cat_id, parameters, can_be_comp, entity_path, is_spawnable, is_swappable, template_path, entity_rig)'
+      local vals   = string.format(
+        '("%s", "%s", %i, "%s", "%s", "%s", "%s", "%s", "%s", "%s")',
+        entity_id,
+        entity.name,
+        category,
+        parameters,
+        canBeComp,
+        entity_path,
+        1,
+        1,
+        entity.path,
+        entity.rig
+      )
+
+      sanitizedInsert(db, "entities", tables, vals)
+
+      -- For custom naming
+      if entity.customName then
+        AMM.customNames[entity_id] = entity.name
+      end
+
+      -- Setup Appearances
+      if appearances then
+        for _, app in ipairs(appearances) do
+          local appearanceSQL = string.format(
+            'INSERT INTO appearances (entity_id, app_name, collab_tag) VALUES ("%s", "%s", "%s")',
+            entity_id, app, uid
+          )
+          db:execute(appearanceSQL)
+        end
+      end
+
+      -- Check if TweakDB record exists (only do once)
+      if not TweakDB:GetRecord(entity_path) then
+        if entity.record then
+          TweakDB:CloneRecord(entity_path, entity.record)
+        else
+          TweakDB:CloneRecord(entity_path, "Character.CitizenRichFemaleCasual")
+        end
+      end
+      TweakDB:SetFlat(entity_path..".entityTemplatePath", entity.path)
+
+      -- Apply optional TweakDB attributes
+      if attributes then
+        local newAttributes = {}
+        for attr, value in pairs(attributes) do
+          newAttributes[attr] = TweakDB:GetFlat(value)
+        end
+        TweakDB:SetFlats(entity_path, newAttributes)
+      end
+    end
+  end
+
+  db:execute("COMMIT")
+end
+
+--------------------------------------------------------------------------------
+-- 4) Setup Custom Props (Incremental by default, optional full reset)
+--------------------------------------------------------------------------------
+function AMM:SetupCustomProps(opts)
+  -- optional: if opts and opts.forceClean then ...
+  local forceClean = opts and opts.forceClean
+
+  if forceClean then
+    -- If the user *really* wants to blow everything away:
+    db:execute("DELETE FROM entities WHERE entity_path LIKE '%Custom_%'")
+  end
+
   local files = getFilesRecursively("./Collabs/Custom Props", {})
-  
-	if #files == 0 then return end
-  
+  if #files == 0 then return end
+
+  db:execute("BEGIN TRANSACTION")
+
   for _, mod in ipairs(files) do
     local data = require(mod)
     if not data then
-        spdlog.error(f("failed to read file %s", mod))
+      spdlog.error(string.format("Failed to read file %s", mod))
     else
-      local modder = data.modder
-      local uid = data.unique_identifier
-      local archive = data.archive or nil
-      local props = data.props
+      local modder  = data.modder
+      local uid     = data.unique_identifier
+      local archive = data.archive
+      local props   = data.props
 
       AMM.modders[uid] = modder
       AMM.hasCustomProps = true
 
-      if archive then table.insert(AMM.collabArchives, {name = archive.name, desc = archive.description, active = true, optional = false}) end
+      if archive then
+        table.insert(AMM.collabArchives, {
+          name = archive.name,
+          desc = archive.description,
+          active = true,
+          optional = false
+        })
+      end
 
       for _, prop in ipairs(props) do
-        
-        -- null-proofing and exception prevention
-        prop = prop or {}
-        local propPath = (prop.path or ''):match(propSelectionPattern) or '' -- "[^\\]*.ent$"
-        local ent = propPath:gsub(".ent", "")
-        
-        local entity_path = f(propHandleFormat, uid, ent) -- "Custom_%s_Props.%s"		            
+        prop          = prop or {}
+        local propPath= (prop.path or ''):match("[^\\]*.ent$") or ''
+        local ent     = propPath:gsub(".ent", "")
+        local epath   = string.format("Custom_%s_Props.%s", uid, ent)
 
-        local check = 0
-        for count in db:urows(f(selectEntityPathFormat, entity_path)) do -- 'SELECT COUNT(1) FROM entities WHERE entity_path = "%s"'
-          check = count
-        end
-
-        if check == 0 then
-          local check = 0
-          for count in db:urows(f(selectEntityNameFormat, prop.name)) do -- 'SELECT COUNT(1) FROM entities WHERE entity_name = "%s"'
-            check = count
+        -- If it doesn't already exist, insert
+        if not recordExists(db, "entities", "entity_path", epath) then
+          -- rename if entity_name is taken
+          if recordExists(db, "entities", "entity_name", prop.name) then
+            prop.name = string.format("%s %s", uid, prop.name)
           end
 
-          if check ~= 0 then
-            prop.name = f("%s %s", uid, prop.name)
+          local entity_id = AMM:GetScanID(epath)
+          local category  = 48
+          local queryCat  = string.format('SELECT cat_id FROM categories WHERE cat_name = "%s"', prop.category)
+          for cat_id in db:urows(queryCat) do
+            category = cat_id
           end
 
-          local entity_id = AMM:GetScanID(entity_path)
-          local category = 48
-          for cat_id in db:urows(f(selectPropCategoryFormat, prop.category)) do -- 'SELECT cat_id FROM categories WHERE cat_name = "%s"'
-              category = cat_id
-          end
-
-          -- '("%s", "%s", %i, %s, "%s", "%s", "%s", "%s", "%s")'
-          local values = f(valuesFormat, entity_id, prop.name, category, prop.distanceFromGround, 0, entity_path, 1, 0, prop.path)
-          values = values:gsub('nil', "NULL")
-          
-          -- tablenamesAsString = '(entity_id, entity_name, cat_id, parameters, can_be_comp, entity_path, is_spawnable, is_swappable, template_path)'
-          -- 'INSERT INTO entities %s VALUES %s'
-          db:execute(f(insertEntitiesIntoTablesFormat, tablenamesAsString, values))
+          local columns = '(entity_id, entity_name, cat_id, parameters, can_be_comp, entity_path, is_spawnable, is_swappable, template_path)'
+          local vals    = string.format(
+            '("%s", "%s", %i, %s, "%s", "%s", "%s", "%s", "%s")',
+            entity_id,
+            prop.name,
+            category,
+            prop.distanceFromGround,
+            0,
+            epath,
+            1,
+            0,
+            prop.path
+          )
+          sanitizedInsert(db, "entities", columns, vals)
 
           -- Setup Appearances
-          if prop.appearances ~= nil then
+          if prop.appearances then
             for _, app in ipairs(prop.appearances) do
-              db:execute(f('INSERT INTO appearances (entity_id, app_name, collab_tag) VALUES ("%s", "%s", "%s")', entity_id, app, uid))
+              local q = string.format(
+                'INSERT INTO appearances (entity_id, app_name, collab_tag) VALUES ("%s", "%s", "%s")',
+                entity_id, app, uid
+              )
+              db:execute(q)
             end
           end
         end
@@ -3276,156 +3403,192 @@ function AMM:SetupCustomProps()
     end
   end
 
-
+  db:execute("COMMIT")
 end
 
-local insertAppearanceFormat = 'INSERT INTO appearances (entity_id, app_name, collab_tag) VALUES ("%s", "%s", "%s")'
-local selectEntityFormat = "SELECT entity_path FROM entities WHERE entity_id = '%s'"
-
+--------------------------------------------------------------------------------
+-- 5) Setup Collab Appearances (Incremental)
+--------------------------------------------------------------------------------
 function AMM:SetupCollabAppearances()
-	local files = getFilesRecursively("./Collabs/Custom Appearances", {})
-	local collabs = {}
-	if #files == 0 then return collabs end
+  local files   = getFilesRecursively("./Collabs/Custom Appearances", {})
+  local collabs = {}
+  if #files == 0 then return collabs end
 
-	local function addCollab(mod)
-		local collab = require(mod)
-		if not collab then     
-			spdlog.error(f("Failed to parse file: %s", mod))
-			return
-		end
+  db:execute("BEGIN TRANSACTION")
 
-		local metadata = collab.metadata
+  local function addCollab(mod)
+    local collab = require(mod)
+    if not collab then
+      spdlog.error(string.format("Failed to parse file: %s", mod))
+      return
+    end
 
-		if metadata == nil then
-			local entity_id = collab.entity_id
-			local archive = collab.archive or nil
-			local uid = collab.unique_identifier
-			local appearances = collab.appearances
-			local attributes = collab.attributes
-			
-			if archive then table.insert(AMM.collabArchives, {name = archive.name, desc = archive.description, active = true, optional = false}) end
-			
-			-- Setup Appearances
-			for _, app in ipairs(appearances) do
-				-- 'INSERT INTO appearances (entity_id, app_name, collab_tag) VALUES ("%s", "%s", "%s")'
-				db:execute(f(insertAppearanceFormat, entity_id, app, uid))
-			end
-			
-			if attributes ~= nil then
-				local entity_path = nil
-				for path in db:urows(f(selectEntityFormat, entity_id)) do -- "SELECT entity_path FROM entities WHERE entity_id = '%s'"
-					entity_path = path
-				end
-				
-				if entity_path then
-					local newAttributes = {}
-					for attr, value in pairs(attributes) do
-						newAttributes[attr] = TweakDB:GetFlat(value)
-					end
-					TweakDB:SetFlats(entity_path, newAttributes)
-				end
-			end
-		else -- if metadata != nil 
-			for _, newApp in ipairs(metadata) do
-				newApp.disabledByDefault = collab.disabledByDefault
-				table.insert(collabs, newApp)
-				
-				local customApps = collab.customApps[newApp.tag]
-				
-				if customApps then
+    local metadata = collab.metadata
 
-					local check = 0
-					for count in db:urows(f("SELECT COUNT(1) FROM custom_appearances WHERE collab_tag = '%s'", newApp.tag)) do
-						check = count
-					end
+    -- No metadata => classic approach
+    if not metadata then
+      local entity_id   = collab.entity_id
+      local archive     = collab.archive
+      local uid         = collab.unique_identifier
+      local appearances = collab.appearances
+      local attributes  = collab.attributes
 
-					if check ~= 0 then
-						db:execute(f("DELETE FROM custom_appearances WHERE collab_tag = '%s'", newApp.tag))
-					end
-				
-					for _, customApp in ipairs(customApps) do
-						local tables = '("entity_id", "app_name", "app_base", "app_param", "app_toggle", "mesh_app", "mesh_type", "mesh_mask", "mesh_path", "collab_tag")'
-						local values = f('("%s", "%s", "%s", "%s", "%s", "%s", "%s", "%s", "%s", "%s")', newApp.entity_id, customApp.app_name, newApp.appearance, customApp.app_param, customApp.app_toggle, customApp.mesh_app, customApp.mesh_type, customApp.mesh_mask, customApp.mesh_path, newApp.tag)
-						values = values:gsub('"nil"', "NULL")
-							values = values:gsub('""', "NULL")
-						db:execute(f('INSERT INTO custom_appearances %s VALUES %s', tables, values))
-					end
-				end
-			end
-		end
-	end
+      if archive then
+        table.insert(AMM.collabArchives, {
+          name = archive.name,
+          desc = archive.description,
+          active = true,
+          optional = false
+        })
+      end
 
-	for _, mod in ipairs(files) do addCollab(mod) end
-	return collabs
+      -- Insert appearances
+      if appearances then
+        for _, app in ipairs(appearances) do
+          local ins = string.format(
+            'INSERT INTO appearances (entity_id, app_name, collab_tag) VALUES ("%s", "%s", "%s")',
+            entity_id, app, uid
+          )
+          db:execute(ins)
+        end
+      end
+
+      -- Possibly update TweakDB attributes
+      if attributes then
+        local entity_path = nil
+        local sql         = string.format("SELECT entity_path FROM entities WHERE entity_id = '%s'", entity_id)
+        for path in db:urows(sql) do
+          entity_path = path
+          break
+        end
+
+        if entity_path then
+          local newAttributes = {}
+          for attr, value in pairs(attributes) do
+            newAttributes[attr] = TweakDB:GetFlat(value)
+          end
+          TweakDB:SetFlats(entity_path, newAttributes)
+        end
+      end
+
+    else
+      -- With metadata => handle new custom_appearances
+      for _, newApp in ipairs(metadata) do
+        newApp.disabledByDefault = collab.disabledByDefault
+        table.insert(collabs, newApp)
+
+        local customApps = collab.customApps[newApp.tag]
+        if customApps then
+          local c = getCount(db, string.format(
+            "SELECT COUNT(1) FROM custom_appearances WHERE collab_tag = '%s'",
+            newApp.tag
+          ))
+          if c ~= 0 then
+            db:execute(string.format(
+              "DELETE FROM custom_appearances WHERE collab_tag = '%s'",
+              newApp.tag
+            ))
+          end
+
+          for _, customApp in ipairs(customApps) do
+            local columns = '("entity_id", "app_name", "app_base", "app_param", "app_toggle", "mesh_app", "mesh_type", "mesh_mask", "mesh_path", "collab_tag")'
+            local vals    = string.format(
+              '("%s", "%s", "%s", "%s", "%s", "%s", "%s", "%s", "%s", "%s")',
+              newApp.entity_id,
+              customApp.app_name,
+              newApp.appearance,
+              customApp.app_param,
+              customApp.app_toggle,
+              customApp.mesh_app,
+              customApp.mesh_type,
+              customApp.mesh_mask,
+              customApp.mesh_path,
+              newApp.tag
+            )
+            sanitizedInsert(db, "custom_appearances", columns, vals)
+          end
+        end
+      end
+    end
+  end
+
+  for _, mod in ipairs(files) do
+    addCollab(mod)
+  end
+
+  db:execute("COMMIT")
+  return collabs
 end
 
-local animCompType = "amm_workspot_collab"
-local columnNames = '(anim_name, anim_rig, anim_comp, anim_ent, anim_cat)'
-local insertPoseFormat = '("%s", "%s", "%s", "%s", "%s")'
-local insertPoseValuesFormat = 'INSERT INTO workspots %s VALUES %s'
+--------------------------------------------------------------------------------
+-- 6) Setup Custom Poses (Incremental by default, optional force clean)
+--------------------------------------------------------------------------------
+function AMM:SetupCustomPoses(opts)
+  local forceClean = opts and opts.forceClean
+  local animCompType = "amm_workspot_collab"
 
-function AMM:SetupCustomPoses()
+  if forceClean then
+    db:execute(string.format("DELETE FROM workspots WHERE anim_comp = '%s'", animCompType))
+  end
 
-	db:execute(f("DELETE FROM workspots WHERE anim_comp = '%s'", animCompType))
-	
-	local files = getFilesRecursively("./Collabs/Custom Poses", {})
+  local files = getFilesRecursively("./Collabs/Custom Poses", {})
+  if #files == 0 then return {} end
 
-	if #files == 0 then return {} end
-  
-  -- return table
-	local collabs = {}
-  
-  -- lookup table: tracks pose names to boolean for simple checking while adding custom poses
-	local alreadyRegisteredPoses = {}
-  
-	db:execute('UPDATE sqlite_sequence SET seq = (SELECT MAX(anim_id) FROM workspots) WHERE name = "workspots"')
-  
-	for _, mod in ipairs(files) do
-		local data = require(mod)
-		
-		if not data then
-			spdlog.error(f("%s: invalid file!", mod))
-		else
-			local category = data.category or 'INVALID'
-			local entityPath = data.entity_path or 'INVALID'
-			local anims = data.anims or {}    
-			local modder = data.modder or 'INVALID'
+  local collabs = {}  -- returned table
+  local alreadyRegisteredPoses = {}
 
-			-- Check if category already exists
-			local check = 0
-			for count in db:urows(f("SELECT COUNT(1) FROM workspots WHERE anim_cat = '%s'", category)) do
-				check = count
-			end
+  db:execute('BEGIN TRANSACTION')
+  db:execute('UPDATE sqlite_sequence SET seq = (SELECT MAX(anim_id) FROM workspots) WHERE name = "workspots"')
 
-			if check ~= 0 then
-				category = "["..modder.."] "..category
-			end
-				
-			for rig, animsForRig in pairs(anims) do
-				-- track duplicates for warnings
-				alreadyRegisteredPoses[modder]      = alreadyRegisteredPoses[modder] or {}
-				alreadyRegisteredPoses[modder][rig] = alreadyRegisteredPoses[modder][rig] or {}
-				
-				collabs[modder]                     = collabs[modder] or {}
-				collabs[modder][rig]                = collabs[modder][rig] or {}
-				
-				table.insert(collabs[modder][rig], entityPath)
-				
-				for _, animName in ipairs(animsForRig) do
-					if alreadyRegisteredPoses[modder][rig][animName] then
-						spdlog.error(f("%s: custom animation %s for rig %s is already registered!", modder, animName, rig))
-					else
-						local values = f(insertPoseFormat, animName, rig, animCompType, entityPath, category) -- '("%s", "%s", "%s", "%s")'
-						db:execute(f(insertPoseValuesFormat, columnNames, values))                  -- 'INSERT INTO workspots %s VALUES %s'
-						
-						alreadyRegisteredPoses[modder][rig][animName] = true
-					end
-				end
-			end
-    	end
-  	end
-	
-	return collabs
+  for _, mod in ipairs(files) do
+    local data = require(mod)
+    if not data then
+      spdlog.error(string.format("%s: invalid file!", mod))
+    else
+      local category   = data.category or 'INVALID'
+      local entityPath = data.entity_path or 'INVALID'
+      local anims      = data.anims or {}
+      local modder     = data.modder or 'INVALID'
+
+      -- If category is already in the table, rename it
+      local exists = getCount(db, string.format(
+        "SELECT COUNT(1) FROM workspots WHERE anim_cat = '%s'", 
+        category
+      ))
+      if exists ~= 0 then
+        category = string.format("[%s] %s", modder, category)
+      end
+
+      for rig, animsForRig in pairs(anims) do
+        alreadyRegisteredPoses[modder]      = alreadyRegisteredPoses[modder] or {}
+        alreadyRegisteredPoses[modder][rig] = alreadyRegisteredPoses[modder][rig] or {}
+
+        collabs[modder]      = collabs[modder] or {}
+        collabs[modder][rig] = collabs[modder][rig] or {}
+        table.insert(collabs[modder][rig], entityPath)
+
+        for _, animName in ipairs(animsForRig) do
+          if alreadyRegisteredPoses[modder][rig][animName] then
+            spdlog.error(string.format(
+              "%s: custom animation %s for rig %s is already registered!",
+              modder, animName, rig
+            ))
+          else
+            local columns = '(anim_name, anim_rig, anim_comp, anim_ent, anim_cat)'
+            local vals    = string.format(
+              '("%s", "%s", "%s", "%s", "%s")',
+              animName, rig, animCompType, entityPath, category
+            )
+            sanitizedInsert(db, "workspots", columns, vals)
+            alreadyRegisteredPoses[modder][rig][animName] = true
+          end
+        end
+      end
+    end
+  end
+
+  db:execute('COMMIT')
+  return collabs
 end
 
 function AMM:SetupVehicleData()
@@ -3816,33 +3979,75 @@ function AMM:GetFavoritesAppearances(id)
 end
 
 local entitiesChecked = {}
-function AMM:GetAppearancesFromEntity(id)
-	log("Appearances From Entity: "..id)
-	entitiesChecked[id] = true
 
-	local recordID = loadstring("return TweakDBID.new("..id..")", '')()
+function AMM:GetAppearancesFromEntity(id, target, onComplete)
+	log("Appearances From Entity: " .. id)
+	entitiesChecked[id] = true
+	local isPuppet = false
+	local collabTag = nil
+	local newAppearancesAdded = false
+
+	-- Check for photo mode components
+	if AMM.photoModeNPCsExtended and target then
+		isPuppet = Util:CheckForPhotoComponent(target)
+		collabTag = 'Replacer'
+	end
+
+	-- Get entity template path
+	local recordID = loadstring("return TweakDBID.new(" .. id .. ")", '')()
 	local path = TweakDB:GetFlat(TweakDBID.new(recordID, '.entityTemplatePath'))
 	if path then
 		local token = Game.GetResourceDepot():LoadResource(path)
 		Cron.Every(0.1, { tick = 1 }, function(timer)
-
 			timer.tick = timer.tick + 1
-	
+
+			-- Timeout after 10 ticks (1 second)
 			if timer.tick > 10 then
 				Cron.Halt(timer)
+				if onComplete then onComplete(false) end -- Notify no new appearances were added
 			end
-			
+
+			-- If the token is valid, load appearances
 			if token then
 				local template = token:GetResource()
 				local valueList = {}
+
+				-- Prepare appearance insertions
 				for _, appearance in ipairs(template.appearances) do
-					table.insert(valueList, f("('%s', '%s')", id, NameToString(appearance.name)))
+					local appName = NameToString(appearance.name)
+
+					-- Check if appearance already exists in the database
+					local query = f("SELECT COUNT(1) FROM appearances WHERE entity_id = '%s' AND app_name = '%s'", id, appName)
+					local exists = false
+
+					for count in db:urows(query) do
+						if count > 0 then
+							exists = true
+							break
+						end
+					end
+
+					-- Add appearance to the insertion list if not already in the database
+					if not exists then
+						local collabTagValue = collabTag and f("'%s'", collabTag) or "NULL"
+						table.insert(valueList, f("('%s', '%s', %s)", id, appName, collabTagValue))
+						newAppearancesAdded = true
+					end
 				end
-		
-				db:execute(f("INSERT INTO appearances (entity_id, app_name) VALUES " .. table.concat(valueList, ",")))
+
+				-- Insert new appearances into the database
+				if #valueList > 0 then
+					db:execute(f("INSERT INTO appearances (entity_id, app_name, collab_tag) VALUES " .. table.concat(valueList, ",")))
+				end
+
+				-- Stop the timer and invoke the callback
+				if onComplete then onComplete(newAppearancesAdded) end
 				Cron.Halt(timer)
 			end
 		end)
+	else
+		-- If no path, directly call the callback with no new appearances
+		if onComplete then onComplete(false) end
 	end
 end
 
@@ -3861,56 +4066,77 @@ function AMM:GetAppearanceOptionsWithID(id, t)
 	local options = {}
 
 	if self.Swap.activeSwaps[id] ~= nil then
-	 	id = self.Swap.activeSwaps[id].newID
+		id = self.Swap.activeSwaps[id].newID
 	end
 
 	-- Return cached appearance options if available
-	-- That means less database access needed
-	if AMM.cachedAppearanceOptions[id] and AMM.Scan.searchQuery == '' then return AMM.cachedAppearanceOptions[id] end
+	if AMM.cachedAppearanceOptions[id] and AMM.Scan.searchQuery == '' then
+		return AMM.cachedAppearanceOptions[id]
+	end
 
-	if (t and t.IsPlayer and t:IsPlayer()) or Util:CheckVByID(id) then return nil end
+	-- Skip players or specific entities
+	if (t and t.IsPlayer and t:IsPlayer()) or Util:CheckVByID(id) then
+		return nil
+	end
 
 	options = AMM:GetFavoritesAppearances(id)
 
-	if self.customAppPosition == "Top" then
-		options = self:LoadCustomAppearances(options, id, t)
-	end
+	-- Separate tables for custom and database appearances
+	local customOptions = {}
+	local dbOptions = {}
 
+	-- Load database appearances
 	if self.Swap.activeSwaps[id] == nil then
-		local searchQuery = ""
-		if AMM.Scan.searchQuery ~= "" then
-			searchQuery = "app_name LIKE '%"..AMM.Scan.searchQuery.."%' AND "
-		end
+		 local searchQuery = ""
+		 if AMM.Scan.searchQuery ~= "" then
+			  searchQuery = "app_name LIKE '%" .. AMM.Scan.searchQuery .. "%' AND "
+		 end
 
-		local query = f("SELECT app_name FROM appearances WHERE %sentity_id = '%s' AND app_name NOT IN (SELECT app_name FROM favorites_apps WHERE entity_id = '%s') ORDER BY app_name ASC", searchQuery, id, id)
+		 local query = f("SELECT app_name FROM appearances WHERE %sentity_id = '%s' AND app_name NOT IN (SELECT app_name FROM favorites_apps WHERE entity_id = '%s') ORDER BY app_name ASC", searchQuery, id, id)
 
-		if AMM.userSettings.streamerMode then
-			local sql = "SELECT app_name FROM appearances WHERE "
-			local tb = {}
-			for _, word in ipairs(AMM.bannedWords) do
+		 if AMM.userSettings.streamerMode then
+			  local sql = "SELECT app_name FROM appearances WHERE "
+			  local tb = {}
+			  for _, word in ipairs(AMM.bannedWords) do
 					table.insert(tb, f("app_name NOT LIKE '%%%s%%'", word))
-			end
-			
-			local concatBannedWords = table.concat(tb, " AND ")
-			query = sql..concatBannedWords..f(" AND %sentity_id = '%s' ORDER BY app_name ASC", searchQuery, id)
-		end
+			  end
 
-		for app in db:urows(query) do
-			table.insert(options, app)
-		end
+			  local concatBannedWords = table.concat(tb, " AND ")
+			  query = sql .. concatBannedWords .. f(" AND %sentity_id = '%s' ORDER BY app_name ASC", searchQuery, id)
+		 end
 
-		if next(options) == nil and t ~= nil and ((t.IsNPC and t:IsNPC()) or (t.IsVehicle and t:IsVehicle())) and not entitiesChecked[id] then
-			AMM:GetAppearancesFromEntity(id)
-		end
+		 for app in db:urows(query) do
+			  table.insert(dbOptions, app)
+		 end
+
+		 -- Call GetAppearancesFromEntity if no appearances are found in the database
+		 if next(dbOptions) == nil and t ~= nil and ((t.IsNPC and t:IsNPC()) or (t.IsVehicle and t:IsVehicle())) and not entitiesChecked[id] then
+			  AMM:GetAppearancesFromEntity(id, t, function(newAppearancesAdded)
+					if newAppearancesAdded then
+						 AMM.cachedAppearanceOptions[id] = nil
+					end
+			  end)
+		 end
 	end
 
-	if self.customAppPosition == "Bottom" then
-		options = self:LoadCustomAppearances(options, id, t)
-	end
+	-- Load custom appearances
+	customOptions = self:LoadCustomAppearances({}, id, t)
 
+	-- Combine custom and database appearances based on the setting
+   if self.customAppPosition == "Top" then
+		options = Util:ConcatTables(customOptions, dbOptions) -- Custom at top
+	elseif self.customAppPosition == "Bottom" then
+		options = Util:ConcatTables(dbOptions, customOptions) -- Custom at bottom
+	else
+		options = Util:ConcatTables(dbOptions, options)
+  	end
+
+	-- Cache options if the search query is empty
 	if next(options) ~= nil then
-		if AMM.Scan.searchQuery == '' then AMM.cachedAppearanceOptions[id] = options end
-		return options -- array of appearances names
+		if AMM.Scan.searchQuery == '' then
+			AMM.cachedAppearanceOptions[id] = options
+		end
+		return options -- Array of appearance names
 	end
 
 	return nil
@@ -3929,49 +4155,6 @@ function AMM:GetTweakDBIDFromName(name)
 	return nil
 end
 
-function AMM:LoadCustomAppearances(options, id, t)
-	local searchQuery = ""
-	if AMM.Scan.searchQuery ~= "" then
-		searchQuery = "app_name LIKE '%"..AMM.Scan.searchQuery.."%' AND "
-	end
-
-	if #AMM.collabs ~= 0 then
-		local collabsAppBase = '('
-		for i, collab in ipairs(AMM.collabs) do
-			collabsAppBase = collabsAppBase..f("'%s'", collab.appearance)
-			if i ~= #AMM.collabs then collabsAppBase = collabsAppBase..", " end
-			for app in db:urows(f("SELECT DISTINCT app_name FROM custom_appearances WHERE %scollab_tag = '%s' AND entity_id = '%s' ORDER BY app_name ASC", searchQuery, collab.tag, id)) do
-				table.insert(options, app)
-			end
-		end
-		collabsAppBase = collabsAppBase..")"
-
-	-- PM spawned NPCs could have custom appearances added by name
-	-- But since their appearance names are different, it will cause issues anyways
-		local check = 0
-		for count in db:urows(f("SELECT COUNT(1) FROM custom_appearances WHERE entity_id = '%s'", id)) do
-			check = count
-			break
-	  	end
-
-		if check == 0 then
-			local name = AMM:GetNPCName(t)
-			local tdbid = AMM:GetTweakDBIDFromName(name)
-			if tdbid then id = tdbid end
-	  	end
-
-		for app in db:urows(f("SELECT DISTINCT app_name FROM custom_appearances WHERE %s(collab_tag IS NULL OR collab_tag = 'AMM') AND app_base NOT IN %s AND entity_id = '%s' ORDER BY app_name ASC", searchQuery, collabsAppBase, id)) do
-			table.insert(options, app)
-		end
-	else
-		for app in db:urows(f("SELECT DISTINCT app_name FROM custom_appearances WHERE %s(collab_tag IS NULL OR collab_tag = 'AMM') AND entity_id = '%s' ORDER BY app_name ASC", searchQuery, id)) do
-			table.insert(options, app)
-		end
-	end
-
-	return options
-end
-
 function AMM:GetAppearance(t)
 	if t and t ~= '' and t.hash == '' then
 		t.hash = tostring(t.handle:GetEntityID().hash)
@@ -3987,7 +4170,7 @@ end
 
 function AMM:GetScanAppearance(t)
 	if t and t.GetCurrentAppearanceName then
-		return tostring(t:GetCurrentAppearanceName()):match("%[ (%g+) -")
+		return NameToString(t:GetCurrentAppearanceName())
 	end
 
 	log("[AMM Error] Target was invalid while trying to get appearance")
@@ -4015,127 +4198,397 @@ function AMM:CheckForReverseCustomAppearance(appearance, target)
 	return appearance, reverse
 end
 
-function AMM:GetCustomAppearanceParams(target, appearance, reverse)
+--------------------------------------------------------------------------------
+-- 1) A helper function to check if a custom appearance base is actually valid
+--    for the current entity. If puppet, do FindEquivalentAppearanceInRegularEntity.
+--------------------------------------------------------------------------------
+function AMM:IsValidCustomAppearanceForEntity(entityID, target, appBase)
+	-- Edge case: no base? Just fail it.
+	if not appBase or appBase == "" then
+	  return false
+	end
+ 
+	-- Possibly fetch or refresh the "non puppets" appearances from the DB for this entity
+	-- so we can see if "appBase" is even in the entity’s normal list.
+	local possibleAppearances = {}
+ 
+	for appearance in db:urows(string.format("SELECT app_name FROM appearances WHERE entity_id = '%s'", entityID)) do
+	  table.insert(possibleAppearances, appearance)
+	end
+ 
+	-- If this is a puppet, we need to see if there’s an equivalent base in the “real” entity’s appearances
+	if target and Util:CheckForPhotoComponent(target) then
+	  local found = AMM:FindEquivalentAppearanceInRegularEntity(possibleAppearances, appBase, AMM:GetNPCName(target))
+	  return (found ~= nil)  -- true if we found a match
+	else
+	  -- For a normal entity, just see if appBase is actually in its appearance list
+	  for _, ap in ipairs(possibleAppearances) do
+		 if ap == appBase then
+			return true
+		 end
+	  end
+	  return false
+	end
+ end
+ 
+ --------------------------------------------------------------------------------
+ -- 2) Refactored LoadCustomAppearances:
+ --    - We SELECT both app_name and app_base
+ --    - We check if app_base is valid for this entity before adding to 'options'
+ --------------------------------------------------------------------------------
+ function AMM:LoadCustomAppearances(options, id, t)
+	local originalID = id
+
+	local searchQuery = ""
+	if AMM.Scan.searchQuery ~= "" then
+	  searchQuery = "app_name LIKE '%"..AMM.Scan.searchQuery.."%' AND "
+	end
+ 
+	------------------------------------------------------------------------------
+	-- Because some puppet NPCs have IDs that differ from their 'real' entity,
+	-- we do the usual fallback to TweakDB ID if needed.
+	------------------------------------------------------------------------------
+	local check = 0
+	for count in db:urows(string.format("SELECT COUNT(1) FROM custom_appearances WHERE entity_id = '%s'", id)) do
+	  check = count
+	  break
+	end
+ 
+	if check == 0 then
+	  local name  = AMM:GetNPCName(t)
+	  local tdbid = AMM:GetTweakDBIDFromName(name)
+	  if tdbid then 
+		 id = tdbid -- Only for DB lookups
+	  end
+	end
+ 
+	------------------------------------------------------------------------------
+	-- If we have collabs, we first load appearances that match collab tags/metadata
+	------------------------------------------------------------------------------
+	if #AMM.collabs ~= 0 then
+	  -- Build an IN-list for "app_base NOT IN (...)"
+	  local collabsAppBase = "("
+	  for i, collab in ipairs(AMM.collabs) do
+		 collabsAppBase = collabsAppBase .. string.format("'%s'", collab.appearance)
+		 if i ~= #AMM.collabs then 
+			collabsAppBase = collabsAppBase .. ", " 
+		 end
+ 
+		 -- The old code used a separate query just for that collab. 
+		 -- Let's unify that so we can also get app_base in the same pass.
+		 local sqlCollab = string.format(
+			"SELECT DISTINCT app_name, app_base "
+			.."FROM custom_appearances "
+			.."WHERE %scollab_tag = '%s' AND entity_id = '%s' "
+			.."ORDER BY app_name ASC",
+			searchQuery, collab.tag, id
+		 )
+ 
+		 for appName, base in db:urows(sqlCollab) do
+			-- Check if base is actually valid for this entity
+			if AMM:IsValidCustomAppearanceForEntity(originalID, t, base) then
+			  table.insert(options, appName)
+			end
+		 end
+	  end
+	  collabsAppBase = collabsAppBase .. ")"
+ 
+	  ----------------------------------------------------------------------------
+	  -- Then we get leftover "AMM" or nil collab_tag appearances that are not part
+	  -- of that collabsAppBase set.
+	  ----------------------------------------------------------------------------
+	  local leftoverSQL = string.format(
+		 "SELECT DISTINCT app_name, app_base "
+		 .."FROM custom_appearances "
+		 .."WHERE %s(collab_tag IS NULL OR collab_tag = 'AMM') "
+		 .."AND app_base NOT IN %s "
+		 .."AND entity_id = '%s' "
+		 .."ORDER BY app_name ASC",
+		 searchQuery, collabsAppBase, id
+	  )
+ 
+	  for appName, base in db:urows(leftoverSQL) do
+		 if AMM:IsValidCustomAppearanceForEntity(originalID, t, base) then
+			table.insert(options, appName)
+		 end
+	  end
+ 
+	------------------------------------------------------------------------------
+	-- If we have NO collabs, just load 'AMM' or nil collab_tag
+	------------------------------------------------------------------------------
+	else
+	  local leftoverSQL = string.format(
+		 "SELECT DISTINCT app_name, app_base "
+		 .."FROM custom_appearances "
+		 .."WHERE %s(collab_tag IS NULL OR collab_tag = 'AMM') "
+		 .."AND entity_id = '%s' "
+		 .."ORDER BY app_name ASC",
+		 searchQuery, id
+	  )
+ 
+	  for appName, base in db:urows(leftoverSQL) do
+		 if AMM:IsValidCustomAppearanceForEntity(originalID, t, base) then
+			table.insert(options, appName)
+		 end
+	  end
+	end
+ 
+	return options
+ end
+ 
+ --------------------------------------------------------------------------------
+ -- 3) GetCustomAppearanceParams remains mostly the same. However, it also tries
+ --    to validate puppet appearances by calling FindEquivalentAppearanceInRegularEntity.
+ --    This is good! Now both LoadCustomAppearances() and GetCustomAppearanceParams()
+ --    enforce that "the entity can actually use that custom appearance."
+ --------------------------------------------------------------------------------
+ function AMM:GetCustomAppearanceParams(target, appearance, reverse)
 	local collabTag
 	local targetID = target.id
-
+ 
 	if target.isPuppet then
-		local name = AMM:GetNPCName(target.handle)
-		local tdbid = AMM:GetTweakDBIDFromName(name)
-		if tdbid then targetID = tdbid end
+	  local name  = AMM:GetNPCName(target.handle)
+	  local tdbid = AMM:GetTweakDBIDFromName(name)
+	  if tdbid then 
+		 targetID = tdbid 
+	  end
 	end
-
+ 
+	-- Figure out which collab tag (if any) this custom appearance belongs to
 	if #AMM.collabs > 0 then
-		for _, collab in ipairs(AMM.collabs) do
-			local check = 0
-			for count in db:urows(f("SELECT COUNT(1) FROM custom_appearances WHERE entity_id = '%s' AND app_name = '%s' AND collab_tag = '%s'", targetID, appearance, collab.tag)) do
-				check = count
-				break
-			end
-
-			if check ~= 0 then
-				collabTag = collab.tag
-				break
-			end
-		end
-	end
-
-	-- Check for AMM archives Custom Appearances
-	if collabTag == nil then
-		local check = 0
-		for count in db:urows(f("SELECT COUNT(1) FROM custom_appearances WHERE entity_id = '%s' AND app_name = '%s' AND collab_tag = 'AMM'", targetID, appearance)) do
+	  for _, collab in ipairs(AMM.collabs) do
+		 local check = 0
+		 for count in db:urows(string.format(
+			"SELECT COUNT(1) FROM custom_appearances "
+			.."WHERE entity_id = '%s' AND app_name = '%s' AND collab_tag = '%s'",
+			targetID, appearance, collab.tag
+		 )) do
 			check = count
 			break
-		end
-
-		if check ~= 0 then
-			collabTag = 'AMM'
-		end
+		 end
+		 if check ~= 0 then
+			collabTag = collab.tag
+			break
+		 end
+	  end
 	end
-
+ 
+	-- If not found, see if it belongs to 'AMM'
+	if collabTag == nil then
+	  local check = 0
+	  for count in db:urows(string.format(
+		 "SELECT COUNT(1) FROM custom_appearances "
+		 .."WHERE entity_id = '%s' AND app_name = '%s' AND collab_tag = 'AMM'",
+		 targetID, appearance
+	  )) do
+		 check = count
+		 break
+	  end
+	  if check ~= 0 then
+		 collabTag = 'AMM'
+	  end
+	end
+ 
+	------------------------------------------------------------------------------
+	-- Now gather all rows that match this entity, app_name, and collabTag
+	------------------------------------------------------------------------------
 	local custom = {}
-	local query = f("SELECT * FROM custom_appearances WHERE app_name = '%s' AND entity_id = '%s' AND collab_tag IS '%s'", appearance, targetID, collabTag)
-	query = query:gsub("'nil'", "NULL")
+	local query = string.format(
+	  "SELECT * FROM custom_appearances "
+	  .."WHERE app_name = '%s' AND entity_id = '%s' AND collab_tag IS '%s'",
+	  appearance, targetID, collabTag
+	)
+	query = query:gsub("'nil'", "NULL")  -- patch any leftover 'nil'
+ 
 	for app in db:nrows(query) do
-		app.app_toggle = intToBool(app.app_toggle)
-		if target.isPuppet then
-			local count = 0
-			for check in db:urows(f("SELECT COUNT(1) FROM appearances WHERE entity_id = '%s'", target.id)) do
-				count = check
-				break
-			end
-
-			if count == 0 then
-				AMM:GetAppearancesFromEntity(target.id)
-			end
-
-			local possibleAppearances = {}
-			for appearance in db:urows(f("SELECT app_name FROM appearances WHERE entity_id = '%s'", target.id)) do				
-				table.insert(possibleAppearances, appearance)
-			end
-
-			local found
-			if #possibleAppearances > 0 then
-				found = AMM:FindEquivalentAppearanceInRegularEntity(possibleAppearances, app.app_base)
-			end
-
-			if found then
-				app.app_base = found
-			else
-				log(f("[AMM Error] No equivalent appearance found for NPC: %s", target.name))
-			end			
-		end
-		table.insert(custom, app)
+	  app.app_toggle = intToBool(app.app_toggle)
+ 
+	  -- If target is puppet, let's see if the entity has standard appearances at all
+	  if target.isPuppet then
+		 local cnt = 0
+		 for c in db:urows(string.format("SELECT COUNT(1) FROM appearances WHERE entity_id = '%s'", target.id)) do
+			cnt = c
+			break
+		 end
+ 
+		 if cnt == 0 then
+			AMM:GetAppearancesFromEntity(target.id, target.handle)
+		 end
+ 
+		 local possibleAppearances = {}
+		 for a in db:urows(string.format("SELECT app_name FROM appearances WHERE entity_id = '%s'", target.id)) do
+			table.insert(possibleAppearances, a)
+		 end
+ 
+		 local found = nil
+		 if #possibleAppearances > 0 then
+			found = AMM:FindEquivalentAppearanceInRegularEntity(possibleAppearances, app.app_base, target.name)
+		 end
+ 
+		 if found then
+			app.app_base = found
+		 else
+			log(string.format("[AMM Error] No equivalent appearance found for NPC: %s", target.name))
+		 end
+	  end
+ 
+	  table.insert(custom, app)
 	end
+ 
 	return custom
-end
+ end
 
-function AMM:FindEquivalentAppearanceInRegularEntity(possibleAppearances, app_base)
-	if possibleAppearances then
-		 local bestMatch = nil
-		 local bestScore = math.huge
-		 local fallbackMatch = nil
-
-		 -- Special Case for Songbird (for now she is the only one)
-		 local priorityFallbacks = {"dress"}
-
-		 for _, app in ipairs(possibleAppearances) do
-			  -- Skip appearances starting with "Custom"
-			  if not app:lower():match("^custom") then
-					local sanitizedBase = app_base:lower():gsub("_", ""):gsub("%s", "")
-					local sanitizedApp = app:lower():gsub("_", ""):gsub("%s", "")
-
-					-- Check if the app is in the priority fallback list
-					for _, fallback in ipairs(priorityFallbacks) do
-						 if sanitizedApp == fallback then
-							  fallbackMatch = app
-						 end
-					end
-
-					-- Levenshtein Distance as similarity metric
-					local distance = Util:StringMatch(sanitizedBase, sanitizedApp)
-
-					-- Check if this match is better
-					if distance < bestScore then
-						 bestScore = distance
-						 bestMatch = app
-					end
-			  end
-		 end
-
-		 -- If the best score is still too high, fall back to a prioritized match
-		 if bestScore > 10 and fallbackMatch then
-			  return fallbackMatch
-		 end
-
-		 return bestMatch
+function AMM:CheckSingleTokenOverride(puppetTokens, realTokens)
+	-- If real side has exactly 1 token
+	if #realTokens == 1 then
+		local puppetLast = puppetTokens[#puppetTokens]
+		if puppetLast == realTokens[1] then
+			-- CASE A: Both sides single token => perfect match
+			if #puppetTokens == 1 then
+				return 1.0
+			else
+				-- CASE B: Puppet has multiple tokens, real side is single token
+				-- but the last puppet token matches exactly => partial override
+				return 0.8  -- you can adjust this value
+			end
+		end
 	end
 
-	return app_base
-end
+	return nil
+end 
 
+function AMM:AddEndingTokenBonus(strA, strB, oldRatio)
+	-- Convert underscores to spaces, split into tokens, grab the last token
+	local function getTokens(s)
+	  if not s or s == "" then return {} end
+	  s = s:lower():gsub("_+", " ")
+	  local tokens = {}
+	  for word in s:gmatch("%S+") do
+		 table.insert(tokens, word)
+	  end
+	  return tokens
+	end
+ 
+	local tokensA = getTokens(strA)
+	local tokensB = getTokens(strB)
+	if #tokensA == 0 or #tokensB == 0 then
+	  return oldRatio
+	end
+ 
+	local lastA = tokensA[#tokensA]
+	local lastB = tokensB[#tokensB]
+ 
+	-- If they exactly match, give a small bonus
+	if lastA == lastB then
+	  local newRatio = math.min(1.0, oldRatio + 0.2)
+	  return newRatio
+	end
+ 
+	return oldRatio
+ end 
+
+ function AMM:RemoveNpcNamePrefix(appearanceName, npcName)
+	if not appearanceName or appearanceName == "" then return appearanceName end
+	if not npcName or npcName == "" then return appearanceName end
+ 
+	-- both to lower
+	local aLower = appearanceName:lower()
+	local nLower = npcName:lower()
+ 
+	-- if it starts with e.g. "judy_"
+	-- note we also remove trailing underscores if multiple
+	if aLower:find("^" .. nLower .. "_+") then
+	  -- substring from the length of npcName + 2 onward
+	  local offset = #npcName + 2
+	  return appearanceName:sub(offset)
+	end
+ 
+	return appearanceName
+ end
+
+ -- For example:
+local SPECIAL_OVERRIDES = {
+	["songbird_paradise"] = "Dress",
+	["songbird__q304__exhausted"] = "Exhausted",
+	["songbird__q306__exhausted"] = "Exhausted 2",
+	['songbird_blendable'] = 'Past Self',
+ } 
+
+function AMM:FindEquivalentAppearanceInRegularEntity(possibleAppearances, app_base, npcName)
+
+	if not possibleAppearances or #possibleAppearances == 0 
+		or not app_base or app_base == "" then
+	  return nil
+	end
+
+	-- Check manual overrides first
+	local manualTarget = SPECIAL_OVERRIDES[app_base] 
+	if manualTarget then
+		return manualTarget
+	end
+ 
+	if npcName and npcName ~= "" then
+	  app_base = self:RemoveNpcNamePrefix(app_base, npcName)
+	end
+ 
+	local bestMatch  = nil
+	local bestRatio  = 0.0
+	local threshold  = 0.6  -- tune as needed
+ 
+	-- We'll pre‐tokenize puppet side once
+	local function tokenize(s)
+	  s = s:lower():gsub("_+", " ")
+	  local tokens = {}
+	  for word in s:gmatch("%S+") do
+		 table.insert(tokens, word)
+	  end
+	  return tokens
+	end
+	local puppetTokens = tokenize(app_base)
+ 
+	for _, realApp in ipairs(possibleAppearances) do
+	  if not realApp:lower():match("^custom") then
+ 
+		 -- a) tokenize real side
+		 local realTokens = tokenize(realApp)
+ 
+		 -- b) single‐token override check
+		 local overrideRatio = self:CheckSingleTokenOverride(puppetTokens, realTokens)
+		 local ratio = 0.0
+ 
+		 if overrideRatio then
+			-- If override is 1.0, no need to do fuzzy
+			if overrideRatio == 1.0 then
+			  ratio = 1.0
+			else
+			  -- partial override (e.g. 0.8) => do multi‐token too, pick bigger
+			  local fuzzy = Util:CompareStringsTokenWise(app_base, realApp)
+			  local finalFuzzy = self:AddEndingTokenBonus(app_base, realApp, fuzzy)
+			  ratio = math.max(overrideRatio, finalFuzzy)
+			end
+		 else
+			-- c) no override => just do the fuzzy approach
+			local fuzzy = Util:CompareStringsTokenWise(app_base, realApp)
+			ratio = self:AddEndingTokenBonus(app_base, realApp, fuzzy)
+		 end
+ 
+		 -- d) track the best ratio
+		 if ratio > bestRatio then
+			bestRatio = ratio
+			bestMatch = realApp
+		 end
+	  end
+	end
+ 
+	-- if best ratio < threshold => no match
+	if bestRatio < threshold then
+	  return nil
+	end
+ 
+	return bestMatch
+end
+ 
 function AMM:ChangeScanCustomAppearanceTo(t, customAppearance)
-	print(customAppearance[1].app_base)
 	self:ChangeScanAppearanceTo(t, customAppearance[1].app_base)
 	self.setCustomApp = {t.handle, customAppearance}
 	if self.activeCustomApps[t.hash] ~= 'reverse' then
@@ -4304,10 +4757,18 @@ function AMM:ProcessCompanionAttack(hitEvent)
 	local instigatorNPC = hitEvent.attackData:GetInstigator()
 	local dmgType = hitEvent.attackComputed:GetDominatingDamageType()
 
-	if instigatorNPC and instigatorNPC.IsPlayerCompanion and instigatorNPC:IsPlayerCompanion() then
-		if hitEvent.target and hitEvent.target:IsPlayer() then return end
-		if AMM.companionAttackMultiplier ~= 0 then
-			hitEvent.attackComputed:MultAttackValue(AMM.companionAttackMultiplier, dmgType)
+	if instigatorNPC then
+		if instigatorNPC.IsPlayerCompanion and instigatorNPC:IsPlayerCompanion() then
+			if hitEvent.target and hitEvent.target:IsPlayer() then return end
+			if AMM.companionAttackMultiplier ~= 0 then
+				hitEvent.attackComputed:MultAttackValue(AMM.companionAttackMultiplier, dmgType)
+			end
+		else -- Attacker is not companion
+			if hitEvent.target and hitEvent.target.IsPlayerCompanion and hitEvent.target:IsPlayerCompanion() then
+				if AMM.companionResistanceMultiplier ~= 0 then
+					hitEvent.attackComputed:MultAttackValue((AMM.companionResistanceMultiplier / 100), dmgType)
+				end
+			end
 		end
 	end
 end

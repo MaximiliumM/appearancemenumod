@@ -202,7 +202,7 @@ function Scan:DrawTargetInfo(target)
     AMM.UI:TextColored("ID:")
     ImGui.InputText("", target.id, 50, ImGuiInputTextFlags.ReadOnly)
     ImGui.SameLine()
-    if ImGui.SmallButton(AMM.LocalizableString("Button_SmallCopy")) then
+    if ImGui.SmallButton(AMM.LocalizableString("Button_SmallCopy")) then      
       ImGui.SetClipboardText(target.id)
     end
   end
@@ -647,12 +647,21 @@ function Scan:DrawSeatsPopup()
         ImGui.SameLine()
         if ImGui.BeginCombo("##"..tostring(i), comboLabel) then
           for _, seat in ipairs(Scan.vehicleSeats) do
-            if ImGui.Selectable(seat.name, (seat.name == comboLabel)) then
-              Scan.selectedSeats[ent.name] = {name = ent.name, entity = ent.handle, seat = seat, vehicle = Scan.vehicle}
-            end
+              local isSelected = (Scan.selectedSeats[ent.name] and Scan.selectedSeats[ent.name].seat.name == seat.name)
+              if ImGui.Selectable(seat.name, isSelected) then
+                  -- Update selected seat
+                  Scan.selectedSeats[ent.name] = {name = ent.name, entity = ent.handle, seat = seat, vehicle = Scan.vehicle}
+                  -- Update comboLabel to reflect the new selection
+                  comboLabel = seat.name
+              end
+      
+              -- Ensure the current selected item stays highlighted
+              if isSelected then
+                  ImGui.SetItemDefaultFocus()
+              end
           end
           ImGui.EndCombo()
-        end
+        end      
 
         ImGui.Spacing()
       end
@@ -765,41 +774,67 @@ function Scan:GetVehicleSeats(vehicle)
 end
 
 function Scan:AutoAssignSeats()
+  -- Get all vehicle seats
   Scan:GetVehicleSeats(Scan.vehicle.handle)
 
-  local counter = 1
+  -- Calculate available seats dynamically by filtering out occupied seats
+  local availableSeats = {}
+  local occupiedSeatNames = {}
+  
+  for _, seatInfo in pairs(Scan.selectedSeats) do
+    if seatInfo.vehicle and seatInfo.vehicle.hash == Scan.vehicle.hash then
+      occupiedSeatNames[seatInfo.seat.cname] = true
+    end
+  end
+
+  for _, seat in ipairs(Scan.vehicleSeats) do
+    if not occupiedSeatNames[seat.cname] then
+      table.insert(availableSeats, seat)
+    end
+  end
+
   for _, ent in pairs(AMM.Spawn.spawnedNPCs) do
     if ent.handle:IsNPC() then
-      local seatsNumber = #Scan.vehicleSeats - 1
       if Scan.selectedSeats[ent.name] then
-        if Game.FindEntityByID(Scan.selectedSeats[ent.name].vehicle.handle:GetEntityID()) then
+        -- Check if the assigned seat's vehicle still exists
+        local existingVehicle = Game.FindEntityByID(Scan.selectedSeats[ent.name].vehicle.handle:GetEntityID())
+        if existingVehicle then
           if Scan.selectedSeats[ent.name].seat.name == AMM.LocalizableString("Seat_FrontLeft") then
             Scan.drivers[AMM:GetScanID(ent.handle)] = Scan.selectedSeats[ent.name]
           end
         else
+          -- Reset the seat if the vehicle no longer exists
           Scan.selectedSeats[ent.name] = nil
         end
-      elseif counter <= seatsNumber then
-        if Scan.selectedSeats[ent.name] == nil then
-          local currentSeat = Scan.vehicleSeats[counter]
+      else
+        -- Assign seats only if not already assigned
+        if not Scan.selectedSeats[ent.name] then
+          local currentSeat = availableSeats[1]
+          if currentSeat then
+            if currentSeat.cname == "seat_front_left" then
+              -- Reserve the front-left seat for manual assignment
+              table.remove(availableSeats, 1)
+              currentSeat = availableSeats[1]
+            end
 
-          if currentSeat.cname == "seat_front_left" then
-            counter = counter + 1
-            currentSeat = Scan.vehicleSeats[counter]
+            if currentSeat then
+              -- Assign current seat and remove it from available seats
+              Scan.selectedSeats[ent.name] = {name = ent.name, entity = ent.handle, seat = currentSeat, vehicle = Scan.vehicle}
+              table.remove(availableSeats, 1)
+            end
+          else
+            -- Add to leftBehind table if no seats are available
+            table.insert(Scan.leftBehind, {ent = ent.handle, cmd = Util:HoldPosition(ent.handle, 99999)})
           end
-          
-          Scan.selectedSeats[ent.name] = {name = ent.name, entity = ent.handle, seat = currentSeat, vehicle = Scan.vehicle}
         end
-      elseif counter > seatsNumber then
-        table.insert(Scan.leftBehind, { ent = ent.handle, cmd = Util:HoldPosition(ent.handle, 99999) })
       end
-
-      counter = counter + 1
     end
   end
 
+  -- Assign all selected seats
   Scan:AssignSeats(Scan.selectedSeats, false)
 end
+
 
 function Scan:UnmountDrivers()
   Scan:AssignSeats(Scan.drivers, false, true)

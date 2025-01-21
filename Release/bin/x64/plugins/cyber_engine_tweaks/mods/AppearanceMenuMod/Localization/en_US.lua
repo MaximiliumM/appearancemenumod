@@ -516,6 +516,7 @@ return {
 	BeginItem_TabNameGeneral = "General",
 	BeginItem_TabNameUI = "User Interface",
 	BeginItem_TabNameExperimental = "Experimental",
+	BeginItem_TabNamePhotoMode = "Photo Mode",
 	
 	--Button
 	Button_RevertAllModelSwaps = "Revert All Model Swaps",
@@ -562,6 +563,7 @@ return {
 	Checkbox_AllowPlayerToBeTargetedinPosestab = "Allow Player To Be Targeted in Poses tab",
 	Checkbox_AllowPlayerAnimationsonNPCs = "Allow Player Animations on NPCs",
 	Checkbox_AllowExpressionOnNpcPM = "Allow Expressions and Look At for NPCs in Photo Mode",
+	Checkbox_ResetTargetPositionPM = "Reset Target Position for Photo Mode NPCs",
 	
     --Warning / Info / Tool Tip
 	Warn_RespawnOnLaunch_Info = "This setting will enable/disable respawn previously saved NPCs on game load. AMM automatically saves your spawned NPCs when you exit the game.",
@@ -582,8 +584,10 @@ return {
 	Codeware_Version = "Codeware Version:",
 	Game_Version = "Game Version: ",
 	Companion_Damage = "Companion Damage:",
+	Companion_Resistance = "Companion Resistance:",
 	Companion_Distance = "Companion Distance:",
 	xDamage = "x Damage",
+	xResistance = "x Resistance",
 	SavedAppearancesHotkeys = "Saved Appearances Hotkeys",
 	Favorites = "Favorites",
 	Appearances = "Appearances",

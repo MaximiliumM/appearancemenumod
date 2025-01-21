@@ -1189,7 +1189,12 @@ function Tools:DrawNPCActions()
           ImGui.SameLine()
         end
 
-        if ImGui.Button(f(AMM.LocalizableString("Button_Target").."%s##%i", puppet.name, i), buttonWidth, Tools.style.buttonHeight) then          
+        if ImGui.Button(f(AMM.LocalizableString("Button_Target").."%s##%i", puppet.name, i), buttonWidth, Tools.style.buttonHeight) then
+          if AMM.userSettings.resetPositionTargetPhotoMode and puppet.pos then
+            Tools.updatedPosition[puppet.hash] = true
+            Tools:SetTargetPosition(puppet.pos, puppet.angles, puppet)
+          end
+
           Tools:SetCurrentTarget(puppet)
           Tools.lockTarget = true
         end

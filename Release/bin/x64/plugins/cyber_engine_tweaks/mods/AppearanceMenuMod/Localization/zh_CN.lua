@@ -515,6 +515,7 @@ return {
 	BeginItem_TabNameGeneral = "常规",
 	BeginItem_TabNameUI = "用户界面",
 	BeginItem_TabNameExperimental = "实验性",
+	BeginItem_TabNamePhotoMode = "照片模式",
 	
 	--Button
 	Button_RevertAllModelSwaps = "恢复所有的替换NPC",
@@ -560,6 +561,7 @@ return {
 	Checkbox_AllowPlayerToBeTargetedinPosestab = "允许玩家在姿势选项卡中成为目标",
 	Checkbox_AllowPlayerAnimationsonNPCs = "允许在NPC上使用玩家动画姿势",
 	Checkbox_AllowExpressionOnNpcPM = "在照片模式下允许设置NPC的表情和注视目标",
+	Checkbox_ResetTargetPositionPM = "重置照片模式NPC的目标位置",
 	
     --Warning / Info / Tool Tip
 	Warn_RespawnOnLaunch_Info = "此设置将在游戏加载时启用/禁用先前保存的npc重生。当你退出游戏时,AMM会自动保存你生成的npc.",
@@ -578,9 +580,11 @@ return {
 	CET_Version = "CET 控制台版本:",
 	Codeware_Version = "Codeware 版本:",
 	Game_Version = "游戏版本: ",
-	Companion_Damage = "同伴伤害:",
+	Companion_Damage = "伙伴伤害:",
+	Companion_Resistance = "伙伴抗性:",
 	Companion_Distance = "伙伴距离:",
-	xDamage = "倍伤害",
+	xDamage = "x伤害",
+	xResistance = "x抗性",
 	SavedAppearancesHotkeys = "保存外观热键",
 	Favorites = "收藏夹",
 	Appearances = "外观",

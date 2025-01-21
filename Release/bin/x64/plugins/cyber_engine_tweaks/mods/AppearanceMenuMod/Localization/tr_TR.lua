@@ -517,6 +517,7 @@ return {
 	BeginItem_TabNameGeneral = "Genel",
 	BeginItem_TabNameUI = "Kullanici Arayüzü",
 	BeginItem_TabNameExperimental = "Deneysel",
+	BeginItem_TabNamePhotoMode = "Fotoğraf Modu",
 	
 	--Button
 	Button_RevertAllModelSwaps = "Tüm Model Degisimlerini Geri Al",
@@ -563,6 +564,7 @@ return {
 	Checkbox_AllowPlayerToBeTargetedinPosestab = "Pozlar Sekmesinde Oyuncunun Hedeflenmesine Izin Ver",
 	Checkbox_AllowPlayerAnimationsonNPCs = "NPC'ler Üzerinde Oyuncu Animasyonlarina Izin Ver",
 	Checkbox_AllowExpressionOnNpcPM = "Fotograf Modunda Ifadelere ve NPC'lere Bak'a Izin Ver",
+	Checkbox_ResetTargetPositionPM = "Fotoğraf Modu NPC'leri için Hedef Pozisyonunu Sıfırla",
 	
     --Warning / Info / Tool Tip
 	Warn_RespawnOnLaunch_Info = "Bu ayar, önceden kaydedilmis NPC'lerin oyun yüklendiginde yeniden dogmasini etkin/devre disi birakir. AMM, oyundan çiktiginizda yaratilan NPC'lerinizi otomatik olarak kaydeder.",
@@ -582,8 +584,10 @@ return {
 	Codeware_Version = "Codeware Versiyonu:",
 	Game_Version = "Oyun Versiyonu: ",
 	Companion_Damage = "Yoldas Hasari:",
+	Companion_Resistance = "Yoldaş Direnci:",
 	Companion_Distance = "Eşlikçi Mesafesi:",
 	xDamage = "x Hasar",
+	xResistance = "x Direnç",
 	SavedAppearancesHotkeys = "Kaydedilmis Görünüm Kisayollari",
 	Favorites = "Favoriler",
 	Appearances = "Görünümler",

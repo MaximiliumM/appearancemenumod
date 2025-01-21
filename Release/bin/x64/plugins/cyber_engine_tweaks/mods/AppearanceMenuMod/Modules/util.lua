@@ -118,6 +118,98 @@ function Util:StringMatch(s1, s2)
   return matrix[len1][len2]
 end
 
+-----------------------------------------------------------------------
+-- A per-token partial credit function
+-----------------------------------------------------------------------
+function Util:DynamicTokenMatchScore(tokenA, tokenB)
+  local dist   = Util:StringMatch(tokenA, tokenB)  -- e.g. Levenshtein
+  local maxLen = math.max(#tokenA, #tokenB)
+
+  -- If either token is very short, require an exact match
+  if #tokenA <= 3 or #tokenB <= 3 then
+    if dist == 0 then
+      return 1.0
+    else
+      return 0.0
+    end
+  end
+
+  -- For longer tokens, do partial credit
+  local score = 1.0 - (dist / maxLen)
+  if score < 0.0 then 
+    score = 0.0
+  end
+  return score
+end
+
+-----------------------------------------------------------------------
+-- A function that splits the string on both underscores and spaces,
+-- then tries to match each token in A to its best token in B.
+-----------------------------------------------------------------------
+function Util:CompareStringsTokenWise(strA, strB)
+  if (not strA or strA == "") or (not strB or strB == "") then
+    return 0.0
+  end
+
+  -- 1) Lowercase
+  local a = strA:lower()
+  local b = strB:lower()
+
+  -- 2) Replace underscores with spaces, split on spaces
+  local function tokenize(input)
+    input = input:gsub("_", " ")
+    local tokens = {}
+    for t in input:gmatch("%S+") do
+      table.insert(tokens, t)
+    end
+    return tokens
+  end
+
+  local tokensA = tokenize(a)
+  local tokensB = tokenize(b)
+  if #tokensA == 0 or #tokensB == 0 then
+    return 0.0
+  end
+
+  -- We'll attempt to match each A token to the best B token and remove it from the pool
+  local poolB = {}
+  for _, tB in ipairs(tokensB) do
+    table.insert(poolB, tB)
+  end
+
+  local sumScore = 0.0
+  local matchedCount = 0
+
+  for _, tokenA in ipairs(tokensA) do
+    local bestScore = 0.0
+    local bestIdx   = nil
+    for i, tokenB in ipairs(poolB) do
+      local score = Util:DynamicTokenMatchScore(tokenA, tokenB)
+      if score > bestScore then
+        bestScore = score
+        bestIdx   = i
+      end
+    end
+
+    -- If bestIdx is found and bestScore>0, we have some partial credit
+    if bestIdx and bestScore > 0 then
+      sumScore = sumScore + bestScore
+      matchedCount = matchedCount + 1
+      table.remove(poolB, bestIdx)  -- consume the B token
+    end
+  end
+
+  -- e.g. ratio = (2 * sumScore) / (|A| + |B|)
+  -- but you could do (sumScore / math.max(#tokensA, #tokensB)) if you prefer.
+  local denom = (#tokensA + #tokensB)
+  if denom == 0 then
+    return 0.0
+  end
+
+  local ratio = (2.0 * sumScore) / denom
+  return ratio
+end
+
 function Util:ShallowCopy(copy, orig)
   local orig_type = type(orig)
   if orig_type == 'table' then
