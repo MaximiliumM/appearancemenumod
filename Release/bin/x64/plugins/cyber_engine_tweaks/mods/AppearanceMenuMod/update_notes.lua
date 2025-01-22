@@ -1,5 +1,15 @@
 return {
 	{
+		'2.9.1',
+		'2025 Jan 22',
+		[[Added new Custom Appearances to Fiona Vargas]],
+		[[Fixed issue loading Collabs like Custom Entities, Props and so on]],
+		[[Fixed issue where Companion Resistance could be greater than 100]],
+		[[Fixed issue where Companion Resistance value was applied incorrectly where 1 would be the greatest resistance]],
+		[[Fixed issue where Companion Resistance would not be applied correctly to specific entities like Robots]],
+		[[Fixed issue where some Custom Appearances would not work correctly and would ouput a loadstring error to logs]],
+	},
+	{
 		'2.9',
 		'2025 Jan 21',
 		[[Added new Characters: Robot, Jason Foreman, Fiona Vargas and more!]],

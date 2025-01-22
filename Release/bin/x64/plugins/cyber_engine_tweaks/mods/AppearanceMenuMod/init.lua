@@ -83,7 +83,7 @@ function AMM:new()
 	 AMM.photoModeNPCsExtended = false
 
 	 -- Main Properties --
-	 AMM.currentVersion = "2.9"
+	 AMM.currentVersion = "2.9.1"
 	 AMM.CETVersion = parseVersion(GetVersion())
 	 AMM.CodewareVersion = 0
 	 AMM.updateNotes = require('update_notes.lua')
@@ -207,9 +207,7 @@ function AMM:new()
 		 AMM:SetupExtraFromArchives()
 		 
 		 -- Setup AMM Characters and Collab features
-		 AMM:SetupCustomProps()
-		 AMM:SetupCustomEntities()
-		 AMM:SetupCustomPoses()
+		 AMM:SetupCollabs()		 
 		 AMM:SetupAMMCharacters()
 		 AMM.collabs = AMM:SetupCollabAppearances()
 		 AMM.customAppDefaults = AMM:GetCustomAppearanceDefaults()
@@ -1484,7 +1482,7 @@ function AMM:new()
 
 											if param.mesh_mask then
 													-- Convert string value into actual numeric mask
-													param.mesh_mask = loadstring("return " .. param.mesh_mask)()
+													param.mesh_mask = loadstring("return "..param.mesh_mask, '')()
 
 													if param.app_toggle then
 														appParam.chunkMask = param.mesh_mask
@@ -1921,6 +1919,7 @@ function AMM:DrawGeneralSettingsTab(style)
 		ImGui.PushItemWidth(200)
 		AMM.companionResistanceMultiplier = ImGui.InputFloat(AMM.LocalizableString("xResistance").."##resist", AMM.companionResistanceMultiplier, 0.5, 50, "%.1f")
 		if AMM.companionResistanceMultiplier < 0 then AMM.companionResistanceMultiplier = 0 end
+		if AMM.companionResistanceMultiplier > 100 then AMM.companionResistanceMultiplier = 100 end
 		ImGui.PopItemWidth()
 
 		AMM.UI:Spacing(3)
@@ -3209,122 +3208,226 @@ local function sanitizedInsert(db, tableName, columnsString, valuesString)
   db:execute(sql)
 end
 
---------------------------------------------------------------------------------
--- 3) Setup Custom Entities (Incremental)
---------------------------------------------------------------------------------
-function AMM:SetupCustomEntities()
-  local files = getFilesRecursively("./Collabs/Custom Entities", {})
-  if #files == 0 then return end
+function AMM:GatherCustomCollabsPaths()
+	local foundPaths = {}
+ 
+	----------------------------------------------------------------------------
+	-- A) Scan Custom Entities folder
+	----------------------------------------------------------------------------
+	local entityFiles = getFilesRecursively("./Collabs/Custom Entities", {})
+	for _, filePath in ipairs(entityFiles) do
+	  local data = require(filePath)
+	  if data and data.entity_info and data.entity_info.path then
+		 foundPaths[data.entity_info.path] = true
+	  end
+	end
+ 
+	----------------------------------------------------------------------------
+	-- B) Scan Custom Props folder
+	----------------------------------------------------------------------------
+	local propFiles = getFilesRecursively("./Collabs/Custom Props", {})
+	for _, filePath in ipairs(propFiles) do
+	  local data = require(filePath)
+	  if data and data.props then
+		 for _, prop in ipairs(data.props) do
+			if prop.path then
+			  foundPaths[prop.path] = true
+			end
+		 end
+	  end
+	end
 
-  -- Batch all changes in one DB transaction for speed
-  db:execute("BEGIN TRANSACTION")
-
-  for _, mod in ipairs(files) do
-    local data        = require(mod)
-    local modder      = data.modder
-    local uid         = data.unique_identifier
-    local archive     = data.archive
-    local entity      = data.entity_info
-    local appearances = data.appearances
-    local attributes  = data.attributes
-
-    -- Track modder
-    AMM.modders[uid] = modder
-
-    -- Insert archive if any
-    if archive then
-      table.insert(AMM.collabArchives, {
-        name   = archive.name,
-        desc   = archive.description,
-        active = true,
-        optional = false
-      })
-    end
-
-    -- Build the "fake" entity_path in your DB from the .ent file
-    local ent         = entity.path:match("[^\\]*.ent$"):gsub(".ent", "")
-    local entity_path = "Custom_"..uid.."_"..entity.type.."."..ent
-
-    -- Only insert if we don’t already have it
-    if not recordExists(db, "entities", "entity_path", entity_path) then
-      -- If entity_name is already taken, rename it
-      if recordExists(db, "entities", "entity_name", entity.name) then
-        entity.name = uid.." "..entity.name
-      end
-
-      local entity_id  = AMM:GetScanID(entity_path)
-      local canBeComp  = (entity.type == "Vehicle") and 0 or 1
-      local category   = (entity.type == "Vehicle") and 56 or 55
-      local parameters = nil -- or whatever you had originally
-
-      local tables = '(entity_id, entity_name, cat_id, parameters, can_be_comp, entity_path, is_spawnable, is_swappable, template_path, entity_rig)'
-      local vals   = string.format(
-        '("%s", "%s", %i, "%s", "%s", "%s", "%s", "%s", "%s", "%s")',
-        entity_id,
-        entity.name,
-        category,
-        parameters,
-        canBeComp,
-        entity_path,
-        1,
-        1,
-        entity.path,
-        entity.rig
-      )
-
-      sanitizedInsert(db, "entities", tables, vals)
-
-      -- For custom naming
-      if entity.customName then
-        AMM.customNames[entity_id] = entity.name
-      end
-
-      -- Setup Appearances
-      if appearances then
-        for _, app in ipairs(appearances) do
-          local appearanceSQL = string.format(
-            'INSERT INTO appearances (entity_id, app_name, collab_tag) VALUES ("%s", "%s", "%s")',
-            entity_id, app, uid
-          )
-          db:execute(appearanceSQL)
-        end
-      end
-
-      -- Check if TweakDB record exists (only do once)
-      if not TweakDB:GetRecord(entity_path) then
-        if entity.record then
-          TweakDB:CloneRecord(entity_path, entity.record)
-        else
-          TweakDB:CloneRecord(entity_path, "Character.CitizenRichFemaleCasual")
-        end
-      end
-      TweakDB:SetFlat(entity_path..".entityTemplatePath", entity.path)
-
-      -- Apply optional TweakDB attributes
-      if attributes then
-        local newAttributes = {}
-        for attr, value in pairs(attributes) do
-          newAttributes[attr] = TweakDB:GetFlat(value)
-        end
-        TweakDB:SetFlats(entity_path, newAttributes)
-      end
+	----------------------------------------------------------------------------
+  -- C) Scan Custom Poses folder
+  ----------------------------------------------------------------------------
+  local poseFiles = getFilesRecursively("./Collabs/Custom Poses", {})
+  for _, filePath in ipairs(poseFiles) do
+    local data = require(filePath)
+    -- typically data.entity_path is how your pose references the entity
+    -- if data.entity_path exists, track it
+    if data and data.entity_path then
+      foundPaths[data.entity_path] = true
     end
   end
+ 
+	return foundPaths
+ end
 
-  db:execute("COMMIT")
+--------------------------------------------------------------------------------
+-- 2) Cleanup any stale entries (entities, props, AND poses)
+--------------------------------------------------------------------------------
+function AMM:CleanupMissingCustomDBEntries(foundPaths)
+	db:execute("BEGIN TRANSACTION")
+ 
+	----------------------------------------------------------------------------
+	-- A) Entities / Props
+	----------------------------------------------------------------------------
+	local sql = [[
+	  SELECT entity_id, entity_path, template_path
+	  FROM entities
+	  WHERE entity_path LIKE 'Custom_%'
+	]]
+	for entity_id, entity_path, tPath in db:urows(sql) do
+	  -- If we never saw this templatePath while scanning collab folders,
+	  -- it likely means the user removed/changed the mod file.
+	  if not foundPaths[tPath] then
+		 local delEntSQL = string.format("DELETE FROM entities WHERE entity_id = '%s'", entity_id)
+		 db:execute(delEntSQL)
+ 
+		 local delAppSQL = string.format("DELETE FROM appearances WHERE entity_id = '%s'", entity_id)
+		 db:execute(delAppSQL)
+ 
+		 spdlog.info(string.format("Removed stale custom DB entry: %s (template: %s)", entity_path, tPath))
+	  end
+	end
+ 
+	----------------------------------------------------------------------------
+	-- B) Poses in workspots
+	----------------------------------------------------------------------------
+	local animCompType = "amm_workspot_collab"
+	local sqlPoses = string.format(
+	  "SELECT anim_id, anim_ent FROM workspots WHERE anim_comp = '%s'",
+	  animCompType
+	)
+	for anim_id, anim_ent in db:urows(sqlPoses) do
+	  -- If anim_ent is not in foundPaths, remove it
+	  if not foundPaths[anim_ent] then
+		 local deleteSQL = string.format("DELETE FROM workspots WHERE anim_id = '%d'", anim_id)
+		 db:execute(deleteSQL)
+		 spdlog.info(string.format("Removed stale custom pose from DB: %s", anim_ent))
+	  end
+	end
+ 
+	db:execute("COMMIT")
+end 
+
+function AMM:SetupCollabs()
+	-- 1) Gather all known template_paths across Entities & Props
+	local foundPaths = self:GatherCustomCollabsPaths()
+	
+	-- 2) Cleanup the DB of anything not in foundPaths
+	self:CleanupMissingCustomDBEntries(foundPaths)
+
+	AMM:SetupCustomEntities()
+	AMM:SetupCustomProps()
+	AMM:SetupCustomPoses()
+
 end
 
 --------------------------------------------------------------------------------
--- 4) Setup Custom Props (Incremental by default, optional full reset)
+-- 3) Setup Custom Entities
 --------------------------------------------------------------------------------
-function AMM:SetupCustomProps(opts)
-  -- optional: if opts and opts.forceClean then ...
-  local forceClean = opts and opts.forceClean
+function AMM:SetupCustomEntities()
+	local folder = "./Collabs/Custom Entities"
+	local files  = getFilesRecursively(folder, {})
+ 
+	if #files == 0 then return end
+ 
+	db:execute("BEGIN TRANSACTION")
+ 
+	for _, modFilePath in ipairs(files) do
+	  local data = require(modFilePath)
+	  if data then
+		 local modder      = data.modder
+		 local uid         = data.unique_identifier or "MISSING_UID"
+		 local archive     = data.archive
+		 local entity      = data.entity_info
+		 local appearances = data.appearances
+		 local attributes  = data.attributes
+ 
+		 AMM.modders[uid] = modder
+ 
+		 if archive then
+			table.insert(AMM.collabArchives, {
+			  name    = archive.name,
+			  desc    = archive.description,
+			  active  = true,
+			  optional= false
+			})
+		 end
+ 
+		 -- Figure out "Custom_xxx" entity_path
+		 local entFile = (entity.path or ""):match("[^\\]*%.ent$") or "Unknown"
+		 local entName = entFile:gsub("%.ent", "")
+		 local entity_path = string.format("Custom_%s_%s.%s", uid, entity.type, entName)
+		 local entity_id = AMM:GetScanID(entity_path)
+ 
+		 -- If not in DB, insert it
+		 if not recordExists(db, "entities", "entity_path", entity_path) then
+			-- rename if entity_name is already taken
+			if recordExists(db, "entities", "entity_name", entity.name) then
+			  entity.name = uid .. " " .. entity.name
+			end
 
-  if forceClean then
-    -- If the user *really* wants to blow everything away:
-    db:execute("DELETE FROM entities WHERE entity_path LIKE '%Custom_%'")
-  end
+			local canBeComp = (entity.type == "Vehicle") and 0 or 1
+			local category  = (entity.type == "Vehicle") and 56 or 55
+			local params    = nil
+ 
+			local columns = '(entity_id, entity_name, cat_id, parameters, can_be_comp,' ..
+								 ' entity_path, is_spawnable, is_swappable, template_path, entity_rig)'
+			local vals    = string.format(
+			  '("%s", "%s", %i, "%s", "%s", "%s", "%s", "%s", "%s", "%s")',
+			  entity_id,
+			  entity.name,
+			  category,
+			  params,
+			  canBeComp,
+			  entity_path,
+			  1,
+			  1,
+			  entity.path,  -- <--- stored as template_path in DB
+			  entity.rig
+			)
+			sanitizedInsert(db, "entities", columns, vals)
+ 
+			-- optional
+			if entity.customName then
+			  AMM.customNames[entity_id] = entity.name
+			end			
+		 end
+
+		 -- appearances
+		 if appearances then
+			for _, app in ipairs(appearances) do
+			  local appearanceSQL = string.format(
+				 'INSERT INTO appearances (entity_id, app_name, collab_tag) VALUES ("%s", "%s", "%s")',
+				 entity_id, app, uid
+			  )
+			  db:execute(appearanceSQL)
+			end
+		 end
+ 
+		 -- TweakDB: always do it
+		 if not TweakDB:GetRecord(entity_path) then
+			if entity.record then
+			  TweakDB:CloneRecord(entity_path, entity.record)
+			else
+			  TweakDB:CloneRecord(entity_path, "Character.CitizenRichFemaleCasual")
+			end
+		 end
+ 
+		 TweakDB:SetFlat(entity_path..".entityTemplatePath", entity.path)
+ 
+		 if attributes then
+			local newAttributes = {}
+			for attr, value in pairs(attributes) do
+			  newAttributes[attr] = TweakDB:GetFlat(value)
+			end
+			TweakDB:SetFlats(entity_path, newAttributes)
+		 end
+ 
+	  else
+		 spdlog.error(string.format("Failed to read file: %s", modFilePath))
+	  end
+	end
+ 
+	db:execute("COMMIT")
+ end
+
+--------------------------------------------------------------------------------
+-- 4) Setup Custom Props
+--------------------------------------------------------------------------------
+function AMM:SetupCustomProps()
 
   local files = getFilesRecursively("./Collabs/Custom Props", {})
   if #files == 0 then return end
@@ -3358,6 +3461,8 @@ function AMM:SetupCustomProps(opts)
         local propPath= (prop.path or ''):match("[^\\]*.ent$") or ''
         local ent     = propPath:gsub(".ent", "")
         local epath   = string.format("Custom_%s_Props.%s", uid, ent)
+		  local entity_id = AMM:GetScanID(epath)
+		  local category  = 48
 
         -- If it doesn't already exist, insert
         if not recordExists(db, "entities", "entity_path", epath) then
@@ -3366,8 +3471,6 @@ function AMM:SetupCustomProps(opts)
             prop.name = string.format("%s %s", uid, prop.name)
           end
 
-          local entity_id = AMM:GetScanID(epath)
-          local category  = 48
           local queryCat  = string.format('SELECT cat_id FROM categories WHERE cat_name = "%s"', prop.category)
           for cat_id in db:urows(queryCat) do
             category = cat_id
@@ -3386,19 +3489,19 @@ function AMM:SetupCustomProps(opts)
             0,
             prop.path
           )
-          sanitizedInsert(db, "entities", columns, vals)
-
-          -- Setup Appearances
-          if prop.appearances then
-            for _, app in ipairs(prop.appearances) do
-              local q = string.format(
-                'INSERT INTO appearances (entity_id, app_name, collab_tag) VALUES ("%s", "%s", "%s")',
-                entity_id, app, uid
-              )
-              db:execute(q)
-            end
-          end
+          sanitizedInsert(db, "entities", columns, vals)          
         end
+
+		  -- Setup Appearances
+		  if prop.appearances then
+			for _, app in ipairs(prop.appearances) do
+			  local q = string.format(
+				 'INSERT INTO appearances (entity_id, app_name, collab_tag) VALUES ("%s", "%s", "%s")',
+				 entity_id, app, uid
+			  )
+			  db:execute(q)
+			end
+		 end
       end
     end
   end
@@ -3407,7 +3510,7 @@ function AMM:SetupCustomProps(opts)
 end
 
 --------------------------------------------------------------------------------
--- 5) Setup Collab Appearances (Incremental)
+-- 5) Setup Collab Appearances
 --------------------------------------------------------------------------------
 function AMM:SetupCollabAppearances()
   local files   = getFilesRecursively("./Collabs/Custom Appearances", {})
@@ -3521,20 +3624,15 @@ function AMM:SetupCollabAppearances()
 end
 
 --------------------------------------------------------------------------------
--- 6) Setup Custom Poses (Incremental by default, optional force clean)
+-- 6) Setup Custom Poses
 --------------------------------------------------------------------------------
-function AMM:SetupCustomPoses(opts)
-  local forceClean = opts and opts.forceClean
+function AMM:SetupCustomPoses()
   local animCompType = "amm_workspot_collab"
 
-  if forceClean then
-    db:execute(string.format("DELETE FROM workspots WHERE anim_comp = '%s'", animCompType))
-  end
-
   local files = getFilesRecursively("./Collabs/Custom Poses", {})
-  if #files == 0 then return {} end
+  if #files == 0 then return end
 
-  local collabs = {}  -- returned table
+  local collabs = {}
   local alreadyRegisteredPoses = {}
 
   db:execute('BEGIN TRANSACTION')
@@ -4294,17 +4392,15 @@ function AMM:IsValidCustomAppearanceForEntity(entityID, target, appBase)
 	  collabsAppBase = collabsAppBase .. ")"
  
 	  ----------------------------------------------------------------------------
-	  -- Then we get leftover "AMM" or nil collab_tag appearances that are not part
-	  -- of that collabsAppBase set.
+	  -- Then we get leftover "AMM" or nil collab_tag appearances
 	  ----------------------------------------------------------------------------
 	  local leftoverSQL = string.format(
 		 "SELECT DISTINCT app_name, app_base "
 		 .."FROM custom_appearances "
 		 .."WHERE %s(collab_tag IS NULL OR collab_tag = 'AMM') "
-		 .."AND app_base NOT IN %s "
 		 .."AND entity_id = '%s' "
 		 .."ORDER BY app_name ASC",
-		 searchQuery, collabsAppBase, id
+		 searchQuery, id
 	  )
  
 	  for appName, base in db:urows(leftoverSQL) do
@@ -4764,9 +4860,10 @@ function AMM:ProcessCompanionAttack(hitEvent)
 				hitEvent.attackComputed:MultAttackValue(AMM.companionAttackMultiplier, dmgType)
 			end
 		else -- Attacker is not companion
-			if hitEvent.target and hitEvent.target.IsPlayerCompanion and hitEvent.target:IsPlayerCompanion() then
+			if hitEvent.target and ((hitEvent.target.IsPlayerCompanion and hitEvent.target:IsPlayerCompanion()) or hitEvent.target.isPlayerCompanionCached) then
 				if AMM.companionResistanceMultiplier ~= 0 then
-					hitEvent.attackComputed:MultAttackValue((AMM.companionResistanceMultiplier / 100), dmgType)
+					local multiplier = 1 - (resistance / 100) -- Invert the multiplier
+					hitEvent.attackComputed:MultAttackValue(multiplier, dmgType)
 				end
 			end
 		end

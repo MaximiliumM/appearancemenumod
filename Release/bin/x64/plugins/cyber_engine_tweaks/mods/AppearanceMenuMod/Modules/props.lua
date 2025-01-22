@@ -1,5 +1,11 @@
 Props = {}
 
+local _entitySystem
+local function getEntitySystem()
+	_entitySystem = _entitySystem or Game.GetStaticEntitySystem()
+	return _entitySystem
+end
+
 -- Flags --
 local despawnInProgress = false
 local saveAllInProgress = false
@@ -28,6 +34,9 @@ function Props:NewProp(uid, id, name, template, posString, scale, app, tag)
   obj.entityID = ''
   obj.mappinData = nil
   obj.spawned = false
+
+  obj.entitySpec = StaticEntitySpec.new()
+	obj.entitySpec.attached = true
 
   local pos = loadstring("return "..posString, '')()
   obj.pos = Vector4.new(pos.x, pos.y, pos.z, pos.w)
@@ -1718,6 +1727,13 @@ function Props:SpawnProp(spawn, pos, angles)
 	spawnTransform:SetOrientationEuler(spawnTransform, angles or EulerAngles.new(0, 0, playerAngles.yaw - rotation))
 	  
   spawn.entityID = exEntitySpawner.Spawn(spawn.template, spawnTransform, app, record)
+
+  -- spawn.entitySpec.templatePath = spawn.template
+	-- spawn.entitySpec.tags = { "AMM_PROP" }
+	-- spawn.entitySpec.position = Util:GetPosition(1, 0)
+	-- spawn.entitySpec.orientation = Util:GetOrientation(-180)
+
+	-- spawn.entityID = getEntitySystem():SpawnEntity(spawn.entitySpec)
 
   local timerFunc = function(timer)
 		local entity = Game.FindEntityByID(spawn.entityID)
