@@ -1053,7 +1053,38 @@ function Tools:TeleportToLocation(loc)
     AMM.TeleportMod.api.requestTravel(Vector4.new(loc.x, loc.y, loc.z, loc.w))
   else
     Game.GetTeleportationFacility():Teleport(Game.GetPlayer(), Vector4.new(loc.x, loc.y, loc.z, loc.w), EulerAngles.new(0, 0, loc.yaw))
-    AMM.Tools.isTeleporting = true
+  end
+
+  -- Teleport Companions with you if you have any spawned
+  if next(AMM.Spawn.spawnedNPCs) ~= nil then
+    local lastPos = Game.GetPlayer():GetWorldPosition()
+    local teleportIsDone = false
+
+    Cron.Every(0.1, { tick = 1 }, function(timer)
+
+      timer.tick = timer.tick + 1
+
+      if timer.tick > 10 then
+        Cron.Halt(timer)
+      end
+
+      -- Travel Animation Done Check --
+      if AMM.TeleportMod and AMM.TeleportMod.api.done then
+        teleportIsDone = true
+        AMM.TeleportMod.api.done = false
+      end
+
+      -- Regular Teleport Check --
+      local currentPos = Game.GetPlayer():GetWorldPosition()
+      if Util:VectorDistance(lastPos, currentPos) > 1 then
+        teleportIsDone = true
+      end
+
+      if teleportIsDone then
+        AMM:TeleportAll()
+        Cron.Halt(timer)
+      end
+    end)
   end
 end
 

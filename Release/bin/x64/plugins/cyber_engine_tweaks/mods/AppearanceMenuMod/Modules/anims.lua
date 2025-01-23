@@ -342,6 +342,12 @@ function Poses:PlayAnimationOnTarget(t, anim, instant, caller)
   local entityID = exEntitySpawner.Spawn(anim.ent, spawnTransform, '')
 
   Cron.Every(0.1, {tick = 1}, function(timer)
+    timer.tick = timer.tick + 1
+	
+    if timer.tick > 10 then
+      Cron.Halt(timer)
+    end
+
     local ent = Game.FindEntityByID(entityID)
     if ent then
       anim.handle = ent
@@ -351,8 +357,8 @@ function Poses:PlayAnimationOnTarget(t, anim, instant, caller)
       if not caller then
         Poses.activeAnims[t.hash] = anim
       end
-      
-      Game.GetWorkspotSystem():PlayInDeviceSimple(anim.handle, t.handle, false, anim.comp, nil, nil, 0, 1, nil)
+
+      Game.GetWorkspotSystem():PlayInDeviceSimple(anim.handle, t.handle, false, anim.comp, CName.new('AMM_WORKSPOT'), nil, 0, 1, nil)
       Game.GetWorkspotSystem():SendJumpToAnimEnt(t.handle, anim.name, instant)
        
       Cron.Halt(timer)

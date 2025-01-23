@@ -417,37 +417,81 @@ function Spawn:DrawFavoritesButton(buttonLabels, entity, fullButton)
 end
 
 function Spawn:DrawArrowButton(direction, entity, index)
-	local favoriteType = "favorites"
-	if entity.type == "Prop" or entity.type == "entEntity" then
-		favoriteType = "favorites_props"
+	-- Decide which table to use based on entity type
+	local favoriteType = (entity.type == "Prop" or entity.type == "entEntity")
+		 and "favorites_props"
+		 or "favorites"
+
+	-- Determine which ImGui arrow to draw, and what the new target index would be
+	local dirEnum = (direction == "up") and ImGuiDir.Up or ImGuiDir.Down
+	local tempPos = (direction == "up") and (index - 1) or (index + 1)
+
+	-- Get the total number of favorites so we can clamp positions correctly
+	local favoritesCount = 0
+	for count in db:urows(string.format("SELECT COUNT(1) FROM %s", favoriteType)) do
+		 favoritesCount = count
 	end
 
-	local dirEnum, tempPos
-	if direction == "up" then
-		dirEnum = ImGuiDir.Up
-		tempPos = index - 1
-	else
-		dirEnum = ImGuiDir.Down
-		tempPos = index + 1
-	end
+	if ImGui.ArrowButton(direction .. entity.id, dirEnum) then
+		 -- Positions are assumed to start at 0, so valid range is [0, favoritesCount - 1]
+		 if tempPos >= 0 and tempPos < favoritesCount then
+			  -- Fetch the row at the current position (index)
+			  local currentRow
+			  for row in db:nrows(string.format("SELECT * FROM %s WHERE position = %d", favoriteType, index)) do
+					currentRow = row
+					break
+			  end
 
-	local favoritesLength = 0
-	local query = "SELECT COUNT(1) FROM "..favoriteType
-	for x in db:urows(query) do favoritesLength = x end
+			  -- Fetch the row at the target position (tempPos)
+			  local swapRow
+			  for row in db:nrows(string.format("SELECT * FROM %s WHERE position = %d", favoriteType, tempPos)) do
+					swapRow = row
+					break
+			  end
 
-	if ImGui.ArrowButton(direction..entity.id, dirEnum) then
-		if not(tempPos < 1 or tempPos > favoritesLength) then
-			local query = f("SELECT * FROM %s WHERE position = %i", favoriteType, tempPos)
-			for fav in db:nrows(query) do temp = fav end
+			  -- Only proceed if we have valid rows for both positions
+			  if currentRow and swapRow then
+					-- Start a transaction so we don't get a half-updated DB on error
+					db:execute("BEGIN TRANSACTION")
 
-			local sql = f("UPDATE %s SET entity_id = '%s', entity_name = '%s', parameters = \"%s\" WHERE position = %i", favoriteType, entity.id, entity.name, entity.parameters, tempPos)
-			sql = sql:gsub('"nil"', "NULL")
-			db:execute(sql)
-			
-			sql = f("UPDATE %s SET entity_id = '%s', entity_name = '%s', parameters = \"%s\" WHERE position = %i", favoriteType, temp.entity_id, temp.entity_name, temp.parameters, index)
-			sql = sql:gsub('"nil"', "NULL")
-			db:execute(sql)
-		end
+					-- Swap: move the current row data into the 'tempPos' slot
+					local update1 = string.format([[
+						 UPDATE %s
+							 SET entity_id   = '%s',
+								  entity_name = '%s',
+								  parameters  = "%s"
+						  WHERE position    = %d
+					]],
+					favoriteType,
+					currentRow.entity_id or "NULL",
+					currentRow.entity_name or "NULL",
+					currentRow.parameters or "NULL",
+					tempPos)
+					update1 = update1:gsub('"nil"', "NULL")  -- fix "nil" => "NULL"
+
+					-- Swap: move the swapRow data into the 'index' slot
+					local update2 = string.format([[
+						 UPDATE %s
+							 SET entity_id   = '%s',
+								  entity_name = '%s',
+								  parameters  = "%s"
+						  WHERE position    = %d
+					]],
+					favoriteType,
+					swapRow.entity_id or "NULL",
+					swapRow.entity_name or "NULL",
+					swapRow.parameters or "NULL",
+					index)
+					update2 = update2:gsub('"nil"', "NULL")
+
+					-- Execute both updates
+					db:execute(update1)
+					db:execute(update2)
+
+					-- Commit the transaction
+					db:execute("COMMIT")
+			  end
+		 end
 	end
 end
 

@@ -83,7 +83,7 @@ function AMM:new()
 	 AMM.photoModeNPCsExtended = false
 
 	 -- Main Properties --
-	 AMM.currentVersion = "2.9.1"
+	 AMM.currentVersion = "2.9.2"
 	 AMM.CETVersion = parseVersion(GetVersion())
 	 AMM.CodewareVersion = 0
 	 AMM.updateNotes = require('update_notes.lua')
@@ -1352,27 +1352,6 @@ function AMM:new()
 				-- Entity Movement --
 				if AMM.Tools.directMode and AMM.Tools.currentTarget and AMM.Tools.currentTarget ~= '' then
 					AMM.Tools.currentTarget:Move()
-				end
-
-				-- Travel Animation Done Check --
-				if AMM.TeleportMod and AMM.TeleportMod.api.done then
-					if next(AMM.Spawn.spawnedNPCs) ~= nil then
-						AMM:TeleportAll()
-					end
-					AMM.TeleportMod.api.done = false
-				end
-
-				-- Regular Teleport Wait Timer --
-				if AMM.Tools.isTeleporting then
-					waitTimer = waitTimer + deltaTime
-
-					if waitTimer > 8 then
-						waitTimer = 0.0
-						AMM.Tools.isTeleporting = false
-						if next(AMM.Spawn.spawnedNPCs) ~= nil then
-							AMM:TeleportAll()
-						end
-					end
 				end
 
 				-- Disable Photo Mode Restriction --
@@ -3711,7 +3690,26 @@ end
 function AMM:TeleportAll()
 	for _, ent in pairs(AMM.Spawn.spawnedNPCs) do
 		if ent.handle:IsNPC() then
+
 			Util:TeleportNPCTo(ent.handle, Util:GetBehindPlayerPosition(2))
+
+			Cron.Every(0.1, { tick = 1 }, function(timer)
+
+				timer.tick = timer.tick + 1
+		
+				if timer.tick > 600 then
+					Cron.Halt(timer)
+				end
+				
+				local entity = Game.FindEntityByID(ent.entityID)
+
+				if entity then
+					ent.handle = entity
+					AMM:ChangeAppearanceTo(ent, ent.appearance)
+					
+					Cron.Halt(timer)
+				end
+			end)
 		end
 	end
 end
@@ -4862,7 +4860,7 @@ function AMM:ProcessCompanionAttack(hitEvent)
 		else -- Attacker is not companion
 			if hitEvent.target and ((hitEvent.target.IsPlayerCompanion and hitEvent.target:IsPlayerCompanion()) or hitEvent.target.isPlayerCompanionCached) then
 				if AMM.companionResistanceMultiplier ~= 0 then
-					local multiplier = 1 - (resistance / 100) -- Invert the multiplier
+					local multiplier = 1 - (AMM.companionResistanceMultiplier / 100) -- Invert the multiplier
 					hitEvent.attackComputed:MultAttackValue(multiplier, dmgType)
 				end
 			end

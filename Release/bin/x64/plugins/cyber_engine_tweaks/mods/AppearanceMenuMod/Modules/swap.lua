@@ -246,27 +246,72 @@ function Swap:RearrangeFavoritesIndex(removedIndex)
 	db:execute(f("UPDATE sqlite_sequence SET seq = %i WHERE name = 'favorites_swap'", lastIndex - 1))
 end
 
-function Swap:DrawArrowButton(direction, entityID, index)
-	local dirEnum, tempPos
-	if direction == "up" then
-		dirEnum = ImGuiDir.Up
-		tempPos = index - 1
-	else
-		dirEnum = ImGuiDir.Down
-		tempPos = index + 1
+function Swap:DrawArrowButton(direction, id, index)
+	-- Decide which table to use based on entity type
+	local favoriteType = "favorites_swap"
+
+	-- Determine which ImGui arrow to draw, and what the new target index would be
+	local dirEnum = (direction == "up") and ImGuiDir.Up or ImGuiDir.Down
+	local tempPos = (direction == "up") and (index - 1) or (index + 1)
+
+	-- Get the total number of favorites so we can clamp positions correctly
+	local favoritesCount = 0
+	for count in db:urows(string.format("SELECT COUNT(1) FROM %s", favoriteType)) do
+		 favoritesCount = count
 	end
 
-	local query = "SELECT COUNT(1) FROM favorites_swap"
-	for x in db:urows(query) do favoritesLength = x end
+	if ImGui.ArrowButton(direction .. id, dirEnum) then
+		 -- Positions are assumed to start at 0, so valid range is [0, favoritesCount - 1]
+		 if tempPos >= 0 and tempPos < favoritesCount then
+			  -- Fetch the row at the current position (index)
+			  local currentRow
+			  for row in db:nrows(string.format("SELECT * FROM %s WHERE position = %d", favoriteType, index)) do
+					currentRow = row
+					break
+			  end
 
-	if ImGui.ArrowButton(direction..entityID, dirEnum) then
-		if not(tempPos < 1 or tempPos > favoritesLength) then
-			local query = f("SELECT * FROM favorites_swap WHERE position = %i", tempPos)
-			for fav in db:nrows(query) do temp = fav end
+			  -- Fetch the row at the target position (tempPos)
+			  local swapRow
+			  for row in db:nrows(string.format("SELECT * FROM %s WHERE position = %d", favoriteType, tempPos)) do
+					swapRow = row
+					break
+			  end
 
-			db:execute(f("UPDATE favorites_swap SET entity_id = \"%s\" WHERE position = %i", entityID, tempPos))
-			db:execute(f("UPDATE favorites_swap SET entity_id = \"%s\" WHERE position = %i", temp.entity_id, index))
-		end
+			  -- Only proceed if we have valid rows for both positions
+			  if currentRow and swapRow then
+					-- Start a transaction so we don't get a half-updated DB on error
+					db:execute("BEGIN TRANSACTION")
+
+					-- Swap: move the current row data into the 'tempPos' slot
+					local update1 = string.format([[
+						 UPDATE %s
+							 SET entity_id   = '%s'								  
+						  WHERE position    = %d
+					]],
+					favoriteType,
+					currentRow.entity_id or "NULL",
+					tempPos)
+					update1 = update1:gsub('"nil"', "NULL")  -- fix "nil" => "NULL"
+
+					-- Swap: move the swapRow data into the 'index' slot
+					local update2 = string.format([[
+						 UPDATE %s
+							 SET entity_id   = '%s'
+						  WHERE position    = %d
+					]],
+					favoriteType,
+					swapRow.entity_id or "NULL",
+					index)
+					update2 = update2:gsub('"nil"', "NULL")
+
+					-- Execute both updates
+					db:execute(update1)
+					db:execute(update2)
+
+					-- Commit the transaction
+					db:execute("COMMIT")
+			  end
+		 end
 	end
 end
 

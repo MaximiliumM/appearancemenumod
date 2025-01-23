@@ -6,7 +6,7 @@ local UI = {
     buttonWidth = nil,
     buttonHeight = nil,
     halfButtonWidth = nil,
-    scrollBarSize = 0,
+    scrollBarSize = 10,
   },
 }
 

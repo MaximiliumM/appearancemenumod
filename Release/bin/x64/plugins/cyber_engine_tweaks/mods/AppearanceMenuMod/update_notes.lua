@@ -1,5 +1,13 @@
 return {
 	{
+		'2.9.2',
+		'2025 Jan 23',
+		[[Adjusted Scrollbar width]],
+		[[Fixed issue where Companions after teleporting with Player would lose appearance and Target Tools would break]],
+		[[Fixed issue where arranging Favorites would not work correctly]],
+		[[Fixed Companion Resistance setting. For real this time]],
+	},
+	{
 		'2.9.1',
 		'2025 Jan 22',
 		[[Added new Custom Appearances to Fiona Vargas]],
