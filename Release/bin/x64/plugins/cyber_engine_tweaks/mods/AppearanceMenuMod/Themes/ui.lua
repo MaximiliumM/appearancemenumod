@@ -6,7 +6,8 @@ local UI = {
     buttonWidth = nil,
     buttonHeight = nil,
     halfButtonWidth = nil,
-    scrollBarSize = 10,
+    scrollBarSize = 0,
+    listScaleFactor = 0,
   },
 }
 
@@ -47,16 +48,7 @@ local function calculateChildViewHeight(itemCount, itemHeight)
   if childViewHeight > windowHeight then
       childViewHeight = windowHeight
   end
-  -- print("item count")
-  -- print(itemCount)
-  -- print("item height")
-  -- print(itemHeight)
-  -- print("availableSpace")
-  -- print(availableSpace)
-  -- print("additionalItems")
-  -- print(additionalItems)
-  -- print("childViewHeight")
-  -- print(childViewHeight)
+
   return childViewHeight + 10
 end
 
@@ -270,20 +262,33 @@ function UI:SmallButton(buttonLabel, padding)
   return button
 end
 
-function UI:List(id, itemCount, height, func)
-  local childViewHeight = childViews[id]
+function UI:List(id, itemCount, baseItemHeight, func)
 
-  if not childViewHeight or (childViewHeight and childViewHeight.itemCount ~= itemCount) then
-    local h = calculateChildViewHeight(itemCount, height)
-    childViews[id] = {h = h, itemCount = itemCount}
-    childViewHeight = childViews[id]
-  end
+  -- Apply user scale factor
+  local sliderValue = UI.style.listScaleFactor
 
-  if ImGui.BeginChild("List##"..id, ImGui.GetWindowContentRegionWidth(), childViewHeight.h) then
+  -- Map slider value to the output range
+  local fractionOfWindow = 0.7 + (sliderValue * 0.3)
+
+  local padding = 4
+  local scaledItemHeight  = baseItemHeight + padding
+
+  -- How big is the window’s remaining vertical space?
+  local available         = ImGui.GetContentRegionAvail()
+
+  -- How much height would we need if we showed all items at once?
+  local totalNeeded       = itemCount * scaledItemHeight
+  local maxHeight         = available * fractionOfWindow
+
+  -- The final child height is either the full item list or that fraction of the window, whichever is smaller
+  local childHeight       = math.min(totalNeeded + padding, maxHeight)
+
+  if ImGui.BeginChild("List##"..id, -1, childHeight, true) then
     local clipper = ImGuiListClipper.new()
-    local h = height + 10
-    clipper:Begin(itemCount, h)
-    while(clipper:Step()) do
+    -- Pass scaledItemHeight to match the actual item size
+    clipper:Begin(itemCount, scaledItemHeight)
+
+    while (clipper:Step()) do
       for i = clipper.DisplayStart + 1, clipper.DisplayEnd do
         func(i)
       end
@@ -291,6 +296,7 @@ function UI:List(id, itemCount, height, func)
   end
   ImGui.EndChild()
 end
+
 
 function UI:DrawCrossHair()
   if AMM.userSettings.scanningReticle then

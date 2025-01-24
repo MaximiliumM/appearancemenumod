@@ -83,7 +83,7 @@ function AMM:new()
 	 AMM.photoModeNPCsExtended = false
 
 	 -- Main Properties --
-	 AMM.currentVersion = "2.9.2"
+	 AMM.currentVersion = "2.9.3"
 	 AMM.CETVersion = parseVersion(GetVersion())
 	 AMM.CodewareVersion = 0
 	 AMM.updateNotes = require('update_notes.lua')
@@ -300,8 +300,13 @@ function AMM:new()
 		 end)
 
 		 -- Setup Observers and Overrides --
+
+		--  Observe('ElevatorInkGameController', 'OnChangeFloor', function(this)
+		-- 	AMM:StartCompanionsFollowElevator()
+	 	--  end)
+
 		 local puppetSpawned = false
-		 Observe('PhotoModePlayerEntityComponent', 'ListAllCurrentItems', function(self)
+		 ObserveAfter('PhotoModePlayerEntityComponent', 'SetupInventory', function(self)
 			local isV = AMM:GetNPCName(self.fakePuppet) == "V"
 
 			if puppetSpawned or isV then
@@ -314,9 +319,9 @@ function AMM:new()
 			puppetSpawned = true
 	 	 end)
 		 
-		 Observe('gameuiPhotoModeMenuController', 'OnCharacterSelected', function(this)
-				AMM.Tools:ResetPuppetsPosition()
-			end)
+		--  Observe('gameuiPhotoModeMenuController', 'OnCharacterSelected', function(this)
+		-- 		AMM.Tools:ResetPuppetsPosition()
+		--  end)
 
 		 Observe('PhotoModeMenuListItem', 'OnSliderHandleReleased', function(this)
 			for _, puppet in ipairs(AMM.Tools.listOfPuppets) do
@@ -2007,11 +2012,13 @@ function AMM:DrawUISettingsTab(style)
 		if scrollBarClicked then
 			settingChanged = true
 			if AMM.userSettings.scrollBarEnabled then
-				AMM.UI.style.scrollBarSize = 1.5
+				AMM.UI.style.scrollBarSize = 10
 			else
 				AMM.UI.style.scrollBarSize = 0
 			end
 		end
+
+		AMM.UI.style.listScaleFactor, used = ImGui.SliderFloat(AMM.LocalizableString("List_Height"), AMM.UI.style.listScaleFactor, -2, 2, "%.1f")
 
 
 		if #AMM.availableLanguages > 1 then
@@ -2470,6 +2477,7 @@ function AMM:ImportUserData()
 				self.Tools.selectedNibblesEntity = userData['selectedNibblesEntity'] or 1
 				self.Tools.replacerVersion = userData['replacerVersion']
 				self.selectedLanguage = self:GetLanguageIndex(userData['selectedLanguage'] or "en_US")
+				self.UI.style.listScaleFactor = userData['listScaleFactor'] or 0
 
 				if userData['settings'] ~= nil then
 					for _, obj in ipairs(userData['settings']) do
@@ -2617,6 +2625,7 @@ function AMM:ExportUserData()
 		userData['selectedNibblesEntity'] = self.Tools.selectedNibblesEntity
 		userData['replacerVersion'] = self.Tools.replacerVersion
 		userData['selectedLanguage'] = self.availableLanguages[self.selectedLanguage].name or "en_US"
+		userData['listScaleFactor'] = self.UI.style.listScaleFactor
 
 		local validJson, contents = pcall(function() return json.encode(userData) end)
 		if validJson and contents ~= nil then
@@ -3606,67 +3615,96 @@ end
 -- 6) Setup Custom Poses
 --------------------------------------------------------------------------------
 function AMM:SetupCustomPoses()
-  local animCompType = "amm_workspot_collab"
-
-  local files = getFilesRecursively("./Collabs/Custom Poses", {})
-  if #files == 0 then return end
-
-  local collabs = {}
-  local alreadyRegisteredPoses = {}
-
-  db:execute('BEGIN TRANSACTION')
-  db:execute('UPDATE sqlite_sequence SET seq = (SELECT MAX(anim_id) FROM workspots) WHERE name = "workspots"')
-
-  for _, mod in ipairs(files) do
-    local data = require(mod)
-    if not data then
-      spdlog.error(string.format("%s: invalid file!", mod))
-    else
-      local category   = data.category or 'INVALID'
-      local entityPath = data.entity_path or 'INVALID'
-      local anims      = data.anims or {}
-      local modder     = data.modder or 'INVALID'
-
-      -- If category is already in the table, rename it
-      local exists = getCount(db, string.format(
-        "SELECT COUNT(1) FROM workspots WHERE anim_cat = '%s'", 
-        category
-      ))
-      if exists ~= 0 then
-        category = string.format("[%s] %s", modder, category)
-      end
-
-      for rig, animsForRig in pairs(anims) do
-        alreadyRegisteredPoses[modder]      = alreadyRegisteredPoses[modder] or {}
-        alreadyRegisteredPoses[modder][rig] = alreadyRegisteredPoses[modder][rig] or {}
-
-        collabs[modder]      = collabs[modder] or {}
-        collabs[modder][rig] = collabs[modder][rig] or {}
-        table.insert(collabs[modder][rig], entityPath)
-
-        for _, animName in ipairs(animsForRig) do
-          if alreadyRegisteredPoses[modder][rig][animName] then
-            spdlog.error(string.format(
-              "%s: custom animation %s for rig %s is already registered!",
-              modder, animName, rig
-            ))
-          else
-            local columns = '(anim_name, anim_rig, anim_comp, anim_ent, anim_cat)'
-            local vals    = string.format(
-              '("%s", "%s", "%s", "%s", "%s")',
-              animName, rig, animCompType, entityPath, category
-            )
-            sanitizedInsert(db, "workspots", columns, vals)
-            alreadyRegisteredPoses[modder][rig][animName] = true
-          end
-        end
-      end
-    end
-  end
-
-  db:execute('COMMIT')
-  return collabs
-end
+	local animCompType = "amm_workspot_collab"
+	local folder       = "./Collabs/Custom Poses"
+ 
+	local files = getFilesRecursively(folder, {})
+	if #files == 0 then return end
+ 
+	-- Returned table of collabs
+	local collabs               = {}
+	-- Local table to track duplicates in a single run
+	local alreadyRegisteredPoses = {}
+ 
+	db:execute("BEGIN TRANSACTION")
+	-- ensures the autoincrement is at least up-to-date
+	db:execute('UPDATE sqlite_sequence SET seq = (SELECT MAX(anim_id) FROM workspots) WHERE name = "workspots"')
+ 
+	for _, modFilePath in ipairs(files) do
+	  local data = require(modFilePath)
+	  if not data then
+		 spdlog.error(string.format("%s: invalid file!", modFilePath))
+	  else
+		 local category   = data.category   or 'INVALID'
+		 local entityPath = data.entity_path or 'INVALID'
+		 local anims      = data.anims      or {}
+		 local modder     = data.modder     or 'INVALID'
+ 
+		 -- If category is already in the table, rename it
+		 local catExists = getCount(db, string.format(
+			"SELECT COUNT(1) FROM workspots WHERE anim_cat = '%s'",
+			category
+		 ))
+		 if catExists ~= 0 then
+			category = string.format("[%s] %s", modder, category)
+		 end
+ 
+		 alreadyRegisteredPoses[modder] = alreadyRegisteredPoses[modder] or {}
+		 collabs[modder]               = collabs[modder] or {}
+ 
+		 for rig, animsForRig in pairs(anims) do
+			alreadyRegisteredPoses[modder][rig] = alreadyRegisteredPoses[modder][rig] or {}
+			collabs[modder][rig]               = collabs[modder][rig] or {}
+ 
+			table.insert(collabs[modder][rig], entityPath)
+ 
+			for _, animName in ipairs(animsForRig) do
+			  -- 1) Check duplicates in the same run
+			  if alreadyRegisteredPoses[modder][rig][animName] then
+				 spdlog.error(string.format(
+					"%s: custom animation %s for rig %s is already registered (this run)!",
+					modder, animName, rig
+				 ))
+			  else
+				 -- 2) Also check if it already exists in DB from a previous run
+				 local checkSQL = string.format([[
+					SELECT COUNT(1) 
+					FROM workspots 
+					WHERE anim_name = '%s' 
+					  AND anim_rig  = '%s' 
+					  AND anim_ent  = '%s' 
+					  AND anim_comp = '%s'
+				 ]],
+				 animName, rig, entityPath, animCompType)
+ 
+				 local count = getCount(db, checkSQL)
+				 if count > 0 then
+					-- Already in DB => skip or log
+					spdlog.error(string.format(
+					  "%s: custom animation %s for rig %s already exists in DB!",
+					  modder, animName, rig
+					))
+				 else
+					-- Not in DB => Insert it
+					local columns = '(anim_name, anim_rig, anim_comp, anim_ent, anim_cat)'
+					local vals    = string.format(
+					  '("%s", "%s", "%s", "%s", "%s")',
+					  animName, rig, animCompType, entityPath, category
+					)
+					sanitizedInsert(db, "workspots", columns, vals)
+ 
+					-- Mark it as inserted for this run
+					alreadyRegisteredPoses[modder][rig][animName] = true
+				 end
+			  end
+			end
+		 end
+	  end
+	end
+ 
+	db:execute("COMMIT")
+	return collabs
+ end
 
 function AMM:SetupVehicleData()
 	local unlockableVehicles = TweakDB:GetFlat(TweakDBID.new('Vehicle.vehicle_list.list'))
@@ -3724,7 +3762,14 @@ function AMM:RespawnAll()
 
 	AMM:DespawnAll()
 
-	Cron.Every(0.5, function(timer)
+	Cron.Every(0.5, { tick = 1 }, function(timer)
+
+		timer.tick = timer.tick + 1
+		
+		if timer.tick > 30 then
+			Cron.Halt(timer)
+		end
+
 		local ent = entitiesForRespawn[1]
 		local entity = nil
 
@@ -3739,6 +3784,43 @@ function AMM:RespawnAll()
 		if #entitiesForRespawn == 0 then
 			Cron.Halt(timer)
 		end
+	end)
+end
+
+-- Elevator Teleportation Attempt for Companions
+-- It does work, but it's janky as hell and we need a better teleport function
+function AMM:StartCompanionsFollowElevator()
+
+	local lastVPosition = Game.GetPlayer():GetWorldPosition()
+
+	Cron.Every(0.1, { tick = 1 }, function(timer)
+
+		timer.tick = timer.tick + 1
+
+		if timer.tick > 600 then
+			Cron.Halt(timer)
+		end
+		
+		local currentVPosition = Game.GetPlayer():GetWorldPosition()
+
+		Cron.After(2.5, function()
+
+			if lastVPosition.z ~= currentVPosition.z then
+
+				lastVPosition = currentVPosition
+	
+				for _, ent in pairs(AMM.Spawn.spawnedNPCs) do
+					if ent.handle and ent.handle.IsNPC and ent.handle:IsNPC() then
+						local currentPos = ent.handle:GetWorldPosition()
+						local currentAngles = ent.handle:GetWorldOrientation():ToEulerAngles()
+						local newPos = Vector4.new(currentPos.x, currentPos.y, currentVPosition.z, currentPos.w)
+						Util:TeleportNPCTo(ent.handle, newPos, currentAngles.yaw)
+					end
+				end
+			else
+				Cron.Halt(timer)
+			end
+		end)
 	end)
 end
 

@@ -1,8 +1,15 @@
 return {
 	{
+		'2.9.3',
+		'2025 Jan 24',
+		[[Added new List Height setting in User Interface that will change how many items are visible]],
+		[[Fixed issue where Target buttons for Photo Mode NPCs would not work after 2.21 patch]],
+		[[Fixed issue where Custom Poses would be added to the database more than once]],
+	},
+	{
 		'2.9.2',
 		'2025 Jan 23',
-		[[Adjusted Scrollbar width]],
+		[[Adjusted Scroll Bar width]],
 		[[Fixed issue where Companions after teleporting with Player would lose appearance and Target Tools would break]],
 		[[Fixed issue where arranging Favorites would not work correctly]],
 		[[Fixed Companion Resistance setting. For real this time]],

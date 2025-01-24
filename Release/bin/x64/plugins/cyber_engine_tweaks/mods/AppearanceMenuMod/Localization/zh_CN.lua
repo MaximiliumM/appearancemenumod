@@ -595,6 +595,7 @@ return {
 	Custom_Appearances = "常规外观",
 	PhotoModeAdjustments = "照片模式调整:",
 	DisablePhotoModeTabs = "取消照片模式光标:",
+	List_Height = "列表高度",
 	Listbox_Themes = "主题",
 	Weaponize = "武装化",
 	

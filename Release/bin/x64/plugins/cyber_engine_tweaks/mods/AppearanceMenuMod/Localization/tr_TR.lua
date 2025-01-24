@@ -598,6 +598,7 @@ return {
 	Custom_Appearances = "Özel Görünümler",
 	PhotoModeAdjustments = "Fotograf Modu Ayarlamalari:",
 	DisablePhotoModeTabs = "Fotograf Sekmelerini Devre Disi Birak:",
+	List_Height = "Liste Yüksekliği",
 	Listbox_Themes = "Temalar",
 	Weaponize = "Silahlandir",
 	NoAppearanceSet = "Görünüm Seçilmedi",

@@ -598,6 +598,7 @@ return {
 	Custom_Appearances = "Custom Appearances",
 	PhotoModeAdjustments = "Photo Mode Adjustments:",
 	DisablePhotoModeTabs = "Disable Photo Mode Tabs:",
+	List_Height = "List Height",
 	Listbox_Themes = "Themes",
 	Weaponize = "Weaponize",
 	NoAppearanceSet = "No Appearance Set",

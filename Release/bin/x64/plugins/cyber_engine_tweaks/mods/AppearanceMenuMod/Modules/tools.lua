@@ -45,7 +45,6 @@ function Tools:new()
   Tools.userLocations = {}
   Tools.favoriteLocations = {}
   Tools.useTeleportAnimation = false
-  Tools.isTeleporting = false
 
   -- V Properties --
   Tools.playerVisibility = true
@@ -3298,7 +3297,9 @@ function Tools:EnterPhotoMode()
       AMM.playerInPhoto = true
 
       Cron.After(Util:CalculateDelay(0.5), function()
-        Tools.listOfPuppets[1]:UpdatePosition()
+        if Tools.listOfPuppets[1] then
+          Tools.listOfPuppets[1]:UpdatePosition()
+        end
       end)
       
       if Tools.cursorStateLock or AMM.userSettings.disablePhotoModeCursor then
