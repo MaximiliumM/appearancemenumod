@@ -1,5 +1,15 @@
 return {
 	{
+		'2.9.4',
+		'2025 Jan 25',
+		[[Added two new Characters: Beat Cop and Combat Robot]],
+		[[Added new Custom Appearances to Susan Abernathy]],
+		[[Adjusted List Height to display items correctly when the item count is low]],
+		[[Fixed arranging Favorites in specific cases where the user database contained invalid positions or duplicated data]],
+		[[Fixed issue where certain Custom Poses packs would not be loaded correctly]],
+		[[Fixed issue where Collab Appearances would not work on Photo Mode NPCs]],
+	},
+	{
 		'2.9.3',
 		'2025 Jan 24',
 		[[Added new List Height setting in User Interface that will change how many items are visible]],

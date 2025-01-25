@@ -433,6 +433,9 @@ function Spawn:DrawArrowButton(direction, entity, index)
 	end
 
 	if ImGui.ArrowButton(direction .. entity.id, dirEnum) then
+		-- Fix positions BEFORE doing the swap so the table is clean
+		Util:FixPositionsForFavorites(favoriteType)
+		
 		 -- Positions are assumed to start at 0, so valid range is [0, favoritesCount - 1]
 		 if tempPos >= 0 and tempPos < favoritesCount then
 			  -- Fetch the row at the current position (index)
@@ -742,19 +745,47 @@ end
 
 function Spawn:ToggleFavorite(favoriteType, isFavorite, entity)
 	if isFavorite == 0 then
-		local parameters = entity.parameters
-		if favoriteType == "favorites_props" then parameters = "Prop" end
-		local command = f('INSERT INTO %s (entity_id, entity_name, parameters) VALUES ("%s", "%s", "%s")', favoriteType, entity.id, entity.name, parameters)
-		command = command:gsub('"nil"', "NULL")
-		db:execute(command)
-	else
-		local removedIndex = 0
-		local query = f('SELECT position FROM %s WHERE entity_name = "%s"', favoriteType, entity.name)
-		for i in db:urows(query) do removedIndex = i end
+		 -- Check if there's already a row with this entity_name
+		 local existing
+		 for rowPos in db:urows(string.format(
+			'SELECT position FROM %s WHERE entity_name = "%s"',
+			favoriteType, entity.name
+		 )) do
+			existing = rowPos
+			break
+		 end
 
-		local command = f('DELETE FROM %s WHERE entity_name = "%s"', favoriteType, entity.name)
-		db:execute(command)
-		Spawn:RearrangeFavoritesIndex(favoriteType, removedIndex)
+		 if existing == nil then
+			  -- Only insert if not found
+			  local parameters = entity.parameters
+			  if favoriteType == "favorites_props" then
+					parameters = "Prop"
+			  end
+			  local command = f(
+				 'INSERT INTO %s (entity_id, entity_name, parameters) VALUES ("%s", "%s", "%s")',
+				 favoriteType, entity.id, entity.name, parameters
+			  )
+			  command = command:gsub('"nil"', "NULL")
+			  db:execute(command)
+		 else
+			  -- Already in the favorites, do nothing or update it if you prefer
+		 end
+
+	else
+		 -- remove
+		 local removedIndex = 0
+		 local query = f('SELECT position FROM %s WHERE entity_name = "%s"',
+			  favoriteType, entity.name)
+		 for i in db:urows(query) do
+			  removedIndex = i
+			  break
+		 end
+
+		 local command = f('DELETE FROM %s WHERE entity_name = "%s"',
+			  favoriteType, entity.name)
+		 db:execute(command)
+
+		 Spawn:RearrangeFavoritesIndex(favoriteType, removedIndex)
 	end
 end
 

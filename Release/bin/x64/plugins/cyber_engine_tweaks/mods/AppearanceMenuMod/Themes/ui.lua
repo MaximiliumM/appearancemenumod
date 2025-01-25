@@ -264,6 +264,10 @@ end
 
 function UI:List(id, itemCount, baseItemHeight, func)
 
+  -- Adjust size to avoid the area being too small
+  if itemCount == 1 or itemCount == 2 then baseItemHeight = baseItemHeight * 2 end
+  if itemCount == 3 or itemCount == 4 then baseItemHeight = baseItemHeight * 1.5 end
+
   -- Apply user scale factor
   local sliderValue = UI.style.listScaleFactor
 

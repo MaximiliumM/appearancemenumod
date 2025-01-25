@@ -261,6 +261,9 @@ function Swap:DrawArrowButton(direction, id, index)
 	end
 
 	if ImGui.ArrowButton(direction .. id, dirEnum) then
+     -- Fix positions BEFORE doing the swap so the table is clean
+     Util:FixPositionsForFavorites(favoriteType)
+
 		 -- Positions are assumed to start at 0, so valid range is [0, favoritesCount - 1]
 		 if tempPos >= 0 and tempPos < favoritesCount then
 			  -- Fetch the row at the current position (index)

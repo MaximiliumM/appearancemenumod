@@ -83,7 +83,7 @@ function AMM:new()
 	 AMM.photoModeNPCsExtended = false
 
 	 -- Main Properties --
-	 AMM.currentVersion = "2.9.3"
+	 AMM.currentVersion = "2.9.4"
 	 AMM.CETVersion = parseVersion(GetVersion())
 	 AMM.CodewareVersion = 0
 	 AMM.updateNotes = require('update_notes.lua')
@@ -3642,7 +3642,7 @@ function AMM:SetupCustomPoses()
  
 		 -- If category is already in the table, rename it
 		 local catExists = getCount(db, string.format(
-			"SELECT COUNT(1) FROM workspots WHERE anim_cat = '%s'",
+			[[SELECT COUNT(1) FROM workspots WHERE anim_cat = "%s"]],
 			category
 		 ))
 		 if catExists ~= 0 then
@@ -3670,10 +3670,10 @@ function AMM:SetupCustomPoses()
 				 local checkSQL = string.format([[
 					SELECT COUNT(1) 
 					FROM workspots 
-					WHERE anim_name = '%s' 
-					  AND anim_rig  = '%s' 
-					  AND anim_ent  = '%s' 
-					  AND anim_comp = '%s'
+					WHERE anim_name = "%s"
+					  AND anim_rig  = "%s" 
+					  AND anim_ent  = "%s" 
+					  AND anim_comp = "%s"
 				 ]],
 				 animName, rig, entityPath, animCompType)
  
@@ -4426,19 +4426,19 @@ function AMM:IsValidCustomAppearanceForEntity(entityID, target, appBase)
 	-- Because some puppet NPCs have IDs that differ from their 'real' entity,
 	-- we do the usual fallback to TweakDB ID if needed.
 	------------------------------------------------------------------------------
-	local check = 0
-	for count in db:urows(string.format("SELECT COUNT(1) FROM custom_appearances WHERE entity_id = '%s'", id)) do
-	  check = count
-	  break
+	
+	local inClauseIDs = { id }
+	
+	if Util:CheckForPhotoComponent(t) then
+		local name  = AMM:GetNPCName(t)
+		local tdbid = AMM:GetTweakDBIDFromName(name)
+		if tdbid and tdbid ~= id then
+   		table.insert(inClauseIDs, tdbid)
+   	end
 	end
- 
-	if check == 0 then
-	  local name  = AMM:GetNPCName(t)
-	  local tdbid = AMM:GetTweakDBIDFromName(name)
-	  if tdbid then 
-		 id = tdbid -- Only for DB lookups
-	  end
-	end
+
+	-- Build the final "('ID1','ID2',...)" string for SQL
+  local entityIDs = "('" .. table.concat(inClauseIDs, "','") .. "')"
  
 	------------------------------------------------------------------------------
 	-- If we have collabs, we first load appearances that match collab tags/metadata
@@ -4457,9 +4457,9 @@ function AMM:IsValidCustomAppearanceForEntity(entityID, target, appBase)
 		 local sqlCollab = string.format(
 			"SELECT DISTINCT app_name, app_base "
 			.."FROM custom_appearances "
-			.."WHERE %scollab_tag = '%s' AND entity_id = '%s' "
+			.."WHERE %scollab_tag = '%s' AND entity_id IN %s "
 			.."ORDER BY app_name ASC",
-			searchQuery, collab.tag, id
+			searchQuery, collab.tag, entityIDs
 		 )
  
 		 for appName, base in db:urows(sqlCollab) do
@@ -4478,9 +4478,9 @@ function AMM:IsValidCustomAppearanceForEntity(entityID, target, appBase)
 		 "SELECT DISTINCT app_name, app_base "
 		 .."FROM custom_appearances "
 		 .."WHERE %s(collab_tag IS NULL OR collab_tag = 'AMM') "
-		 .."AND entity_id = '%s' "
+		 .."AND entity_id IN %s "
 		 .."ORDER BY app_name ASC",
-		 searchQuery, id
+		 searchQuery, entityIDs
 	  )
  
 	  for appName, base in db:urows(leftoverSQL) do
@@ -4497,9 +4497,9 @@ function AMM:IsValidCustomAppearanceForEntity(entityID, target, appBase)
 		 "SELECT DISTINCT app_name, app_base "
 		 .."FROM custom_appearances "
 		 .."WHERE %s(collab_tag IS NULL OR collab_tag = 'AMM') "
-		 .."AND entity_id = '%s' "
+		 .."AND entity_id IN %s "
 		 .."ORDER BY app_name ASC",
-		 searchQuery, id
+		 searchQuery, entityIDs
 	  )
  
 	  for appName, base in db:urows(leftoverSQL) do
@@ -4521,14 +4521,18 @@ function AMM:IsValidCustomAppearanceForEntity(entityID, target, appBase)
  function AMM:GetCustomAppearanceParams(target, appearance, reverse)
 	local collabTag
 	local targetID = target.id
- 
+	local inClauseIDs = { targetID }
+
 	if target.isPuppet then
-	  local name  = AMM:GetNPCName(target.handle)
-	  local tdbid = AMM:GetTweakDBIDFromName(name)
-	  if tdbid then 
-		 targetID = tdbid 
-	  end
+		local name  = AMM:GetNPCName(target.handle)
+		local tdbid = AMM:GetTweakDBIDFromName(name)
+		if tdbid and tdbid ~= targetID then
+   		table.insert(inClauseIDs, tdbid)
+   	end
 	end
+
+	-- Build the final "('ID1','ID2',...)" string for SQL
+  local entityIDs = "('" .. table.concat(inClauseIDs, "','") .. "')"
  
 	-- Figure out which collab tag (if any) this custom appearance belongs to
 	if #AMM.collabs > 0 then
@@ -4536,8 +4540,8 @@ function AMM:IsValidCustomAppearanceForEntity(entityID, target, appBase)
 		 local check = 0
 		 for count in db:urows(string.format(
 			"SELECT COUNT(1) FROM custom_appearances "
-			.."WHERE entity_id = '%s' AND app_name = '%s' AND collab_tag = '%s'",
-			targetID, appearance, collab.tag
+			.."WHERE entity_id IN %s AND app_name = '%s' AND collab_tag = '%s'",
+			entityIDs, appearance, collab.tag
 		 )) do
 			check = count
 			break
@@ -4554,8 +4558,8 @@ function AMM:IsValidCustomAppearanceForEntity(entityID, target, appBase)
 	  local check = 0
 	  for count in db:urows(string.format(
 		 "SELECT COUNT(1) FROM custom_appearances "
-		 .."WHERE entity_id = '%s' AND app_name = '%s' AND collab_tag = 'AMM'",
-		 targetID, appearance
+		 .."WHERE entity_id IN %s AND app_name = '%s' AND collab_tag = 'AMM'",
+		 entityIDs, appearance
 	  )) do
 		 check = count
 		 break
@@ -4571,8 +4575,8 @@ function AMM:IsValidCustomAppearanceForEntity(entityID, target, appBase)
 	local custom = {}
 	local query = string.format(
 	  "SELECT * FROM custom_appearances "
-	  .."WHERE app_name = '%s' AND entity_id = '%s' AND collab_tag IS '%s'",
-	  appearance, targetID, collabTag
+	  .."WHERE app_name = '%s' AND entity_id IN %s AND collab_tag IS '%s'",
+	  appearance, entityIDs, collabTag
 	)
 	query = query:gsub("'nil'", "NULL")  -- patch any leftover 'nil'
  
@@ -4682,7 +4686,7 @@ function AMM:AddEndingTokenBonus(strA, strB, oldRatio)
 	return appearanceName
  end
 
- -- For example:
+ -- Special Cases for Appearances that are too hard to match
 local SPECIAL_OVERRIDES = {
 	["songbird_paradise"] = "Dress",
 	["songbird__q304__exhausted"] = "Exhausted",
@@ -4698,7 +4702,7 @@ function AMM:FindEquivalentAppearanceInRegularEntity(possibleAppearances, app_ba
 	end
 
 	-- Check manual overrides first
-	local manualTarget = SPECIAL_OVERRIDES[app_base] 
+	local manualTarget = SPECIAL_OVERRIDES[app_base]
 	if manualTarget then
 		return manualTarget
 	end
@@ -4720,8 +4724,8 @@ function AMM:FindEquivalentAppearanceInRegularEntity(possibleAppearances, app_ba
 	  end
 	  return tokens
 	end
+
 	local puppetTokens = tokenize(app_base)
- 
 	for _, realApp in ipairs(possibleAppearances) do
 	  if not realApp:lower():match("^custom") then
  
@@ -4751,7 +4755,7 @@ function AMM:FindEquivalentAppearanceInRegularEntity(possibleAppearances, app_ba
 		 -- d) track the best ratio
 		 if ratio > bestRatio then
 			bestRatio = ratio
-			bestMatch = realApp
+			bestMatch = realApp			
 		 end
 	  end
 	end
@@ -4760,7 +4764,7 @@ function AMM:FindEquivalentAppearanceInRegularEntity(possibleAppearances, app_ba
 	if bestRatio < threshold then
 	  return nil
 	end
- 
+	
 	return bestMatch
 end
  

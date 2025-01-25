@@ -30,6 +30,106 @@ function Util:AMMDebug(msg, reset)
   end
 end
 
+-------------------------------------------------------------------
+-- This function fixes the 'position' column by:
+--   1) Reading all rows in ascending order of 'position'.
+--   2) Deleting them from the table.
+--   3) Re-inserting them with new positions 0..(N-1),
+--      removing duplicate entity_name rows.
+--   4) Adjusting the sqlite_sequence so seq = N-1 for that table.
+-------------------------------------------------------------------
+function Util:FixPositionsForFavorites(tableName)
+  -- Gather all rows, ordered by position ascending
+  local rows = {}
+  for row in db:nrows(string.format("SELECT * FROM %s ORDER BY position ASC", tableName)) do
+      table.insert(rows, row)
+  end
+
+  -- We'll need to handle "favorites_swap" specially, because it has a different schema.
+  local isSwap = (tableName == "favorites_swap")
+
+  -- 1) Build a filtered list of rows without duplicates.
+  --    We'll keep the first occurrence of a given entity_name (in ascending position order).
+  local filtered = {}
+  local seenNames = {}
+  for _, row in ipairs(rows) do
+      local nameKey = row.entity_name or ""  -- or use row.entity_id if you prefer
+      if not seenNames[nameKey] then
+          seenNames[nameKey] = true
+          table.insert(filtered, row)
+      else
+          -- We've already seen this entity_name, so skip it (dupe removal).
+      end
+  end
+
+  -- Rewrite the table in a single transaction
+  db:execute("BEGIN TRANSACTION")
+
+  -- 2) Delete all existing rows
+  db:execute("DELETE FROM " .. tableName)
+
+  -- 3) Re-insert them with normalized positions, skipping duplicates
+  for newIndex, row in ipairs(filtered) do
+      local normalizedPos = newIndex - 1
+
+      local sql
+      if isSwap then
+          -- 'favorites_swap' has only (position, entity_id)
+          sql = string.format([[
+              INSERT INTO %s (position, entity_id)
+              VALUES (%d, '%s')
+          ]],
+          tableName,
+          normalizedPos,
+          row.entity_id or "")
+      else
+          -- Normal favorites table
+          -- Normalize the 'parameters' value
+          local p = row.parameters or ""
+          if p == "" or p == "nil" or p == "NULL" then
+              -- Store as an actual SQL NULL (no quotes in VALUES)
+              p = "NULL"
+              sql = string.format([[
+                  INSERT INTO %s (position, entity_id, entity_name, parameters)
+                  VALUES (%d, '%s', '%s', %s)
+              ]],
+              tableName,
+              normalizedPos,
+              row.entity_id or "",
+              row.entity_name or "",
+              p)
+          else
+              -- Otherwise, use a quoted string
+              sql = string.format([[
+                  INSERT INTO %s (position, entity_id, entity_name, parameters)
+                  VALUES (%d, '%s', '%s', '%s')
+              ]],
+              tableName,
+              normalizedPos,
+              row.entity_id or "",
+              row.entity_name or "",
+              p)
+          end
+      end
+
+      -- Fix any literal "nil" => "NULL"
+      sql = sql:gsub('"nil"', "NULL")
+      db:execute(sql)
+  end
+
+  -- 4) Update the sqlite_sequence to match the new highest position
+  local newSeq = #filtered - 1  -- if 8 rows => highest position is 7
+  if newSeq < 0 then
+      newSeq = 0  -- if empty table
+  end
+  db:execute(string.format(
+      "UPDATE sqlite_sequence SET seq=%d WHERE name='%s'",
+      newSeq, tableName
+  ))
+
+  db:execute("COMMIT")
+end
+
 -- Code Helper Methods
 
 -- Function to compare two strings for sorting
@@ -911,7 +1011,6 @@ function Util:CheckForPhotoComponent(ent)
 
   return false
 end
-
 
 function Util:CheckNibblesByID(id)
   local possibleIDs = {
