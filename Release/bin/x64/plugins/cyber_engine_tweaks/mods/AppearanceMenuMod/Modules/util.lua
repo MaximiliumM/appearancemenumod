@@ -508,7 +508,8 @@ function Util:CheckIfCommandIsActive(handle, cmd)
 end
 
 function Util:CancelCommand(handle, cmd)
-  handle:GetAIControllerComponent():CancelCommand(cmd)
+  handle:GetAIControllerComponent():StopExecutingCommand(cmd, true)
+  return handle:GetAIControllerComponent():CancelCommand(cmd)
 end
 
 function Util:PlayerPositionChangedSignificantly(playerPos)
@@ -566,6 +567,8 @@ function Util:EquipPrimaryWeaponCommand(targetPuppet, equip)
   cmd = cmd:Copy()
 
   targetPuppet:GetAIControllerComponent():SendCommand(cmd)
+
+  return cmd, targetPuppet
 end
 
 function Util:EquipSecondaryWeaponCommand(targetPuppet, equip)
@@ -574,6 +577,8 @@ function Util:EquipSecondaryWeaponCommand(targetPuppet, equip)
   cmd = cmd:Copy()
 
   targetPuppet:GetAIControllerComponent():SendCommand(cmd)
+
+  return cmd, targetPuppet 
 end
 
 function Util:EquipGivenWeapon(targetPuppet, weapon, override)

@@ -1505,7 +1505,7 @@ function Director:DrawNodesPopup()
     AMM.UI:Spacing(3)
     AMM.UI:TextColored(AMM.LocalizableString("Actions"))
 
-    if ImGui.BeginCombo(AMM.LocalizableString("BeginCombo_LookAt2"), Director.newNode.lookAt or AMM.LocalizableString("No_Target")) then
+    if ImGui.BeginCombo(AMM.LocalizableString("BeginCombo_LookAt"), Director.newNode.lookAt or AMM.LocalizableString("No_Target")) then
       for i, actor in ipairs(actors) do
         if i == 2 or i == 3 then else
           if ImGui.Selectable(actor, (actor == (Director.newNode.lookAt or AMM.LocalizableString("No_Target")))) then
@@ -1910,7 +1910,7 @@ function Director:GetTriggers()
   local triggers = {}
   
   -- try to read file.
-  if file then      
+  if file then
     local contents = file:read( "*a" )
     local success, triData = pcall(json.decode, contents)
     file:close()

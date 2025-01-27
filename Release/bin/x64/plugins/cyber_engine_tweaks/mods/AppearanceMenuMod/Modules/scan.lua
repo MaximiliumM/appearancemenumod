@@ -56,8 +56,8 @@ function Scan:Initialize()
   }
   
   Scan.TPPCameraOptions = {
-    { name = AMM.LocalizableString("Tpp_Close"), vec = Vector4.new(0, -8, 0.5, 0)},
-    { name = AMM.LocalizableString("Tpp_Far"), vec = Vector4.new(0, -12, 0.5, 0)},
+    { name = AMM.LocalizableString("Close"), vec = Vector4.new(0, -8, 0.5, 0)},
+    { name = AMM.LocalizableString("Far"), vec = Vector4.new(0, -12, 0.5, 0)},
   }
 
   Scan.appTriggerOptions = {
@@ -980,7 +980,7 @@ function Scan:ToggleAppearanceAsFavorite(target)
     db:execute(f("INSERT INTO favorites_apps (entity_id, app_name) VALUES ('%s', '%s')", target.id, target.appearance))
   end
 
-  target.options = AMM:GetAppearanceOptionsWithID(target.id)
+  AMM:ReloadCustomAppearances()
 end
 
 -- Save Despawn methods

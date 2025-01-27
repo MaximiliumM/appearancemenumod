@@ -1248,20 +1248,15 @@ function Tools:DrawNPCActions()
 
     if AMM.userSettings.floatingTargetTools then
       local buttonLabel = AMM.LocalizableString("Button_Label_OpenTargetTools")
-      if Tools.movementWindow.shouldDraw then
+      if Tools.movementWindow.open then
         buttonLabel = AMM.LocalizableString("Button_Label_CloseTargetTools")
       end
 
       if ImGui.Button(buttonLabel, Tools.style.buttonWidth, Tools.style.buttonHeight) then
-        if Tools.movementWindow.shouldDraw then
-          Tools.movementWindow.shouldDraw = false
-          Tools.movementWindow.open = false
-        else
-          Tools:OpenMovementWindow()
-        end
+        Tools.movementWindow.open = not Tools.movementWindow.open
       end
     else
-      Tools.movementWindow.shouldDraw = true
+      Tools.movementWindow.open = true
       Tools:DrawMovementWindow()
     end
   else
@@ -1660,7 +1655,6 @@ function Tools:OpenMovementWindow()
   end
 
   Tools.movementWindow.open = true
-  Tools.movementWindow.shouldDraw = true
 end
 
 function Tools:DrawMovementWindow()

@@ -1,5 +1,20 @@
 return {
 	{
+		'2.9.5',
+		'2025 Jan 27',
+		[[Added new Companions tab to Settings for organization]],
+		[[Added new Localization language: Russian]],
+		[[Added new Preset Trigger Distance setting to Presets tab]],
+		[[-- You can select between three distance options: Close, Moderate, Far]],
+		[[-- Setting to Far might cause performance issues so keep that in mind]],
+		[[Changing Companion Distance to Default will no longer respawn all companions]],
+		[[Fixed issue where Favorite Appearances would not be displayed in the list in certain conditions]],
+		[[Fixed issue where changing Companions equipment would not work correctly when Companion Distance was set to Close or Nearby]],
+		[[Fixed various UI issues with popups and a few button sizes]],
+		[[Fixed issue where Floating Target Tools window would not reopen if you closed it using the top-right X button]],
+		[[Fixed Custom Appearances for So Mi crashing for real triple real this time]],
+	},
+	{
 		'2.9.4',
 		'2025 Jan 25',
 		[[Added two new Characters: Beat Cop and Combat Robot]],

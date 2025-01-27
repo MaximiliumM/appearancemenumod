@@ -83,7 +83,7 @@ function AMM:new()
 	 AMM.photoModeNPCsExtended = false
 
 	 -- Main Properties --
-	 AMM.currentVersion = "2.9.4"
+	 AMM.currentVersion = "2.9.5"
 	 AMM.CETVersion = parseVersion(GetVersion())
 	 AMM.CodewareVersion = 0
 	 AMM.updateNotes = require('update_notes.lua')
@@ -1403,7 +1403,7 @@ function AMM:new()
 
 							-- Iterate through each appearance parameter
 							for _, param in ipairs(customAppearance) do
-									local physicsDelay = (param.app_param == "SkinnedCloth0441")
+									local isSkinned = string.find(param.app_param, "SkinnedCloth")
 									local appParam     = handle:FindComponentByName(CName.new(param.app_param))
 
 									if appParam then
@@ -1488,19 +1488,21 @@ function AMM:new()
 										--------------------------------------------------------------
 										-- Toggling and visibility logic
 										--------------------------------------------------------------
-										if physicsDelay then
-											Cron.After(1, function()
-													appParam:Toggle(false)
-													appParam:TemporaryHide(true)
+										if isSkinned and not param.app_toggle then
+											appParam.chunkMask = 0
+
+											Cron.After(0.2, function()
+												appParam:Toggle(false)
+												appParam:Toggle(true)
 											end)
 										else
 											appParam:Toggle(false)
 											
 											if param.app_toggle or param.mesh_type == "body" then
-													appParam:TemporaryHide(false)
-													appParam:Toggle(true)
+												appParam:TemporaryHide(false)
+												appParam:Toggle(true)
 											else
-													appParam:TemporaryHide(true)
+												appParam:TemporaryHide(true)
 											end
 										end
 									end -- if appParam
@@ -1767,6 +1769,7 @@ function AMM:Begin()
 						if ImGui.BeginTabBar("Settings Tabs") then
 
 							AMM:DrawGeneralSettingsTab(style)
+							AMM:DrawCompanionsSettingsTab(style)
 							AMM:DrawUISettingsTab(style)
 							AMM:DrawPhotoModeSettingsTab(style)
 							AMM:DrawExperimentalSettingsTab(style)
@@ -1840,27 +1843,7 @@ end
 function AMM:DrawGeneralSettingsTab(style)
 	if ImGui.BeginTabItem(AMM.LocalizableString("BeginItem_TabNameGeneral")) then
 		local settingChanged = false
-		AMM.userSettings.spawnAsCompanion, clicked = ImGui.Checkbox(AMM.LocalizableString("Checkbox_SpawnAsCompanion"), AMM.userSettings.spawnAsCompanion)
-		if clicked then settingChanged = true end
-
-		if not AMM.userSettings.spawnAsCompanion then
-			AMM.userSettings.spawnAsFriendly, clicked = ImGui.Checkbox(AMM.LocalizableString("Checkbox_SpawnAsFriendly"), AMM.userSettings.spawnAsFriendly)
-			if clicked then settingChanged = true end
-		end
-
-		AMM.userSettings.isCompanionInvulnerable, clicked = ImGui.Checkbox(AMM.LocalizableString("Checkbox_InvulnerableCompanion"), AMM.userSettings.isCompanionInvulnerable)
-		if clicked then
-			settingChanged = true
-			AMM:RespawnAll()
-		end
-
-		AMM.userSettings.respawnOnLaunch, clicked = ImGui.Checkbox(AMM.LocalizableString("Checkbox_RespawnOnLaunch"), AMM.userSettings.respawnOnLaunch)
-		if clicked then settingChanged = true end
-
-		if ImGui.IsItemHovered() then
-			ImGui.SetTooltip(AMM.LocalizableString("Warn_RespawnOnLaunch_Info"))
-		end
-
+		
 		AMM.userSettings.autoLock, clicked = ImGui.Checkbox(AMM.LocalizableString("Checkbox_LockTargetAfterSpawn"), AMM.userSettings.autoLock)
 		if clicked then settingChanged = true end
 
@@ -1888,36 +1871,6 @@ function AMM:DrawGeneralSettingsTab(style)
 		end
 
 		if settingChanged then AMM:UpdateSettings() end
-
-		AMM.UI:TextColored(AMM.LocalizableString("Companion_Damage"))
-
-		ImGui.PushItemWidth(200)
-		AMM.companionAttackMultiplier = ImGui.InputFloat(AMM.LocalizableString("xDamage").."##attack", AMM.companionAttackMultiplier, 0.5, 50, "%.1f")
-		if AMM.companionAttackMultiplier < 0 then AMM.companionAttackMultiplier = 0 end
-		ImGui.PopItemWidth()
-
-		AMM.UI:Spacing(3)
-
-		AMM.UI:TextColored(AMM.LocalizableString("Companion_Resistance"))
-
-		ImGui.PushItemWidth(200)
-		AMM.companionResistanceMultiplier = ImGui.InputFloat(AMM.LocalizableString("xResistance").."##resist", AMM.companionResistanceMultiplier, 0.5, 50, "%.1f")
-		if AMM.companionResistanceMultiplier < 0 then AMM.companionResistanceMultiplier = 0 end
-		if AMM.companionResistanceMultiplier > 100 then AMM.companionResistanceMultiplier = 100 end
-		ImGui.PopItemWidth()
-
-		AMM.UI:Spacing(3)
-
-		AMM.UI:TextColored(AMM.LocalizableString("Companion_Distance"))
-
-		for _, option in ipairs(AMM.followDistanceOptions) do
-			if ImGui.RadioButton(option[1], AMM.followDistance[1] == option[1]) then
-				AMM.followDistance = option
-				AMM:UpdateFollowDistance()
-			end
-
-			ImGui.SameLine()
-		end
 
 		AMM.UI:Spacing(3)
 
@@ -1977,6 +1930,68 @@ function AMM:DrawGeneralSettingsTab(style)
 		end
 
 		AMM:BeginPopup(AMM.LocalizableString("Warning"), nil, true, popupDelegate, style)
+		ImGui.EndTabItem()
+  end
+end
+
+function AMM:DrawCompanionsSettingsTab(style)
+	if ImGui.BeginTabItem(AMM.LocalizableString("BeginItem_TabNameCompanions")) then
+		local settingChanged = false
+		AMM.userSettings.spawnAsCompanion, clicked = ImGui.Checkbox(AMM.LocalizableString("Checkbox_SpawnAsCompanion"), AMM.userSettings.spawnAsCompanion)
+		if clicked then settingChanged = true end
+
+		if not AMM.userSettings.spawnAsCompanion then
+			AMM.userSettings.spawnAsFriendly, clicked = ImGui.Checkbox(AMM.LocalizableString("Checkbox_SpawnAsFriendly"), AMM.userSettings.spawnAsFriendly)
+			if clicked then settingChanged = true end
+		end
+
+		AMM.userSettings.isCompanionInvulnerable, clicked = ImGui.Checkbox(AMM.LocalizableString("Checkbox_InvulnerableCompanion"), AMM.userSettings.isCompanionInvulnerable)
+		if clicked then
+			settingChanged = true
+			AMM:RespawnAll()
+		end
+
+		AMM.userSettings.respawnOnLaunch, clicked = ImGui.Checkbox(AMM.LocalizableString("Checkbox_RespawnOnLaunch"), AMM.userSettings.respawnOnLaunch)
+		if clicked then settingChanged = true end
+
+		if ImGui.IsItemHovered() then
+			ImGui.SetTooltip(AMM.LocalizableString("Warn_RespawnOnLaunch_Info"))
+		end
+
+		if settingChanged then AMM:UpdateSettings() end
+
+		AMM.UI:TextColored(AMM.LocalizableString("Companion_Damage"))
+
+		ImGui.PushItemWidth(200)
+		AMM.companionAttackMultiplier = ImGui.InputFloat(AMM.LocalizableString("xDamage").."##attack", AMM.companionAttackMultiplier, 0.5, 50, "%.1f")
+		if AMM.companionAttackMultiplier < 0 then AMM.companionAttackMultiplier = 0 end
+		ImGui.PopItemWidth()
+
+		AMM.UI:Spacing(3)
+
+		AMM.UI:TextColored(AMM.LocalizableString("Companion_Resistance"))
+
+		ImGui.PushItemWidth(200)
+		AMM.companionResistanceMultiplier = ImGui.InputFloat(AMM.LocalizableString("xResistance").."##resist", AMM.companionResistanceMultiplier, 0.5, 50, "%.1f")
+		if AMM.companionResistanceMultiplier < 0 then AMM.companionResistanceMultiplier = 0 end
+		if AMM.companionResistanceMultiplier > 100 then AMM.companionResistanceMultiplier = 100 end
+		ImGui.PopItemWidth()
+
+		AMM.UI:Spacing(3)
+
+		AMM.UI:TextColored(AMM.LocalizableString("Companion_Distance"))
+
+		for _, option in ipairs(AMM.followDistanceOptions) do
+			if ImGui.RadioButton(option[1], AMM.followDistance[1] == option[1]) then
+				AMM.followDistance = option
+				AMM:UpdateFollowDistance()
+			end
+
+			ImGui.SameLine()
+		end
+
+		AMM.UI:Spacing(3)
+
 		ImGui.EndTabItem()
   end
 end
@@ -2478,6 +2493,7 @@ function AMM:ImportUserData()
 				self.Tools.replacerVersion = userData['replacerVersion']
 				self.selectedLanguage = self:GetLanguageIndex(userData['selectedLanguage'] or "en_US")
 				self.UI.style.listScaleFactor = userData['listScaleFactor'] or 0
+				self.Props.presetTriggerDistance = userData['presetTriggerDistance'] or 60
 
 				if userData['settings'] ~= nil then
 					for _, obj in ipairs(userData['settings']) do
@@ -2626,6 +2642,7 @@ function AMM:ExportUserData()
 		userData['replacerVersion'] = self.Tools.replacerVersion
 		userData['selectedLanguage'] = self.availableLanguages[self.selectedLanguage].name or "en_US"
 		userData['listScaleFactor'] = self.UI.style.listScaleFactor
+		userData['presetTriggerDistance'] = self.Props.presetTriggerDistance
 
 		local validJson, contents = pcall(function() return json.encode(userData) end)
 		if validJson and contents ~= nil then
@@ -4257,8 +4274,6 @@ function AMM:GetAppearanceOptionsWithID(id, t)
 		return nil
 	end
 
-	options = AMM:GetFavoritesAppearances(id)
-
 	-- Separate tables for custom and database appearances
 	local customOptions = {}
 	local dbOptions = {}
@@ -4299,15 +4314,17 @@ function AMM:GetAppearanceOptionsWithID(id, t)
 
 	-- Load custom appearances
 	customOptions = self:LoadCustomAppearances({}, id, t)
-
-	-- Combine custom and database appearances based on the setting
-   if self.customAppPosition == "Top" then
-		options = Util:ConcatTables(customOptions, dbOptions) -- Custom at top
+	
+	local favoriteOptions = AMM:GetFavoritesAppearances(id)
+	
+	-- Combine appearances based on the setting
+	if self.customAppPosition == "Top" then
+		options = Util:ConcatTables(favoriteOptions, Util:ConcatTables(customOptions, dbOptions)) -- Favorites > Custom > DB
 	elseif self.customAppPosition == "Bottom" then
-		options = Util:ConcatTables(dbOptions, customOptions) -- Custom at bottom
+		options = Util:ConcatTables(Util:ConcatTables(dbOptions, customOptions), favoriteOptions) -- DB > Custom > Favorites
 	else
-		options = Util:ConcatTables(dbOptions, options)
-  	end
+		options = Util:ConcatTables(favoriteOptions, dbOptions) -- Favorites > DB (default behavior)
+	end
 
 	-- Cache options if the search query is empty
 	if next(options) ~= nil then
@@ -4907,8 +4924,8 @@ function AMM:SetFollowDistance(followDistance)
 	for _, companion in pairs(AMM.Spawn.spawnedNPCs) do
 		if companion.handle.isPlayerCompanionCached then
 			if followDistance == 99 and companion.activeCommand then
+				Util:CancelCommand(companion.handle, companion.activeCommand)
 				companion.activeCommand = nil
-				AMM.Spawn:Respawn(companion)
 			elseif followDistance ~= 99 then
 				companion.activeCommand, _ = Util:FollowTarget(companion.handle, Game.GetPlayer(), followDistance)
 			end
@@ -4919,7 +4936,18 @@ end
 function AMM:ChangeNPCEquipment(ent, equipmentPath)
 	local npcPath = ent.path
 	TweakDB:SetFlat(TweakDBID.new(npcPath..".primaryEquipment"), TweakDBID.new(equipmentPath))
-	Util:EquipPrimaryWeaponCommand(ent.handle, false)
+	
+	local companionFollowCommand = ent.activeCommand
+	if companionFollowCommand then
+		if not Util:CancelCommand(ent.handle, ent.activeCommand) then
+			local command, _ = Util:EquipPrimaryWeaponCommand(ent.handle, false)
+
+			Cron.After(3.0, function()
+				AMM:UpdateFollowDistance()
+			end)
+		end
+	end
+	
 	-- AMM.Spawn:Respawn(ent)
 
 	-- New Approach: Inventory
@@ -5041,23 +5069,29 @@ end
 function AMM:OpenPopup(name)
 	local sizeX = ImGui.GetWindowSize()
 	local x, y = ImGui.GetWindowPos()
+
+	-- Calculate position
 	ImGui.SetNextWindowPos(x + ((sizeX / 2) - 200), y - 40)
 
+	-- Prepare a popup delegate
 	local popupDelegate = {message = '', buttons = {}}
+	local popupWidth = 0
+	local popupHeight = 0
+
 	if string.find(name, "Equipment") then
-		ImGui.SetNextWindowSize(400, 520)
-		popupDelegate.message = "Select "..name..":"
+		popupDelegate.message = "Select " .. name .. ":"
 		for _, equipment in ipairs(self.equipmentOptions) do
-			table.insert(popupDelegate.buttons, {label = equipment.name, action = function(ent) AMM:ChangeNPCEquipment(ent, equipment.path) end})
+			table.insert(popupDelegate.buttons, {
+				label = equipment.name,
+				action = function(ent) AMM:ChangeNPCEquipment(ent, equipment.path) end
+			})
 		end
 	elseif name == "Experimental" then
-		ImGui.SetNextWindowSize(400, 140)
 		popupDelegate.message = AMM.LocalizableString("Warn_ConfirmEnableExperimentalAndSave_Info")
 		table.insert(popupDelegate.buttons, {label = AMM.LocalizableString("Button_Yes"), action = ''})
 		table.insert(popupDelegate.buttons, {label = AMM.LocalizableString("Button_No"), action = function() AMM.userSettings.experimental = false end})
 		name = AMM.LocalizableString("Warning")
 	elseif name == "Favorites" then
-		ImGui.SetNextWindowSize(400, 140)
 		popupDelegate.message = AMM.LocalizableString("Warn_DeleteFavoritesAskWhichOne_Info")
 		table.insert(popupDelegate.buttons, {label = AMM.LocalizableString("Label_SpawnFavorites"), action = function() AMM:ClearAllFavorites() end})
 		table.insert(popupDelegate.buttons, {label = AMM.LocalizableString("Label_SwapFavorites"), action = function() AMM:ClearAllSwapFavorites() end})
@@ -5065,48 +5099,57 @@ function AMM:OpenPopup(name)
 		table.insert(popupDelegate.buttons, {label = AMM.LocalizableString("Label_Cancel"), action = ''})
 		name = AMM.LocalizableString("Warning")
 	elseif name == "Appearances" then
-		ImGui.SetNextWindowSize(400, 140)
 		popupDelegate.message = AMM.LocalizableString("Warn_ConfirmDeleteSavedAppearances")
 		table.insert(popupDelegate.buttons, {label = AMM.LocalizableString("Button_Yes"), action = function() AMM:ClearAllSavedAppearances() end})
 		table.insert(popupDelegate.buttons, {label = AMM.LocalizableString("Button_No"), action = ''})
 		name = AMM.LocalizableString("Warning")
 	elseif name == "Blacklist" then
-		ImGui.SetNextWindowSize(400, 140)
 		popupDelegate.message = AMM.LocalizableString("Warn_ConfirmDeleteBlacklistedAppearances")
 		table.insert(popupDelegate.buttons, {label = AMM.LocalizableString("Button_Yes"), action = function() AMM:ClearAllBlacklistedAppearances() end})
 		table.insert(popupDelegate.buttons, {label = AMM.LocalizableString("Button_No"), action = ''})
 		name = AMM.LocalizableString("Warning")name = AMM.LocalizableString("Warning")
 	elseif name == "Saved Despawns" then
-		ImGui.SetNextWindowSize(400, 140)
 		popupDelegate.message = AMM.LocalizableString("Warn_ConfirmDeleteSavedDespawns")
 		table.insert(popupDelegate.buttons, {label = AMM.LocalizableString("Button_Yes"), action = function() AMM:ClearAllSavedDespawns() end})
 		table.insert(popupDelegate.buttons, {label = AMM.LocalizableString("Button_No"), action = ''})
 		name = AMM.LocalizableString("Warning")
 	elseif name == "Appearance Triggers" then
-		ImGui.SetNextWindowSize(400, 140)
 		popupDelegate.message = AMM.LocalizableString("Warn_ConfirmDeleteAppearanceTriggers")
 		table.insert(popupDelegate.buttons, {label = AMM.LocalizableString("Button_Yes"), action = function() AMM:ClearAllAppearanceTriggers() end})
 		table.insert(popupDelegate.buttons, {label = AMM.LocalizableString("Button_No"), action = ''})
 		name = AMM.LocalizableString("Warning")
 	elseif name == "Preset" then
-		ImGui.SetNextWindowSize(400, 140)
 		popupDelegate.message = AMM.LocalizableString("Warn_ConfirmDeleteCurrentAppearance")
 		table.insert(popupDelegate.buttons, {label = AMM.LocalizableString("Button_Yes"), action = function() AMM.Props:DeletePreset(AMM.Props.activePreset) end})
 		table.insert(popupDelegate.buttons, {label = AMM.LocalizableString("Button_No"), action = ''})
 		name = AMM.LocalizableString("Warning")
 	elseif name == "Weaponize" then
-		ImGui.SetNextWindowSize(400, 140)
 		popupDelegate.message = AMM.LocalizableString("Warn_WeaponizeNpcAnimationIssues")
 		table.insert(popupDelegate.buttons, {label = AMM.LocalizableString("Button_Yes"), action = ''})
 		table.insert(popupDelegate.buttons, {label = AMM.LocalizableString("Button_No"), action = function() AMM.userSettings.weaponizeNPC = false end})
 		name = AMM.LocalizableString("Warning")
 	elseif name == "Despawn All" then
-		ImGui.SetNextWindowSize(400, 140)
 		popupDelegate.message = AMM.LocalizableString("Warn_DespawnAllProps")
 		table.insert(popupDelegate.buttons, {label = AMM.LocalizableString("Button_Yes"), action = function() AMM.Props:DespawnAllSpawnedProps() end})
 		table.insert(popupDelegate.buttons, {label = AMM.LocalizableString("Button_No"), action = ''})
 		name = AMM.LocalizableString("Warning")
 	end
+
+	-- Dynamically calculate width based on button text
+	local messageWidth = ImGui.CalcTextSize(popupDelegate.message) + 40
+	local buttonWidth = 0
+
+	for _, button in ipairs(popupDelegate.buttons) do
+		buttonWidth = math.max(buttonWidth, ImGui.CalcTextSize(button.label) + 20)
+	end
+
+	popupWidth = math.max(messageWidth, buttonWidth)
+	popupHeight = 40 + (#popupDelegate.buttons * 66)
+
+	 -- Adjust the popup size dynamically
+    popupWidth = math.max(popupWidth, 400) -- Minimum width
+    popupHeight = math.max(popupHeight, 140) -- Minimum height
+    ImGui.SetNextWindowSize(popupWidth, popupHeight)
 
 	ImGui.OpenPopup(name)
 	return popupDelegate
@@ -5115,12 +5158,19 @@ end
 function AMM:BeginPopup(popupTitle, popupActionArg, popupModal, popupDelegate, style)
 	local popup
 	if popupModal then
-		popup = ImGui.BeginPopupModal(popupTitle, ImGuiWindowFlags.AlwaysAutoResize)
+		popup = ImGui.BeginPopupModal(popupTitle, ImGuiWindowFlags.NoResize)
 	else
-		popup = ImGui.BeginPopup(popupTitle)
+		popup = ImGui.BeginPopup(popupTitle, ImGuiWindowFlags.NoResize)
 	end
 	if popup then
-		ImGui.TextWrapped(popupDelegate.message)
+		 -- Display the message
+		 ImGui.TextWrapped(popupDelegate.message)
+
+		-- Add an invisible spacer to stabilize the layout
+		local spacerWidth = ImGui.GetWindowContentRegionWidth()
+		ImGui.Dummy(spacerWidth, 0)
+
+		-- Display buttons
 		for _, button in ipairs(popupDelegate.buttons) do
 			if ImGui.Button(button.label, style.buttonWidth, style.buttonHeight) then
 				if button.action ~= '' then button.action(popupActionArg) end

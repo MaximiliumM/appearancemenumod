@@ -1,10 +1,8 @@
 return {
 
-
---<<POP-UPS ARE SUCH A MESS! YOU NEED TO LOOK UP THOSE CAREFULLY, AND NEEDS TO BE TESTED VERY WELL. GENERALLY THE MOD WORKS FINE, BUT MOST OF THE POP-UPS DON'T.>>--
     -- >> SCAN TAB
 	BeginItem_TabNameScan = "扫描",
-	
+
 	--Button
 	Button_CyclesAppearances = "循环外观",
 	Button_SavesAppearance = "保存外观",
@@ -26,7 +24,7 @@ return {
 	Button_Reset = "重置",
 	Button_FakeDie = "  假死  ",
 	Button_SmallCopy = "复制",
-	
+
     --Button Label
 	Button_Label_Unfollower = "  取消跟随  ",
 	Button_Label_Follower = "  跟随  ",
@@ -36,16 +34,16 @@ return {
 	Button_LabelUnlockTarget = " 取消锁定 ",
 	Label_AddToSpawnFavs = "  添加进生成收藏夹  ",
 	Label_RemoveFromSpawnFavs = "  从收藏夹中移除  ",
-	
+
     --Checkbox
 	Checkbox_SavedDespawnsActive = "保存的 消失 激活",
-	
+
     --Warning / Info / Tool Tip
 	WarnTextAI_FastTravel = "在地图上选择一个快速旅行点使用功能",
 	WarnText_DontReloadMods = "不要使用Reload All mods。\n请重新加载您的游戏或移动到不同的区域。",
 	Warning_NoTarget_Desc = "没有目标!试着将准星对准NPC、载具或物体来启用功能",
 	ToolTip_DisableCheckboxReloadSave_AbleTotargetClearSavedDespawns = "禁用此复选框并重新加载您的保存以能够清除保存的 消除物",
-	
+
     --Text
 	Build_Mode = "建造模式",
 	Speed = "速度:",
@@ -69,20 +67,17 @@ return {
 	Current_Appearance = "当前外观:",
 	List_of_Appearances = "外观清单",
 	Appearance_Trigger = "外观触发",
-	Tpp_Close = "靠近",
-	Tpp_Far = "离远",
 	None = "无",
 	Default = "默认",
 	Combat = "战斗",
 	Zone = "特定区域",
 	Area = "片区",
 	Position = "地点",
-	
-	
-	
+
+
 	-- >> SPAWN TAB
 	BeginItem_TabNameSpawn = "生成",
-	
+
 	--Button
 	Button_Refresh = "  刷新  ",
 	Button_Save = "保存",
@@ -96,17 +91,17 @@ return {
 	Button_SmallEquipment = "武装",
 	Button_LabelHostile = "敌对",
 	Button_LabelFriendly = "友好",
-	
+
     --Button Label
 	Label_Favorite = "收藏",
 	Label_Unfavorite = "取消收藏",
-	
+
     --Checkbox
     --Warning / Info / Tool Tip
 	Warn_PlayerInMenu = "玩家菜单",
 	Warn_AMMonlyfunctions_ingame = "AMM仅在游戏内生效",
 	Warn_SpawnWorksInGame = "生成仅在游戏内生效",
-	
+
     --Text
 	Active_Spawns = "生效的生成目标",
 	NoActiveSpawns = "无生效的生成目标",
@@ -115,15 +110,15 @@ return {
 	ItsEmpty = "这是空的 :(",
 	Existing_Name = "已有的名称",
 	Name = "名字",
-	
-	
-	
+
+
+
 	-- >> SWAP TAB
 	BeginItem_TabNameSwap = "替换",
-	
+
 	--Button
 	Button_SmallRevert = "  恢复  ",
-	
+
     --Button Label
     --Checkbox
     --Warning / Info / Tool Tip
@@ -132,7 +127,7 @@ return {
 	Warn_ReplacerSwap = "你不能使用小不点替换的NPC来作为替换目标!使用照片模式中的工具选项卡来定位它们,然后从刷出选项卡或目标工具中切换它们的外观。",
 	Warning = "警告",
 	Warning2 = "警告:",
-	
+
     --Text
 	CantSwapReplacer = "不能替换小不点替换的NPC",
 	Active_Model_Swaps = "生效的模组替换",
@@ -142,25 +137,25 @@ return {
 	Target_ID = "目标 ID:",
 	SelectSwap_CurrentTarget = "选择NPC来替换当前目标:",
 	NoNPC_LookNPC = "没有检测到NPC! 将准星对准NPC来使用功能",
-	
-	
-	
+
+
+
 	-- >> DECOR TAB
 	BeginItem_TabDecor = "装饰",
 	BeginItem_TabPresets = "预设",
 	Begin_ComboPresets = "预设",
-	
+
 	--Button
 	Button_SmallClone = "复制",
 	Button_SmallRemove = "移除##",
 	Button_SmallRename = "重命名##",
 	Button_SmallUpdate = "更新##",
 	Button_SmallCancel = " 取消 ##",
-	
+
     --Button Label
 	Button_LabelHide = " 隐藏 ",
 	Button_LabelUnhide = " 取消隐藏 ",
-	
+
     --Checkbox
     --Warning / Info / Tool Tip
 	Warn_PersistPropSave = "生成道具来装饰你的房子或任何你想要的东西!保存道具,使他们留在地图上!",
@@ -169,13 +164,15 @@ return {
 	Warn_CustomPresets_Info = "该预设包含模组自定义道具",
 	Warn_CustomPropsModders_Info = "该自定义道具的作者是: \n",
 	Warn_GamepadDirectMode_Info = "当使用手柄时,这可以更好地与导演模式集成。它还支持一个小的信息窗口。",
-	
+	Warn_PresetTriggerDistanceFar = "设置为远距离可能会导致性能问题。",
+
     --Text
 	MovingAll_PropsTo_SavedProps = "将所有的道具移动到保存的道具内",
 	SelectPropSpawn = "选择生成的道具:",
 	Spawned_Props = "生成的道具",
 	New_Preset = "新预设",
 	No_Preset_Available = "没有可用的预设",
+	Preset_TriggerDistance = "预设触发距离",
 	MovingSavedProps = "移动到 %s 保存的道具",
 	UpdateTag = "  更新标签 ##",
 	Categories = "种类",
@@ -193,6 +190,7 @@ return {
 	Backup = "备份",
 	Merge = "合并",
 	Save_All = "  全部保存  ",
+	Despawn_All = "全部消失",
 	Save_ToSpecific_Tag = "保存到特定标签",
 	Saved_Props2 = "保存的道具:",
 	Move_To_Tag = "移动到标签 ##",
@@ -203,6 +201,7 @@ return {
 	TeleportToLocation = "传送到地点",
 	UpdateTagLocation = "更新标签地点",
 	SharePresetWith_ThisTagOnly = "仅以此标签下的道具生成预设",
+	SavedPresetFolder_Info = "预设保存到 AppearanceMenuMod/User/Decor 文件夹",
 	NoProps_WithThese_Conditions = "该条款下没有道具",
 	AddHomeMarkerMap = " 在地图上添加公寓标记 ",
 	Distance = "距离",
@@ -212,15 +211,13 @@ return {
 	Tags = "标签",
 	Tag = "标签##",
 	Both = "两者",
-	
-	
-	
+
 	-- >> POSES TAB
 	BeginItem_TabPoses = "姿势",
-	
+
 	--Button
 	Button_SmallCopyClipboard = "  复制到剪贴板  ##",
-	
+
     --Button Label
     --Checkbox
     --Warning / Info / Tool Tip
@@ -230,16 +227,15 @@ return {
 	ClearHistory = "清除历史姿势",
 	SelectPoseForCurrentTarget = "为当前目标选择姿势:",
 	LastUsedPoses = "上一个使用的姿势",
-	
-	
-	
+
+
+
 	-- >> TOOLS TAB
 	BeginItem_TabTools = "工具",
-	BeginCombo_LookAt = "##看向",
-	BeginCombo_LookAt2 = "看向",
-	BeginCombo_Appearances = "##外观",
+	BeginItem_TabPhotoModeNibblesReplacer = "照片模式 Nibbles 替换器",
+	BeginCombo_LookAt = "看向",
 	BeginCombo_WeatherControl = "天气控制",
-	
+
 	--Button
 	Button_SkipFrame = "跳帧",
 	Button_ToggleLight = "切换灯光",
@@ -269,8 +265,8 @@ return {
 	Button_ShareCurrentLocation = "保存当前的地点",
 	Button_GoBackToLastLocation = "回到上次所在的地点",
 	Button_DeleteSelectedUserLocation = "删除所选用户位置",
-	
-	--Slider / Drag 
+
+	--Slider / Drag
 	Slider_HeadStiffness = "头部硬度",
 	Slider_HeadPoseOverride = "头部姿势覆盖",
 	Slider_ChestStiffness = "胸部硬度",
@@ -280,7 +276,7 @@ return {
 	Slider_DefaultFieldofView = "默认视野",
 	Slider_MovementSpeed = "移动速度",
 	Drag_MovementSpeed = "移动速度",
-	
+
     --Button Label
 	Button_Label_PauseTimeProgression = "暂停时间进程",
 	Button_Label_UnpauseTimeProgression = "取消暂停",
@@ -298,7 +294,7 @@ return {
 	Button_Label_UnfreezeTarget = " 取消冻结 ",
 	Button_Label_OpenTargetTools = "打开目标工具",
 	Button_Label_CloseTargetTools = "关闭目标工具",
-	
+
     --Checkbox
     --Warning / Info / Tool Tip
 	Warn_FileNotFound_CollabsFolder_Error = "没有在 Collabs 文件夹找到文件",
@@ -323,7 +319,7 @@ return {
 	Warn_InvButton_Info = "恭喜你找到了!快速行动现在可用了.",
 	InvButtonTip = "如果我点击这里呢?",
 	InvButtonTip2 = "点击这里没有任何用!",
-	
+
     --Text
 	Facial_Expression = "面部表情",
 	Expressions = "表情",
@@ -408,9 +404,9 @@ return {
 	EnableSpawnedProps = "启用生成的道具",
 	LightControl = "灯光控制",
 	Equipment = "武装",
-	
-	
-	
+
+
+
 	-- >> DIRECTOR TAB
 	BeginItem_TabNameDirector = "导演",
 	BeginItem_TabNameTriggers = "触发器",
@@ -422,7 +418,7 @@ return {
 	BeginCombo_Attack = "攻击",
 	BeginCombo_Triggers = "触发器",
 	BeginCombo_Scripts = "脚本",
-	
+
 	--Button
 	Button_Yes = "是",
 	Button_No = "不",
@@ -441,7 +437,7 @@ return {
 	Button_NewScript = "新建脚本",
 	Button_DragSpeed = "速度",
 	Button_ToggleMarker = "切换标记",
-	
+
     --Button Label
 	Button_Label_PlayScript = "播放脚本",
 	Button_Label_StopScript = "停止播放",
@@ -449,7 +445,7 @@ return {
 	Button_Label_Restarting = "重新播放...",
 	Button_Label_AddMark = "添加标记",
 	Button_Label_SaveWNewPos = "用新位置保存",
-	
+
     --Checkbox
     --Warning / Info / Tool Tip
 	Warn_ActorSingleMark_Info = "演员将停留在一个单一的标记上",
@@ -464,7 +460,7 @@ return {
 	Warn_AutoTalkNpc_Info = "这将使NPC在范围内每分钟说话一次(仅限有配音的NPC)",
 	Warn_DirectActorPlayerPosition_Info = "在当前玩家位置创建标记来移动和引导演员",
 	Warn_InMenuDirectorDesc = "导演仅在游戏中生效",
-	
+
     --Text
 	DirectorMode = "导演模式",
 	SelectActorToReplace = "选择要替换的演员:",
@@ -480,7 +476,7 @@ return {
 	AutoTalk = "自动说话",
 	ActorMarks = "演员标记",
 	Current_Actors = "当前演员",
-	Marks_Sequence = "标记序列:",	
+	Marks_Sequence = "标记序列:",
 	ShowMarks = "显示标记",
 	Triggers = "触发器",
 	NewTrigger = "新建触发器",
@@ -507,16 +503,17 @@ return {
 	NodeView = "节点视图",
 	TeamA = "A队",
 	TeamB = "B队",
-	
-	
-	
+
+
+
 	-- >> SETTINGS TAB
 	BeginItem_TabNameSettings = "设置",
 	BeginItem_TabNameGeneral = "常规",
+	BeginItem_TabNameCompanions = "伙伴",
 	BeginItem_TabNameUI = "用户界面",
 	BeginItem_TabNameExperimental = "实验性",
 	BeginItem_TabNamePhotoMode = "照片模式",
-	
+
 	--Button
 	Button_RevertAllModelSwaps = "恢复所有的替换NPC",
 	Button_RespawnAll = "全部重新生成",
@@ -528,8 +525,9 @@ return {
 	Button_ClearAllSavedDespawns = "清空全部的保存消除",
 	Button_SmallCreateTheme = "  创建主题  ",
 	Button_SmallDeleteTheme = "  删除主题  ",
+	Button_SmallSet = "设置",
 	Button_ReloadAppearances = "重载自定义外观",
-	
+
     --Button Label
     --Checkbox
 	Checkbox_SpawnAsCompanion = "生成即同伴",
@@ -562,7 +560,7 @@ return {
 	Checkbox_AllowPlayerAnimationsonNPCs = "允许在NPC上使用玩家动画姿势",
 	Checkbox_AllowExpressionOnNpcPM = "在照片模式下允许设置NPC的表情和注视目标",
 	Checkbox_ResetTargetPositionPM = "重置照片模式NPC的目标位置",
-	
+
     --Warning / Info / Tool Tip
 	Warn_RespawnOnLaunch_Info = "此设置将在游戏加载时启用/禁用先前保存的npc重生。当你退出游戏时,AMM会自动保存你生成的npc.",
 	Warn_BannedWords_Info = "此设置将启用/禁用包含单词的NPC外观: naked, nude, xxx, shower, birthday_suit, pp 和 penis.",
@@ -574,7 +572,8 @@ return {
 	Warn_PlayerAnimsOnNpc_Info = "如果你正在使用一个允许玩家动画姿势在npc上使用的mod,请启用此功能。",
 	Warn_UnpauseRequiresIGSC = "此设置要求IGCS取消暂停时间.",
 	Warn_NotInstalled = "没有安装",
-	
+	Warn_DespawnAllProps = "您确定要移除所有道具吗？",
+
     --Text
 	AMM_Version = "AMM 外观菜单版本:",
 	CET_Version = "CET 控制台版本:",
@@ -598,36 +597,43 @@ return {
 	List_Height = "列表高度",
 	Listbox_Themes = "主题",
 	Weaponize = "武装化",
-	
-	
-	
-	-- >> EXTRA	
+	NoAppearanceSet = "没有设置外观",
+
+
+
+	-- >> EXTRA
 	--Texts, warns, tips, info's, buttons and labels etc.
 	Seat_FrontRight = "右前",
 	Seat_BackRight = "右后",
 	Seat_FrontLeft = "左前",
 	Seat_BackLeft = "左后",
-	
+	Label_Door = "门",
+	Label_Window = "窗",
+
+	Close = "靠近",
+	Far = "离远",
+	Moderate = "适中",
+
 	-- >> Archives Screen
 	Warning_MissingRequiredArchives = "AMM缺少一个或多个必需的archive文件。请在archive/pc/mod文件夹中安装任何缺失的所需archive",
 	Warning_MissingOptionalArchives = "AMM缺少一个或多个archive。这些是可选的,但是为AMM拓展了功能。您可以忽略警告,但AMM可能无法正常工作.",
-	
-	
+
+
 	-->> INIT.LUA
 	AMMNeedsAttention = "AMM 注意事项",
 	MISSING_ARCHIVES = "缺失ARCHIVES",
 	VERSION_INFORMATION = " 版本信息 ",
 	CREDITS = "工作人员",
-	Button_Credits = " 工作人员 ",
 	UPDATE_HISTORY = "更新日志",
 	Updates = " 更新 ",
 	MISSING = " 缺失",
 	REQUIRED = "需要",
 	OPTIONAL = "可选",
-	WHATS_NEW = "有什么新消息？", --Line 83 Function Error
+	WHATS_NEW = "有什么新消息？",
 
 	--Button
 	Button_Ignorewarningsforthisversion = "忽略此版本的警告",
+	Button_Credits = " 工作人员 ",
 	Button_Cool = "太酷啦（点一下此按钮）!",
 
 	--Button Label
@@ -639,11 +645,11 @@ return {
 	--Text
 	Hotkey_i = "热键 %i",
 
-	--Node - Function Error(nil value) 
-	Top = "顶部", --Line 116
-	Bottom = "底部", 
-	Off = "关闭", 
-	
+	--Node
+	Top = "顶部",
+	Bottom = "底部",
+	Off = "关闭",
+
 	--Voice Overs
 	Label_GreetV = "迎接 V",
 	Label_FearFoll = "恐惧跌倒",
@@ -678,7 +684,7 @@ return {
 	Label_Irritated = "恼怒的",
 	Label_GrenadeThrow = "丢手榴弹",
 	Label_Gotakill = "杀人啦!",
-	
+
 	--Expressions
 	Neutral = "自然",
 	Joy = "喜悦",
@@ -699,7 +705,7 @@ return {
 	Sleepy = "睡着",
 	Unconscious = "失去意识",
 	Dead = "死亡",
-	
+
 	--Props
 	AMM_Props_Desc = "添加道具,角色和车辆。没有这个,AMM无法启动.",
 	AMM_JohnnyCompanion_Desc = "将强尼银手作为一个可增加的角色.",
@@ -728,9 +734,9 @@ return {
 	AMM_SaburoAppearances_Desc = "添加新的外观。从AMM的Nexus页面下载.",
 	AMM_TbugAppearances_Desc = "添加新的外观。从AMM的Nexus页面下载.",
 	AMM_8ug8eagAppearances_Desc = "添加新的外观。从AMM的Nexus页面下载.",
-	
+
 	--Equipments (There is a Function Error(nil value) in this section, These are just labels that are not connected to any localizable strings in the file)
-	Fists = "拳头", --Line 2377 
+	Fists = "拳头",
 	Katana = "武士刀",
 	Mantis_Blades = "螳螂刀",
 	Machete = "弯刀",
@@ -745,7 +751,7 @@ return {
 	Shotgun = "霰弹枪",
 	SMG = "冲锋枪",
 	Handgun = "手枪", --Line 2391
-	
+
 	--Warning / Info / Tooltip
 	Warn_CantSave_BlacklistedAppearance = "你不能保存黑名单外观!",
 	Warn_ConfirmDeleteSavedAppearances = "你确定要删除所有保存的外观吗?",

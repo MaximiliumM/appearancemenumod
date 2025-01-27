@@ -1,7 +1,5 @@
 return {
 
-
---<<POP-UPS ARE SUCH A MESS! YOU NEED TO LOOK UP THOSE CAREFULLY, AND NEEDS TO BE TESTED VERY WELL. GENERALLY THE MOD WORKS FINE, BUT MOST OF THE POP-UPS DON'T.>>--
     -- >> SCAN TAB
 	BeginItem_TabNameScan = "Scan",
 	
@@ -69,16 +67,13 @@ return {
 	Current_Appearance = "Current Appearance:",
 	List_of_Appearances = "List of Appearances",
 	Appearance_Trigger = "Appearance Trigger",
-	Tpp_Close = "Close",
-	Tpp_Far = "Far",
 	None = "None",
 	Default = "Default",
 	Combat = "Combat",
 	Zone = "Zone",
 	Area = "Area",
 	Position = "Position",
-	
-	
+
 	
 	-- >> SPAWN TAB
 	BeginItem_TabNameSpawn = "Spawn",
@@ -169,6 +164,7 @@ return {
 	Warn_CustomPresets_Info = "This preset includes Custom Props",
 	Warn_CustomPropsModders_Info = "Custom Props made by: \n",
 	Warn_GamepadDirectMode_Info = "This allows better integration with Direct mode when using gamepad. It also enables a small information window that sticks around.",
+	Warn_PresetTriggerDistanceFar = "Setting to Far might cause performance issues.",
 	
     --Text
 	MovingAll_PropsTo_SavedProps = "Moving all Props to Saved Props",
@@ -176,6 +172,7 @@ return {
 	Spawned_Props = "Spawned Props",
 	New_Preset = "New Preset",
 	No_Preset_Available = "No Preset Available",
+	Preset_TriggerDistance = "Preset Trigger Distance",
 	MovingSavedProps = "Moving %s to Saved Props",
 	UpdateTag = "  Update Tag  ",
 	Categories = "Categories",
@@ -236,9 +233,7 @@ return {
 	-- >> TOOLS TAB
 	BeginItem_TabTools = "Tools",
 	BeginItem_TabPhotoModeNibblesReplacer = "Photo Mode Nibbles Replacer",
-	BeginCombo_LookAt = "##LookAt",
-	BeginCombo_LookAt2 = "Look At",
-	BeginCombo_Appearances = "##Appearances",
+	BeginCombo_LookAt = "Look At",
 	BeginCombo_WeatherControl = "Weather Control",
 	
 	--Button
@@ -514,6 +509,7 @@ return {
 	-- >> SETTINGS TAB
 	BeginItem_TabNameSettings = "Settings",
 	BeginItem_TabNameGeneral = "General",
+	BeginItem_TabNameCompanions = "Companions",
 	BeginItem_TabNameUI = "User Interface",
 	BeginItem_TabNameExperimental = "Experimental",
 	BeginItem_TabNamePhotoMode = "Photo Mode",
@@ -611,9 +607,12 @@ return {
 	Seat_BackRight = "Back Right",
 	Seat_FrontLeft = "Front Left",
 	Seat_BackLeft = "Back Left",
-
 	Label_Door = "Door",
 	Label_Window = "Window",
+
+	Close = "Close",
+	Far = "Far",
+	Moderate = "Moderate",
 	
 	-- >> Archives Screen
 	Warning_MissingRequiredArchives = "AMM is missing one or more required archives. Please install any missing required archive in your archive/pc/mod folder.",

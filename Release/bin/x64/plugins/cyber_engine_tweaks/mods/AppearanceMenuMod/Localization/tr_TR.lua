@@ -1,10 +1,8 @@
 return {
 
-
---<<POP-UPS ARE SUCH A MESS! YOU NEED TO LOOK UP THOSE CAREFULLY, AND NEEDS TO BE TESTED VERY WELL. GENERALLY THE MOD WORKS FINE, BUT MOST OF THE POP-UPS DON'T.>>--
     -- >> SCAN TAB
 	BeginItem_TabNameScan = "Tara",
-	
+
 	--Button
 	Button_CyclesAppearances = "Görünümü Degistir",
 	Button_SavesAppearance = "Görünümü Kaydet",
@@ -26,7 +24,7 @@ return {
 	Button_Reset = "Sifirla",
 	Button_FakeDie = "Sahte Ölüm",
 	Button_SmallCopy = "Kopyala",
-	
+
     --Button Label
 	Button_Label_Unfollower = "Takibi Birak",
 	Button_Label_Follower = "Takip Et",
@@ -36,16 +34,16 @@ return {
 	Button_LabelUnlockTarget = "Hedef Kilit Kaldir",
 	Label_AddToSpawnFavs = "Yaratilabilir Favorilere Ekle",
 	Label_RemoveFromSpawnFavs = "Yaratilabilir Favorilerden Kaldir",
-	
+
     --Checkbox
 	Checkbox_SavedDespawnsActive = "Kaydedilmis Kaldirilanlar Aktif",
-	
+
     --Warning / Info / Tool Tip
 	WarnTextAI_FastTravel = "Seyahat etmek icin haritanizdan bir Hizli Seyahat noktasi seçin.",
 	WarnText_DontReloadMods = "Reload All Mods butonunu kullanmayin.\nLütfen kayit dosyanizi yeniden yükleyin veya farkli bir alana gidin.",
 	Warning_NoTarget_Desc = "Hedef bulunamadi! Bir NPC'ye, Araca veya Nesneye Bakin.",
 	ToolTip_DisableCheckboxReloadSave_AbleTotargetClearSavedDespawns = "Bu onay kutusunu devre disi birakin ve Kaydedilmis Kaldirilani Sili seçebilmek için kaydinizi yeniden yükleyin.",
-	
+
     --Text
 	Build_Mode = "Insa Modu",
 	Speed = "Hiz:",
@@ -69,20 +67,17 @@ return {
 	Current_Appearance = "Mevcut Görünüm:",
 	List_of_Appearances = "Görünüm Listesi",
 	Appearance_Trigger = "Görünüm Tetikleyici",
-	Tpp_Close = "Yakin",
-	Tpp_Far = "Uzak",
 	None = "Hiç",
 	Default = "Varsayilan",
 	Combat = "Çatisma",
 	Zone = "Bölge",
 	Area = "Alan",
 	Position = "Konum",
-	
-	
-	
+
+
 	-- >> SPAWN TAB
 	BeginItem_TabNameSpawn = "Yarat",
-	
+
 	--Button
 	Button_Refresh = "  Yenile  ",
 	Button_Save = "Kaydet",
@@ -96,17 +91,17 @@ return {
 	Button_SmallEquipment = "Ekipman",
 	Button_LabelHostile = "Düsman",
 	Button_LabelFriendly = "Dost",
-	
+
     --Button Label
 	Label_Favorite = "Favorilere Ekle",
 	Label_Unfavorite = "Favorilerden Kaldir",
-	
+
     --Checkbox
     --Warning / Info / Tool Tip
 	Warn_PlayerInMenu = "Oyuncu Menüde",
 	Warn_AMMonlyfunctions_ingame = "AMM sadece oyun içinde çalisir",
 	Warn_SpawnWorksInGame = "Yarat sadece oyun içinde çalisir",
-	
+
     --Text
 	Active_Spawns = "Aktif Yaratilmislar",
 	NoActiveSpawns = "Aktif Yaratilmis Yok",
@@ -115,15 +110,15 @@ return {
 	ItsEmpty = "Bos :(",
 	Existing_Name = "Varolan Isim",
 	Name = "Ad",
-	
-	
-	
+
+
+
 	-- >> SWAP TAB
 	BeginItem_TabNameSwap = "Degistir",
-	
+
 	--Button
 	Button_SmallRevert = "  Geri Al  ",
-	
+
     --Button Label
     --Checkbox
     --Warning / Info / Tool Tip
@@ -132,7 +127,7 @@ return {
 	Warn_ReplacerSwap = "Replacer'ı, degistiremezsiniz! Hedef almak için fotograf modunda 'Araçlar' sekmesini kullanin, ardindan görünümlerini 'Yarat' Sekmesi veya 'Hedef Araçlari'ndan degistirin.",
 	Warning = "UYARI",
 	Warning2 = "UYARI:",
-	
+
     --Text
 	CantSwapReplacer = "Replacer Degistirilemiyor",
 	Active_Model_Swaps = "Degistirilmis Aktif Modeller",
@@ -142,25 +137,25 @@ return {
 	Target_ID = "Hedef ID:",
 	SelectSwap_CurrentTarget = "Mevcut hedefle degistirmek için seçin:",
 	NoNPC_LookNPC = "NPC Bulunamadi! Baslamak için NPC'ye bakin.",
-	
-	
-	
+
+
+
 	-- >> DECOR TAB
 	BeginItem_TabDecor = "Dekor",
 	BeginItem_TabPresets = "Ön ayarlar",
 	Begin_ComboPresets = "Ön ayarlar",
-	
+
 	--Button
 	Button_SmallClone = "Klonla",
 	Button_SmallRemove = "Kaldir##",
 	Button_SmallRename = "Yeniden Adlandir##",
 	Button_SmallUpdate = "Güncelle##",
 	Button_SmallCancel = " Iptal ",
-	
+
     --Button Label
 	Button_LabelHide = " Gizle ",
 	Button_LabelUnhide = " Göster ",
-	
+
     --Checkbox
     --Warning / Info / Tool Tip
 	Warn_PersistPropSave = "Ev veya istediginiz herhangi bir yere dekorasyon amaçli nesneler yerlestirmek için yaratin! Kalici olmalari için nesneleri kaydedin!",
@@ -169,13 +164,15 @@ return {
 	Warn_CustomPresets_Info = "Bu ön ayar Özel Nesneleri içerir",
 	Warn_CustomPropsModders_Info = "Özel Nesneler \n tarafindan yapildi.",
 	Warn_GamepadDirectMode_Info = "Bu, oyun kumandasi kullanirken 'Direct Mod' ile daha iyi entegrasyon saglar. Ayrica etrafta takilan küçük bir bilgi penceresi etkinlestirir.",
-	
+	Warn_PresetTriggerDistanceFar = "Uzak olarak ayarlamak performans sorunlarına neden olabilir.",
+
     --Text
 	MovingAll_PropsTo_SavedProps = "Tüm Nesneler Kaydedilen Nesnelere Tasiniyor",
 	SelectPropSpawn = "Yaratmak için nesne seçin:",
 	Spawned_Props = "Yaratilmis Nesneler",
 	New_Preset = "Yeni Ön Ayar",
 	No_Preset_Available = "Ön Ayar Mevcut Degil",
+	Preset_TriggerDistance = "Ön Ayar Tetik Mesafesi",
 	MovingSavedProps = "Tasiniyor %s Kaydedilen Nesneler",
 	UpdateTag = "  Etiketi Güncelle  ",
 	Categories = "Kategoriler",
@@ -193,6 +190,7 @@ return {
 	Backup = "Yedekle",
 	Merge = "Birleştir",
 	Save_All = "  Tümünü Kaydet  ",
+	Despawn_All = " Tümünü Kaldır ",
 	Save_ToSpecific_Tag = "Belirli Bir Etikete Kaydet",
 	Saved_Props2 = "Kaydedilen Nesneler:",
 	Move_To_Tag = "Etikete Tasi ",
@@ -213,15 +211,13 @@ return {
 	Tags = "Etiketler",
 	Tag = "Etiket",
 	Both = "Ikisi",
-	
-	
-	
+
 	-- >> POSES TAB
 	BeginItem_TabPoses = "Pozlar",
-	
+
 	--Button
 	Button_SmallCopyClipboard = "  Panoya Kopyala  ",
-	
+
     --Button Label
     --Checkbox
     --Warning / Info / Tool Tip
@@ -231,17 +227,15 @@ return {
 	ClearHistory = "Geçmisi Temizle",
 	SelectPoseForCurrentTarget = "Mevcut Hedef Için Bir Poz Seç:",
 	LastUsedPoses = "Son Kullanilan Pozlar",
-	
-	
-	
+
+
+
 	-- >> TOOLS TAB
 	BeginItem_TabTools = "Araçlar",
 	BeginItem_TabPhotoModeNibblesReplacer = "Fotograf Modu Nibbles Replacer",
 	BeginCombo_LookAt = "Bak",
-	BeginCombo_LookAt2 = "Bak",
-	BeginCombo_Appearances = "Görünümler",
 	BeginCombo_WeatherControl = "Hava Kontrolü",
-	
+
 	--Button
 	Button_SkipFrame = "Kare Atla",
 	Button_ToggleLight = "Isik Aç/Kapat",
@@ -271,8 +265,8 @@ return {
 	Button_ShareCurrentLocation = "Mevcut Konumu Paylas",
 	Button_GoBackToLastLocation = "Son Konuma Geri Dön",
 	Button_DeleteSelectedUserLocation = "Seçilen Kullanici Konumunu Sil",
-	
-	--Slider / Drag 
+
+	--Slider / Drag
 	Slider_HeadStiffness = "Kafa Hareketliligi",
 	Slider_HeadPoseOverride = "Kafa Pozu Geçersiz Kilma",
 	Slider_ChestStiffness = "Gövde Hareketliligi",
@@ -282,7 +276,7 @@ return {
 	Slider_DefaultFieldofView = "Varsayilan Bakis Acisi",
 	Slider_MovementSpeed = "Hareket Hizi",
 	Drag_MovementSpeed = "Hareket Hizi",
-	
+
     --Button Label
 	Button_Label_PauseTimeProgression = "Zaman Akisini Durdur",
 	Button_Label_UnpauseTimeProgression = "Zaman Akisini Devam Ettir",
@@ -300,7 +294,7 @@ return {
 	Button_Label_UnfreezeTarget = " Hedefi Çöz ",
 	Button_Label_OpenTargetTools = "Hedef Araçlarini Aç",
 	Button_Label_CloseTargetTools = "Hedef Araçlarini Kapat",
-	
+
     --Checkbox
     --Warning / Info / Tool Tip
 	Warn_FileNotFound_CollabsFolder_Error = "dosya Collabs klasörününde bulunamadi",
@@ -325,7 +319,7 @@ return {
 	Warn_InvButton_Info = "Buldun! Hizli Çekim artik erisilebilir.",
 	InvButtonTip = "Buraya tiklasam nolur ki?",
 	InvButtonTip2 = "Buraya tiklamak hiçbir ise yaramiyor!",
-	
+
     --Text
 	Facial_Expression = "Yüz Ifadesi",
 	Expressions = "Ifadeler",
@@ -410,9 +404,9 @@ return {
 	EnableSpawnedProps = "Yaratilmis Nesneleri Aktiflestir",
 	LightControl = "Isik Kontrol",
 	Equipment = "Ekipman",
-	
-	
-	
+
+
+
 	-- >> DIRECTOR TAB
 	BeginItem_TabNameDirector = "Yönetmen",
 	BeginItem_TabNameTriggers = "Tetikleyiciler",
@@ -424,7 +418,7 @@ return {
 	BeginCombo_Attack = "Saldir",
 	BeginCombo_Triggers = "Tetikleyiciler",
 	BeginCombo_Scripts = "Senaryolar",
-	
+
 	--Button
 	Button_Yes = "Evet",
 	Button_No = "Hayir",
@@ -443,7 +437,7 @@ return {
 	Button_NewScript = "Yeni Senaryo",
 	Button_DragSpeed = "Hiz",
 	Button_ToggleMarker = "Isareti Aç/Kapat",
-	
+
     --Button Label
 	Button_Label_PlayScript = "Senaryoyu Oynat",
 	Button_Label_StopScript = "Senaryoyu Durdur",
@@ -451,7 +445,7 @@ return {
 	Button_Label_Restarting = "Yeniden baslatiliyor...",
 	Button_Label_AddMark = "Isaret Ekle",
 	Button_Label_SaveWNewPos = "Yeni Konumla birlikte Kaydet",
-	
+
     --Checkbox
     --Warning / Info / Tool Tip
 	Warn_ActorSingleMark_Info = "Aktör tek bir isarette kalacak",
@@ -466,7 +460,7 @@ return {
 	Warn_AutoTalkNpc_Info = "Bu, NPC'lerin menzil içinde dakikada bir konusmasini saglayacaktir.(Sadece seslendirilmis NPC'ler)",
 	Warn_DirectActorPlayerPosition_Info = "Aktörleri yönlendirmek için mevcut Oyuncu konumunda Isaret olusturun",
 	Warn_InMenuDirectorDesc = "Yönetmen sadece oyun içi çalisir",
-	
+
     --Text
 	DirectorMode = "Yönetmen Modu",
 	SelectActorToReplace = "Degistirilecek Aktörü Seç:",
@@ -482,7 +476,7 @@ return {
 	AutoTalk = "Oto Konus",
 	ActorMarks = "Aktör Isaretleri",
 	Current_Actors = "Mevcut Aktörler",
-	Marks_Sequence = "Sekansi Isaretle:",	
+	Marks_Sequence = "Sekansi Isaretle:",
 	ShowMarks = "Isaretleri Göster",
 	Triggers = "Tetikleyiciler",
 	NewTrigger = "Yeni Tetikleyici",
@@ -509,16 +503,17 @@ return {
 	NodeView = "Node Görünümü",
 	TeamA = "Takim A",
 	TeamB = "Takim B",
-	
-	
-	
+
+
+
 	-- >> SETTINGS TAB
 	BeginItem_TabNameSettings = "Ayarlar",
 	BeginItem_TabNameGeneral = "Genel",
+	BeginItem_TabNameCompanions = "Yoldaşlar",
 	BeginItem_TabNameUI = "Kullanici Arayüzü",
 	BeginItem_TabNameExperimental = "Deneysel",
 	BeginItem_TabNamePhotoMode = "Fotoğraf Modu",
-	
+
 	--Button
 	Button_RevertAllModelSwaps = "Tüm Model Degisimlerini Geri Al",
 	Button_RespawnAll = "Hepsini Yeniden Yarat",
@@ -532,7 +527,7 @@ return {
 	Button_SmallDeleteTheme = "  Tema Sil  ",
 	Button_SmallSet = "Seç",
 	Button_ReloadAppearances = "Özel Görünümleri Yeniden Yükle",
-	
+
     --Button Label
     --Checkbox
 	Checkbox_SpawnAsCompanion = "Yoldas Olarak Yarat",
@@ -565,7 +560,7 @@ return {
 	Checkbox_AllowPlayerAnimationsonNPCs = "NPC'ler Üzerinde Oyuncu Animasyonlarina Izin Ver",
 	Checkbox_AllowExpressionOnNpcPM = "Fotograf Modunda Ifadelere ve NPC'lere Bak'a Izin Ver",
 	Checkbox_ResetTargetPositionPM = "Fotoğraf Modu NPC'leri için Hedef Pozisyonunu Sıfırla",
-	
+
     --Warning / Info / Tool Tip
 	Warn_RespawnOnLaunch_Info = "Bu ayar, önceden kaydedilmis NPC'lerin oyun yüklendiginde yeniden dogmasini etkin/devre disi birakir. AMM, oyundan çiktiginizda yaratilan NPC'lerinizi otomatik olarak kaydeder.",
 	Warn_BannedWords_Info = "Bu ayar, içinde bu kelimeleri içeren NPC görünümlerini etkin/devre disi birakir: naked(çiplak), nude(Çiplak), xxx, shower(Banyo), birthday_suit(Dogum günü kiyafeti), pp(çük) ve penis.",
@@ -577,7 +572,8 @@ return {
 	Warn_PlayerAnimsOnNpc_Info = "Eger NPC'lerde Oyuncu Animasyonlarinin kullanilmasina izin veren bir mod kullaniyorsaniz bunu etkinlestirin",
 	Warn_UnpauseRequiresIGSC = "Bu ayari kullanabilmek için IGCS'nin zamani duraklatmayi kaldirmasi gerekir.",
 	Warn_NotInstalled = "YÜKLENMEDI",
-	
+	Warn_DespawnAllProps = "Tüm Eşyaları Kaldırmak İstediğinizden Emin Misiniz?",
+
     --Text
 	AMM_Version = "AMM Versiyonu:",
 	CET_Version = "CET Versiyonu:",
@@ -602,21 +598,27 @@ return {
 	Listbox_Themes = "Temalar",
 	Weaponize = "Silahlandir",
 	NoAppearanceSet = "Görünüm Seçilmedi",
-	
-	
-	
-	-- >> EXTRA	
+
+
+
+	-- >> EXTRA
 	--Texts, warns, tips, info's, buttons and labels etc.
 	Seat_FrontRight = "Ön Sag",
 	Seat_BackRight = "Arka Sag",
 	Seat_FrontLeft = "Ön Sol",
 	Seat_BackLeft = "Arka Sol",
-	
+	Label_Door = "Kapı",
+	Label_Window = "Pencere",
+
+	Close = "Yakin",
+	Far = "Uzak",
+	Moderate = "Orta",
+
 	-- >> Archives Screen
 	Warning_MissingRequiredArchives = "AMM'nin, bir veya daha fazla gereken arsivi eksik. Lütfen eksik olan veya gereken arsivi archive/pc/mod klasörüne kurun.",
 	Warning_MissingOptionalArchives = "AMM'nin, bir veya daha fazla gereken arsivi eksik. Bunlar istege baglidir ancak AMM'ye islevsellik ekler. Bu uyarilari görmezden gelebilirsiniz, ancak AMM düzgün çalismayabilir.",
-	
-	
+
+
 	-->> INIT.LUA
 	AMMNeedsAttention = "AMM Ile Ilgilenilmesi Gerekiyor",
 	MISSING_ARCHIVES = "KAYIP ARSIVLER",
@@ -627,27 +629,27 @@ return {
 	MISSING = " KAYIP",
 	REQUIRED = "GEREKLI",
 	OPTIONAL = "ISTEGE BAGLI",
-	WHATS_NEW = "NELER YENI", --Line 83 Function Error
-	
+	WHATS_NEW = "NELER YENI",
+
 	--Button
 	Button_Ignorewarningsforthisversion = "Bu versiyon için uyarilari görmezden gel",
 	Button_Credits = "Emegi Geçenler",
 	Button_Cool = "Havali!",
-	
+
 	--Button Label
 	Label_SpawnFavorites = "Favorileri Yarat",
 	Label_SwapFavorites = "Favorileri Degistir",
 	Label_FavoriteAppearances = "Favori Görünümler",
 	Label_Cancel = "Iptal",
-	
+
 	--Text
 	Hotkey_i = "Kisayol %i",
-	
-	--Node - Function Error(nil value) 
-	Top = "Üst", --Line 116
+
+	--Node
+	Top = "Üst",
 	Bottom = "Alt",
 	Off = "Kapali",
-	
+
 	--Voice Overs
 	Label_GreetV = "Selam V",
 	Label_FearFoll = "Korku Fonu",
@@ -682,7 +684,7 @@ return {
 	Label_Irritated = "Rahatsizlanan",
 	Label_GrenadeThrow = "El Bombasi Atisi",
 	Label_Gotakill = "Öldürdüm!",
-	
+
 	--Expressions
 	Neutral = "Nötr",
 	Joy = "Neseli",
@@ -703,7 +705,7 @@ return {
 	Sleepy = "Uykulu",
 	Unconscious = "Bilinçsiz",
 	Dead = "Ölü",
-	
+
 	--Props
 	AMM_Props_Desc = "Objeleri, Karakterleri ve Araçlari ekler. AMM bunlar olmadan çalismaz.",
 	AMM_JohnnyCompanion_Desc = "Johnny Silverhand'i yaratilabilir bir karakter olarak ekler.",
@@ -732,9 +734,9 @@ return {
 	AMM_SaburoAppearances_Desc = "Yeni görünümler ekler. AMM'nin nexus üzerinde ki sayfasindan indirin.",
 	AMM_TbugAppearances_Desc = "Yeni görünümler ekler. AMM'nin nexus üzerinde ki sayfasindan indirin.",
 	AMM_8ug8eagAppearances_Desc = "Yeni görünümler ekler. AMM'nin nexus üzerinde ki sayfasindan indirin.",
-	
+
 	--Equipments (There is a Function Error(nil value) in this section, These are just labels that are not connected to any localizable strings in the file)
-	Fists = "Yumruklar", --Line 2377 
+	Fists = "Yumruklar",
 	Katana = "Katana",
 	Mantis_Blades = "Z Bicaklari",
 	Machete = "Pala",
@@ -748,8 +750,8 @@ return {
 	Sniper_Rifle = "Keskin Nisanci Tüfegi",
 	Shotgun = "Pompali",
 	SMG = "HMT",
-	Handgun = "Tabanca", --Line 2391
-	
+	Handgun = "Tabanca",
+
 	--Warning / Info / Tooltip
 	Warn_CantSave_BlacklistedAppearance = "Kara Listeye alinmis bir görünümü kayit edemezsiniz!",
 	Warn_ConfirmDeleteSavedAppearances = "Tüm kayit edilmis görünümleri silmek istediginize emin misiniz?",

@@ -10,10 +10,6 @@ end
 local despawnInProgress = false
 local saveAllInProgress = false
 
--- Constant: how far from a trigger should V be before it becomes active? E.g., Jamie sets 200 here
--- TODO: Might hook that up to a user configurable setting.
-local PLAYER_TRIGGER_DIST = 200
-
 -- Constant: how many backups of each individual preset should we keep before deleting the oldest?
 -- TODO: Might hook that up to a user configurable setting.
 local NUM_TOTAL_BACKUPS = 5
@@ -129,10 +125,20 @@ function Props:new()
   Props.mergeMode = false
   Props.presetToMerge = {name = "No Preset Available"}
 
+  -- How far from a trigger should V be before it becomes active
+  Props.presetTriggerDistance = 60
+  Props.presetTriggerOptions = {}
+
   return Props
 end
 
 function Props:Initialize()
+
+  Props.presetTriggerOptions = {
+		{AMM.LocalizableString("Close"), 60},
+		{AMM.LocalizableString("Moderate"), 120},
+		{AMM.LocalizableString("Far"), 200},
+	}
 
   Props.savedPropsDisplayMode = AMM.LocalizableString("Tags")
   Props.displayModeOptions = {AMM.LocalizableString("Tags"), AMM.LocalizableString("Categories"), AMM.LocalizableString("Both")}
@@ -658,10 +664,23 @@ function Props:DrawPresetConfig()
   ImGui.Spacing()
 
   if Props.activePreset.customIncluded then
-    ImGui.Text(AMM.LocalizableString("Warn_CustomPresets_Info"))
+    -- Define a smaller size for the square button
+    local buttonSize = 25
+
+    ImGui.PushStyleVar(ImGuiStyleVar.FramePadding, 2, 2) -- Reduces inner padding
+    ImGui.PushStyleVar(ImGuiStyleVar.ItemSpacing, 4, 4)  -- Adjusts spacing around items
+
+    ImGui.AlignTextToFramePadding()
+
+    ImGui.Text(AMM.LocalizableString("Warn_CustomPresets_Info").."  ")
 
     ImGui.SameLine()
-    AMM.UI:SmallButton(" ? ")
+    
+    -- Create the button
+    ImGui.Button(" ? ", buttonSize, buttonSize)
+
+    -- Pop the style changes to restore defaults
+    ImGui.PopStyleVar(2)
 
     if ImGui.IsItemHovered() then
       local modders = {}
@@ -676,7 +695,25 @@ function Props:DrawPresetConfig()
       ImGui.EndTooltip()
     end
 
-    AMM.UI:Spacing(8)
+    AMM.UI:Spacing(2)
+
+    AMM.UI:TextColored(AMM.LocalizableString("Preset_TriggerDistance"))
+
+		for i, option in ipairs(Props.presetTriggerOptions) do
+			if ImGui.RadioButton(option[1], Props.presetTriggerDistance == option[2]) then
+				Props.presetTriggerDistance = option[2]
+			end
+
+      if i == 3 then
+        if ImGui.IsItemHovered() then
+          ImGui.SetTooltip(AMM.LocalizableString("Warn_PresetTriggerDistanceFar"))
+        end
+      end
+
+			ImGui.SameLine()
+		end
+
+    AMM.UI:Spacing(6)
   end
 
   local buttonWidth = Props.style.buttonWidth
@@ -1158,7 +1195,7 @@ function Props:SensePropsTriggers()
   for _, trigger in ipairs(Props.triggers) do
     local dist = Util:VectorDistance(player:GetWorldPosition(), trigger.pos)
 
-    if dist <= PLAYER_TRIGGER_DIST then
+    if dist <= Props.presetTriggerDistance then
       local props = Props:GetPropsToSpawn(trigger)
       if #props > 0 then
         for _, prop in ipairs(props) do
@@ -1529,7 +1566,7 @@ end
 function Props:CheckForTriggersNearby(pos)
   local closestTriggerPos = pos
   for _, trigger in ipairs(Props.triggers) do
-    if Util:VectorDistance(pos, trigger.pos) < PLAYER_TRIGGER_DIST then
+    if Util:VectorDistance(pos, trigger.pos) < Props.presetTriggerDistance then
       closestTriggerPos = trigger.pos
     end
   end
