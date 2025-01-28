@@ -242,14 +242,16 @@ return {
 	Button_ResetScale = "Сброс шкалы",
 	Button_ShowAsLookAtTarget = "Показать как смотреть на цель",
 	Button_ResetLookAtTarget = "Перезагрузка взгляда на цель",
-	Button_TogglePrimaryWeapon = "Вкл. основное оружие",
-	Button_ToggleSecondaryWeapon = "Вкл. вторичное оружие",
+	Button_TogglePrimaryWeapon = "Экипировать основное оружие",
+	Button_ToggleSecondaryWeapon = "Экипировать вторичное оружие",
 	Button_GiveCurrentEquippedWeapon = "Выдать текущее экипированное оружие",
 	Button_SmallReset = "  Сбросить  ",
 	Button_ResetToPlayer = "Сбросить к игроку",
 	Button_ClearSaved = "Удалить сохранённые",
+	Button_Cyberpsycho = "Переключить киберпсихоз",
 	Button_ProtectNPCfromActions = "Защитить NPC от взаимодействия",
 	Button_AllFriendly = "Все соююзники",
+	Button_AllHostile = "Все враждебные",
 	Button_AllFollower = "Все следуют за вами",
 	Button_AllFakeDie = "Фейково убить всех",
 	Button_AllDie = "Убить всех",
@@ -319,6 +321,7 @@ return {
 	Warn_InvButton_Info = "Вы нашли его! Fast Motion теперь доступен.",
 	InvButtonTip = "Что, если я нажму здесь?",
 	InvButtonTip2 = "Нажатие здесь ничего не дает!",
+	InvButtonTip3 = "НЕ НАЖИМАЙ! ТЕБЯ ПРЕДУПРЕДИЛИ!",
 
     --Text
 	Facial_Expression = "Выражение лица",
@@ -629,7 +632,7 @@ return {
 	MISSING = " MISSING",
 	REQUIRED = "ОБЯЗАТЕЛЬНО",
 	OPTIONAL = "ОПЦИОННО",
-	WHATS_NEW = "ЧТО НОВОГО",
+	WHATS_NEW = "WHAT'S NEW", --Line 83 Function Error
 
 	--Button
 	Button_Ignorewarningsforthisversion = "Игнорируйте предупреждения для этой версии",
@@ -645,8 +648,8 @@ return {
 	--Text
 	Hotkey_i = "Горячая клавиша %i",
 
-	--Node
-	Top = "Сверху",
+	--Node - Function Error(nil value)
+	Top = "Top", --Line 116
 	Bottom = "Снизу",
 	Off = "Выкл.",
 
@@ -736,7 +739,7 @@ return {
 	AMM_8ug8eagAppearances_Desc = "Добавляет новые модели. Загрузите его на странице AMM в Nexus.",
 
 	--Equipments (There is a Function Error(nil value) in this section, These are just labels that are not connected to any localizable strings in the file)
-	Fists = "Кулаки",
+	Fists = "Fists", --Line 2377
 	Katana = "Катана",
 	Mantis_Blades = "Клинки богомола",
 	Machete = "Мачете",
@@ -750,7 +753,7 @@ return {
 	Sniper_Rifle = "Снайперка",
 	Shotgun = "Дробовик",
 	SMG = "ПП",
-	Handgun = "Пистолет",
+	Handgun = "Handgun", --Line 2391
 
 	--Warning / Info / Tooltip
 	Warn_CantSave_BlacklistedAppearance = "Вы не можете сохранить модель из черного списка!",

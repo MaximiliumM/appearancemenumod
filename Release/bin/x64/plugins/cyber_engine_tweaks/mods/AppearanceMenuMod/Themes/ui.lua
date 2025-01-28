@@ -151,6 +151,10 @@ function UI:Start()
   UI.style.buttonHeight = ImGui.GetFontSize() * 2
   UI.style.halfButtonWidth = ((ImGui.GetWindowContentRegionWidth() / 2) - 5)
 
+  if AMM.userSettings.scrollBarEnabled then
+    UI.style.scrollBarSize = 10
+  end
+
 	UI:PushStyleColor(ImGuiCol.TitleBg,				     Theme.TitleBg)
 	UI:PushStyleColor(ImGuiCol.TitleBgCollapsed,		 Theme.TitleBgCollapsed)
 	UI:PushStyleColor(ImGuiCol.TitleBgActive,		   Theme.TitleBgActive)
@@ -300,7 +304,6 @@ function UI:List(id, itemCount, baseItemHeight, func)
   end
   ImGui.EndChild()
 end
-
 
 function UI:DrawCrossHair()
   if AMM.userSettings.scanningReticle then

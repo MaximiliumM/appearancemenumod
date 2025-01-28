@@ -1157,7 +1157,7 @@ end
 
 function Director:GenerateSequence(actor)
   if actor.sequenceType == "Random" then
-    local randomSequence = Director:GenerateRandomSequence(#actor.nodes)
+    local randomSequence = Util:GenerateRandomSequence(#actor.nodes)
     actor.sequence = {}
     for _, num in ipairs(randomSequence) do
       table.insert(actor.sequence, actor.nodes[num])
@@ -1169,19 +1169,6 @@ function Director:GenerateSequence(actor)
   else
     print("[AMM] ERROR: sequence type invalid")
   end
-end
-
-function Director:GenerateRandomSequence(maxNumber)
-  local tbl = {}
-  for i = 1, maxNumber do
-    table.insert(tbl, i)
-  end
-
-  for i = #tbl, 2, -1 do
-    local j = math.random(i)
-    tbl[i], tbl[j] = tbl[j], tbl[i]
-  end
-  return tbl
 end
 
 function Director:CheckIfAllDone(actors)
@@ -1361,7 +1348,7 @@ end
 
 function Director:GetRandomActorFromTeam(script, team)
   local actors = Director:GetActors(script)
-  local randomSequence = Director:GenerateRandomSequence(#actors)
+  local randomSequence = Util:GenerateRandomSequence(#actors)
   local teamActors = {}
   for _, actor in ipairs(actors) do
     if actor.team == team then
@@ -1372,34 +1359,27 @@ function Director:GetRandomActorFromTeam(script, team)
   return teamActors[randomSequence[math.random(1, #randomSequence)]]
 end
 
-function Director:SetHostileTowards(handle, target, group)
-  Util:SetGodMode(handle, false)
+function Director:SetHostileTowards(targetPuppet, target, group)
+  Util:SetGodMode(targetPuppet, false)
 
-  local AIC = handle:GetAIControllerComponent()
-  local targetAttAgent = handle:GetAttitudeAgent()
-  local reactionComp = handle.reactionComponent
-
-  local aiRole = NewObject('handle:AIRole')
-  aiRole:OnRoleSet(handle)
-
-  Game['senseComponent::RequestMainPresetChange;GameObjectString'](handle, "Combat")
-  Game['NPCPuppet::ChangeStanceState;GameObjectgamedataNPCStanceState'](handle, "Combat")
-  AIC:SetAIRole(aiRole)
-  handle.movePolicies:Toggle(true)
+  local AIRole = AIRole.new()
+		
+  targetPuppet:GetAIControllerComponent():SetAIRole(AIRole)
+  targetPuppet:GetAIControllerComponent():OnAttach()
 
   if group == "Team A" then
-    targetAttAgent:SetAttitudeGroup(CName.new("judy"))
-    Game.GetAttitudeSystem():SetAttitudeRelationFromTweak(TweakDBID.new("Attitudes.Group_Judy"), TweakDBID.new("Attitudes.Group_Panam"), Enum.new("EAIAttitude", "AIA_Hostile"))
+    targetPuppet:GetAttitudeAgent():SetAttitudeGroup(CName.new("judy"))
+    Game.GetAttitudeSystem():SetAttitudeRelationFromTweak(TweakDBID.new("Attitudes.Group_Judy"), TweakDBID.new("Attitudes.Group_Panam"), EAIAttitude.AIA_Hostile)
   elseif group == "Team B" then
-    targetAttAgent:SetAttitudeGroup(CName.new("panam"))
-    Game.GetAttitudeSystem():SetAttitudeRelationFromTweak(TweakDBID.new("Attitudes.Group_Panam"), TweakDBID.new("Attitudes.Group_Judy"), Enum.new("EAIAttitude", "AIA_Hostile"))
+    targetPuppet:GetAttitudeAgent():SetAttitudeGroup(CName.new("panam"))
+    Game.GetAttitudeSystem():SetAttitudeRelationFromTweak(TweakDBID.new("Attitudes.Group_Panam"), TweakDBID.new("Attitudes.Group_Judy"), EAIAttitude.AIA_Hostile)
   end
 
-  reactionComp:SetReactionPreset(GetSingleton("gamedataTweakDBInterface"):GetReactionPresetRecord(TweakDBID.new("ReactionPresets.Ganger_Aggressive")))
+	targetPuppet:GetAttitudeAgent():SetAttitudeTowards(Game.GetPlayer():GetAttitudeAgent(), EAIAttitude.AIA_Friendly)
 
-  targetAttAgent:SetAttitudeTowardsAgentGroup(targetAttAgent, targetAttAgent, Enum.new("EAIAttitude", "AIA_Friendly"))
-  targetAttAgent:SetAttitudeTowards(target:GetAttitudeAgent(), Enum.new("EAIAttitude", "AIA_Hostile"))
-  reactionComp:TriggerCombat(target)
+  local sensePreset = TweakDBInterface.GetReactionPresetRecord(TweakDBID.new("ReactionPresets.Ganger_Aggressive"))
+  targetPuppet.reactionComponent:SetReactionPreset(sensePreset)
+  targetPuppet.reactionComponent:TriggerCombat(target)
 end
 
 function Director:CreateNodeMark(pos, isTrigger)
@@ -1962,11 +1942,24 @@ end
 
 function Director:DeleteScript(script)
   if Director.showNodes and Director.selectedActor ~= '' then
-    Director:RemoveNodeMarks(Director.selectedActor.nodes)
+      Director:RemoveNodeMarks(Director.selectedActor.nodes)
   end
-  os.remove("./User/Scripts/"..script.title..".json")
-  Director.scripts = Director:GetScripts()
-  Director.selectedScript = {title = AMM.LocalizableString("Select_Script")}
+
+  local filePath = "./User/Scripts/" .. script.title .. ".json"
+  os.remove(filePath)
+
+  -- Wait until the file is fully deleted
+  Cron.Every(0.1, { retries = 10 }, function(timer)
+      if not io.open(filePath, "r") then
+        Director.scripts = Director:GetScripts()
+        Director.selectedScript = { title = AMM.LocalizableString("Select_Script") }
+        log("Script deleted and scripts reloaded successfully.")
+        Cron.Halt(timer)
+      elseif timer.retries == 0 then
+          log("Error: Script deletion timed out.")
+      end
+      timer.retries = timer.retries - 1
+  end)
 end
 
 return Director

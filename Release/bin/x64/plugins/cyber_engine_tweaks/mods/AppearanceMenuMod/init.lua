@@ -83,7 +83,7 @@ function AMM:new()
 	 AMM.photoModeNPCsExtended = false
 
 	 -- Main Properties --
-	 AMM.currentVersion = "2.9.5"
+	 AMM.currentVersion = "2.9.6"
 	 AMM.CETVersion = parseVersion(GetVersion())
 	 AMM.CodewareVersion = 0
 	 AMM.updateNotes = require('update_notes.lua')
@@ -319,10 +319,6 @@ function AMM:new()
 			puppetSpawned = true
 	 	 end)
 		 
-		--  Observe('gameuiPhotoModeMenuController', 'OnCharacterSelected', function(this)
-		-- 		AMM.Tools:ResetPuppetsPosition()
-		--  end)
-
 		 Observe('PhotoModeMenuListItem', 'OnSliderHandleReleased', function(this)
 			for _, puppet in ipairs(AMM.Tools.listOfPuppets) do
 				local currentPos = tostring(puppet.handle:GetWorldPosition())
@@ -1118,13 +1114,16 @@ function AMM:new()
 
 	 registerHotkey("amm_give_weapon", "Give Weapon", function()
 		local target = AMM:GetTarget()
+		if not target then target = AMM.currentTarget end
  		if target ~= nil and target.handle:IsNPC() then
-			local es = Game.GetScriptableSystemsContainer():Get(CName.new("EquipmentSystem"))
-      local weapon = es:GetActiveWeaponObject(AMM.player, 39)
+			local weapon = Util:GetPlayerWeapon()
 
-      if weapon then
+			if weapon then
 				local weaponTDBID = weapon:GetItemID().tdbid
 				Util:EquipGivenWeapon(target.handle, weaponTDBID, AMM.Tools.forceWeapon)
+				AMM:ResetFollowCommandAfterAction(target, function(handle)
+					Util:EquipPrimaryWeaponCommand(handle)
+				end)
 			end
 		end
 	 end)
@@ -4115,7 +4114,7 @@ end
 
 function AMM:GetScanID(t)
 	if not t then
-		log('Error while trying to get tdbid from:'..t)
+		log('Error while trying to get tdbid from entity: GetScanID parameter t is nil')
 		return
 	end
 
@@ -4933,21 +4932,30 @@ function AMM:SetFollowDistance(followDistance)
 	end
 end
 
-function AMM:ChangeNPCEquipment(ent, equipmentPath)
-	local npcPath = ent.path
-	TweakDB:SetFlat(TweakDBID.new(npcPath..".primaryEquipment"), TweakDBID.new(equipmentPath))
-	
+function AMM:ResetFollowCommandAfterAction(ent, action)
 	local companionFollowCommand = ent.activeCommand
 	if companionFollowCommand then
 		if not Util:CancelCommand(ent.handle, ent.activeCommand) then
-			local command, _ = Util:EquipPrimaryWeaponCommand(ent.handle, false)
+
+			action(ent.handle, param)
 
 			Cron.After(3.0, function()
 				AMM:UpdateFollowDistance()
 			end)
 		end
+	else
+		action(ent.handle, param)
 	end
+end
+
+function AMM:ChangeNPCEquipment(ent, equipmentPath)
+	local npcPath = ent.path
+	TweakDB:SetFlat(TweakDBID.new(npcPath..".primaryEquipment"), TweakDBID.new(equipmentPath))
 	
+	AMM:ResetFollowCommandAfterAction(ent, function(handle)
+		Util:EquipPrimaryWeaponCommand(handle)
+	end)
+
 	-- AMM.Spawn:Respawn(ent)
 
 	-- New Approach: Inventory

@@ -556,7 +556,7 @@ function Props:DrawSavedProp(prop)
 
   Props:RenamePropPopup(prop)
 
-  if Props.activeProps[prop.uid] ~= nil and Props.activeProps[prop.uid].handle ~= '' then
+  if Props.activeProps[prop.uid] ~= nil and Props.activeProps[prop.uid].handle and Props.activeProps[prop.uid].handle ~= '' then
     ImGui.SameLine()
     if AMM.UI:SmallButton(AMM.LocalizableString("Button_SmallUpdate").."##"..prop.uid) then
       Props:SavePropPosition(Props.activeProps[prop.uid])

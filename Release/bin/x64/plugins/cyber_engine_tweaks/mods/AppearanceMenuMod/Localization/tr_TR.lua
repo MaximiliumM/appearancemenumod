@@ -242,14 +242,16 @@ return {
 	Button_ResetScale = "Ölcegi Sifirla",
 	Button_ShowAsLookAtTarget = "Hedefe Bakiyormus gibi Göster",
 	Button_ResetLookAtTarget = "Hedefe Bak'i Sifirla",
-	Button_TogglePrimaryWeapon = "Birincil Silahi Aç/Kapat",
-	Button_ToggleSecondaryWeapon = "Ikincil Silahi Aç/Kapat",
+	Button_TogglePrimaryWeapon = "Birincil Silahı Donat",
+	Button_ToggleSecondaryWeapon = "İkincil Silahı Donat",
 	Button_GiveCurrentEquippedWeapon = "Kusanilmis Mevcut Silahi Ver",
 	Button_SmallReset = "  Sifirla  ",
 	Button_ResetToPlayer = "Oyuncuya Sifirla",
 	Button_ClearSaved = "Kaydedileni Temizle",
+	Button_Cyberpsycho = "Siberpsikozu Değiştir",
 	Button_ProtectNPCfromActions = "NPC'yi Eylemlerden Koru",
 	Button_AllFriendly = "Tümünü Dost Yap",
+	Button_AllHostile = "Hepsi Düşman",
 	Button_AllFollower = "Tümünü Takip Ettir",
 	Button_AllFakeDie = "Tümünü Sahte Öldür",
 	Button_AllDie = "Tümünü Öldür",
@@ -319,6 +321,7 @@ return {
 	Warn_InvButton_Info = "Buldun! Hizli Çekim artik erisilebilir.",
 	InvButtonTip = "Buraya tiklasam nolur ki?",
 	InvButtonTip2 = "Buraya tiklamak hiçbir ise yaramiyor!",
+	InvButtonTip3 = "TIKLAMA! UYARILDIN!",
 
     --Text
 	Facial_Expression = "Yüz Ifadesi",
@@ -629,7 +632,7 @@ return {
 	MISSING = " KAYIP",
 	REQUIRED = "GEREKLI",
 	OPTIONAL = "ISTEGE BAGLI",
-	WHATS_NEW = "NELER YENI",
+	WHATS_NEW = "WHAT'S NEW", --Line 83 Function Error
 
 	--Button
 	Button_Ignorewarningsforthisversion = "Bu versiyon için uyarilari görmezden gel",
@@ -645,8 +648,8 @@ return {
 	--Text
 	Hotkey_i = "Kisayol %i",
 
-	--Node
-	Top = "Üst",
+	--Node - Function Error(nil value)
+	Top = "Top", --Line 116
 	Bottom = "Alt",
 	Off = "Kapali",
 
@@ -736,7 +739,7 @@ return {
 	AMM_8ug8eagAppearances_Desc = "Yeni görünümler ekler. AMM'nin nexus üzerinde ki sayfasindan indirin.",
 
 	--Equipments (There is a Function Error(nil value) in this section, These are just labels that are not connected to any localizable strings in the file)
-	Fists = "Yumruklar",
+	Fists = "Fists", --Line 2377
 	Katana = "Katana",
 	Mantis_Blades = "Z Bicaklari",
 	Machete = "Pala",
@@ -750,7 +753,7 @@ return {
 	Sniper_Rifle = "Keskin Nisanci Tüfegi",
 	Shotgun = "Pompali",
 	SMG = "HMT",
-	Handgun = "Tabanca",
+	Handgun = "Handgun", --Line 2391
 
 	--Warning / Info / Tooltip
 	Warn_CantSave_BlacklistedAppearance = "Kara Listeye alinmis bir görünümü kayit edemezsiniz!",

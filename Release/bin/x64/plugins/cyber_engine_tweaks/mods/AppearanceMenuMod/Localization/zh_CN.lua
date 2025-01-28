@@ -242,14 +242,16 @@ return {
 	Button_ResetScale = "重置比例",
 	Button_ShowAsLookAtTarget = "显示看向锁定",
 	Button_ResetLookAtTarget = "重置看向锁定",
-	Button_TogglePrimaryWeapon = "切换主武器",
-	Button_ToggleSecondaryWeapon = "切换副武器",
+	Button_TogglePrimaryWeapon = "装备主武器",
+	Button_ToggleSecondaryWeapon = "装备副武器",
 	Button_GiveCurrentEquippedWeapon = "给予当前装备的武器",
 	Button_SmallReset = "  重置  ",
 	Button_ResetToPlayer = "重置玩家",
 	Button_ClearSaved = "清除保存",
+	Button_Cyberpsycho = "切换赛博疯子",
 	Button_ProtectNPCfromActions = "从战斗中复活NPC",
 	Button_AllFriendly = "全部友好",
+	Button_AllHostile = "全体敌对",
 	Button_AllFollower = "全部跟随",
 	Button_AllFakeDie = "全部假死",
 	Button_AllDie = "全部死亡",
@@ -319,6 +321,7 @@ return {
 	Warn_InvButton_Info = "恭喜你找到了!快速行动现在可用了.",
 	InvButtonTip = "如果我点击这里呢?",
 	InvButtonTip2 = "点击这里没有任何用!",
+	InvButtonTip3 = "别点！我警告过你了！",
 
     --Text
 	Facial_Expression = "面部表情",
@@ -629,7 +632,7 @@ return {
 	MISSING = " 缺失",
 	REQUIRED = "需要",
 	OPTIONAL = "可选",
-	WHATS_NEW = "有什么新消息？",
+	WHATS_NEW = "WHAT'S NEW", --Line 83 Function Error
 
 	--Button
 	Button_Ignorewarningsforthisversion = "忽略此版本的警告",
@@ -645,8 +648,8 @@ return {
 	--Text
 	Hotkey_i = "热键 %i",
 
-	--Node
-	Top = "顶部",
+	--Node - Function Error(nil value)
+	Top = "Top", --Line 116
 	Bottom = "底部",
 	Off = "关闭",
 
@@ -736,7 +739,7 @@ return {
 	AMM_8ug8eagAppearances_Desc = "添加新的外观。从AMM的Nexus页面下载.",
 
 	--Equipments (There is a Function Error(nil value) in this section, These are just labels that are not connected to any localizable strings in the file)
-	Fists = "拳头",
+	Fists = "Fists", --Line 2377
 	Katana = "武士刀",
 	Mantis_Blades = "螳螂刀",
 	Machete = "弯刀",
@@ -750,7 +753,7 @@ return {
 	Sniper_Rifle = "狙击枪",
 	Shotgun = "霰弹枪",
 	SMG = "冲锋枪",
-	Handgun = "手枪", --Line 2391
+	Handgun = "Handgun", --Line 2391
 
 	--Warning / Info / Tooltip
 	Warn_CantSave_BlacklistedAppearance = "你不能保存黑名单外观!",

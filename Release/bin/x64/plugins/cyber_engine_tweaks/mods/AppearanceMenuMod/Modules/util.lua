@@ -131,6 +131,33 @@ function Util:FixPositionsForFavorites(tableName)
 end
 
 -- Code Helper Methods
+function Util:SelectRandomPair(tbl)
+  local keys = {} -- Store all keys
+  for key in pairs(tbl) do
+      table.insert(keys, key)
+  end
+
+  -- Select a random key
+  if #keys > 0 then
+      local randomKey = keys[math.random(#keys)]
+      return randomKey, tbl[randomKey] -- Return key and value
+  else
+      return nil, nil -- Return nil if the table is empty
+  end
+end
+
+function Util:GenerateRandomSequence(maxNumber)
+  local tbl = {}
+  for i = 1, maxNumber do
+    table.insert(tbl, i)
+  end
+
+  for i = #tbl, 2, -1 do
+    local j = math.random(i)
+    tbl[i], tbl[j] = tbl[j], tbl[i]
+  end
+  return tbl
+end
 
 -- Function to compare two strings for sorting
 local function compareStrings(a, b)
@@ -491,7 +518,7 @@ function Util:RemovePlayerEffects()
 end
 
 function Util:GetPlayerGender()
-  playerBodyGender = playerBodyGender or Game.GetPlayer():GetResolvedGenderName()
+  local playerBodyGender = Game.GetPlayer():GetResolvedGenderName()
   return (string.find(tostring(playerBodyGender), "Female") and "_Female") or "_Male"
 end
 
@@ -561,9 +588,14 @@ function Util:TeleportNPCTo(targetPuppet, targetPosition, targetRotation)
 	return teleportCmd, targetPuppet
 end
 
-function Util:EquipPrimaryWeaponCommand(targetPuppet, equip)
+function Util:GetPlayerWeapon()
+  local es = Game.GetScriptableSystemsContainer():Get(CName.new("EquipmentSystem"))
+  return es:GetActiveWeaponObject(Game.GetPlayer(), 40)
+end
+
+function Util:EquipPrimaryWeaponCommand(targetPuppet)
   local cmd = NewObject("handle:AISwitchToPrimaryWeaponCommand")
-  cmd.unEquip = equip
+  cmd.unEquip = false
   cmd = cmd:Copy()
 
   targetPuppet:GetAIControllerComponent():SendCommand(cmd)
@@ -571,14 +603,14 @@ function Util:EquipPrimaryWeaponCommand(targetPuppet, equip)
   return cmd, targetPuppet
 end
 
-function Util:EquipSecondaryWeaponCommand(targetPuppet, equip)
+function Util:EquipSecondaryWeaponCommand(targetPuppet)
   local cmd = NewObject("handle:AISwitchToSecondaryWeaponCommand")
-  cmd.unEquip = equip
+  cmd.unEquip = false
   cmd = cmd:Copy()
 
   targetPuppet:GetAIControllerComponent():SendCommand(cmd)
 
-  return cmd, targetPuppet 
+  return cmd, targetPuppet
 end
 
 function Util:EquipGivenWeapon(targetPuppet, weapon, override)
@@ -586,9 +618,8 @@ function Util:EquipGivenWeapon(targetPuppet, weapon, override)
   cmd.slotId = TweakDBID.new("AttachmentSlots.WeaponRight")
   cmd.itemId = weapon
   cmd.failIfItemNotFound = false
-  if override then
-    cmd.durationOverride = 99999
-  end
+  cmd.durationOverride = 1
+
   cmd = cmd:Copy()
 
   targetPuppet:GetAIControllerComponent():SendCommand(cmd)

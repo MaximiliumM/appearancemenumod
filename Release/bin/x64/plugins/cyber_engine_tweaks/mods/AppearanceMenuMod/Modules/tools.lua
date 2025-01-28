@@ -11,6 +11,7 @@ local target = nil
 
 -- Constant --
 local PLAYER_TRIGGER_DIST = 5
+local psyUnh = false
 
 function Tools:new()
 
@@ -100,6 +101,7 @@ function Tools:new()
   Tools.listOfPuppets = {}
   Tools.puppetsIDs = {}
   Tools.updatedPosition = {}
+  Tools.cyberpsychoMode = false
 
   -- Axis Indicator Properties --
   Tools.axisIndicator = nil
@@ -1272,15 +1274,99 @@ function Tools:DrawNPCActions()
   end
 
   if not AMM.playerInPhoto then
+    if ImGui.InvisibleButton("Fun Mode", 100, 20) then
+      psyUnh = true
+    end
+
+    if ImGui.IsItemHovered() then
+      ImGui.SetTooltip(AMM.LocalizableString("InvButtonTip3"))
+    end
+
     AMM.UI:Spacing(4)
 
     AMM.UI:TextCenter(AMM.LocalizableString("General_Actions"), true)
     ImGui.Spacing()
 
-    if ImGui.Button(AMM.LocalizableString("Button_ProtectNPCfromActions"), Tools.style.buttonWidth, Tools.style.buttonHeight) then
+    if Tools.cyberpsychoMode then
+      -- Push the style color for Button, ButtonHovered, and ButtonActive
+      ImGui.PushStyleColor(ImGuiCol.Button, 1.0, 0.0, 0.0, 1.0)          -- Bright red button
+      ImGui.PushStyleColor(ImGuiCol.ButtonHovered, 1.0, 0.2, 0.2, 1.0)   -- Lighter red when hovered
+      ImGui.PushStyleColor(ImGuiCol.ButtonActive, 0.8, 0.0, 0.0, 1.0)    -- Slightly darker red when active
+
+       -- Text Color (Black)
+      ImGui.PushStyleColor(ImGuiCol.Text, 0.0, 0.0, 0.0, 1.0)
+    end
+    
+    if psyUnh then
+      if ImGui.Button(AMM.LocalizableString("Button_Cyberpsycho"), Tools.style.buttonWidth, Tools.style.buttonHeight) then
+        Tools.cyberpsychoMode = not Tools.cyberpsychoMode
+
+        if Tools.cyberpsychoMode == true then
+
+          Cron.Every(1, { tick = 1 }, function(timer)
+            -- Check if there are spawned NPCs
+            if next(AMM.Spawn.spawnedNPCs) ~= nil then
+                local _, spawn = Util:SelectRandomPair(AMM.Spawn.spawnedNPCs)
+                if spawn then
+                    psycho = spawn.handle -- Assign the random psycho
+                end
+            end
+        
+            -- If psycho is assigned, proceed with the rest of the logic
+            if psycho ~= nil then
+                Cron.Halt(timer) -- Stop this Cron
+        
+                -- Run the rest of your logic here
+                local function runCyberpsycho()
+                    local targets = {}
+                    Tools:UseGeneralAction(function(ent) 
+                        Tools:SetNPCAttitude(ent, EAIAttitude.AIA_Neutral, nil, CName.new("panam"))
+                        table.insert(targets, ent.handle)
+                    end, 40)
+        
+                    Tools:SetCyberpsycho(psycho, targets)
+                end
+        
+                runCyberpsycho()
+        
+                -- Setup a 10-second recurring Cron for cyberpsycho behavior
+                Cron.Every(10, { tick = 1 }, function(timer)
+                    timer.tick = timer.tick + 1
+        
+                    if timer.tick > 60 or Tools.cyberpsychoMode == false then
+                        AMM.Spawn:SetNPCAsCompanion(psycho)
+                        Cron.Halt(timer)
+                    else
+                        runCyberpsycho()
+                    end
+                end)
+            end
+        
+            -- Stop if we've hit the maximum allowed ticks
+            if timer.tick >= 30 then
+                Cron.Halt(timer)
+            else
+                timer.tick = timer.tick + 1
+            end
+          end)
+        end
+      end
+
+      if Tools.cyberpsychoMode then
+        -- Pop the styles to restore previous colors
+        ImGui.PopStyleColor(4)
+      end
+    end
+
+    if ImGui.Button(AMM.LocalizableString("Button_ProtectNPCfromActions"), Tools.style.halfButtonWidth, Tools.style.buttonHeight) then
       if target and target.handle and target.handle.IsNPC and target.handle:IsNPC() then
         Tools:ProtectTarget(target)
       end
+    end
+
+    ImGui.SameLine()
+    if ImGui.Button(AMM.LocalizableString("Button_AllFollower"), Tools.style.halfButtonWidth, Tools.style.buttonHeight) then
+      Tools:UseGeneralAction(function(ent) AMM.Spawn:SetNPCAsCompanion(ent.handle) end, 10)
     end
 
     if ImGui.Button(AMM.LocalizableString("Button_AllFriendly"), Tools.style.halfButtonWidth, Tools.style.buttonHeight) then
@@ -1288,8 +1374,8 @@ function Tools:DrawNPCActions()
     end
 
     ImGui.SameLine()
-    if ImGui.Button(AMM.LocalizableString("Button_AllFollower"), Tools.style.halfButtonWidth, Tools.style.buttonHeight) then
-      Tools:UseGeneralAction(function(ent) AMM.Spawn:SetNPCAsCompanion(ent.handle) end, 10)
+    if ImGui.Button(AMM.LocalizableString("Button_AllHostile"), Tools.style.halfButtonWidth, Tools.style.buttonHeight) then
+      Tools:UseGeneralAction(function(ent) Tools:SetNPCAttitude(ent, EAIAttitude.AIA_Hostile) end, 10)
     end
 
     if ImGui.Button(AMM.LocalizableString("Button_AllFakeDie"), Tools.style.halfButtonWidth, Tools.style.buttonHeight) then
@@ -1629,9 +1715,83 @@ function Tools:ClearProtected()
   Tools.protectedNPCs = {}
 end
 
-function Tools:SetNPCAttitude(entity, attitude)
-  entity.handle:GetAttitudeAgent():SetAttitudeGroup(Game.GetPlayer():GetAttitudeAgent():GetAttitudeGroup())
-	entity.handle:GetAttitudeAgent():SetAttitudeTowards(Game.GetPlayer():GetAttitudeAgent(), attitude)
+local cyberpsychoEffects = {}
+function Tools:SpawnCyberpsychoEffects(entity)
+  if #cyberpsychoEffects == 0 then
+    local spawnTransform = Game.GetPlayer():GetWorldTransform()
+    spawnTransform:SetPosition(entity:GetWorldPosition())
+    spawnTransform:SetOrientationEuler(entity:GetWorldOrientation():ToEulerAngles())
+
+    entityID = exEntitySpawner.Spawn([[base\amm_particles\entity\heat_haze_large.ent]], spawnTransform, CName.new('default'), '')
+    table.insert(cyberpsychoEffects, entityID)
+
+    entityID = exEntitySpawner.Spawn([[base\amm_effects\entity\alt_background.ent]], spawnTransform, CName.new('default'), '')
+    table.insert(cyberpsychoEffects, entityID)
+
+    local shouldDespawn = false
+
+    Cron.Every(0.01, function(timer)
+      if Tools.cyberpsychoMode == false or not Game.FindEntityByID(entity:GetEntityID()) then
+        shouldDespawn = true
+      end
+
+      for i, entID in ipairs(cyberpsychoEffects) do
+        local ent = Game.FindEntityByID(entID)
+        if ent then
+          if shouldDespawn then
+            ent:Dispose()
+            table.remove(cyberpsychoEffects, i)
+          else
+            Game.GetTeleportationFacility():Teleport(ent, entity:GetWorldPosition(), entity:GetWorldOrientation():ToEulerAngles())
+          end
+        end
+      end
+
+      if shouldDespawn and #cyberpsychoEffects == 0 then
+        Tools.cyberpsychoMode = false
+        Cron.Halt(timer)
+      end
+    end)
+  end
+end
+
+function Tools:SetCyberpsycho(entity, targets)
+  if entity then
+    local currentRole = entity:GetAIControllerComponent():GetAIRole()
+    currentRole:OnRoleCleared(entity)
+
+    local AIRole = AIRole.new()
+		
+    entity:GetAIControllerComponent():SetAIRole(AIRole)
+    entity:GetAIControllerComponent():OnAttach()
+
+    entity:GetAttitudeAgent():SetAttitudeGroup(CName.new("judy"))
+    entity:GetAttitudeAgent():SetAttitudeTowards(Game.GetPlayer():GetAttitudeAgent(), EAIAttitude.AIA_Neutral)
+    Game.GetAttitudeSystem():SetAttitudeRelationFromTweak(TweakDBID.new("Attitudes.Group_Judy"), TweakDBID.new("Attitudes.Group_Panam"), EAIAttitude.AIA_Hostile)
+
+    if targets and #targets > 0 then
+      local randomSequence = Util:GenerateRandomSequence(#targets)
+      local target = targets[randomSequence[math.random(1, #randomSequence)]]
+
+      local sensePreset = TweakDBInterface.GetReactionPresetRecord(TweakDBID.new("ReactionPresets.Ganger_Aggressive"))
+      entity.reactionComponent:SetReactionPreset(sensePreset)
+      entity.reactionComponent:TriggerCombat(target)
+      Tools:SpawnCyberpsychoEffects(entity)
+    end
+  end
+end
+
+function Tools:SetNPCAttitude(entity, attitude, target, group)
+  if entity then
+    local t = Game.GetPlayer()
+    if target then t = target end
+
+    local targetGroup = t:GetAttitudeAgent():GetAttitudeGroup()
+    if group then targetGroup = group end
+
+    entity.handle:GetAttitudeAgent():SetAttitudeGroup(targetGroup)
+    entity.handle:GetAttitudeAgent():SetAttitudeTowards(t:GetAttitudeAgent(), attitude)
+  end
 end
 
 function Tools:SetScale(components, values, proportional)
@@ -2399,9 +2559,8 @@ function Tools:DrawMovementWindow()
       end
 
       if AMM.userSettings.experimental and Tools.currentTarget ~= '' and Tools.currentTarget.handle:IsNPC() then
-
-        local es = Game.GetScriptableSystemsContainer():Get(CName.new("EquipmentSystem"))
-        local weapon = es:GetActiveWeaponObject(Game.GetPlayer(), 40)
+         
+        local weapon = Util:GetPlayerWeapon()
         local npcHasWeapon = Tools.currentTarget.handle:HasPrimaryOrSecondaryEquipment()
 
         if npcHasWeapon or weapon then
@@ -2412,45 +2571,64 @@ function Tools:DrawMovementWindow()
 
         if npcHasWeapon then
           if ImGui.Button(AMM.LocalizableString("Button_TogglePrimaryWeapon"), Tools.style.halfButtonWidth, Tools.style.buttonHeight) then
-            local npcHash = tostring(Tools.currentTarget.handle:GetEntityID().hash)
+            -- Toggle Weapons doesn't seem to work anymore
+            -- equippedWeaponNPCs isn't doing anything right now
+            -- I will leave it here in case I find a solution for UnequipWeapon
+            local npcHash = Tools.currentTarget.hash
             if Tools.equippedWeaponNPCs[npcHash] == nil then
-              Tools.equippedWeaponNPCs[npcHash] = {primary = true, secondary = false}
+              Tools.equippedWeaponNPCs[npcHash] = {primary = false, secondary = false}
             else
               Tools.equippedWeaponNPCs[npcHash].primary = not Tools.equippedWeaponNPCs[npcHash].primary
-            end
+            end            
 
-            Util:EquipPrimaryWeaponCommand(Tools.currentTarget.handle, Tools.equippedWeaponNPCs[npcHash].primary)
+            AMM:ResetFollowCommandAfterAction(Tools.currentTarget, function(handle)
+              Util:EquipPrimaryWeaponCommand(handle)
+            end)            
           end
 
           ImGui.SameLine()
           if ImGui.Button(AMM.LocalizableString("Button_ToggleSecondaryWeapon"), Tools.style.halfButtonWidth, Tools.style.buttonHeight) then
             local npcHash = tostring(Tools.currentTarget.handle:GetEntityID().hash)
             if Tools.equippedWeaponNPCs[npcHash] == nil then
-              Tools.equippedWeaponNPCs[npcHash] = {primary = false, secondary = true}
+              Tools.equippedWeaponNPCs[npcHash] = {primary = false, secondary = false}
             else
               Tools.equippedWeaponNPCs[npcHash].secondary = not Tools.equippedWeaponNPCs[npcHash].secondary
             end
 
-            Util:EquipSecondaryWeaponCommand(Tools.currentTarget.handle, Tools.equippedWeaponNPCs[npcHash].secondary)
+            AMM:ResetFollowCommandAfterAction(Tools.currentTarget, function(handle) 
+              Util:EquipSecondaryWeaponCommand(handle)
+            end)
           end
         end
 
         if weapon then
           if ImGui.Button(AMM.LocalizableString("Button_GiveCurrentEquippedWeapon"), Tools.style.buttonWidth, Tools.style.buttonHeight) then
+            local npcHash = Tools.currentTarget.hash
+            if Tools.equippedWeaponNPCs[npcHash] == nil then
+              Tools.equippedWeaponNPCs[npcHash] = {primary = false, secondary = false}
+            else
+              Tools.equippedWeaponNPCs[npcHash].primary = not Tools.equippedWeaponNPCs[npcHash].primary
+            end
+            
             local weaponTDBID = weapon:GetItemID().tdbid
             Util:EquipGivenWeapon(Tools.currentTarget.handle, weaponTDBID, Tools.forceWeapon)
+
+            AMM:ResetFollowCommandAfterAction(Tools.currentTarget, function(handle)
+              Util:EquipPrimaryWeaponCommand(handle)
+            end)
           end
 
           if ImGui.IsItemHovered() then
             ImGui.SetTooltip(AMM.LocalizableString("Warn_OutOfCombat_NpcUnequip_Info"))
           end
 
-          ImGui.Spacing()
-          Tools.forceWeapon = ImGui.Checkbox(AMM.LocalizableString("ForceGivenWeapon"), Tools.forceWeapon)
+          -- Disabled Force Given since it is freezing the NPC in place
+          -- ImGui.Spacing()
+          -- Tools.forceWeapon = ImGui.Checkbox(AMM.LocalizableString("ForceGivenWeapon"), Tools.forceWeapon)
 
-          if ImGui.IsItemHovered() then
-            ImGui.SetTooltip(AMM.LocalizableString("Warn_StopNpc_UnequipWeapon_Info"))
-          end
+          -- if ImGui.IsItemHovered() then
+          --   ImGui.SetTooltip(AMM.LocalizableString("Warn_StopNpc_UnequipWeapon_Info"))
+          -- end
         end
       end
     elseif Tools.currentTarget and Tools.currentTarget ~= '' then

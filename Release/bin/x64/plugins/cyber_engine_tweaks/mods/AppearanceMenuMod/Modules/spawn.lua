@@ -36,7 +36,7 @@ function Spawn:NewSpawn(name, id, parameters, companion, path, template, rig)
 	end
 
 	if obj.parameters == "Player" then
-		playerGender = playerGender or Util:GetPlayerGender()
+		local playerGender = Util:GetPlayerGender()
 		obj.rig = playerGender == "_Female" and 'woman_base' or 'man_base'
 		obj.path = path..playerGender
 		obj.parameters = nil
