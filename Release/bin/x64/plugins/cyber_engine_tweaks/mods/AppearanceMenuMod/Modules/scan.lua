@@ -25,6 +25,7 @@ local Scan = {
   isDriving = false,
   carCam = false,
   currentCam = 1,
+  keepAssigned = false,
 
   -- AI Driver
   AIDriver = false,
@@ -437,7 +438,7 @@ function Scan:DrawTargetActions(target)
 
         if Scan.AIDriver then
           AMM.player:SetWarningMessage(AMM.LocalizableString("WarnTextAI_FastTravel"))
-          Scan.vehicle = {handle = target.handle, hash = tostring(target.handle:GetEntityID().hash)}     
+          Scan.vehicle = {handle = target.handle, hash = tostring(target.handle:GetEntityID().hash)}
           Scan.companionDriver = {vehicle = {handle = mountedVehicle}}
         else
           Scan.companionDriver = nil
@@ -667,6 +668,8 @@ function Scan:DrawSeatsPopup()
       end
     end
 
+    Scan.keepAssigned = ImGui.Checkbox(AMM.LocalizableString("Checkbox_KeepAssigned"), Scan.keepAssigned)
+
     AMM.UI:Separator()
 
     if ImGui.Button(AMM.LocalizableString("Button_Assign"), -1, style.buttonHeight) then
@@ -774,64 +777,119 @@ function Scan:GetVehicleSeats(vehicle)
 end
 
 function Scan:AutoAssignSeats()
-  -- Get all vehicle seats
+  -- Get all vehicle seats for the new vehicle
   Scan:GetVehicleSeats(Scan.vehicle.handle)
 
-  -- Calculate available seats dynamically by filtering out occupied seats
-  local availableSeats = {}
-  local occupiedSeatNames = {}
-  
-  for _, seatInfo in pairs(Scan.selectedSeats) do
-    if seatInfo.vehicle and seatInfo.vehicle.hash == Scan.vehicle.hash then
-      occupiedSeatNames[seatInfo.seat.cname] = true
-    end
-  end
-
-  for _, seat in ipairs(Scan.vehicleSeats) do
-    if not occupiedSeatNames[seat.cname] then
-      table.insert(availableSeats, seat)
-    end
-  end
-
-  for _, ent in pairs(AMM.Spawn.spawnedNPCs) do
-    if ent.handle:IsNPC() then
-      if Scan.selectedSeats[ent.name] then
-        -- Check if the assigned seat's vehicle still exists
-        local existingVehicle = Game.FindEntityByID(Scan.selectedSeats[ent.name].vehicle.handle:GetEntityID())
-        if existingVehicle then
-          if Scan.selectedSeats[ent.name].seat.name == AMM.LocalizableString("Seat_FrontLeft") then
-            Scan.drivers[AMM:GetScanID(ent.handle)] = Scan.selectedSeats[ent.name]
+  local keepAssignedValid = true
+  if Scan.keepAssigned then
+    -- Check each assigned seat (except front_left, which we skip)
+    for entName, seatAssignment in pairs(Scan.selectedSeats) do
+      if seatAssignment.seat.cname ~= "seat_front_left" then
+        local found = false
+        for _, seat in ipairs(Scan.vehicleSeats) do
+          if seat.cname == seatAssignment.seat.cname then
+            found = true
+            break
           end
-        else
-          -- Reset the seat if the vehicle no longer exists
-          Scan.selectedSeats[ent.name] = nil
         end
-      else
-        -- Assign seats only if not already assigned
+        if not found then
+          keepAssignedValid = false
+          break
+        end
+      end
+    end
+  end
+
+  if Scan.keepAssigned and keepAssignedValid then
+    -- Update vehicle reference for seats that aren't front_left
+    for entName, seatInfo in pairs(Scan.selectedSeats) do
+      if seatInfo.seat.cname ~= "seat_front_left" then
+        seatInfo.vehicle = Scan.vehicle
+      elseif seatInfo.seat.cname == "seat_front_left" then
+        Scan.drivers[AMM:GetScanID(seatInfo.entity)] = seatInfo
+      end
+    end
+  else
+    -- For non-front_left seats, clear assignments from previous vehicles
+    for entName, seatAssignment in pairs(Scan.selectedSeats) do
+      if seatAssignment.seat.cname ~= "seat_front_left" then
+        if not (seatAssignment.vehicle and seatAssignment.vehicle.hash == Scan.vehicle.hash) then
+          Scan.selectedSeats[entName] = nil
+        end
+      end
+    end
+
+    -- Calculate available seats dynamically by filtering out occupied seats in the new vehicle
+    local availableSeats = {}
+    local occupiedSeatNames = {}
+    
+    for _, seatAssignment in pairs(Scan.selectedSeats) do
+      if seatAssignment.vehicle and seatAssignment.vehicle.hash == Scan.vehicle.hash then
+        occupiedSeatNames[seatAssignment.seat.cname] = true
+      end
+    end
+
+    for _, seat in ipairs(Scan.vehicleSeats) do
+      if not occupiedSeatNames[seat.cname] then
+        table.insert(availableSeats, seat)
+      end
+    end
+
+    -- Reassign seats to NPCs that don't have a valid assignment in the new vehicle
+    for _, ent in pairs(AMM.Spawn.spawnedNPCs) do
+      if ent.handle:IsNPC() then
+        local currentAssignment = Scan.selectedSeats[ent.name]
+        if currentAssignment then
+          -- Check if the stored entity handle is stale by comparing entity hashes
+          local newHash = ent.hash
+          local storedHash = tostring(currentAssignment.entity:GetEntityID().hash)
+          if newHash ~= storedHash then
+            -- Update the stored entity handle with the new one
+            currentAssignment.entity = ent.handle
+          end
+
+          -- For front_left, keep the assignment as is and register as driver
+          if currentAssignment.seat.cname == "seat_front_left" then
+            Scan.drivers[AMM:GetScanID(ent.handle)] = currentAssignment
+          end
+
+          -- Otherwise, if the vehicle reference is not current, clear for reassignment
+          if currentAssignment.seat.cname ~= "seat_front_left" and (not currentAssignment.vehicle or currentAssignment.vehicle.hash ~= Scan.vehicle.hash) then
+            Scan.selectedSeats[ent.name] = nil
+          end
+        end
+
         if not Scan.selectedSeats[ent.name] then
           local currentSeat = availableSeats[1]
           if currentSeat then
             if currentSeat.cname == "seat_front_left" then
-              -- Reserve the front-left seat for manual assignment
+              -- Skip front_left for auto assignment
               table.remove(availableSeats, 1)
               currentSeat = availableSeats[1]
             end
 
             if currentSeat then
-              -- Assign current seat and remove it from available seats
-              Scan.selectedSeats[ent.name] = {name = ent.name, entity = ent.handle, seat = currentSeat, vehicle = Scan.vehicle}
+              Scan.selectedSeats[ent.name] = {
+                name = ent.name,
+                entity = ent.handle,
+                seat = currentSeat,
+                vehicle = Scan.vehicle
+              }
               table.remove(availableSeats, 1)
             end
           else
-            -- Add to leftBehind table if no seats are available
-            table.insert(Scan.leftBehind, {ent = ent.handle, cmd = Util:HoldPosition(ent.handle, 99999)})
+            -- If no seat is available, add the NPC to leftBehind
+            table.insert(Scan.leftBehind, {
+              ent = ent.handle,
+              cmd = Util:HoldPosition(ent.handle, 99999)
+            })
           end
         end
       end
     end
   end
 
-  -- Assign all selected seats
+  -- Finally, assign all selected seats
   Scan:AssignSeats(Scan.selectedSeats, false)
 end
 

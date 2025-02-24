@@ -1,5 +1,23 @@
 return {
 	{
+		'2.10',
+		'2025 Feb 24',
+		[[Added new Characters: Katya, Supplier, Baird, Tyler, Nele and FSS Drone]],
+		[[Added new toggle in Assign Seats to keep the same seats even when you change vehicles]],
+		[[Added all FF06B5 and some extra to Default Locations list]],
+		[[-- Thanks Cerul Liber for providing the location files again!]],
+		[[Added new Tooltip for Save Swap button for clarity]],
+		[[Changed Toggle Lights system to get components directly from the game and no longer require the manual database]],
+		[[Complete refactor of Custom Appearances system to fix issue where floating parts would follow Companions]],
+		[[Refactored Save/Load Preset code to be more robust and less error prone]],
+		[[Improved the Save All Props button to enhance reliability when saving a lot Props]],
+		[[Fixed compatibility issue with previous CET/Game versions]],
+		[[Fixed issue where New Marks in Director tab could not be created with certain NPCs]],
+		[[Fixed issue where saving the current UI language would fail causing ?? to appear in the UI]],
+		[[Fixed issue where certain vehicles would change appearance when entering them]],
+		[[Fixed UI issues with a few Popups: Despawn All Props and Rename Preset]],
+	},
+	{
 		'2.9.6',
 		'2025 Jan 28',
 		[[Added all V's Houses/Apartments to Default Locations list]],

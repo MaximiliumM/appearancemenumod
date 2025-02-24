@@ -31,8 +31,10 @@ function Props:NewProp(uid, id, name, template, posString, scale, app, tag)
   obj.mappinData = nil
   obj.spawned = false
 
-  obj.entitySpec = StaticEntitySpec.new()
-	obj.entitySpec.attached = true
+  if StaticEntitySpec then
+    obj.entitySpec = StaticEntitySpec.new()
+    obj.entitySpec.attached = true
+  end
 
   local pos = loadstring("return "..posString, '')()
   obj.pos = Vector4.new(pos.x, pos.y, pos.z, pos.w)
@@ -182,7 +184,9 @@ function Props:Update()
     Props.tags = {}
   end
 
-  Props.total = Props:GetPropsCount()
+  Cron.After(0.5, function()
+    Props.total = Props:GetPropsCount()
+  end)
 end
 
 function Props:Draw(AMM)
@@ -1105,7 +1109,7 @@ function Props:RenamePresetPopup(style)
   local sizeX = ImGui.GetWindowSize()
   local x, y = ImGui.GetWindowPos()
   ImGui.SetNextWindowPos(x + ((sizeX / 2) - 200), y - 40)
-  ImGui.SetNextWindowSize(400, ImGui.GetFontSize() * 10)
+  ImGui.SetNextWindowSize(400, ImGui.GetFontSize() * 12)
 
   if ImGui.BeginPopupModal("Rename Preset") then
     
@@ -1122,7 +1126,7 @@ function Props:RenamePresetPopup(style)
 
       Props.rename = ImGui.InputText(AMM.LocalizableString("Name"), Props.rename, 30):gsub(".json", "")
 
-      AMM.UI:Spacing(8)
+      AMM.UI:Spacing(2)
 
       if ImGui.Button(AMM.LocalizableString("Button_Save"), style.buttonWidth, style.buttonHeight) then
         if not(io.open(f("./User/Decor/%s.json", Props.rename), "r")) then
@@ -1471,41 +1475,72 @@ function Props:ToggleHideProp(ent)
   end
 end
 
+-- Save ALL props in a robust, sequential manner
 function Props:SaveAllProps()
   saveAllInProgress = true
   Props:BackupPreset(Props.activePreset)
 
-  Cron.After(1.0, function()
-    for _, spawn in ipairs(Props.spawnedPropsList) do
-      if spawn.handle and spawn.handle ~= '' then
-        Props:SavePropPosition(spawn)
-      end
+  -- Gather only those props that are valid to save
+  local propsList = {}
+  for _, spawn in ipairs(Props.spawnedPropsList) do
+    if spawn.handle and spawn.handle ~= "" then
+      table.insert(propsList, spawn)
     end
-    
-    Cron.After(1.0, function()    
-      saveAllInProgress = false
-    end)
+  end
 
-    Props:Update()
-    Props:SensePropsTriggers()
-    AMM:UpdateSettings()
+  local currentIndex = 1
+
+  -- Recursive helper to process the next prop once the previous one finishes
+  local function saveNextProp()
+    -- If we've reached the end, finalize
+    if currentIndex > #propsList then
+      -- A slight delay for any final DB calls, then mark done
+      Cron.After(1.0, function()
+        saveAllInProgress = false
+      end)
+
+      -- Update the mod state
+      Props:Update()
+      Props:SensePropsTriggers()
+      AMM:UpdateSettings()
+      return
+    end
+
+    -- Otherwise, save the next prop
+    local spawn = propsList[currentIndex]
+    currentIndex = currentIndex + 1
+
+    -- We call SavePropPosition with a callback that triggers the next item
+    Props:SavePropPosition(spawn, function()
+      -- Optionally a tiny delay (0.1) to be safe
+      Cron.After(0.1, saveNextProp)
+    end)
+  end
+
+  -- Kick off the sequence after a 1s delay (just to be safe)
+  Cron.After(1.0, function()
+    saveNextProp()
   end)
 
-  Cron.After(10, function() Util:RemovePlayerEffects() end)
+  -- Remove any player effects after 10s
+  Cron.After(10, function()
+    Util:RemovePlayerEffects()
+  end)
 end
 
-function Props:SavePropPosition(ent)
+
+-- Save a single prop’s position. If a callback is provided, it’s called after the 0.5s delay.
+function Props:SavePropPosition(ent, callback)
   local pos = ent.handle:GetWorldPosition()
   local angles = GetSingleton('Quaternion'):ToEulerAngles(ent.handle:GetWorldOrientation())
-	if pos == nil then
-		pos = ent.parameters[1]
+  if not pos then
+    -- Possibly fallback from stored parameters
+    pos = ent.parameters[1]
     angles = ent.parameters[2]
-	end
+  end
 
   local app = AMM:GetAppearance(ent)
-
   local tag = Props.saveToTag or Props:GetTagBasedOnLocation()
-
   local trigger = Util:GetPosString(Props:CheckForTriggersNearby(pos))
   pos = Util:GetPosString(pos, angles)
 
@@ -1516,41 +1551,63 @@ function Props:SavePropPosition(ent)
 
   local light = AMM.Light:GetLightData(ent)
 
+  -- Do the database calls synchronously:
   if ent.uid then
-    
-    db:execute(f('UPDATE saved_props SET template_path = "%s", pos = "%s", scale = "%s", app = "%s" WHERE uid = %i', ent.template, pos, scale, app, ent.uid))
+    -- If this prop is already in DB, update row
+    db:execute(string.format(
+      'UPDATE saved_props SET template_path = "%s", pos = "%s", scale = "%s", app = "%s" WHERE uid = %i',
+      ent.template, pos, scale, app, ent.uid
+    ))
     if light then
-      db:execute(f('UPDATE saved_lights SET color = "%s", intensity = %f, radius = %f, angles = "%s" WHERE uid = %i', light.color, light.intensity, light.radius, light.angles, ent.uid))
+      db:execute(string.format(
+        'UPDATE saved_lights SET color = "%s", intensity = %f, radius = %f, angles = "%s" WHERE uid = %i',
+        light.color, light.intensity, light.radius, light.angles, ent.uid
+      ))
     end
   else
-	  db:execute(f('INSERT INTO saved_props (entity_id, name, template_path, pos, trigger, scale, app, tag) VALUES ("%s", "%s", "%s", "%s", "%s", "%s", "%s", "%s")', ent.id, ent.name, ent.template, pos, trigger, scale, app, tag))
+    -- Otherwise, insert a fresh row
+    db:execute(string.format(
+      'INSERT INTO saved_props (entity_id, name, template_path, pos, trigger, scale, app, tag) VALUES ("%s", "%s", "%s", "%s", "%s", "%s", "%s", "%s")',
+      ent.id, ent.name, ent.template, pos, trigger, scale, app, tag
+    ))
 
     if light then
-      for uid in db:urows(f('SELECT uid FROM saved_props ORDER BY uid DESC LIMIT 1')) do
-        db:execute(f('INSERT INTO saved_lights (uid, entity_id, color, intensity, radius, angles) VALUES (%i, "%s", "%s", %f, %f, "%s")', uid, ent.id, light.color, light.intensity, light.radius, light.angles))
+      -- Grab the newly inserted uid
+      for uid in db:urows('SELECT uid FROM saved_props ORDER BY uid DESC LIMIT 1') do
+        db:execute(string.format(
+          'INSERT INTO saved_lights (uid, entity_id, color, intensity, radius, angles) VALUES (%i, "%s", "%s", %f, %f, "%s")',
+          uid, ent.id, light.color, light.intensity, light.radius, light.angles
+        ))
       end
     end
   end
-  
+
+  -- Wait a bit, then despawn if not yet in DB, and do the final updates
   Cron.After(0.5, function()
     if not ent.uid then
+      -- If it’s brand-new (uid not set yet), we want to remove from world
       ent:Despawn()
     end
 
     if not saveAllInProgress then
       local preset = Props.activePreset
-      if preset == '' then
+      if preset == "" then
         preset = Props:NewPreset(tag)
         Props.activePreset = preset
       end
 
-      if Props.savingProp ~= '' then
-        Props.savingProp = ''
+      if Props.savingProp ~= "" then
+        Props.savingProp = ""
       end
 
       Props:Update()
       Props:SensePropsTriggers()
       AMM:UpdateSettings()
+    end
+
+    -- Finally, if we have a callback, let the SaveAll sequence know we’re done
+    if callback then
+      callback()
     end
   end)
 
@@ -2080,11 +2137,13 @@ end
 function Props:LoadPresets()
   local files = dir("./User/Decor")
   local presets = {}
+  -- Process only if there's a mismatch in the number of presets vs. files (adjust condition as needed)
   if #Props.presets ~= #files - 2 then
-    for _, preset in ipairs(files) do
-      if string.find(preset.name, '.json') then
-        local name, props, lights = Props:LoadPresetData(preset.name)
-        table.insert(presets, {file_name = preset.name, name = name, props = props, lights = lights})
+    for _, file in ipairs(files) do
+      -- Only load files ending in .json (excluding .tmp files)
+      if file.name:match("%.json$") then
+        local name, props, lights = Props:LoadPresetData(file.name)
+        table.insert(presets, {file_name = file.name, name = name, props = props, lights = lights})
       end
     end
     return presets
@@ -2094,11 +2153,16 @@ function Props:LoadPresets()
 end
 
 function Props:DeletePreset(preset)
-  -- make sure we have the file extension only one
-  local presetName = (preset.file_name or preset.name or ''):gsub(".json", "")
+  -- Ensure only one extension: remove .json from the preset name if present
+  local presetName = (preset.file_name or preset.name or ""):gsub("%.json", "")
   
-  os.remove(f("./User/Decor/%s.json",presetName))
-  Props.activePreset = ''
+  local fullFilePath = f("./User/Decor/%s.json", presetName)
+  local tempFilePath = fullFilePath .. ".tmp"
+  
+  os.remove(fullFilePath)
+  os.remove(tempFilePath)  -- Remove the temporary file if it exists
+  
+  Props.activePreset = ""
   Props.presets = Props:LoadPresets()
 
   if #Props.presets ~= 0 then
@@ -2112,68 +2176,110 @@ function Props:DeletePreset(preset)
   end
 end
 
--- suppress that first error message, as the preset will be invalid at that point
+-- Fallback function: copy the temporary file to the final destination and remove the temp file.
+local function safeCopy(tempPath, finalPath)
+  local infile, inerr = io.open(tempPath, "rb")
+  if not infile then
+    log(f("Failed to open temp file for copy: %s", inerr))
+    return false, inerr
+  end
+  local data = infile:read("*a")
+  infile:close()
+
+  local outfile, outerr = io.open(finalPath, "wb")
+  if not outfile then
+    log(f("Failed to open final file for copy: %s", outerr))
+    return false, outerr
+  end
+  outfile:write(data)
+  outfile:close()
+
+  os.remove(tempPath)
+  return true
+end
+
 local isInitialSave = true
 
 function Props:SavePreset(preset, path, fromDB)
-  
-  -- suppress error message when trying to serialize a preset that wasn't yet loaded
   if isInitialSave then 
     isInitialSave = false
-    return
+    return false
   end
-  
-  spdlog.info(f('Saving preset %s', preset.name))
+
+  log(f("Saving preset %s", preset.name or "Unnamed"))
 
   if fromDB then
     local props = {}
-    for prop in db:nrows('SELECT * FROM saved_props') do
+    for prop in db:nrows("SELECT * FROM saved_props") do
       table.insert(props, prop)
     end
 
     local lights = {}
-    for light in db:nrows('SELECT * FROM saved_lights') do
+    for light in db:nrows("SELECT * FROM saved_lights") do
       table.insert(lights, light)
     end
 
-    local presetFromDB = Props:NewPreset(preset.name or 'Preset'):gsub(".json", "") -- make sure we have json only once
+    local presetFromDB = Props:NewPreset(preset.name or "Preset")
+    presetFromDB.name = (preset.name or "Preset"):gsub("%.json", "")
+    presetFromDB.file_name = presetFromDB.name .. ".json"
     presetFromDB.props = props
     presetFromDB.lights = lights
-    presetFromDB.file_name = preset.name..".json"
-    presetFromDB.name = preset.name or presetFromDB.name
-
     preset = presetFromDB
   end
 
   local contents = json.encode(preset)
-  local bouncedPreset = json.decode(contents)
-
-  local invalidOriginalPreset = #preset.props == 0 and #preset.lights == 0
-  local invalidBouncedPreset = #bouncedPreset.props == 0 and #bouncedPreset.lights == 0
-
-
-  
-  if invalidOriginalPreset or invalidBouncedPreset then
-    local reason = (invalidBouncedPreset and not invalidOriginalPreset) and "preset serialization to JSON failed" or "preset props and lights are both empty"
-
-    local errorTitle = "Preset Saving Failed"
-    local errorMessage = f('Cannot save preset because %s and saving it would result in an invalid JSON file. Preset: %s %s', reason, preset.name or "<no preset name set>", preset.file_name or "<no preset file name set>")
-
-    spdlog.error(errorMessage)
-
+  if not contents or contents == "" then
+    log("JSON encoding failed: content is empty")
     return false
   end
 
-  local filename = f("%s.json", (preset.file_name or preset.name):gsub(".json", "")) -- make sure we have the extension only once
-  local filepath = path or "./User/Decor/%s"
-  
-  local file = io.open(f(filepath, filename), "w")
-
-  if file then
-        file:write(contents)
-        file:close()
-    return true
+  local ok, bouncedPreset = pcall(json.decode, contents)
+  if not ok or not bouncedPreset then
+    log("JSON decoding failed after encoding: " .. tostring(bouncedPreset))
+    return false
   end
+
+  local origProps    = preset.props or {}
+  local origLights   = preset.lights or {}
+  local bounceProps  = bouncedPreset.props or {}
+  local bounceLights = bouncedPreset.lights or {}
+
+  local invalidOriginal = (#origProps == 0 and #origLights == 0)
+  local invalidBounced  = (#bounceProps == 0 and #bounceLights == 0)
+
+  if invalidOriginal or invalidBounced then
+    local reason = (invalidBounced and not invalidOriginal)
+      and "preset serialization to JSON failed"
+      or "preset props and lights are both empty"
+    local errorMessage = f("Cannot save preset because %s. Preset: %s %s", 
+                            reason, preset.name or "<no preset name set>", preset.file_name or "<no preset file name set>")
+    log(errorMessage)
+    return false
+  end
+
+  local fileName = f("%s.json", (preset.file_name or preset.name):gsub("%.json", ""))
+  local filePathPattern = path or "./User/Decor/%s"
+  local fullFilePath = f(filePathPattern, fileName)
+
+  local tempFilePath = fullFilePath .. ".tmp"
+  local file, err = io.open(tempFilePath, "w")
+  if not file then
+    log(f("Failed to open temporary file for writing: %s", err))
+    return false
+  end
+
+  file:write(contents)
+  file:close()
+
+   -- Use our safe copy function to move data from the temp file to the final destination.
+   local success, copyErr = safeCopy(tempFilePath, fullFilePath)
+   if not success then
+     log(f("Failed to copy temporary file to final destination: %s", copyErr))
+     return false
+   end
+ 
+   log(f("Preset saved successfully to %s", fullFilePath))
+   return true
 end
 
 function Props:MergePresets(preset1, preset2)

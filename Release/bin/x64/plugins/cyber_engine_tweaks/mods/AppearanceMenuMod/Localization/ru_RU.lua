@@ -37,8 +37,9 @@ return {
 
     --Checkbox
 	Checkbox_SavedDespawnsActive = "Активны сохранённые деспауны",
+	Checkbox_KeepAssigned = "Сохранять назначение при смене автомобиля",
 
-    --Warning / Info / Tool Tip
+	--Warning / Info / Tool Tip
 	WarnTextAI_FastTravel = "Выберите точку быстрого перемещения на карте чтобы начать движение",
 	WarnText_DontReloadMods = "Не используйте Reload All Mods.\nПожалуйста перезагрузите свое сохранение или перейдите в другую область.",
 	Warning_NoTarget_Desc = "Нет Цели! Направьте взгляд на НПС Объект или Транспорт чтобы начать",
@@ -127,6 +128,7 @@ return {
 	Warn_ReplacerSwap = "Вы не можете поменять replacer! Используйте вкладку 'Инструменты' в режиме фотосъемки чтобы нацелить их а затем измените их внешний вид на вкладке 'Спаун' или 'Инструменты цели'.",
 	Warning = "ПРЕДУПРЕЖДЕНИЕ",
 	Warning2 = "ПРЕДУПРЕЖДЕНИЕ:",
+	SaveSwap_Tooltip = "Сохраните свои замены, чтобы они не исчезли после перезагрузки игры.",
 
     --Text
 	CantSwapReplacer = "Невозможно заменить Replacer",
@@ -436,7 +438,7 @@ return {
 	Button_RadioRandom = "Случайно",
 	Button_RadioSequential = "Последовательный",
 	Button_SaveTrigger = "Сохранить триггер",
-	Button_NewCamera = "Новая кмера",
+	Button_NewCamera = "Новая Камера",
 	Button_NewScript = "Новый сценарий",
 	Button_DragSpeed = "Скорость",
 	Button_ToggleMarker = "Тумблер",

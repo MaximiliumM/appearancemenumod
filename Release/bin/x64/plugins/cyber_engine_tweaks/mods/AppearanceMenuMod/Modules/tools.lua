@@ -1322,15 +1322,15 @@ function Tools:DrawNPCActions()
                     Tools:UseGeneralAction(function(ent) 
                         Tools:SetNPCAttitude(ent, EAIAttitude.AIA_Neutral, nil, CName.new("panam"))
                         table.insert(targets, ent.handle)
-                    end, 40)
+                    end, 30)
         
                     Tools:SetCyberpsycho(psycho, targets)
                 end
         
                 runCyberpsycho()
         
-                -- Setup a 10-second recurring Cron for cyberpsycho behavior
-                Cron.Every(10, { tick = 1 }, function(timer)
+                -- Setup a 3-second recurring Cron for cyberpsycho behavior
+                Cron.Every(3, { tick = 1 }, function(timer)
                     timer.tick = timer.tick + 1
         
                     if timer.tick > 60 or Tools.cyberpsychoMode == false then
@@ -3313,13 +3313,15 @@ function Tools:SpawnHelper(ent, pos, angles)
 end
 
 function Tools:UpdateAxisIndicatorPosition()
-  local targetPosition = Tools.currentTarget.handle:GetWorldPosition()
-  local targetAngles = nil
-  if Tools.relativeMode then
-    targetAngles = Tools.currentTarget.handle:GetWorldOrientation():ToEulerAngles()
-  end
+  if Tools.currentTarget and Tools.axisIndicator and Tools.axisIndicator.handle then
+    local targetPosition = Tools.currentTarget.handle:GetWorldPosition()
+    local targetAngles = nil
+    if Tools.relativeMode then
+      targetAngles = Tools.currentTarget.handle:GetWorldOrientation():ToEulerAngles()
+    end
 
-  Game.GetTeleportationFacility():Teleport(Tools.axisIndicator.handle, targetPosition, targetAngles)
+    Game.GetTeleportationFacility():Teleport(Tools.axisIndicator.handle, targetPosition, targetAngles)
+  end
 end
 
 function Tools:ToggleAxisIndicator()

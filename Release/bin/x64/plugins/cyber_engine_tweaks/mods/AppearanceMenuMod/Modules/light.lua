@@ -559,12 +559,19 @@ end
 function Light:GetLightComponent(handle)
   local components = {}
 
-  for comp in db:urows("SELECT cname FROM components WHERE type = 'Lights'") do
-    local component = handle:FindComponentByName(comp)
-    if component then      
-      table.insert(components, component)
+  local possibleComponents = handle:GetComponents()
+  for _, comp in ipairs(possibleComponents) do
+    if string.find(NameToString(comp:GetClassName()), "LightComponent") then
+	    table.insert(components, comp)
     end
   end
+  
+  -- for comp in db:urows("SELECT cname FROM components WHERE type = 'Lights'") do
+  --   local component = handle:FindComponentByName(comp)
+  --   if component then      
+  --     table.insert(components, component)
+  --   end
+  -- end
 
   if #components > 0 then return components else return nil end
 end

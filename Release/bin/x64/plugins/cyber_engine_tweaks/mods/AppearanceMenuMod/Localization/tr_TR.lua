@@ -37,8 +37,9 @@ return {
 
     --Checkbox
 	Checkbox_SavedDespawnsActive = "Kaydedilmis Kaldirilanlar Aktif",
+	Checkbox_KeepAssigned = "Araba Değiştirirken Atamayı Koru",
 
-    --Warning / Info / Tool Tip
+	--Warning / Info / Tool Tip
 	WarnTextAI_FastTravel = "Seyahat etmek icin haritanizdan bir Hizli Seyahat noktasi seçin.",
 	WarnText_DontReloadMods = "Reload All Mods butonunu kullanmayin.\nLütfen kayit dosyanizi yeniden yükleyin veya farkli bir alana gidin.",
 	Warning_NoTarget_Desc = "Hedef bulunamadi! Bir NPC'ye, Araca veya Nesneye Bakin.",
@@ -122,22 +123,22 @@ return {
     --Button Label
     --Checkbox
     --Warning / Info / Tool Tip
-	Warn_ReloadSaveUpdateChanges = "Degisikliklerin güncellenmesi için kayit dosyasini Yeniden Yükleyin!",
-	Warn_NeedReloadSaveUpdateChanges = "Degisiklikleri güncellemek için kaydinizi yeniden yüklemeniz gerekecek!",
-	Warn_ReplacerSwap = "Replacer'ı, degistiremezsiniz! Hedef almak için fotograf modunda 'Araçlar' sekmesini kullanin, ardindan görünümlerini 'Yarat' Sekmesi veya 'Hedef Araçlari'ndan degistirin.",
+	Warn_ReloadSaveUpdateChanges = "Değişiklikleri güncellemek için kayıt dosyanızı yeniden yükleyin!",
+	Warn_NeedReloadSaveUpdateChanges = "Değişiklikleri güncellemek için kaydınızı yeniden yüklemeniz gerekecek.",
+	Warn_ReplacerSwap = "Replacer'ı değiştiremezsiniz! Onları hedeflemek için fotoğraf modundaki Araçlar sekmesini kullanın, ardından görünümlerini Yarat Sekmesi veya Hedef Araçları'ndan değiştirin.",
 	Warning = "UYARI",
 	Warning2 = "UYARI:",
+	SaveSwap_Tooltip = "Oyununuzu yeniden yükledikten sonra takaslarınızı saklamak için kaydedin.",
 
     --Text
-	CantSwapReplacer = "Replacer Degistirilemiyor",
-	Active_Model_Swaps = "Degistirilmis Aktif Modeller",
+	CantSwapReplacer = "Replacer Değiştirilemez",
+	Active_Model_Swaps = "Aktif Model Takasları",
 	Save = "Kaydet",
 	Restore = "Geri Yükle",
 	Current_Target = "Mevcut Hedef:",
 	Target_ID = "Hedef ID:",
-	SelectSwap_CurrentTarget = "Mevcut hedefle degistirmek için seçin:",
-	NoNPC_LookNPC = "NPC Bulunamadi! Baslamak için NPC'ye bakin.",
-
+	SelectSwap_CurrentTarget = "Mevcut hedefle takas yapmak için seçin:",
+	NoNPC_LookNPC = "NPC Bulunamadı! Başlamak için bir NPC'ye bakın.",
 
 
 	-- >> DECOR TAB

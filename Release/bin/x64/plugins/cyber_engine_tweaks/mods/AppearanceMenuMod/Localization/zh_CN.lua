@@ -37,8 +37,9 @@ return {
 
     --Checkbox
 	Checkbox_SavedDespawnsActive = "保存的 消失 激活",
+	Checkbox_KeepAssigned = "更换车辆时保持分配",
 
-    --Warning / Info / Tool Tip
+	--Warning / Info / Tool Tip
 	WarnTextAI_FastTravel = "在地图上选择一个快速旅行点使用功能",
 	WarnText_DontReloadMods = "不要使用Reload All mods。\n请重新加载您的游戏或移动到不同的区域。",
 	Warning_NoTarget_Desc = "没有目标!试着将准星对准NPC、载具或物体来启用功能",
@@ -127,6 +128,7 @@ return {
 	Warn_ReplacerSwap = "你不能使用小不点替换的NPC来作为替换目标!使用照片模式中的工具选项卡来定位它们,然后从刷出选项卡或目标工具中切换它们的外观。",
 	Warning = "警告",
 	Warning2 = "警告:",
+	SaveSwap_Tooltip = "保存你的替换，以便在重新加载游戏后仍然保留它们。",
 
     --Text
 	CantSwapReplacer = "不能替换小不点替换的NPC",

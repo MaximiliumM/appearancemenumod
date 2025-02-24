@@ -37,6 +37,7 @@ return {
 	
     --Checkbox
 	Checkbox_SavedDespawnsActive = "Saved Despawns Active",
+	Checkbox_KeepAssigned = "Keep Assigned When Changing Cars",
 	
     --Warning / Info / Tool Tip
 	WarnTextAI_FastTravel = "Select a Fast Travel point on your map to get going",
@@ -127,6 +128,7 @@ return {
 	Warn_ReplacerSwap = "You can't swap the replacer! Use the tools tab in photo mode to target them, then switch their appearance from the Spawn Tab or the Target Tools.",
 	Warning = "WARNING",
 	Warning2 = "WARNING:",
+	SaveSwap_Tooltip = "Save your swaps to keep them after reloading your game.",
 	
     --Text
 	CantSwapReplacer = "Can't swap Replacer",

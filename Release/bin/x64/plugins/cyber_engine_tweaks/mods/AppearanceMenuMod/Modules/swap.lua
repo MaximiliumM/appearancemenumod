@@ -81,6 +81,10 @@ function Swap:Draw(AMM, t)
           buttonLabel = AMM.LocalizableString("Clear")
         end
 
+        if ImGui.IsItemHovered() then
+          ImGui.SetTooltip(AMM.LocalizableString("SaveSwap_Tooltip"))
+        end
+
         if ImGui.SmallButton(f("  %s  ##", buttonLabel)..swapID) then
           if buttonLabel == AMM.LocalizableString("Save") then self:SaveModelSwap(swapID)
           else self:ClearSavedSwap(swapID) end

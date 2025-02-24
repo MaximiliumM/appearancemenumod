@@ -83,7 +83,7 @@ function AMM:new()
 	 AMM.photoModeNPCsExtended = false
 
 	 -- Main Properties --
-	 AMM.currentVersion = "2.9.6"
+	 AMM.currentVersion = "2.10"
 	 AMM.CETVersion = parseVersion(GetVersion())
 	 AMM.CodewareVersion = 0
 	 AMM.updateNotes = require('update_notes.lua')
@@ -148,7 +148,7 @@ function AMM:new()
 	 -- Load Localization Files
 	 AMM.currentLanguage = require("Localization/en_US.lua")
 	 AMM.availableLanguages = AMM:GetLocalizationLanguages()
-	 AMM.selectedLanguage = 1
+	 AMM.selectedLanguage = AMM:GetLanguageIndex("en_US")
 
 	 -- Load Modules --
 	 AMM.API = require("Collabs/API.lua")
@@ -478,6 +478,30 @@ function AMM:new()
 			end
 		end)
 
+		ObserveBefore("VehicleComponent", "OnVehicleStartedMountingEvent", function(self, event)
+			if event.character:IsPlayer() then
+				local vehicle = self:GetVehicle()
+				local beforeApp = AMM:GetScanAppearance(vehicle)
+				vehicleTarget = AMM:NewTarget(vehicle, 'vehicle', AMM:GetScanID(vehicle), AMM:GetVehicleName(vehicle), currentApp, nil)
+
+				Cron.Every(0.0001, { tick = 10 }, function(timer)
+
+					timer.tick = timer.tick + 1
+
+					if timer.tick > 100 then
+						Cron.Halt(timer)
+					end
+
+					local currentApp = AMM:GetScanAppearance(vehicle)
+					if currentApp ~= beforeApp then
+						AMM:ChangeScanAppearanceTo(vehicleTarget, beforeApp)
+						beforeApp = nil
+						Cron.Halt(timer)
+					end
+				end)
+			end
+		end)
+
 		 Observe("VehicleComponent", "OnVehicleStartedMountingEvent", function(self, event)
 			 if AMM.Scan.drivers[AMM:GetScanID(event.character)] ~= nil then
 				 local driver = AMM.Scan.drivers[AMM:GetScanID(event.character)]
@@ -497,7 +521,7 @@ function AMM:new()
 					end)
 				 end
 		 	 elseif event.character:IsPlayer() then
-				 AMM.playerInVehicle = event.isMounting
+				 AMM.playerInVehicle = event.isMounting				 
 
 				 if AMM.Tools.TPPCameraBeforeVehicle and not AMM.playerInVehicle then
 					Cron.After(1, function()
@@ -1387,135 +1411,6 @@ function AMM:new()
 						spamTimer = 0.0
 					end
 				end
-
-				-- After Custom Appearance Set --
-				if AMM.setCustomApp ~= '' and not buttonPressed then
-					waitTimer = waitTimer + deltaTime
-
-					if waitTimer > 0.1 then
-						local handle          = AMM.setCustomApp[1]
-						local customAppearance = AMM.setCustomApp[2]
-						local currentAppearance = AMM:GetScanAppearance(handle)
-
-						-- Only proceed if the current appearance matches the base appearance
-						if currentAppearance == customAppearance[1].app_base then
-
-							-- Iterate through each appearance parameter
-							for _, param in ipairs(customAppearance) do
-									local isSkinned = string.find(param.app_param, "SkinnedCloth")
-									local appParam     = handle:FindComponentByName(CName.new(param.app_param))
-
-									if appParam then
-										--------------------------------------------------------------
-										-- Resource change section
-										--------------------------------------------------------------
-										if param.mesh_path and appParam.ChangeResource then
-											if appParam:ChangeResource(param.mesh_path, true) then
-													buttonPressed = false
-													--[[
-													if appParam.LoadResource then
-														if appParam:LoadResource() then
-															Cron.After(0.5, function()
-																	appParam:RefreshAppearance()
-																	buttonPressed = false
-																	-- appParam:Toggle(false)
-																	
-																	-- if param.app_toggle or param.mesh_type == "body" then
-																	--     appParam:TemporaryHide(false)
-																	--     appParam:Toggle(true)
-																	-- end
-															end)
-														end
-													end
-													--]]
-											end
-										end
-
-										--------------------------------------------------------------
-										-- Mesh appearance section
-										--------------------------------------------------------------
-										if param.mesh_app then
-											appParam.meshAppearance = CName.new(param.mesh_app)
-											
-											if appParam.LoadAppearance then
-													if appParam:LoadAppearance(true) then
-														buttonPressed = false
-														--[[
-														Cron.After(0.5, function()
-															appParam:RefreshAppearance()
-															buttonPressed = false
-															appParam:Toggle(false)
-															
-															if param.app_toggle or param.mesh_type == "body" then
-																	appParam:TemporaryHide(false)
-																	appParam:Toggle(true)
-															end
-														end)
-														--]]
-													end
-											end
-										end
-
-										--------------------------------------------------------------
-										-- Mesh mask logic
-										--------------------------------------------------------------
-										if param.mesh_mask ~= 'no_change'
-										and appParam.chunkMask ~= param.mesh_mask
-										and not string.find(param.app_name, "Underwear") then
-
-											if param.mesh_mask then
-													-- Convert string value into actual numeric mask
-													param.mesh_mask = loadstring("return "..param.mesh_mask, '')()
-
-													if param.app_toggle then
-														appParam.chunkMask = param.mesh_mask
-													elseif appParam.chunkMask ~= 18446744073709551615ULL then
-														appParam.chunkMask = bit32.bor(param.mesh_mask, appParam.chunkMask)
-													else
-														appParam.chunkMask = 18446744073709551615ULL
-													end
-											else
-													-- If no mesh mask is specified, determine default behavior
-													if param.mesh_type ~= "body" and not param.app_toggle then
-														appParam.chunkMask = 0
-													else
-														appParam.chunkMask = 18446744073709551615ULL
-													end
-											end
-										end
-
-										--------------------------------------------------------------
-										-- Toggling and visibility logic
-										--------------------------------------------------------------
-										if isSkinned and not param.app_toggle then
-											appParam.chunkMask = 0
-
-											Cron.After(0.2, function()
-												appParam:Toggle(false)
-												appParam:Toggle(true)
-											end)
-										else
-											appParam:Toggle(false)
-											
-											if param.app_toggle or param.mesh_type == "body" then
-												appParam:TemporaryHide(false)
-												appParam:Toggle(true)
-											else
-												appParam:TemporaryHide(true)
-											end
-										end
-									end -- if appParam
-							end -- for loop
-
-							waitTimer = 0.0
-							AMM.setCustomApp = ''
-						elseif waitTimer > 10 then
-							waitTimer = 0.0
-							AMM.setCustomApp = ''
-						end -- if currentAppearance
-					end -- if waitTimer
-				end -- if AMM.setCustomApp
-
 			end
 	 end)
 
@@ -1728,12 +1623,12 @@ function AMM:Begin()
 				local target = AMM.currentTarget
 
 				if ImGui.BeginTabBar("TABS") then
-
-					local style = {
-						buttonWidth = -1,
-						buttonHeight = ImGui.GetFontSize() * 2,
-						halfButtonWidth = ((ImGui.GetWindowContentRegionWidth() / 2) - 5)
-					}
+					-- Setup Style --
+					AMM.UI.style.buttonWidth = -1
+					AMM.UI.style.buttonHeight = ImGui.GetFontSize() * 2
+					AMM.UI.style.halfButtonWidth = ((ImGui.GetWindowContentRegionWidth() / 2) - 5)
+					
+					local style = AMM.UI.style
 
 					-- Scan Tab --
 					AMM.Scan:Draw(AMM, target, style)
@@ -4445,7 +4340,7 @@ function AMM:IsValidCustomAppearanceForEntity(entityID, target, appBase)
 	
 	local inClauseIDs = { id }
 	
-	if Util:CheckForPhotoComponent(t) then
+	if t and Util:CheckForPhotoComponent(t) then
 		local name  = AMM:GetNPCName(t)
 		local tdbid = AMM:GetTweakDBIDFromName(name)
 		if tdbid and tdbid ~= id then
@@ -4785,13 +4680,111 @@ function AMM:FindEquivalentAppearanceInRegularEntity(possibleAppearances, app_ba
 end
  
 function AMM:ChangeScanCustomAppearanceTo(t, customAppearance)
+	-- First, set the base appearance as usual
 	self:ChangeScanAppearanceTo(t, customAppearance[1].app_base)
-	self.setCustomApp = {t.handle, customAppearance}
+
+	-- Update activeCustomApps tracking (optional usage)
 	if self.activeCustomApps[t.hash] ~= 'reverse' then
-		self.activeCustomApps[t.hash] = customAppearance[1].app_name
+		 self.activeCustomApps[t.hash] = customAppearance[1].app_name
 	else
-		self.activeCustomApps[t.hash] = nil
+		 self.activeCustomApps[t.hash] = nil
 	end
+
+	Cron.After(0.1, function()
+		local handle = t.handle
+		local currentAppearance = self:GetScanAppearance(handle)
+
+		if currentAppearance == customAppearance[1].app_base then
+
+			 -- Gather all components from this entity
+			 local components = handle:GetComponents()
+
+			 -- Outer loop: go through every component
+			 for _, comp in ipairs(components) do
+				  local compName = NameToString(comp:GetName())
+
+				  -- 1) If the comp name is AppearanceProxyMesh, toggle it off
+				  if compName == "AppearanceProxyMesh" then
+						comp:Toggle(false)
+				  end
+
+				  -- 2) If LODMode property exists, force AlwaysVisible
+				  if comp.LODMode ~= nil then
+						comp.LODMode = entMeshComponentLODMode.AlwaysVisible
+				  end
+
+				  -- Inner loop: compare this component with each appearance param
+				  for _, param in ipairs(customAppearance) do
+						if compName == param.app_param then
+							 --------------------------------------------------------------
+							 -- Resource change section
+							 --------------------------------------------------------------
+							 if param.mesh_path and comp.ChangeResource then
+								  comp:ChangeResource(param.mesh_path, true)
+							 end
+
+							 --------------------------------------------------------------
+							 -- Mesh appearance section
+							 --------------------------------------------------------------
+							 if param.mesh_app then
+								  comp.meshAppearance = CName.new(param.mesh_app)
+								  if comp.LoadAppearance then
+										comp:LoadAppearance(true)
+								  end
+							 end
+
+							 --------------------------------------------------------------
+							 -- Mesh mask logic
+							 --------------------------------------------------------------
+							 if param.mesh_mask ~= 'no_change'
+								 and comp.chunkMask ~= param.mesh_mask
+								 and not string.find(param.app_name, "Underwear") then
+
+								  if param.mesh_mask then
+										param.mesh_mask = loadstring("return "..param.mesh_mask, '')()
+
+										if param.app_toggle then
+											 comp.chunkMask = param.mesh_mask
+										elseif comp.chunkMask ~= 18446744073709551615ULL then
+											 comp.chunkMask = bit32.bor(param.mesh_mask, comp.chunkMask)
+										else
+											 comp.chunkMask = 18446744073709551615ULL
+										end
+								  else
+										if param.mesh_type ~= "body" and not param.app_toggle then
+											 comp.chunkMask = 0
+										else
+											 comp.chunkMask = 18446744073709551615ULL
+										end
+								  end
+							 end
+
+							 --------------------------------------------------------------
+							 -- Toggling / visibility logic
+							 --------------------------------------------------------------
+							 local isSkinned = string.find(param.app_param, "SkinnedCloth")
+							 if isSkinned and not param.app_toggle then
+								  comp.physicsSimulationType = physicsSimulationType.Static
+								  Cron.After(0.2, function()
+										comp:TemporaryHide(true)
+								  end)
+							 else
+								  comp:Toggle(false)
+								  if param.app_toggle or param.mesh_type == "body" then
+										comp:TemporaryHide(false)
+										comp:Toggle(true)
+								  else
+										comp:TemporaryHide(true)
+								  end
+							 end
+
+							 -- Found a param match—stop checking other params for this component
+							 break
+						end -- if compName == param.app_param
+				  end -- for each param
+			 end -- for each component
+		end -- if currentAppearance == ...
+  end) -- Cron.After
 end
 
 function AMM:ChangeScanAppearanceTo(t, newAppearance)
@@ -4947,6 +4940,79 @@ function AMM:ResetFollowCommandAfterAction(ent, action)
 		action(ent.handle, param)
 	end
 end
+
+-- Check distances every 1 second. For any spawns going from far->near,
+-- queue them up, then refresh them sequentially (with a short delay between each).
+function AMM:CheckCompanionDistances()
+  Cron.Every(1.0, function()
+    if next(AMM.Spawn.spawnedNPCs) == nil then
+      return
+    end
+
+    local player = Game.GetPlayer()
+    if not player then return end
+
+    local playerPos = player:GetWorldPosition()
+
+    -- We'll store spawns that we need to refresh, so we can handle them sequentially
+    local toRefresh = {}
+
+    for _, spawn in pairs(AMM.Spawn.spawnedNPCs) do
+      if spawn.entityID and spawn.handle and spawn.handle:IsNPC() then
+        local npcPos = spawn.handle:GetWorldPosition()
+        local distance = Util:VectorDistance(playerPos, npcPos)
+
+        if distance > 29 then
+          if not spawn.farDistance then
+            spawn.farDistance = true
+          end
+        else
+          -- They are now within 29 meters
+          if spawn.farDistance then
+            spawn.farDistance = false
+            table.insert(toRefresh, spawn)
+          end
+        end
+      end
+    end
+
+    -- Now we process the collected spawns in a small sequence
+    if #toRefresh > 0 then
+      -- We'll do it with a short Cron approach that processes each spawn
+      -- with 0.3s spacing
+      local i = 1
+      Cron.Every(0.3, {tick = 1}, function(timer)
+        local spawn = toRefresh[i]
+        if not spawn then
+          Cron.Halt(timer)
+          return
+        end
+
+        -- Re-acquire the entity in case the old handle is stale
+        local newEntity = Game.FindEntityByID(spawn.entityID)
+        if newEntity then
+          spawn.handle = newEntity
+          AMM:RefreshAppearance(spawn)
+        end
+
+        i = i + 1
+        if i > #toRefresh then
+          Cron.Halt(timer)
+        end
+      end)
+    end
+  end)
+end
+
+ function AMM:RefreshAppearance(spawn)
+	-- Sanity checks
+	if not spawn or not spawn.handle or spawn.handle == '' then return end
+ 
+	-- Use the stored appearance:
+	local currentAppearance = spawn.appearance or "default"
+	self:ChangeAppearanceTo(spawn, currentAppearance)
+ end
+ 
 
 function AMM:ChangeNPCEquipment(ent, equipmentPath)
 	local npcPath = ent.path
@@ -5155,7 +5221,7 @@ function AMM:OpenPopup(name)
 	popupHeight = 40 + (#popupDelegate.buttons * 66)
 
 	 -- Adjust the popup size dynamically
-    popupWidth = math.max(popupWidth, 400) -- Minimum width
+    popupWidth = math.max(popupWidth, 300) -- Minimum width
     popupHeight = math.max(popupHeight, 140) -- Minimum height
     ImGui.SetNextWindowSize(popupWidth, popupHeight)
 
@@ -5313,6 +5379,11 @@ function AMM:DrawArchives()
 end
 
 function AMM:GetLanguageIndex(langStr)
+
+	if #AMM.availableLanguages == 0 then
+		AMM.availableLanguages = AMM:GetLocalizationLanguages()
+	end
+
 	for i, lang in ipairs(AMM.availableLanguages) do
 		if lang.name == langStr then
 			AMM.currentLanguage = lang.strings
@@ -5320,12 +5391,27 @@ function AMM:GetLanguageIndex(langStr)
 		end
 	end
 
+	-- Instead of always defaulting to 1, check if "en_US" exists
+	for i, lang in ipairs(AMM.availableLanguages) do
+		if lang.name == "en_US" then
+			AMM.currentLanguage = lang.strings
+			return i
+		end
+	end
+	
+  	-- If "en_US" is somehow missing, return the first available language
 	return 1
 end
 
 function AMM:GetLocalizationLanguages()
 	local languages = {}
 	local files = dir("./Localization")
+
+	-- Ensure files are always sorted alphabetically
+	table.sort(files, function(a, b)
+		return a.name < b.name
+  	end)
+
 	for _, loc in ipairs(files) do
 		if string.find(loc.name, '.lua') then
 			local localizableStrings = AMM:PreloadLanguage(loc.name)
