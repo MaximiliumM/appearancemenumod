@@ -1,5 +1,23 @@
 return {
 	{
+		'2.11',
+		'2025 Mar 03',
+		[[Introducing AMM Facial Expressions Overhaul by Jamie]],
+		[[-- Adds 200+ Facial Expressions]],
+		[[-- Enables Category System for Facial Expressions]],
+		[[Complete overhaul of Teleport Location system]],
+		[[-- Now you can organize User Locations in Categories]],
+		[[-- You can also add Tags to User Locations]],
+		[[-- Filter Locations by Name and Tags using Search or Filter buttons]],
+		[[Added new Setting: Passive Mode On Launch]],
+		[[Added new Reset button for Expressions]],
+		[[Added Slo-mo Time slider to Target Tools when Facial Expressions are active]],
+		[[-- Did you know there is a hidden button related to this Slo-mo slider?]],
+		[[Fixed issue where Freeze Time and Freeze Target would not actually stop time completely]],
+		[[Fixed issue where Director Cameras would get stuck looking up or down sometimes]],
+		[[Fixed issue where hotkeys would not work when pressed while other keys were pressed]],
+	},
+	{
 		'2.10',
 		'2025 Feb 24',
 		[[Added new Characters: Katya, Supplier, Baird, Tyler, Nele and FSS Drone]],

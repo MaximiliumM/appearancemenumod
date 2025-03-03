@@ -81,9 +81,10 @@ function AMM:new()
 	 AMM.UniqueVRig = false
 	 AMM.nibblesReplacer = false
 	 AMM.photoModeNPCsExtended = false
+	 AMM.extraExpressionsInstalled = false
 
 	 -- Main Properties --
-	 AMM.currentVersion = "2.10"
+	 AMM.currentVersion = "2.11"
 	 AMM.CETVersion = parseVersion(GetVersion())
 	 AMM.CodewareVersion = 0
 	 AMM.updateNotes = require('update_notes.lua')
@@ -182,6 +183,11 @@ function AMM:new()
 
 		 if AMM.Debug ~= '' then
 			AMM.player = Game.GetPlayer()
+		 end
+
+		 -- Setup Extra Facial Expressions --
+		 if ModArchiveExists("AMM_Expressions_MEGA_PACK.archive") then
+			AMM.extraExpressionsInstalled = true
 		 end
 
 		 -- Setup Unique V Framework --
@@ -681,6 +687,11 @@ function AMM:new()
 
 	 registerForEvent("onShutdown", function()
 		 AMM.Director:DespawnActiveCamera()
+
+		 if StatusEffectSystem.ObjectHasStatusEffectWithTag(Game.GetPlayer(), 'NoCameraControl') then
+			Util:RemovePlayerEffects()
+		 end
+
 		 AMM:ExportUserData()
 	 end)
 
@@ -762,155 +773,182 @@ function AMM:new()
 	 end
 
 	 -- Keybinds
-	 registerHotkey("amm_open_overlay", "Open Appearance Menu", function()
-	 	drawWindow = not drawWindow
-	 end)
-
-	 registerHotkey("amm_cycle", "Cycle Appearance", function()
-		local target = AMM:GetTarget()
-		if target ~= nil then
-			delayTimer = 0.0
-			AMM.shouldCheckSavedAppearance = false
-			buttonPressed = true
-			AMM:ChangeScanAppearanceTo(target, 'Cycle')
+	 registerInput("amm_open_overlay", "Open Appearance Menu", function(down)
+		if down then
+	 		drawWindow = not drawWindow
 		end
 	 end)
 
-	 registerHotkey("amm_save", "Save Appearance", function()
-		local target = AMM:GetTarget()
- 		if target ~= nil then
- 			AMM:SaveAppearance(target)
- 		end
+	 registerInput("amm_cycle", "Cycle Appearance", function(down)
+		if down then
+			local target = AMM:GetTarget()
+			if target ~= nil then
+				delayTimer = 0.0
+				AMM.shouldCheckSavedAppearance = false
+				buttonPressed = true
+				AMM:ChangeScanAppearanceTo(target, 'Cycle')
+			end
+		end
 	 end)
 
-	--  registerHotkey("amm_show_target_tools", "Show Target Tools", function()
+	 registerInput("amm_save", "Save Appearance", function(down)
+		if down then
+			local target = AMM:GetTarget()
+			if target ~= nil then
+				AMM:SaveAppearance(target)
+			end
+		end
+	 end)
+
+	--  registerInput("amm_show_target_tools", "Show Target Tools", function(down)
  	-- 	AMM:ShowTargetTools()
 	--  end)
 
-	 registerHotkey("amm_clear", "Clear Appearance", function()
-		local target = AMM:GetTarget()
-		if target ~= nil then
-			AMM:ClearSavedAppearance(target)
+	 registerInput("amm_clear", "Clear Appearance", function(down)
+		if down then
+			local target = AMM:GetTarget()
+			if target ~= nil then
+				AMM:ClearSavedAppearance(target)
+			end
 		end
 	 end)
 
-	 registerHotkey("amm_spawn_favorite", "Spawn Favorite", function()
-		 AMM.Spawn:SpawnFavorite()
+	 registerInput("amm_spawn_favorite", "Spawn Favorite", function(down)
+		if down then AMM.Spawn:SpawnFavorite() end
 	 end)
 
-	 registerHotkey("amm_spawn_target", "Spawn Target", function()
-		local target = AMM:GetTarget()
-		if target ~= nil and target.handle:IsNPC() then
-			local spawnableID = AMM:IsSpawnable(target)
+	 registerInput("amm_spawn_target", "Spawn Target", function(down)
+		if down then
+			local target = AMM:GetTarget()
+			if target ~= nil and target.handle:IsNPC() then
+				local spawnableID = AMM:IsSpawnable(target)
 
-			if spawnableID ~= nil then
+				if spawnableID ~= nil then
 
-				local spawn = nil
-				for ent in db:nrows(f("SELECT * FROM entities WHERE entity_id = '%s'", spawnableID)) do
-					spawn = AMM.Spawn:NewSpawn(ent.entity_name, ent.entity_id, ent.entity_parameters, ent.can_be_comp, ent.entity_path, ent.template_path, ent.entity_rig)
+					local spawn = nil
+					for ent in db:nrows(f("SELECT * FROM entities WHERE entity_id = '%s'", spawnableID)) do
+						spawn = AMM.Spawn:NewSpawn(ent.entity_name, ent.entity_id, ent.entity_parameters, ent.can_be_comp, ent.entity_path, ent.template_path, ent.entity_rig)
+					end
+
+					if spawn ~= nil then
+						target.handle:Dispose()
+						AMM.Spawn:SpawnNPC(spawn)
+					end
+				end
+			end
+		end
+	 end)
+
+	 registerInput("amm_despawn_target", "Despawn Target", function(down)
+		if down then
+			local target = AMM:GetTarget()
+			if target ~= nil then
+				local spawnedNPC = nil
+				for _, spawn in pairs(AMM.Spawn.spawnedNPCs) do
+					if target.id == spawn.id then spawnedNPC = spawn break end
 				end
 
-				if spawn ~= nil then
-					target.handle:Dispose()
-					AMM.Spawn:SpawnNPC(spawn)
+				if spawnedNPC then
+					AMM.Spawn:DespawnNPC(spawnedNPC)
+				else
+					Util:Despawn(target.handle)
 				end
 			end
 		end
 	 end)
 
-	 registerHotkey("amm_despawn_target", "Despawn Target", function()
-		local target = AMM:GetTarget()
-		if target ~= nil then
-			local spawnedNPC = nil
-			for _, spawn in pairs(AMM.Spawn.spawnedNPCs) do
-				if target.id == spawn.id then spawnedNPC = spawn break end
-			end
-
-			if spawnedNPC then
-				AMM.Spawn:DespawnNPC(spawnedNPC)
-			else
-				Util:Despawn(target.handle)
+	 registerInput("amm_pickup_target", "Pick Up Target", function(down)
+		if down then
+			local target = AMM:GetTarget()
+			if target ~= nil then
+				AMM.Tools:PickupTarget(target)
+			elseif AMM.Tools.holdingNPC then
+				AMM.Tools:PickupTarget()
 			end
 		end
 	 end)
 
-	 registerHotkey("amm_pickup_target", "Pick Up Target", function()
-		local target = AMM:GetTarget()
-		if target ~= nil then
-			AMM.Tools:PickupTarget(target)
-		elseif AMM.Tools.holdingNPC then
-			AMM.Tools:PickupTarget()
+	 registerInput("amm_respawn_all", "Respawn All", function(down)
+		if down then
+			buttonPressed = true
+			AMM:RespawnAll()
 		end
 	 end)
 
-	 registerHotkey("amm_respawn_all", "Respawn All", function()
-		buttonPressed = true
-	 	AMM:RespawnAll()
-	 end)
-
-	 registerHotkey("amm_toggle_companions", "Toggle Companions", function()
-		if next(AMM.Spawn.spawnedNPCs) ~= nil then
+	 registerInput("amm_toggle_companions", "Toggle Companions", function(down)
+		if down and next(AMM.Spawn.spawnedNPCs) ~= nil then
 			for _, spawn in pairs(AMM.Spawn.spawnedNPCs) do
 				Util:ToggleCompanion(spawn)
 			end
 		end
 	 end)
 
-	 registerHotkey("amm_toggle_vehicle_camera", "Toggle Vehicle Camera", function()
-		local qm = AMM.player:GetQuickSlotsManager()
-		mountedVehicle = qm:GetVehicleObject()
-		if AMM.Scan.companionDriver and mountedVehicle then
-			AMM.Scan:ToggleVehicleCamera()
+	 registerInput("amm_toggle_vehicle_camera", "Toggle Vehicle Camera", function(down)
+		if down then
+			local qm = AMM.player:GetQuickSlotsManager()
+			mountedVehicle = qm:GetVehicleObject()
+			if AMM.Scan.companionDriver and mountedVehicle then
+				AMM.Scan:ToggleVehicleCamera()
+			end
 		end
 	 end)
 
-	 registerHotkey("amm_toggle_station", "Toggle Radio", function()
-		local qm = AMM.player:GetQuickSlotsManager()
-		mountedVehicle = qm:GetVehicleObject()
-		if mountedVehicle then
-			mountedVehicle:ToggleRadioReceiver(not mountedVehicle:IsRadioReceiverActive())
+	 registerInput("amm_toggle_station", "Toggle Radio", function(down)
+		if down then
+			local qm = AMM.player:GetQuickSlotsManager()
+			mountedVehicle = qm:GetVehicleObject()
+			if mountedVehicle then
+				mountedVehicle:ToggleRadioReceiver(not mountedVehicle:IsRadioReceiverActive())
+			end
 		end
 	 end)
 
-	 registerHotkey("amm_next_station", "Next Radio Station", function()
-		local qm = AMM.player:GetQuickSlotsManager()
-		mountedVehicle = qm:GetVehicleObject()
-		if mountedVehicle and mountedVehicle:IsRadioReceiverActive() then
-			mountedVehicle:NextRadioReceiverStation()
+	 registerInput("amm_next_station", "Next Radio Station", function(down)
+		if down then
+			local qm = AMM.player:GetQuickSlotsManager()
+			mountedVehicle = qm:GetVehicleObject()
+			if mountedVehicle and mountedVehicle:IsRadioReceiverActive() then
+				mountedVehicle:NextRadioReceiverStation()
+			end
 		end
 	 end)
 
-	 registerHotkey("amm_repair_vehicle", "Repair Vehicle", function()
-		 local handle
-		 local target = AMM:GetTarget()
-  	 if target ~= nil and target.handle:IsVehicle() then
- 			 handle = target.handle
-		 else
-			 local qm = AMM.player:GetQuickSlotsManager()
-		 	 handle = qm:GetVehicleObject()
- 		 end
+	 registerInput("amm_repair_vehicle", "Repair Vehicle", function(down)
+		if down then
+			local handle
+			local target = AMM:GetTarget()
+			if target ~= nil and target.handle:IsVehicle() then
+				handle = target.handle
+			else
+				local qm = AMM.player:GetQuickSlotsManager()
+				handle = qm:GetVehicleObject()
+			end
 
-		 if handle ~= nil then
-		 	Util:RepairVehicle(handle)
-		 end
+			if handle ~= nil then
+				Util:RepairVehicle(handle)
+			end
+		end
 	 end)
 
-	 registerHotkey("amm_toggle_doors", "Toggle Doors", function()
-		local handle
-		local target = AMM:GetTarget()
-		if target ~= nil and target.handle:IsVehicle() then
-			 handle = target.handle
-		else
-			 local qm = AMM.player:GetQuickSlotsManager()
-			 handle = qm:GetVehicleObject()
-		end
-  
-		if handle ~= nil then
-			 Util:ToggleDoors(handle)
+	 registerInput("amm_toggle_doors", "Toggle Doors", function(down)
+		if down then
+			local handle
+			local target = AMM:GetTarget()
+			if target ~= nil and target.handle:IsVehicle() then
+				handle = target.handle
+			else
+				local qm = AMM.player:GetQuickSlotsManager()
+				handle = qm:GetVehicleObject()
+			end
+	
+			if handle ~= nil then
+				Util:ToggleDoors(handle)
+			end
 		end
   	 end)
 
-	registerHotkey("amm_toggle_windows", "Toggle Windows", function()
+	registerInput("amm_toggle_windows", "Toggle Windows", function(down)
+		if down then
 			local handle
 			local target = AMM:GetTarget()
 			if target ~= nil and target.handle:IsVehicle() then
@@ -923,21 +961,24 @@ function AMM:new()
 			if handle ~= nil then
 				 Util:ToggleWindows(handle)
 			end
+		end
 	  end)
 
 	  
-	registerHotkey("amm_toggle_engine", "Toggle Engine", function()
-		local handle
-		local target = AMM:GetTarget()
-		if target ~= nil and target.handle:IsVehicle() then
-			 handle = target.handle
-		else
-			 local qm = AMM.player:GetQuickSlotsManager()
-			 handle = qm:GetVehicleObject()
-		end
-  
-		if handle ~= nil then
-			 Util:ToggleEngine(handle)
+	registerInput("amm_toggle_engine", "Toggle Engine", function(down)
+		if down then
+			local handle
+			local target = AMM:GetTarget()
+			if target ~= nil and target.handle:IsVehicle() then
+				handle = target.handle
+			else
+				local qm = AMM.player:GetQuickSlotsManager()
+				handle = qm:GetVehicleObject()
+			end
+	
+			if handle ~= nil then
+				Util:ToggleEngine(handle)
+			end
 		end
   	 end)
   
@@ -947,7 +988,8 @@ function AMM:new()
 	local SEAT_BACK_RIGHT = 4
 	
 	-- Toggle Front Left Door
-	registerHotkey("amm_toggle_front_left_door", "Toggle Front Left Door", function()
+	registerInput("amm_toggle_front_left_door", "Toggle Front Left Door", function(down)
+		if down then
 			local handle
 			local target = AMM:GetTarget()
 			if target and target.handle:IsVehicle() then
@@ -968,10 +1010,12 @@ function AMM:new()
 			else
 				log("No vehicle handle found.")
 			end
+		end
 	end)
 	
 	-- Toggle Front Right Door
-	registerHotkey("amm_toggle_front_right_door", "Toggle Front Right Door", function()
+	registerInput("amm_toggle_front_right_door", "Toggle Front Right Door", function(down)
+		if down then
 			local handle
 			local target = AMM:GetTarget()
 			if target and target.handle:IsVehicle() then
@@ -992,10 +1036,12 @@ function AMM:new()
 			else
 				log("No vehicle handle found.")
 			end
+		end
 	end)
 	
 	-- Toggle Back Left Door
-	registerHotkey("amm_toggle_back_left_door", "Toggle Back Left Door", function()
+	registerInput("amm_toggle_back_left_door", "Toggle Back Left Door", function(down)
+		if down then
 			local handle
 			local target = AMM:GetTarget()
 			if target and target.handle:IsVehicle() then
@@ -1016,10 +1062,12 @@ function AMM:new()
 			else
 				log("No vehicle handle found.")
 			end
+		end
 	end)
 	
 	-- Toggle Back Right Door
-	registerHotkey("amm_toggle_back_right_door", "Toggle Back Right Door", function()
+	registerInput("amm_toggle_back_right_door", "Toggle Back Right Door", function(down)
+		if down then
 			local handle
 			local target = AMM:GetTarget()
 			if target and target.handle:IsVehicle() then
@@ -1040,38 +1088,43 @@ function AMM:new()
 			else
 				log("No vehicle handle found.")
 			end
+		end
 	end)
   
 
-	 registerHotkey("amm_last_expression", "Last Expression Used", function()
-		local target = AMM:GetTarget()
-		if Tools.lockTarget and Tools.currentTarget and Tools.currentTarget ~= '' and Tools.currentTarget.handle
-		and Tools.currentTarget.type ~= 'entEntity' and Tools.currentTarget.type ~= 'gameObject' then
-			target = Tools.currentTarget
-		end
+	 registerInput("amm_last_expression", "Last Expression Used", function(down)
+		if down then
+			local target = AMM:GetTarget()
+			if Tools.lockTarget and Tools.currentTarget and Tools.currentTarget ~= '' and Tools.currentTarget.handle
+			and Tools.currentTarget.type ~= 'entEntity' and Tools.currentTarget.type ~= 'gameObject' then
+				target = Tools.currentTarget
+			end
 
-		if Tools.lookAtTarget then
-            local ent = Game.FindEntityByID(Tools.lookAtTarget.handle:GetEntityID())
-            if not ent then Tools.lookAtTarget = nil end
-        end
+			if Tools.lookAtTarget then
+					local ent = Game.FindEntityByID(Tools.lookAtTarget.handle:GetEntityID())
+					if not ent then Tools.lookAtTarget = nil end
+			end
 
-		local face = Tools.selectedFace
-		if Tools.selectedFace.name == 'Select Expression' then
-			face = {name = "Joy", idle = 5, category = 3}
-		end
+			local face = Tools.selectedFace
+			if Tools.selectedFace.name == 'Select Expression' then
+				face = {name = "Joy", idle = 5, category = 3}
+			end
 
-		Tools:ActivateFacialExpression(target, face)
-	 end)
-
-	 registerHotkey("amm_npc_talk", "NPC Talk", function()
-		local target = AMM:GetTarget()
- 		if target ~= nil and target.handle:IsNPC() then
-			Util:NPCTalk(target.handle)
+			Tools:ActivateFacialExpression(target, face)
 		end
 	 end)
 
-	 registerHotkey("amm_npc_move_to_v", "NPC Move To V", function()
-		if next(AMM.Spawn.spawnedNPCs) ~= nil then
+	 registerInput("amm_npc_talk", "NPC Talk", function(down)
+		if down then
+			local target = AMM:GetTarget()
+			if target ~= nil and target.handle:IsNPC() then
+				Util:NPCTalk(target.handle)
+			end
+		end
+	 end)
+
+	 registerInput("amm_npc_move_to_v", "NPC Move To V", function(down)
+		if down and next(AMM.Spawn.spawnedNPCs) ~= nil then
 			for _, ent in pairs(AMM.Spawn.spawnedNPCs) do
 				if ent.handle:IsNPC() and ent.handle.isPlayerCompanionCached then
 					local pos = AMM.player:GetWorldPosition()
@@ -1083,8 +1136,8 @@ function AMM:new()
 		end
 	 end)
 
-	 registerHotkey("amm_npc_move", "NPC Move To Position", function()
-		if next(AMM.Spawn.spawnedNPCs) ~= nil then
+	 registerInput("amm_npc_move", "NPC Move To Position", function(down)
+		if down and next(AMM.Spawn.spawnedNPCs) ~= nil then
 			local spatialQuery = Game.GetSpatialQueriesSystem()
 			local cameraSystem = Game.GetCameraSystem()
 			local playerPos = Game.GetPlayer():GetWorldPosition()
@@ -1110,8 +1163,8 @@ function AMM:new()
 		end
 	 end)
 
-	 registerHotkey("amm_npc_attack", "NPC Attack Target", function()
-		if next(AMM.Spawn.spawnedNPCs) ~= nil then
+	 registerInput("amm_npc_attack", "NPC Attack Target", function(down)
+		if down and next(AMM.Spawn.spawnedNPCs) ~= nil then
 			local target = AMM:GetTarget()
 			if target ~= nil and target.handle:IsNPC() then
 				for _, ent in pairs(AMM.Spawn.spawnedNPCs) do
@@ -1121,113 +1174,124 @@ function AMM:new()
 		end
 	 end)
 
-	 registerHotkey("amm_npc_hold", "NPC Hold Position", function()
-		local target = AMM:GetTarget()
- 		if target ~= nil and target.handle:IsNPC() then
-			Util:HoldPosition(target.handle)
-		end
-	 end)
-
-	 registerHotkey("amm_npc_all_hold", "All Hold Position", function()
-		if next(AMM.Spawn.spawnedNPCs) ~= nil then
-			for _, ent in pairs(AMM.Spawn.spawnedNPCs) do
-				Util:HoldPosition(ent.handle, 10)
+	 registerInput("amm_npc_hold", "NPC Hold Position", function(down)
+		if down then
+			local target = AMM:GetTarget()
+			if target ~= nil and target.handle:IsNPC() then
+				Util:HoldPosition(target.handle)
 			end
 		end
 	 end)
 
-	 registerHotkey("amm_give_weapon", "Give Weapon", function()
-		local target = AMM:GetTarget()
-		if not target then target = AMM.currentTarget end
- 		if target ~= nil and target.handle:IsNPC() then
-			local weapon = Util:GetPlayerWeapon()
-
-			if weapon then
-				local weaponTDBID = weapon:GetItemID().tdbid
-				Util:EquipGivenWeapon(target.handle, weaponTDBID, AMM.Tools.forceWeapon)
-				AMM:ResetFollowCommandAfterAction(target, function(handle)
-					Util:EquipPrimaryWeaponCommand(handle)
-				end)
+	 registerInput("amm_npc_all_hold", "All Hold Position", function(down)
+		if down then
+			if next(AMM.Spawn.spawnedNPCs) ~= nil then
+				for _, ent in pairs(AMM.Spawn.spawnedNPCs) do
+					Util:HoldPosition(ent.handle, 10)
+				end
 			end
 		end
 	 end)
 
-	 registerHotkey("amm_slow_time", "Slow Time", function()
-		AMM.Tools.slowMotionToggle = not AMM.Tools.slowMotionToggle
-		if AMM.Tools.slowMotionToggle then
-	 		AMM.Tools:SetSlowMotionSpeed(0.1)
-		else
-			AMM.Tools:SetSlowMotionSpeed(0.0)
+	 registerInput("amm_give_weapon", "Give Weapon", function(down)
+		if down then
+			local target = AMM:GetTarget()
+			if not target then target = AMM.currentTarget end
+			if target ~= nil and target.handle:IsNPC() then
+				local weapon = Util:GetPlayerWeapon()
+
+				if weapon then
+					local weaponTDBID = weapon:GetItemID().tdbid
+					Util:EquipGivenWeapon(target.handle, weaponTDBID, AMM.Tools.forceWeapon)
+					AMM:ResetFollowCommandAfterAction(target, function(handle)
+						Util:EquipPrimaryWeaponCommand(handle)
+					end)
+				end
+			end
 		end
 	 end)
 
-	 registerHotkey("amm_freeze_time", "Freeze Time", function()
-	 	AMM.Tools:FreezeTime()
+	 registerInput("amm_slow_time", "Slow Time", function(down)
+		if down then
+			AMM.Tools.slowMotionToggle = not AMM.Tools.slowMotionToggle
+			if AMM.Tools.slowMotionToggle then
+				AMM.Tools:SetSlowMotionSpeed(0.1)
+			else
+				AMM.Tools:SetSlowMotionSpeed(0.0)
+			end
+		end
 	 end)
 
-	 registerHotkey("amm_skip_frame", "Skip Frame", function()
-	 	AMM.Tools:SkipFrame()
+	 registerInput("amm_freeze_time", "Freeze Time", function(down)
+	 	if down then AMM.Tools:FreezeTime() end
 	 end)
 
-	 registerHotkey("amm_freeze_target", "Freeze Target", function()
-		local target = AMM:GetTarget()
- 		if target ~= nil and target.handle:IsNPC() then
-			local frozen = not(AMM.Tools.frozenNPCs[tostring(target.handle:GetEntityID().hash)] == true)
-			AMM.Tools:FreezeNPC(target.handle, frozen)
+	 registerInput("amm_skip_frame", "Skip Frame", function(down)
+	 	if down then AMM.Tools:SkipFrame() end
+	 end)
+
+	 registerInput("amm_freeze_target", "Freeze Target", function(down)
+		if down then
+			local target = AMM:GetTarget()
+			if target ~= nil and target.handle:IsNPC() then
+				local frozen = not(AMM.Tools.frozenNPCs[tostring(target.handle:GetEntityID().hash)] == true)
+				AMM.Tools:FreezeNPC(target.handle, frozen)
+			end
 		end
 	end)
 
-	registerHotkey("amm_pm_disable_cursor", "Disable Photo Mode Cursor", function()
-		if AMM.playerInPhoto then
-			AMM.Tools:ToggleCursor()
+	registerInput("amm_pm_disable_cursor", "Disable Photo Mode Cursor", function(down)		
+		if down then AMM.Tools:ToggleCursor() end
+	end)
+
+	 registerInput("amm_toggle_lookAt", "Toggle Photo Mode Look At Camera", function(down)
+	 	if down then AMM.Tools:ToggleLookAt() end
+	 end)
+
+	 registerInput('amm_toggle_head', 'Toggle V Head', function(down)
+		if down then AMM.Tools:ToggleHead() end
+	 end)
+
+	 registerInput("amm_toggle_tpp", "Toggle TPP Camera", function(down)
+		if down then AMM.Tools:ToggleTPPCamera() end
+	 end)
+
+	 registerInput("amm_toggle_god", "Toggle God Mode", function(down)
+		if down then AMM.Tools:ToggleGodMode() end
+	 end)
+
+	registerInput("amm_toggle_build", "Toggle Build Mode", function(down)
+		if down then AMM.Props:ToggleBuildMode() end
+	end)
+
+	registerInput("amm_toggle_direct", "Toggle Direct Mode", function(down)
+		if down then AMM.Tools:ToggleDirectMode(true) end
+	end)
+
+	registerInput("amm_toggle_lights", "Toggle All Decor Lights", function(down)
+		if down then AMM.Props:ToggleAllActiveLights() end
+	 end)
+
+	 registerInput('amm_toggle_hud', 'Toggle HUD', function(down)
+		if down then
+			GameSettings.Toggle('/interface/hud/action_buttons')
+			GameSettings.Toggle('/interface/hud/activity_log')
+			GameSettings.Toggle('/interface/hud/ammo_counter')
+			GameSettings.Toggle('/interface/hud/healthbar')
+			GameSettings.Toggle('/interface/hud/input_hints')
+			GameSettings.Toggle('/interface/hud/johnny_hud')
+			GameSettings.Toggle('/interface/hud/minimap')
+			GameSettings.Toggle('/interface/hud/npc_healthbar')
+			GameSettings.Toggle('/interface/hud/quest_tracker')
+			GameSettings.Toggle('/interface/hud/stamina_oxygen')
+			GameSettings.Toggle('/interface/hud/crouch_indicator')
+			GameSettings.Toggle('/interface/hud/hud_markers')
 		end
-	end)
-
-	 registerHotkey("amm_toggle_lookAt", "Toggle Look At Camera", function()
-	 	AMM.Tools:ToggleLookAt()
-	 end)
-
-	 registerHotkey('amm_toggle_head', 'Toggle V Head', function()
-		 AMM.Tools:ToggleHead()
-	 end)
-
-	 registerHotkey("amm_toggle_tpp", "Toggle TPP Camera", function()
-		AMM.Tools:ToggleTPPCamera()
-	 end)
-
-	 registerHotkey("amm_toggle_god", "Toggle God Mode", function()
-		AMM.Tools:ToggleGodMode()
-	 end)
-
-	registerHotkey("amm_toggle_build", "Toggle Build Mode", function()
-		AMM.Props:ToggleBuildMode()
-	end)
-
-	registerHotkey("amm_toggle_direct", "Toggle Direct Mode", function()
-		AMM.Tools:ToggleDirectMode(true)
-	end)
-
-	registerHotkey("amm_toggle_lights", "Toggle All Decor Lights", function()
-		AMM.Props:ToggleAllActiveLights()
-	 end)
-
-	 registerHotkey('amm_toggle_hud', 'Toggle HUD', function()
-	    GameSettings.Toggle('/interface/hud/action_buttons')
-	    GameSettings.Toggle('/interface/hud/activity_log')
-	    GameSettings.Toggle('/interface/hud/ammo_counter')
-	    GameSettings.Toggle('/interface/hud/healthbar')
-	    GameSettings.Toggle('/interface/hud/input_hints')
-	    GameSettings.Toggle('/interface/hud/johnny_hud')
-	    GameSettings.Toggle('/interface/hud/minimap')
-	    GameSettings.Toggle('/interface/hud/npc_healthbar')
-	    GameSettings.Toggle('/interface/hud/quest_tracker')
-	    GameSettings.Toggle('/interface/hud/stamina_oxygen')
-	    GameSettings.Toggle('/interface/hud/crouch_indicator')
-	    GameSettings.Toggle('/interface/hud/hud_markers')
 	 end)
 
 	 for i = 1, 3 do
-		 registerHotkey(f('amm_appearance_hotkey%i', i), f('Appearance Hotkey %i', i), function()
+		 registerInput(f('amm_appearance_hotkey%i', i), f('Appearance Hotkey %i', i), function(down)
+			if down then
 				local target = AMM:GetTarget()
 		 		if target ~= nil and AMM.selectedHotkeys[target.id][i] ~= '' then
 		 			delayTimer = 0.0
@@ -1235,53 +1299,55 @@ function AMM:new()
 		 			buttonPressed = true
 		 			AMM:ChangeAppearanceTo(target, AMM.selectedHotkeys[target.id][i])
 		 		end
+			end
 		 end)
 	 end
 
-	 registerHotkey("amm_new_camera", "Spawn New Camera", function()
+	 registerInput("amm_new_camera", "Spawn New Camera", function(down)
+		if down then
+			if AMM.Director.activeCamera then
+				AMM.Director.activeCamera:Deactivate(1)
+				AMM.Director.activeCamera = nil
+			else
+				local camera = AMM.Camera:new()
+				camera:Spawn()
+				camera:StartListeners()
 
-		if AMM.Director.activeCamera then
-			AMM.Director.activeCamera:Deactivate(1)
-			AMM.Director.activeCamera = nil
-		else
-			local camera = AMM.Camera:new()
-			camera:Spawn()
-      	camera:StartListeners()
+				AMM.Director.activeCamera = camera
+				table.insert(AMM.Director.cameras, camera)
 
-			AMM.Director.activeCamera = camera
-			table.insert(AMM.Director.cameras, camera)
-
-			Cron.Every(0.1, function(timer)
-				if AMM.Director.activeCamera.handle then
-					AMM.Director.activeCamera:Activate(1)
-					Cron.Halt(timer)
-				end
-			end)
+				Cron.Every(0.1, function(timer)
+					if AMM.Director.activeCamera.handle then
+						AMM.Director.activeCamera:Activate(1)
+						Cron.Halt(timer)
+					end
+				end)
+			end
 		end
 	 end)
 
-	 registerHotkey("amm_despawn_camera", "Despawn Active Camera", function()
-		AMM.Director:DespawnActiveCamera()
+	 registerInput("amm_despawn_camera", "Despawn Active Camera", function(down)
+		if down then AMM.Director:DespawnActiveCamera() end
 	 end)
 
-	 registerHotkey("amm_toggle_camera", "Toggle Active Camera", function()
-		AMM.Director:ToggleActiveCamera()
+	 registerInput("amm_toggle_camera", "Toggle Active Camera", function(down)
+		if down then AMM.Director:ToggleActiveCamera() end
 	 end)
 
-	 registerHotkey("amm_increase_fov_camera", "Increase Active Camera FOV", function()
-		AMM.Director:AdjustActiveCameraFOV(1)
+	 registerInput("amm_increase_fov_camera", "Increase Active Camera FOV", function(down)
+		if down then AMM.Director:AdjustActiveCameraFOV(1) end
 	 end)
 
-	 registerHotkey("amm_decrease_fov_camera", "Decrease Active Camera FOV", function()
-		AMM.Director:AdjustActiveCameraFOV(-1)
+	 registerInput("amm_decrease_fov_camera", "Decrease Active Camera FOV", function(down)
+		if down then AMM.Director:AdjustActiveCameraFOV(-1) end
 	 end)
 
-	 registerHotkey("amm_increase_zoom_camera", "Increase Active Camera Zoom", function()
-		AMM.Director:AdjustActiveCameraZoom(1)
+	 registerInput("amm_increase_zoom_camera", "Increase Active Camera Zoom", function(down)
+		if down then AMM.Director:AdjustActiveCameraZoom(1) end
 	 end)
 
-	 registerHotkey("amm_decrease_zoom_camera", "Decrease Active Camera Zoom", function()
-		AMM.Director:AdjustActiveCameraZoom(-1)
+	 registerInput("amm_decrease_zoom_camera", "Decrease Active Camera Zoom", function(down)
+		if down then AMM.Director:AdjustActiveCameraZoom(-1) end
 	 end)
 
 	 local frameCounter = 0
@@ -1486,27 +1552,37 @@ function AMM:new()
    return AMM
 end
 
-local nonLocalizedStrings = {}
+-- Table to cache strings that have already been logged
+local loggedStrings = {}
 
--- AMM Localization Function
 function AMM.LocalizableString(str)
-	if AMM.currentLanguage[str] then
-		return AMM.currentLanguage[str]
-	elseif nonLocalizedStrings[str] == false then
-		nonLocalizedStrings[str] = true
-		log("[AMM Error] Non-localized string found:"..str)
-		return str
-	end
+    -- If localized, return immediately.
+    if AMM.currentLanguage[str] then
+        return AMM.currentLanguage[str]
+    end
 
-	if str == nil then
-		log("[AMM Debug] The string is nil")
-  elseif str == "" then
-		log("[AMM Debug] The string is an empty string ('')")
-  else
-		log(string.format("[AMM Debug] The string has content (length: %d): '%s'", #str, str))
-  end
+    -- Check for nil and empty strings; log them only once.
+    if str == nil then
+        if not loggedStrings["nil"] then
+            loggedStrings["nil"] = true
+            log("[AMM Debug] The string is nil")
+        end
+        return "AMM_ERROR"
+    elseif str == "" then
+        if not loggedStrings["empty"] then
+            loggedStrings["empty"] = true
+            log("[AMM Debug] The string is an empty string ('')")
+        end
+        return "AMM_ERROR"
+    end
 
-	return "AMM_ERROR"
+    -- Log non-localized strings only once.
+    if not loggedStrings[str] then
+        loggedStrings[str] = true
+        log("[AMM Error] Non-localized string found: " .. str)
+    end
+
+    return "AMM_ERROR"
 end
 
 function AMM:InitializeModules()
@@ -1755,6 +1831,9 @@ function AMM:DrawGeneralSettingsTab(style)
 		end
 
 		AMM.userSettings.godModeOnLaunch, clicked = ImGui.Checkbox(AMM.LocalizableString("Checkbox_GodModeOnLaunch"), AMM.userSettings.godModeOnLaunch)
+		if clicked then settingChanged = true end
+
+		AMM.userSettings.passiveModeOnLaunch, clicked = ImGui.Checkbox(AMM.LocalizableString("Checkbox_PassiveModeOnLaunch"), AMM.userSettings.passiveModeOnLaunch)
 		if clicked then settingChanged = true end
 
 		AMM.userSettings.streamerMode, clicked = ImGui.Checkbox(AMM.LocalizableString("Checkbox_StreamerMode"), AMM.userSettings.streamerMode)
@@ -2650,28 +2729,102 @@ end
 
 function AMM:GetPersonalityOptions()
 	local personalities = {
-		{name = AMM.LocalizableString("Neutral"), idle = 2, category = 2},
-		{name = AMM.LocalizableString("Joy"), idle = 5, category = 3},
-		{name = AMM.LocalizableString("Smile"), idle = 6, category = 3},
-		{name = AMM.LocalizableString("Sad"), idle = 3, category = 3},
-		{name = AMM.LocalizableString("Surprise"), idle = 8, category = 3},
-		{name = AMM.LocalizableString("Aggressive"), idle = 2, category = 3},
-		{name = AMM.LocalizableString("Anger"), idle = 1, category = 3},
-		{name = AMM.LocalizableString("Interested"), idle = 3, category = 1},
-		{name = AMM.LocalizableString("Disinterested"), idle = 6, category = 1},
-		{name = AMM.LocalizableString("Disappointed"), idle = 4, category = 3},
-		{name = AMM.LocalizableString("Disgust"), idle = 7, category = 3},
-		{name = AMM.LocalizableString("Exertion"), idle = 1, category = 1},
-		{name = AMM.LocalizableString("Nervous"), idle = 10, category = 3},
-		{name = AMM.LocalizableString("Fear"), idle = 11, category = 3},
-		{name = AMM.LocalizableString("Terrified"), idle = 9, category = 3},
-		{name = AMM.LocalizableString("Pain"), idle = 2, category = 1},
-		{name = AMM.LocalizableString("Sleepy"), idle = 5, category = 1},
-		{name = AMM.LocalizableString("Unconscious"), idle = 4, category = 1},
-		{name = AMM.LocalizableString("Dead"), idle = 1, category = 2},
+	  -- OG Expressions
+	  { name = AMM.LocalizableString("Neutral"),      idle = 2,  category = 2, cat_name = "OG Expressions" },
+	  { name = AMM.LocalizableString("Joy"),          idle = 5,  category = 3, cat_name = "OG Expressions" },
+	  { name = AMM.LocalizableString("Smile"),        idle = 6,  category = 3, cat_name = "OG Expressions" },
+	  { name = AMM.LocalizableString("Sad"),          idle = 3,  category = 3, cat_name = "OG Expressions" },
+	  { name = AMM.LocalizableString("Surprise"),     idle = 8,  category = 3, cat_name = "OG Expressions" },
+	  { name = AMM.LocalizableString("Aggressive"),   idle = 2,  category = 3, cat_name = "OG Expressions" },
+	  { name = AMM.LocalizableString("Anger"),        idle = 1,  category = 3, cat_name = "OG Expressions" },
+	  { name = AMM.LocalizableString("Interested"),   idle = 3,  category = 1, cat_name = "OG Expressions" },
+	  { name = AMM.LocalizableString("Disinterested"),idle = 6,  category = 1, cat_name = "OG Expressions" },
+	  { name = AMM.LocalizableString("Disappointed"), idle = 4,  category = 3, cat_name = "OG Expressions" },
+	  { name = AMM.LocalizableString("Disgust"),      idle = 7,  category = 3, cat_name = "OG Expressions" },
+	  { name = AMM.LocalizableString("Exertion"),     idle = 1,  category = 1, cat_name = "OG Expressions" },
+	  { name = AMM.LocalizableString("Nervous"),      idle = 10, category = 3, cat_name = "OG Expressions" },
+	  { name = AMM.LocalizableString("Fear"),         idle = 11, category = 3, cat_name = "OG Expressions" },
+	  { name = AMM.LocalizableString("Terrified"),    idle = 9,  category = 3, cat_name = "OG Expressions" },
+	  { name = AMM.LocalizableString("Pain"),         idle = 2,  category = 1, cat_name = "OG Expressions" },
+	  { name = AMM.LocalizableString("Sleepy"),       idle = 5,  category = 1, cat_name = "OG Expressions" },
+	  { name = AMM.LocalizableString("Unconscious"),  idle = 4,  category = 1, cat_name = "OG Expressions" },
+	  { name = AMM.LocalizableString("Dead"),         idle = 1,  category = 2, cat_name = "OG Expressions" },
 	}
+ 
+	return personalities
+end
+
+function AMM:GetExtraPersonalityOptions()
+	local data = require('Collabs/Extra_Expressions_AMM.lua')
+	local personalities = data.personalities
+
+	for i, personality in ipairs(personalities) do
+		local localizedName = AMM.LocalizableString(personality.name)
+		if localizedName == "AMM_ERROR" then
+			personality.name = AMM:ParsePersonalityName(personality.name)
+		else
+			personality.name = localizedName
+		end
+
+		local localizedCatName = AMM.LocalizableString(personality.cat_name)
+		if localizedCatName == "AMM_ERROR" then
+			personality.cat_name = AMM:ParsePersonalityName(personality.cat_name)
+		else
+			personality.cat_name = localizedCatName
+		end
+	end
 
 	return personalities
+end
+
+function AMM:ParsePersonalityName(name)
+	-- First replace the special pattern _N_ with " & "
+	local parsedName = string.gsub(name, "_N_", " & ")
+	-- Replace remaining underscores with spaces
+	parsedName = string.gsub(parsedName, "_", " ")
+	-- Then insert a space before any uppercase letter that follows a lowercase letter
+	parsedName = string.gsub(parsedName, "([a-z])([A-Z])", "%1 %2")
+	return parsedName
+end
+
+-- Sort the merged expressions by category and then by expression name.
+function AMM:GetAllExpressionsMerged()
+	local merged = {}
+
+	-- Insert OG first
+	for _, item in ipairs(self:GetPersonalityOptions()) do
+		 table.insert(merged, item)
+	end
+
+	-- Insert Extra next
+	for _, item in ipairs(self:GetExtraPersonalityOptions()) do
+		 table.insert(merged, item)
+	end
+
+	table.sort(merged, function(a, b)
+		 if a.cat_name == b.cat_name then
+			  return a.name < b.name
+		 else
+			  return a.cat_name < b.cat_name
+		 end
+	end)
+
+	return merged
+end
+
+-- Extract and sort unique categories
+function AMM:GetSortedCategories()
+	local merged = self:GetAllExpressionsMerged()
+	local categoriesSet = {}
+	for _, face in ipairs(merged) do
+		 categoriesSet[face.cat_name] = true
+	end
+	local categoriesList = {}
+	for cat, _ in pairs(categoriesSet) do
+		 table.insert(categoriesList, cat)
+	end
+	table.sort(categoriesList)
+	return categoriesList
 end
 
 function AMM:GetEquipmentOptions(HMG)

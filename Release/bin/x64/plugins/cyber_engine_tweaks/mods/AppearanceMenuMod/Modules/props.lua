@@ -2480,7 +2480,7 @@ function Props:GetCategories()
       -- User doesn't have the Sound Effects archive installed
     else
       categoriesNames[category.cat_id] = category.cat_name
-      table.insert(categories, {cat_id = category.cat_id, cat_name = category.cat_name, cat_icon = category.cat_icon})
+      table.insert(categories, {cat_id = category.cat_id, cat_name = category.cat_name, cat_icon = category.cat_icon})      
     end
   end
 

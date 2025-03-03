@@ -308,11 +308,32 @@ function Camera:HandleInput(actionName, actionType, action)
 
       if self.component then
         rot = self.component:GetLocalOrientation():ToEulerAngles()
-        if not(rot.pitch + 3 > 90) and not(rot.pitch - 3 < -90) then
-          rot.pitch = rot.pitch + (y / factor)
-        else
-          rot.pitch = rot.pitch + ((y * 2) / factor)
+        local currentPitch = rot.pitch
+        local threshold = 80  -- start scaling when abs(pitch) > threshold
+        local scaling = 1
+
+        -- When looking up and input is upward, reduce input if above threshold.
+        if currentPitch > threshold and y > 0 then
+          scaling = (90 - currentPitch) / (90 - threshold)
+        -- When looking down and input is downward, reduce input if below -threshold.
+        elseif currentPitch < -threshold and y < 0 then
+          scaling = (currentPitch + 90) / (90 - threshold)
         end
+
+        -- Ensure the scaling never drops below 0.1 so there's always a minimal effect.
+        if scaling < 0.1 then scaling = 0.1 end
+
+        local rawIncrement = y / factor
+        local newPitch = currentPitch + rawIncrement * scaling
+
+        -- If we are at the limit and the input is pushing further into the limit,
+        -- then don't allow any further movement.
+        if (currentPitch >= 90 and y > 0) or (currentPitch <= -90 and y < 0) then
+          newPitch = currentPitch
+        end
+
+        -- Clamp the pitch value just in case.
+        rot.pitch = math.max(-85, math.min(85, newPitch))
       end
     end
     if actionName == "CameraMouseX" or actionName == "CameraMouseY"

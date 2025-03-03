@@ -41,11 +41,19 @@ function Tools:new()
   Tools.lastLocationSearch = ''
   Tools.selectedLocation = {loc_name = AMM.LocalizableString("Select_Location")}
   Tools.shareLocationName = ''
+  Tools.allLocations = {}
   Tools.locations = {}
   Tools.defaultLocations = {}
   Tools.userLocations = {}
   Tools.favoriteLocations = {}
   Tools.useTeleportAnimation = false
+  Tools.selectedLocationCategory = AMM.LocalizableString("Select_Category")
+  Tools.selectedCatIDForSaving = 11       -- default to 11 (UserLocations) 
+  Tools.editingLocation = nil            -- nil means "new" by default
+  Tools.currentPopupTitle = nil
+  Tools.locationTagInput = ''
+  Tools.availableTags = {}
+  Tools.tagFilters    = {}  -- e.g. { ["safe"] = true, ["loot"] = false, ... }
 
   -- V Properties --
   Tools.playerVisibility = true
@@ -89,12 +97,9 @@ function Tools:new()
   Tools.advRotationPitch = 90
   Tools.advRotationYaw = 90
   Tools.movingProp = false
-  Tools.savedPosition = ''
-  Tools.selectedFace = {name = AMM.LocalizableString("Select_Expression")}
-  Tools.activatedFace = false
+  Tools.savedPosition = ''  
   Tools.lookAtActiveNPCs = {}
   Tools.lookAtTarget = nil
-  Tools.expressions = AMM:GetPersonalityOptions()
   Tools.photoModePuppet = nil
   Tools.currentTargetComponents = nil
   Tools.enablePropsInLookAtTarget = false
@@ -102,6 +107,12 @@ function Tools:new()
   Tools.puppetsIDs = {}
   Tools.updatedPosition = {}
   Tools.cyberpsychoMode = false
+
+  -- Facial Expression Properties --
+  Tools.selectedFace = {name = AMM.LocalizableString("Select_Expression")}
+  Tools.activatedFace = false
+  Tools.selectedCategory = AMM.LocalizableString("Select_Category")
+  Tools.lastActivatedFace = {name = "No Active Face"}
 
   -- Axis Indicator Properties --
   Tools.axisIndicator = nil
@@ -142,6 +153,11 @@ function Tools:Initialize()
   -- Initialize Strings here to be able to change localization language
   Tools.selectedLocation = {loc_name = AMM.LocalizableString("Select_Location")}
   Tools.selectedFace = {name = AMM.LocalizableString("Select_Expression")}
+  
+  Tools.playerVisibility = AMM.userSettings.passiveModeOnLaunch or true
+  if not Tools.playerVisibility then
+    Tools:ToggleInvisibility()
+  end
 
   -- Weather Options --
   Tools.weatherOptions = {
@@ -187,7 +203,7 @@ function Tools:Initialize()
   Tools.selectedLookAt = Tools.lookAtOptions[1]
 
   -- Do not put in cron - will cause stutters or even crashes with >200 locations
-    Tools.locations = Tools:GetLocations()
+  Tools:LoadAllLocations()
   
   -- Set Target Tools to Open on Launch
   if AMM.userSettings.floatingTargetTools and AMM.userSettings.autoOpenTargetTools then
@@ -854,7 +870,7 @@ local function refreshLocationListDebounced()
   
   -- set variable, refresh tools
   locationRefreshDebounce = true  
-  Tools.locations = Tools:GetLocations()
+  Tools:LoadAllLocations()
   
   -- unset variable in 10 seconds
   Cron.After(10, function()
@@ -865,30 +881,7 @@ end
 -- Teleport actions
 function Tools:DrawTeleportActions()
 
-  ImGui.PushItemWidth(250)
-  Tools.locationSearch = ImGui.InputTextWithHint(" ", AMM.LocalizableString("Filter_Locations"), Tools.locationSearch, 100)
-  Tools.locationSearch = Tools.locationSearch:gsub('"', '')
-  ImGui.PopItemWidth()
-
-  if (Tools.locationSearch ~= '' or Tools.locationSearch == '') and Tools.locationSearch ~= Tools.lastLocationSearch then
-    Tools.lastLocationSearch = Tools.locationSearch
-    Tools.locations = Tools:GetLocations()
-  end
-
-  ImGui.SameLine()
-  
-  if ImGui.BeginCombo(AMM.LocalizableString("Locations"), Tools.selectedLocation.loc_name, ImGuiComboFlags.HeightLarge) then
-    for i, location in ipairs(Tools.locations) do
-      if location.loc_name then
-        if ImGui.Selectable(location.loc_name.."##"..i, (location == Tools.selectedLocation.loc_name)) then
-          if location.loc_name:match("%-%-%-%-") == nil then
-            Tools.selectedLocation = location
-          end
-        end
-      end
-    end
-    ImGui.EndCombo()
-  end
+  Tools:DrawLocationsDropdown()
 
   ImGui.Spacing()
 
@@ -910,11 +903,17 @@ function Tools:DrawTeleportActions()
       Tools:ToggleFavoriteLocation(isFavorite, favIndex)
     end
 
-    ImGui.Spacing()
+    -- Check if file_name is not nil (meaning it's a user file)
+    if Tools.selectedLocation.file_name and Tools.selectedLocation.cat_id ~= 12 then
+      if ImGui.Button(AMM.LocalizableString("Edit_Selected_Location"), Tools.style.buttonWidth, Tools.style.buttonHeight) then
+        Tools:OpenLocationPopup(true)
+      end
+      ImGui.Spacing()
+    end
   end
 
   if ImGui.Button(AMM.LocalizableString("Button_ShareCurrentLocation"), Tools.style.buttonWidth, Tools.style.buttonHeight) then
-    Tools:GetShareablePlayerLocation()
+    Tools:OpenLocationPopup()
   end
 
   if ImGui.IsItemHovered() then
@@ -947,42 +946,423 @@ function Tools:DrawTeleportActions()
     AMM.UI:TextColored(AMM.LocalizableString("LikeGTA_byGTATravel"))
   end
 
+  Tools:DrawLocationPopup()
+end
+
+local function DrawTagsInFlow(tagList)
+  local contentWidth = ImGui.GetWindowContentRegionWidth() - 20
+
+  local spacing = ImGui.GetStyle().ItemSpacing.x   -- default horizontal spacing between items
+  local xOffset = 0                                -- tracks how wide the current row is so far
+  local removeIndex = nil                          -- used to remove a tag if user clicks on it
+
+  -- We do a single pass, collecting any user-clicked removal in removeIndex
+  -- and removing it after the loop to avoid skipping items.
+  for i, tag in ipairs(tagList) do
+    ImGui.PushID(i)  -- push a unique ID so each button has a distinct ID
+
+    -- We'll measure the button text size to see if it fits in the current row
+    local textSize = ImGui.CalcTextSize(tag)
+    -- Add some extra padding for the button widget
+    local buttonWidth = textSize + ImGui.GetStyle().FramePadding.x * 2
+
+    -- If adding this button would exceed the contentWidth, start a new line
+    if (xOffset + buttonWidth + spacing) > contentWidth then
+      ImGui.NewLine()
+      xOffset = 0
+    end
+
+    -- Draw the button. If user clicks, we mark removeIndex.
+    if ImGui.Button(tag) then
+      removeIndex = i
+    end
+
+    -- Advance the row offset
+    xOffset = xOffset + buttonWidth + spacing
+
+    -- Put subsequent items on same line (until we call NewLine())
+    ImGui.SameLine()
+    ImGui.PopID()
+  end
+
+  -- End the final line so subsequent UI draws beneath the buttons
+  ImGui.NewLine()
+
+  -- If the user clicked a tag, remove it from the list
+  if removeIndex then
+    table.remove(tagList, removeIndex)
+  end
+end
+
+function Tools:DrawTaggingField()
+  -- We'll keep Tools.locationTagInput as the field where user types a new tag
+  Tools.locationTagInput = Tools.locationTagInput or ""
+
+  ImGui.PushItemWidth(200)
+  Tools.locationTagInput = ImGui.InputText("##TagInput", Tools.locationTagInput, 50)
+  ImGui.PopItemWidth()
+
+  ImGui.SameLine()
+  if ImGui.Button(AMM.LocalizableString("Button_AddTag")) then
+    local newTag = Tools.locationTagInput:gsub("^%s+", ""):gsub("%s+$", "")
+    if newTag ~= "" then
+      -- If editing an existing location
+      if Tools.editingLocation then
+        if not Tools.editingLocation.tags then
+          Tools.editingLocation.tags = {}
+        end
+        -- Avoid duplicates
+        local alreadyHasIt = false
+        for _, t in ipairs(Tools.editingLocation.tags) do
+          if t:lower() == newTag:lower() then
+            alreadyHasIt = true
+            break
+          end
+        end
+        if not alreadyHasIt then
+          table.insert(Tools.editingLocation.tags, newTag)
+        end
+      else
+        -- If creating new location
+        if not newLoc.tags then
+          newLoc.tags = {}
+        end
+        local alreadyHasIt = false
+        for _, t in ipairs(newLoc.tags) do
+          if t:lower() == newTag:lower() then
+            alreadyHasIt = true
+            break
+          end
+        end
+        if not alreadyHasIt then
+          table.insert(newLoc.tags, newTag)
+        end
+      end
+    end
+    Tools.locationTagInput = ""  -- clear
+  end
+
+  -- Next, show the existing tags as small buttons
+  ImGui.Spacing()
+
+  local tagList = {}
+  if Tools.editingLocation then
+    tagList = Tools.editingLocation.tags or {}
+  end
+
+  -- Draw them using our helper:
+  DrawTagsInFlow(tagList)
+end
+
+function Tools:GatherAllTagsForLocations(locList)
+  local tagsSet = {}
+  for _, loc in ipairs(locList) do
+    if loc.tags and #loc.tags > 0 then
+      for _, t in ipairs(loc.tags) do
+        tagsSet[t] = true
+      end
+    end
+  end
+
+  -- Build a sorted array
+  local result = {}
+  for tag, _ in pairs(tagsSet) do
+    table.insert(result, tag)
+  end
+  table.sort(result)
+
+  return result
+end
+
+function Tools:ApplyTagFilters(locList)
+  -- gather a list of tags that must be present:
+  local requiredTags = {}
+  for tag, isOn in pairs(Tools.tagFilters) do
+    if isOn then
+      table.insert(requiredTags, tag)
+    end
+  end
+
+  if #requiredTags == 0 then
+    -- No active tag filter => return original list
+    return locList
+  end
+
+  -- Otherwise we do an AND approach: location must contain *all* requiredTags
+  local filtered = {}
+  for _, loc in ipairs(locList) do
+    local hasAll = true
+    if loc.tags == nil then
+      hasAll = false
+    else
+      for _, reqTag in ipairs(requiredTags) do
+        if not Tools:LocationHasTag(loc, reqTag) then
+          hasAll = false
+          break
+        end
+      end
+    end
+    if hasAll then
+      table.insert(filtered, loc)
+    end
+  end
+
+  return filtered
+end
+
+function Tools:LocationHasTag(loc, tag)
+  if not loc.tags then return false end
+  for _, t in ipairs(loc.tags) do
+    if t:lower() == tag:lower() then
+      return true
+    end
+  end
+  return false
+end
+
+function Tools:DrawTagFilterPopup()
+  ImGui.SetNextWindowSizeConstraints(300, 100, 400, 900)
+
+  if ImGui.BeginPopup("TagFilterPopup") then
+    ImGui.Text(AMM.LocalizableString("Button_FilterByTags")..":")
+    ImGui.Spacing()
+
+    -- If we have more than 10 tags, we’ll constrain them in a scrolling child
+    local contentWidth = ImGui.GetWindowContentRegionWidth() - 20
+    local childActive = false
+    if #Tools.availableTags > 10 then
+      childActive = true
+      local childWidth = 300
+      local childHeight = 200
+      ImGui.BeginChild("TagFilterScroll", childWidth, childHeight, true)
+      contentWidth = childWidth - 20
+    end
+
+    local spacing = ImGui.GetStyle().ItemSpacing.x
+    local xOffset = 0
+
+    for i, tag in ipairs(Tools.availableTags) do
+      -- default to false if we haven't touched this tagFilter yet
+      if Tools.tagFilters[tag] == nil then
+        Tools.tagFilters[tag] = false
+      end
+
+      local state = (Tools.tagFilters[tag] == true)
+
+      -- We measure how wide the label is, so we can decide whether to wrap
+      local textSize = ImGui.CalcTextSize(tag)
+      local padX = ImGui.GetStyle().FramePadding.x
+      -- +20 is a rough guess for the checkbox box itself
+      local checkboxWidth = textSize + (padX * 2) + 20
+
+      -- If the next checkbox won't fit horizontally, wrap
+      if (xOffset + checkboxWidth + spacing) > contentWidth then
+        ImGui.NewLine()
+        xOffset = 0
+      end
+
+      -- Draw the checkbox
+      ImGui.PushID(i)
+      local newVal, changed = ImGui.Checkbox(tag, state)
+      ImGui.PopID()
+
+      if changed then
+        Tools.tagFilters[tag] = newVal
+      end
+
+      -- Advance row offset
+      xOffset = xOffset + checkboxWidth + spacing
+      ImGui.SameLine(150)
+    end
+
+    -- End the final line
+    ImGui.NewLine()
+
+    -- If we used a scroll child, close it
+    if childActive then
+      ImGui.EndChild()
+    end
+
+    AMM.UI:Separator()
+
+    -----------------------------------------------------------------------
+    -- Add a “Reset All” button to turn all checkboxes off:
+    -----------------------------------------------------------------------
+    if ImGui.Button(AMM.LocalizableString("Button_Reset")) then
+      for _, tag in ipairs(Tools.availableTags) do
+        Tools.tagFilters[tag] = false
+      end
+    end
+
+    ImGui.SameLine()
+
+    if ImGui.Button(AMM.LocalizableString("Button_Close")) then
+      ImGui.CloseCurrentPopup()
+    end
+
+    ImGui.EndPopup()
+  end
+end
+
+local function renameLocation(oldName, newName)
+  -- check collision if newName already exists, etc.
+
+  local oldPath = f("./User/Locations/%s.json", oldName)
+  local newPath = f("./User/Locations/%s.json", newName)
+
+  local oldFile = io.open(oldPath, "r")
+  if oldFile then
+    local contents = oldFile:read("*a")
+    oldFile:close()
+
+    local newFile = io.open(newPath, "w")
+    if newFile then
+      newFile:write(contents)
+      newFile:close()
+
+      -- remove old
+      os.remove(oldPath)
+    else
+      print("Failed to open new file for writing")
+    end
+  else
+    print("Failed to open old file for reading")
+  end
+end
+
+function Tools:DrawLocationPopup()
   local sizeX = ImGui.GetWindowSize()
   local x, y = ImGui.GetWindowPos()
   ImGui.SetNextWindowPos(x + ((sizeX / 2) - 200), y - 40)
-  ImGui.SetNextWindowSize(400, ImGui.GetFontSize() * 8)
+  ImGui.SetNextWindowSizeConstraints(400, -1, 400, 900)
 
-  if ImGui.BeginPopupModal(AMM.LocalizableString("Share_Location")) then
+  local popupTitle = Tools.currentPopupTitle or AMM.LocalizableString("Share_Location")
+
+  if ImGui.BeginPopupModal(popupTitle, ImGuiWindowFlags.AlwaysAutoResize) then
     local style = {
         buttonHeight = ImGui.GetFontSize() * 2,
         halfButtonWidth = ((ImGui.GetWindowContentRegionWidth() / 2) - 12)
     }
-
+  
+    -- If the user tried to save with an already existing name, show a short error and "Ok" button
     if Tools.shareLocationName == 'existing' then
       ImGui.TextColored(1, 0.16, 0.13, 0.75, AMM.LocalizableString("Existing_Name"))
-
+  
       if ImGui.Button("Ok", -1, style.buttonHeight) then
         Tools.shareLocationName = ''
       end
+  
     else
-      Tools.shareLocationName = ImGui.InputText(AMM.LocalizableString("Name"), Tools.shareLocationName, 50)
+      ----------------------------------------------------------------------
+      -- 1) "Location Name" text input
+      ----------------------------------------------------------------------
+      Tools.shareLocationName = ImGui.InputText(
+        AMM.LocalizableString("Name"),
+        Tools.shareLocationName,
+        50
+      )
 
-      if ImGui.Button(AMM.LocalizableString("Save"), style.halfButtonWidth + 8, style.buttonHeight) then
-        if not(io.open(f("./User/Locations/%s.json", Tools.shareLocationName), "r")) then
-          local currentLocation = Tools:GetPlayerLocation()
-          local newLoc = Tools:NewLocationData(Tools.shareLocationName, currentLocation)
-          Tools:SaveLocation(newLoc)
-          Tools.locations = Tools:GetLocations()
-          Tools.shareLocationName = ''
-          ImGui.CloseCurrentPopup()
-        else
-          Tools.shareLocationName = 'existing'
+      ----------------------------------------------------------------------
+      -- 2) Category dropdown
+      ----------------------------------------------------------------------
+      local catIDs = {}
+      for cat_id = 1, 10 do
+        table.insert(catIDs, cat_id)
+      end
+
+      local currentCatLabel = Tools:GetCategoryNameForLocationID(Tools.selectedCatIDForSaving)
+      if ImGui.BeginCombo("##LocationsCategoryComboPopup", currentCatLabel) then
+        for _, cat_id in ipairs(catIDs) do
+          local label = Tools:GetCategoryNameForLocationID(cat_id)
+          if ImGui.Selectable(label, (cat_id == Tools.selectedCatIDForSaving)) then
+            Tools.selectedCatIDForSaving = cat_id
+          end
         end
+        ImGui.EndCombo()
+      end
+
+      ----------------------------------------------------------------------
+      -- 3) Tags UI
+      ----------------------------------------------------------------------
+      Tools:DrawTaggingField()  -- This function reads/writes Tools.editingLocation.tags
+
+      ImGui.Separator()
+      AMM.UI:Spacing(2)
+
+      ----------------------------------------------------------------------
+      -- 4) "Save" + "Cancel" Buttons
+      ----------------------------------------------------------------------
+      if ImGui.Button(AMM.LocalizableString("Save"), style.halfButtonWidth + 8, style.buttonHeight) then
+        local loc = Tools.editingLocation
+        local oldName = loc.loc_name
+        local newName = Tools.shareLocationName
+
+        loc.loc_name = newName
+        loc.cat_id   = Tools.selectedCatIDForSaving
+
+        -- Are we creating a brand-new location or editing an existing one?
+        if loc.isNew then
+
+          -- check if file already exists:
+          if io.open(f("./User/Locations/%s.json", newName), "r") then
+            -- The name is taken
+            Tools.shareLocationName = 'existing'
+            goto skipClose
+          else
+            -- Fill in position from GetPlayerLocation(), if not set
+            if not loc.x then
+              local curPos = Tools:GetPlayerLocation()  -- returns pos + yaw
+              loc.x   = curPos.pos.x
+              loc.y   = curPos.pos.y
+              loc.z   = curPos.pos.z
+              loc.w   = curPos.pos.w
+              loc.yaw = curPos.yaw
+            end
+
+            -- remove 'isNew' so we don't write it to JSON
+            loc.isNew = nil
+
+            Tools:SaveLocation(loc)
+            Tools:LoadAllLocations()
+            Tools.selectedLocation = loc
+            Tools.shareLocationName = ''
+            Tools.editingLocation   = nil
+
+            ImGui.CloseCurrentPopup()
+          end
+
+        else
+          -- Editing an existing location
+          if oldName ~= newName then
+            -- user changed the name, check for collisions
+            if io.open(f("./User/Locations/%s.json", newName), "r") then
+              Tools.shareLocationName = 'existing'
+              goto skipClose
+            else
+              renameLocation(oldName, newName)
+            end
+          end
+
+          -- remove 'isNew' if leftover
+          loc.isNew = nil
+
+          Tools:SaveLocation(loc)
+          Tools:LoadAllLocations()
+          Tools.selectedLocation = loc
+          Tools.shareLocationName = ''
+          Tools.editingLocation   = nil
+
+          ImGui.CloseCurrentPopup()
+        end
+
+        ::skipClose::
       end
 
       ImGui.SameLine()
       if ImGui.Button(AMM.LocalizableString("Button_Cancel"), style.halfButtonWidth + 8, style.buttonHeight) then
         Tools.shareLocationName = ''
+        Tools.selectedCatIDForSaving = 11
+        Tools.editingLocation   = nil
         ImGui.CloseCurrentPopup()
       end
     end
@@ -990,61 +1370,264 @@ function Tools:DrawTeleportActions()
   end
 end
 
-function Tools:GetLocations()
+function Tools:DrawLocationsDropdown()
 
-  Tools.userLocations = Tools:GetUserLocations()
+  Tools.locationSearch = Tools.locationSearch or ""
+  Tools.selectedLocationCategory = Tools.selectedLocationCategory or AMM.LocalizableString("Select_Category")
+  Tools.selectedLocation = Tools.selectedLocation or { loc_name = AMM.LocalizableString("Select_Location") }
 
-  local separator = false
-  local locations = {}
+  -- 1) The search field
+  ImGui.PushItemWidth(300)
+  Tools.locationSearch = ImGui.InputTextWithHint(
+                            " ",
+                            AMM.LocalizableString("Filter_Locations"),
+                            Tools.locationSearch,
+                            100
+                          )
+  Tools.locationSearch = Tools.locationSearch:gsub('"', "")
+  ImGui.PopItemWidth()
 
-  if next(Tools.favoriteLocations) ~= nil then
-    table.insert(locations, {loc_name = AMM.LocalizableString("Locations_Favorites")})
-
-    for _, loc in ipairs(Tools.favoriteLocations) do
-      if Tools.locationSearch ~= '' and string.find(string.lower(loc.loc_name), string.lower(Tools.locationSearch)) then
-        table.insert(locations, loc)
-      elseif Tools.locationSearch == '' then
-        table.insert(locations, loc)
-      end
+  -- If there's text, show "Clear" button
+  if Tools.locationSearch ~= "" then
+    ImGui.SameLine()
+    if ImGui.Button(AMM.LocalizableString("Clear")) then
+      Tools.locationSearch = ""
     end
-
-    separator = true
+  end
+  
+  -- Re-fetch if text changed
+  if Tools.locationSearch ~= Tools.lastLocationSearch then
+    Tools.lastLocationSearch = Tools.locationSearch
+    Tools.locations = Tools:GetLocations()
   end
 
-  if next(Tools.userLocations) ~= nil then
-    table.insert(locations, {loc_name = AMM.LocalizableString("Locations_UserLocs")})
+  -- Gather all tags from the current Tools.locations
+  Tools.availableTags = Tools:GatherAllTagsForLocations(Tools.locations or {})
 
-    for _, loc in ipairs(Tools.userLocations) do
-      if Tools.locationSearch ~= '' and string.find(string.lower(loc.loc_name), string.lower(Tools.locationSearch)) then
-        table.insert(locations, loc)
-      elseif Tools.locationSearch == '' then
-        table.insert(locations, loc)
-      end
+  -- If we have tags, show "Filter by Tag" button
+  if #Tools.availableTags > 0 and Tools.locationSearch ~= "" then
+    ImGui.SameLine()
+    if ImGui.Button(AMM.LocalizableString("Button_FilterByTags")) then
+      ImGui.OpenPopup("TagFilterPopup")
     end
-
-    separator = true
+    Tools:DrawTagFilterPopup()
   end
 
-  if separator then
-    table.insert(locations, {loc_name = AMM.LocalizableString("Locations_DefaultLocs")})
+  --------------------------------------------------------
+  -- 2) Build categories -> matching locations
+  --------------------------------------------------------
+  local filteredByCategory = {}
+  local locList = Tools.locations or {}
+
+  -- Apply the tag filter logic to locList:
+  locList = Tools:ApplyTagFilters(locList)
+
+  for _, loc in ipairs(locList) do
+    local catName = Tools:GetCategoryNameForLocationID(loc.cat_id)
+    filteredByCategory[catName] = filteredByCategory[catName] or {}
+    table.insert(filteredByCategory[catName], loc)
   end
 
-  if #Tools.defaultLocations > 0 then
-    for _, loc in ipairs(Tools.defaultLocations) do
-      if Tools.locationSearch ~= '' and string.find(string.lower(loc.loc_name), string.lower(Tools.locationSearch)) then
-        table.insert(locations, loc)
-      elseif Tools.locationSearch == '' then
-        table.insert(locations, loc)
+  -- We want Favorites (cat_id=12) at the top. So if there's a category "Favorites," we handle that first.
+  local categories = {}
+  for catName, arrayOfLocs in pairs(filteredByCategory) do
+    table.insert(categories, catName)
+  end
+  table.sort(categories)
+
+  -- If "Favorites" is among them, we move it to front:
+  local iFav = nil
+  for i, catName in ipairs(categories) do
+    if catName == AMM.LocalizableString("Favorites") then
+      iFav = i
+      break
+    end
+  end
+  if iFav then
+    -- remove from that position
+    local favCat = table.remove(categories, iFav)
+    -- insert it at position 1
+    table.insert(categories, 1, favCat)
+  end
+
+  -- If user’s selectedCategory is no longer present, reset it
+  local function categoryExists(cname)
+    for _, c in ipairs(categories) do
+      if c == cname then return true end
+    end
+    return false
+  end
+  if Tools.selectedLocationCategory ~= AMM.LocalizableString("Select_Category") 
+     and not categoryExists(Tools.selectedLocationCategory) 
+  then
+    Tools.selectedLocationCategory = AMM.LocalizableString("Select_Category")
+    Tools.selectedLocation = { loc_name = AMM.LocalizableString("Select_Location") }
+  end
+
+  --------------------------------------------------------
+  -- 3) If no categories, show "No Results"
+  --------------------------------------------------------
+  if #categories == 0 then
+    ImGui.Text(AMM.LocalizableString("No_Results"))
+    return
+  end
+
+  --------------------------------------------------------
+  -- 4) Category combo
+  --------------------------------------------------------
+  if ImGui.BeginCombo("##LocationsCategoryCombo", Tools.selectedLocationCategory) then
+    for _, catName in ipairs(categories) do
+      if ImGui.Selectable(catName, (catName == Tools.selectedLocationCategory)) then
+        Tools.selectedLocationCategory = catName
+        Tools.selectedLocation = { loc_name = AMM.LocalizableString("Select_Location") }
       end
     end
+    ImGui.EndCombo()
+  end
+
+  ImGui.SameLine()
+
+  --------------------------------------------------------
+  -- 5) Location combo
+  --------------------------------------------------------
+  if Tools.selectedLocationCategory ~= AMM.LocalizableString("Select_Category") then
+    if ImGui.BeginCombo("##LocationsCombo", Tools.selectedLocation.loc_name) then
+      local matchedLocs = filteredByCategory[Tools.selectedLocationCategory] or {}
+      for i, location in ipairs(matchedLocs) do
+        local displayName = location.loc_name
+        local isSelected = (Tools.selectedLocation.loc_name == displayName)
+        if ImGui.Selectable(displayName.."##"..i, isSelected) then
+          Tools.selectedLocation = location
+        end
+        if isSelected then
+          ImGui.SetItemDefaultFocus()
+        end
+      end
+      ImGui.EndCombo()
+    end
+  end
+end
+
+function Tools:GetCategoryNameForLocationID(cat_id)
+  local locationCategories = {
+    [1] = "Residences",
+    [2] = "ArasakaAndCorpo",
+    [3] = "ClubsAndBars",
+    [4] = "HotelsAndPleasure",
+    [5] = "UndergroundAndCrime",
+    [6] = "GovernmentAndSecurity",
+    [7] = "StoryAndUnique",
+    [8] = "Ripperdocs",
+    [9] = "LandmarksAndOpenWorld",
+    [10] = "SpoilersAndHidden",
+    [11] = "UserLocations",
+    [12] = "Favorites",
+  }
+
+  local catKey = locationCategories[cat_id]
+  if catKey then
+    return AMM.LocalizableString(catKey)
   else
-    for loc in db:nrows([[SELECT * FROM locations ORDER BY loc_name ASC]]) do
-      table.insert(locations, loc)
-      table.insert(Tools.defaultLocations, loc)
+    -- Fallback if ID not in table
+    return "Unknown Category"
+  end
+end
+
+function Tools:LoadAllLocations()
+  -- 1) Create an empty table
+  local allLocs = {}
+
+  ---------------------------------------------------------------------
+  -- 2) Load Favorites
+  ---------------------------------------------------------------------
+  -- Suppose Tools.favoriteLocations is already a table of [loc_name,x,y,z,w,yaw,...]
+  -- We want to mark them with cat_id=12 so that they show in the "Favorites" category.
+  if Tools.favoriteLocations and #Tools.favoriteLocations > 0 then
+    for _, fav in ipairs(Tools.favoriteLocations) do
+      table.insert(allLocs, {
+        loc_name = fav.loc_name,
+        x        = fav.x,
+        y        = fav.y,
+        z        = fav.z,
+        w        = fav.w,
+        yaw      = fav.yaw,
+        cat_id   = 12,        -- Favorites
+        file_name= fav.file_name or nil,
+        -- any other fields you might want...
+      })
     end
   end
 
-  return locations
+  ---------------------------------------------------------------------
+  -- 3) Load user-locations from JSON
+  ---------------------------------------------------------------------
+  -- If the user-loc JSON includes cat_id, read it; else default to 11
+  local userLocs = Tools:GetUserLocations()
+  if userLocs and #userLocs > 0 then
+    for _, uloc in ipairs(userLocs) do
+
+      -- If the JSON doesn’t specify a cat_id, default it to 11.
+      local cat_id = uloc.cat_id
+      if not cat_id then
+        cat_id = 11
+      end
+
+      table.insert(allLocs, {
+        loc_name = uloc.loc_name,
+        x        = uloc.x,
+        y        = uloc.y,
+        z        = uloc.z,
+        w        = uloc.w,
+        yaw      = uloc.yaw,
+        cat_id   = cat_id,
+        file_name= uloc.file_name,
+        tags     = uloc.tags,
+      })
+    end
+  end
+
+  ---------------------------------------------------------------------
+  -- 4) Load default DB-locations
+  ---------------------------------------------------------------------
+  -- This is your standard DB approach. 
+  -- Each DB row presumably has cat_id among its columns.
+  local query = "SELECT * FROM locations ORDER BY loc_name ASC"
+  for row in db:nrows(query) do
+    -- row.loc_name, row.x, row.y, row.z, row.cat_id, etc.
+    table.insert(allLocs, row)
+  end
+
+  -- 5) Cache the result
+  Tools.allLocations = allLocs
+  Tools.locations = Tools:GetLocations()
+end
+
+function Tools:GetLocations()
+  local results = {}
+  local lowerSearch = (Tools.locationSearch or ""):lower()
+
+  for _, loc in ipairs(Tools.allLocations) do
+    local lName = (loc.loc_name or ""):lower()
+    
+    -- Convert the tags to a single big string or iterate them
+    local tagsCombined = ""
+    if loc.tags and #loc.tags > 0 then
+      tagsCombined = table.concat(loc.tags, " "):lower()
+    end
+
+    if lowerSearch == "" then
+      table.insert(results, loc)
+    else
+      -- Check if location name or ANY of the tags contain the substring
+      if lName:find(lowerSearch, 1, true)
+         or tagsCombined:find(lowerSearch, 1, true)
+      then
+        table.insert(results, loc)
+      end
+    end
+  end
+
+  return results
 end
 
 function Tools:TeleportToLocation(loc)
@@ -1093,10 +1676,6 @@ function Tools:GetPlayerLocation()
   return { pos = Game.GetPlayer():GetWorldPosition(), yaw = Game.GetPlayer():GetWorldYaw() }
 end
 
-function Tools:GetShareablePlayerLocation()
-  Tools:SetLocationNamePopup()
-end
-
 function Tools:NewLocationData(locationName, locationPosition)
   return {
     loc_name = locationName,
@@ -1108,12 +1687,37 @@ function Tools:NewLocationData(locationName, locationPosition)
   }
 end
 
+-- Join a table of strings into "tag1,tag2"
+local function tagsToString(tagTable)
+  if not tagTable or #tagTable == 0 then
+    return ""
+  end
+  -- Join them with commas
+  return table.concat(tagTable, ",")
+end
+
 function Tools:SaveLocation(loc)
+  -- `loc` is a table that we are about to encode as JSON
+  -- If we have `loc.tags` as a Lua table, we need to turn it into a string
+  local tagString = tagsToString(loc.tags)
+  loc.tags = tagString  -- store the CSV in the table so it writes properly
+
   local file = io.open(f("./User/Locations/%s.json", loc.loc_name), "w")
   if file then
     local contents = json.encode(loc)
-		file:write(contents)
-		file:close()
+    file:write(contents)
+    file:close()
+  end
+
+  -- revert it so we keep a table in memory
+  if tagString ~= "" then
+    local splitted = {}
+    for t in string.gmatch(tagString, "([^,]+)") do
+      table.insert(splitted, t)
+    end
+    loc.tags = splitted
+  else
+    loc.tags = {}
   end
 end
 
@@ -1138,6 +1742,9 @@ function Tools:ToggleFavoriteLocation(isFavorite, favIndex)
   end
 
   AMM:UpdateSettings()
+  Cron.After(1.0, function() 
+    Tools:LoadAllLocations()
+  end)
 end
 
 function Tools:GetFavoriteLocations()
@@ -1166,13 +1773,38 @@ function Tools:GetUserLocations()
 
   if #Tools.userLocations ~= filesCount then
     local userLocations = {}
-    for _, loc in ipairs(files) do
-      if string.find(loc.name, '.json') then
-        local loc_name, x, y, z, w, yaw = Tools:LoadLocationData(loc.name)
-        if loc_name then
-          table.insert(userLocations, {file_name = loc.name, loc_name = loc_name, x = x, y = y, z = z, w = w, yaw = yaw})
+    for _, locFile in ipairs(files) do
+      if string.find(locFile.name, '.json') then
+        local data = Tools:LoadLocationData(locFile.name)
+        if data and data.loc_name then
+          -- If no cat_id, default to 11 (UserLocations)
+          data.cat_id = data.cat_id or 11
+
+          -- Parse tags (if any) into a table
+          local tagList = {}
+          if data.tags then
+            -- e.g. "safe,hidden" => { "safe", "hidden" }
+            for tag in string.gmatch(data.tags, "([^,]+)") do
+              local trimmed = tag:gsub("^%s+", ""):gsub("%s+$", "")
+              table.insert(tagList, trimmed)
+            end
+          end
+
+          local entry = {
+            file_name = locFile.name,
+            loc_name  = data.loc_name,
+            x         = data.x,
+            y         = data.y,
+            z         = data.z,
+            w         = data.w,
+            yaw       = data.yaw,
+            cat_id    = data.cat_id,
+            -- Store tags as a table
+            tags      = tagList
+          }
+          table.insert(userLocations, entry)
         else
-          Util:AMMError(f("The file %s does not have location data", loc.name))
+          Util:AMMError(f("The file %s does not have location data", locFile.name))
         end
       end
     end
@@ -1182,19 +1814,52 @@ function Tools:GetUserLocations()
   end
 end
 
-function Tools:LoadLocationData(loc)
-  local file = io.open('./User/Locations/'..loc, 'r')
+function Tools:LoadLocationData(fileName)
+  local file = io.open('./User/Locations/'..fileName, 'r')
   if file then
-    local contents = file:read( "*a" )
-		local locationData = json.decode(contents)
+    local contents = file:read("*a")
     file:close()
-    return locationData["loc_name"], locationData["x"], locationData["y"], locationData["z"], locationData["w"], locationData["yaw"]
+    local locationData = json.decode(contents)
+    -- locationData includes:
+    -- {
+    --   "loc_name": "MyCustomLocation",
+    --   "x": 123.45, "y": 678.90, "z": 1.0, "w": 1.0, "yaw": 90.0,
+    --   "cat_id": 11
+    -- }
+    return locationData
   end
 end
 
-function Tools:SetLocationNamePopup()
-	Tools.shareLocationName = ''
-	ImGui.OpenPopup(AMM.LocalizableString("Share_Location"))
+function Tools:OpenLocationPopup(isEditing)
+  if isEditing then
+    -- Prepare the popup for editing
+    Tools.editingLocation = Util:DeepCopy(Tools.selectedLocation)
+    Tools.editingLocation.isNew = false
+
+    -- Pre-fill the text field with current name
+    Tools.shareLocationName = Tools.editingLocation.loc_name or ""
+
+    -- Pre-fill the category ID
+    if Tools.editingLocation.cat_id then
+      Tools.selectedCatIDForSaving = Tools.editingLocation.cat_id
+    else
+      Tools.selectedCatIDForSaving = 11  -- default fallback
+    end
+    
+    Tools.currentPopupTitle = AMM.LocalizableString("Edit_Location")
+  else
+    Tools.editingLocation = {}
+    Tools.editingLocation.isNew = true
+    Tools.editingLocation.cat_id = 11       -- default to 11 (UserLocations)
+    Tools.editingLocation.tags   = {}       -- empty tags
+
+    Tools.shareLocationName      = ""       -- so the user sees an empty name field
+    Tools.selectedCatIDForSaving = 11
+
+    Tools.currentPopupTitle = AMM.LocalizableString("Share_Location")
+  end
+
+  ImGui.OpenPopup(Tools.currentPopupTitle)
 end
 
 -- Target actions
@@ -1554,9 +2219,16 @@ function Tools:SetCurrentTarget(target, systemActivated)
   end
 end
 
-function Tools:ActivateFacialExpression(target, face)
+function Tools:ResetFacialExpression(target)
+  local stimComp = target.handle:FindComponentByName("ReactionManager")
 
-  Tools.activatedFace = true
+  if stimComp then
+    stimComp:ResetFacial(0)
+    Tools.activatedFace = false
+  end
+end
+
+function Tools:ActivateFacialExpression(target, face)
 
   local stimComp = target.handle:FindComponentByName("ReactionManager")
   local animComp = target.handle:FindComponentByName("AnimationControllerComponent")
@@ -1569,6 +2241,9 @@ function Tools:ActivateFacialExpression(target, face)
       animFeat.category = face.category
       animFeat.idle = face.idle
       animComp:ApplyFeature(CName.new("FacialReaction"), animFeat)
+
+      Tools.activatedFace = true
+      Tools.lastActivatedFace = face
     end)
   end
 end
@@ -1630,11 +2305,10 @@ function Tools:FreezeNPC(handle, freeze)
       Game.GetWorkspotSystem():StopInDevice(handle)
     end
 
-    -- (reason: CName, dilation: Float, duration: Float, easeInCurve: CName, easeOutCurve: CName, ignoreGlobalDilation: Bool),
-    handle:SetIndividualTimeDilation(CName.new("AMM"), 0.0000000000001, 99, CName.new(""), CName.new(""), true)
+    TimeDilationHelper.SetIndividualTimeDilation(handle, CName.new("radialMenu"), 0.0)
     Tools.frozenNPCs[tostring(handle:GetEntityID().hash)] = true
   else
-    handle:SetIndividualTimeDilation(CName.new("AMM"), 1.0, 2.5, CName.new(""), CName.new(""), false)
+    TimeDilationHelper.UnsetIndividualTimeDilation(handle)
     Tools.frozenNPCs[tostring(handle:GetEntityID().hash)] = nil
 
     if AMM.Poses.activeAnims[tostring(handle:GetEntityID().hash)] then
@@ -2269,11 +2943,13 @@ function Tools:DrawMovementWindow()
     AMM.UI:Spacing(3)
 
     local hash = Tools.currentTarget.hash
-    if AMM.Poses.activeAnims[hash] then
+    if AMM.Poses.activeAnims[hash] or Tools.activatedFace then
+      ImGui.PushItemWidth(ImGui.GetWindowContentRegionWidth() - ImGui.CalcTextSize(AMM.LocalizableString("Slider_SlowMotion")) - 10)
       Tools.slowMotionSpeed, used = ImGui.SliderFloat(AMM.LocalizableString("Slider_SlowMotion"), Tools.slowMotionSpeed, 0.000001, Tools.slowMotionMaxValue)
       if used then
         Tools:SetSlowMotionSpeed(Tools.slowMotionSpeed)
       end
+      ImGui.PopItemWidth()
     end
 
     AMM.UI:Spacing(3)
@@ -2415,29 +3091,16 @@ function Tools:DrawMovementWindow()
         AMM.UI:TextCenter(AMM.LocalizableString("Facial_Expression"), true)
         ImGui.Spacing()
 
-        local isSelecting = false
+        Tools:DrawFacialExpressionDropdown()
 
-        if ImGui.BeginCombo(AMM.LocalizableString("Expressions"), Tools.selectedFace.name) then
-          for i, face in ipairs(Tools.expressions) do
-            if ImGui.Selectable(face.name, (face.name == Tools.selectedFace.name)) then
-              Tools.selectedFace = face
-              Tools.activatedFace = false
-              isSelecting = true
-            end
-          end
-          ImGui.EndCombo()
-        end
+        ImGui.SameLine()
 
-        if not isSelecting and Tools.selectedFace.name ~= AMM.LocalizableString("Select_Expression") and not Tools.activatedFace then
-          if Tools.lookAtTarget then
-            local ent = Game.FindEntityByID(Tools.lookAtTarget.handle:GetEntityID())
-            if not ent then Tools.lookAtTarget = nil end
-          end
-          Tools:ActivateFacialExpression(Tools.currentTarget, Tools.selectedFace)
+        if Tools.activatedFace and ImGui.SmallButton(AMM.LocalizableString("Button_SmallReset")) then
+          Tools:ResetFacialExpression(Tools.currentTarget)
         end
 
         ImGui.Spacing()
-
+        
         if (not AMM.playerInPhoto or AMM.userSettings.allowLookAtForNPCs) and Tools.currentTarget ~= '' then
 
           AMM.UI:Spacing(4)
@@ -2821,6 +3484,12 @@ function Tools:DrawTimeActions()
 
   ImGui.PopItemWidth()
 
+  if ImGui.IsItemDeactivatedAfterEdit() then
+    if Tools.selectedWeather ~= 1 then
+      Tools.weatherSystem:SetWeather(Tools.weatherOptions[Tools.selectedWeather], 10.0, 5)
+    end
+  end
+
   ImGui.SameLine()
 
   if AMM.UI:GlyphButton(IconGlyphs.MinusCircle or "-", true) then
@@ -2848,12 +3517,12 @@ function Tools:DrawTimeActions()
   ImGui.Text(AMM.LocalizableString("TimeofDay"))
 
   if used then
-    if Tools.relicEffect then
-      Tools:SetRelicEffect(false)
-      Cron.After(60.0, function()
-        Tools:SetRelicEffect(true)
-      end)
-    end
+    -- if Tools.relicEffect then
+    --   Tools:SetRelicEffect(false)
+    --   Cron.After(60.0, function()
+    --     Tools:SetRelicEffect(true)
+    --   end)
+    -- end
 
     Tools:SetTime(Tools.timeValue)
   end
@@ -2944,14 +3613,16 @@ end
 
 function Tools:FreezeTime()
   if Tools.timeState then
-    Game.GetTimeSystem():SetIgnoreTimeDilationOnLocalPlayerZero(true)
-    Game.GetTimeSystem():SetTimeDilation("consoleCommand", 0.0000000000001)
+    Game.GetTimeSystem():SetTimeDilation(CName.new("pause"), 0.0)
+		TimeDilationHelper.SetTimeDilationWithProfile(Game.GetPlayer(), "radialMenu", true, true)
+		TimeDilationHelper.SetIgnoreTimeDilationOnLocalPlayerZero(Game.GetPlayer(), true)
   else
     if Tools.slowMotionSpeed ~= 1 then
       Tools:SetSlowMotionSpeed(Tools.slowMotionSpeed)
     else
-      Game.GetTimeSystem():SetIgnoreTimeDilationOnLocalPlayerZero(false)
-      Game.GetTimeSystem():UnsetTimeDilation("consoleCommand", "None")
+      Game.GetTimeSystem():UnsetTimeDilation(CName.new("pause"), "None")
+      TimeDilationHelper.SetTimeDilationWithProfile(Game.GetPlayer(), "radialMenu", false, true)
+		  TimeDilationHelper.SetIgnoreTimeDilationOnLocalPlayerZero(Game.GetPlayer(), false)
       Tools.slowMotionSpeed = 1
     end
   end
@@ -2999,6 +3670,146 @@ function Tools:GetRelicFlats()
 
   return flats
 end
+
+-- Facial Expressions UI
+function Tools:DrawFacialExpressionDropdown()
+
+  -- Keep a local or persistent search string for expressions:
+  Tools.searchExpression = Tools.searchExpression or ""
+
+  -- If the user has no “extra expression pack” installed:
+  if not AMM.extraExpressionsInstalled then
+    -- Single combo (OG expressions only)
+    if ImGui.BeginCombo(AMM.LocalizableString("Expressions"), Tools.selectedFace.name) then
+      for _, face in ipairs(AMM:GetPersonalityOptions()) do
+        if ImGui.Selectable(face.name, (face.name == Tools.selectedFace.name)) then
+          Tools.activatedFace  = false
+          Tools.selectedFace   = face
+        end
+      end
+      ImGui.EndCombo()
+    end
+
+    if (Tools.selectedFace.name ~= AMM.LocalizableString("Select_Expression")) 
+       and (not Tools.activatedFace) 
+       and Tools.selectedFace.name ~= Tools.lastActivatedFace.name 
+    then
+      Tools:ActivateFacialExpression(Tools.currentTarget, Tools.selectedFace)
+    end
+
+  else
+    -- ========== Extra expressions installed! ==========
+
+    local mergedExpressions = AMM:GetAllExpressionsMerged()
+
+    -- 1) Search field
+    ImGui.PushItemWidth(500)  -- or your variable Tools.searchBarWidth
+    Tools.searchExpression = ImGui.InputTextWithHint(
+                              " ", 
+                              AMM.LocalizableString("Search"), 
+                              Tools.searchExpression, 
+                              100
+                            )
+    Tools.searchExpression = Tools.searchExpression:gsub('"', "")  -- strip quotes if needed
+    ImGui.PopItemWidth()
+
+    if Tools.searchExpression ~= "" then
+      ImGui.SameLine()
+      if ImGui.Button(AMM.LocalizableString("Clear")) then
+        Tools.searchExpression = ""
+      end
+    end
+
+    ImGui.Spacing()
+
+    -- 2) Build filteredByCategory
+    local lowerSearch = Tools.searchExpression:lower()
+    local filteredByCategory = {}  -- e.g. {["OG Expressions"] = { ... }, ["Negative Emotions"] = { ... }}
+
+    for _, face in ipairs(mergedExpressions) do
+      local match = true
+      if lowerSearch ~= "" then
+        local faceNameLower = face.name:lower()
+        if not faceNameLower:find(lowerSearch, 1, true) then
+          match = false
+        end
+      end
+      if match then
+        filteredByCategory[face.cat_name] = filteredByCategory[face.cat_name] or {}
+        table.insert(filteredByCategory[face.cat_name], face)
+      end
+    end
+
+    -- categories that actually have results
+    local categories = {}
+    for catName, faces in pairs(filteredByCategory) do
+      if #faces > 0 then
+        table.insert(categories, catName)
+      end
+    end
+    table.sort(categories)
+
+    -- If user’s selectedCategory is now empty, reset it
+    if Tools.selectedCategory 
+      and (Tools.selectedCategory ~= AMM.LocalizableString("Select_Category"))
+      and (not filteredByCategory[Tools.selectedCategory] 
+           or #filteredByCategory[Tools.selectedCategory] == 0)
+    then
+      Tools.selectedCategory = AMM.LocalizableString("Select_Category")
+      Tools.selectedFace = { name = AMM.LocalizableString("Select_Expression") }
+    end
+
+    -- Change dropdown width
+    ImGui.PushItemWidth(210)
+
+    -- 3) If categories is empty, show "No Results" label instead of combos
+    if #categories == 0 then
+      ImGui.Text(AMM.LocalizableString("No_Results"))
+    else
+      -- Show category combo
+      if ImGui.BeginCombo("##ExpressionsCategoryCombo", Tools.selectedCategory or AMM.LocalizableString("Select_Category")) then
+        for _, catName in ipairs(categories) do
+          if ImGui.Selectable(catName, (catName == Tools.selectedCategory)) then
+            Tools.activatedFace    = false
+            Tools.selectedCategory = catName
+            Tools.selectedFace     = { name = AMM.LocalizableString("Select_Expression") }
+          end
+        end
+        ImGui.EndCombo()
+      end
+
+      ImGui.SameLine()
+
+      -- Show expression combo if a valid category is selected
+      if Tools.selectedCategory 
+        and Tools.selectedCategory ~= AMM.LocalizableString("Select_Category") 
+      then
+        if ImGui.BeginCombo("##ExpressionsCombo", Tools.selectedFace.name) then
+          local facesInCat = filteredByCategory[Tools.selectedCategory] or {}
+          for _, face in ipairs(facesInCat) do
+            if ImGui.Selectable(face.name, (face.name == Tools.selectedFace.name)) then
+              Tools.selectedFace  = face
+              Tools.activatedFace = false
+            end
+          end
+          ImGui.EndCombo()
+        end
+      end
+
+      -- Pop the item width
+      ImGui.PopItemWidth()
+
+      -- 4) Activation
+      if (Tools.selectedFace.name ~= AMM.LocalizableString("Select_Expression")) 
+         and (not Tools.activatedFace) 
+         and Tools.selectedFace.name ~= Tools.lastActivatedFace.name 
+      then
+        Tools:ActivateFacialExpression(Tools.currentTarget, Tools.selectedFace)
+      end
+    end
+  end
+end
+
 
 -- Nibbles Replacer
 function Tools:DrawNibblesReplacer()
