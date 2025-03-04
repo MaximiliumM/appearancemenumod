@@ -84,7 +84,7 @@ function AMM:new()
 	 AMM.extraExpressionsInstalled = false
 
 	 -- Main Properties --
-	 AMM.currentVersion = "2.11"
+	 AMM.currentVersion = "2.11.1"
 	 AMM.CETVersion = parseVersion(GetVersion())
 	 AMM.CodewareVersion = 0
 	 AMM.updateNotes = require('update_notes.lua')
@@ -1513,6 +1513,7 @@ function AMM:new()
 
 		 -- Toggle Axis Indicator --
 		 if AMM.Tools.axisIndicator and AMM.Tools.axisIndicatorToggle then
+			AMM.Director.wasPopupOpen_MoveMark = false
 		 	AMM.Tools:ToggleAxisIndicator()
 		 end
 
@@ -2467,6 +2468,7 @@ function AMM:ImportUserData()
 				self.selectedLanguage = self:GetLanguageIndex(userData['selectedLanguage'] or "en_US")
 				self.UI.style.listScaleFactor = userData['listScaleFactor'] or 0
 				self.Props.presetTriggerDistance = userData['presetTriggerDistance'] or 60
+				self.Tools.favoriteExpressions = userData['favoriteExpressions'] or {}
 
 				if userData['settings'] ~= nil then
 					for _, obj in ipairs(userData['settings']) do
@@ -2616,6 +2618,7 @@ function AMM:ExportUserData()
 		userData['selectedLanguage'] = self.availableLanguages[self.selectedLanguage].name or "en_US"
 		userData['listScaleFactor'] = self.UI.style.listScaleFactor
 		userData['presetTriggerDistance'] = self.Props.presetTriggerDistance
+		userData['favoriteExpressions'] = self.Tools.favoriteExpressions
 
 		local validJson, contents = pcall(function() return json.encode(userData) end)
 		if validJson and contents ~= nil then
@@ -5094,8 +5097,6 @@ function AMM:ResetFollowCommandAfterAction(ent, action)
 	end
 end
 
--- Check distances every 1 second. For any spawns going from far->near,
--- queue them up, then refresh them sequentially (with a short delay between each).
 function AMM:CheckCompanionDistances()
   Cron.Every(1.0, function()
     if next(AMM.Spawn.spawnedNPCs) == nil then
@@ -5107,52 +5108,24 @@ function AMM:CheckCompanionDistances()
 
     local playerPos = player:GetWorldPosition()
 
-    -- We'll store spawns that we need to refresh, so we can handle them sequentially
-    local toRefresh = {}
-
     for _, spawn in pairs(AMM.Spawn.spawnedNPCs) do
       if spawn.entityID and spawn.handle and spawn.handle:IsNPC() then
         local npcPos = spawn.handle:GetWorldPosition()
         local distance = Util:VectorDistance(playerPos, npcPos)
 
-        if distance > 29 then
+        if distance > 3 then
           if not spawn.farDistance then
             spawn.farDistance = true
+				AMM:UpdateFollowDistance()
           end
         else
-          -- They are now within 29 meters
+          -- They are now within 3 meters
           if spawn.farDistance then
             spawn.farDistance = false
-            table.insert(toRefresh, spawn)
+            Util:RotateTo(spawn.handle)
           end
         end
       end
-    end
-
-    -- Now we process the collected spawns in a small sequence
-    if #toRefresh > 0 then
-      -- We'll do it with a short Cron approach that processes each spawn
-      -- with 0.3s spacing
-      local i = 1
-      Cron.Every(0.3, {tick = 1}, function(timer)
-        local spawn = toRefresh[i]
-        if not spawn then
-          Cron.Halt(timer)
-          return
-        end
-
-        -- Re-acquire the entity in case the old handle is stale
-        local newEntity = Game.FindEntityByID(spawn.entityID)
-        if newEntity then
-          spawn.handle = newEntity
-          AMM:RefreshAppearance(spawn)
-        end
-
-        i = i + 1
-        if i > #toRefresh then
-          Cron.Halt(timer)
-        end
-      end)
     end
   end)
 end

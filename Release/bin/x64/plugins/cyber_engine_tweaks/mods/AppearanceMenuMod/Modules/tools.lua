@@ -113,6 +113,8 @@ function Tools:new()
   Tools.activatedFace = false
   Tools.selectedCategory = AMM.LocalizableString("Select_Category")
   Tools.lastActivatedFace = {name = "No Active Face"}
+  Tools.favoriteExpressions = {}
+  Tools.mergedExpressions = {}
 
   -- Axis Indicator Properties --
   Tools.axisIndicator = nil
@@ -153,6 +155,7 @@ function Tools:Initialize()
   -- Initialize Strings here to be able to change localization language
   Tools.selectedLocation = {loc_name = AMM.LocalizableString("Select_Location")}
   Tools.selectedFace = {name = AMM.LocalizableString("Select_Expression")}
+  Tools.mergedExpressions = AMM:GetAllExpressionsMerged()
   
   Tools.playerVisibility = AMM.userSettings.passiveModeOnLaunch or true
   if not Tools.playerVisibility then
@@ -1377,7 +1380,7 @@ function Tools:DrawLocationsDropdown()
   Tools.selectedLocation = Tools.selectedLocation or { loc_name = AMM.LocalizableString("Select_Location") }
 
   -- 1) The search field
-  ImGui.PushItemWidth(300)
+  ImGui.PushItemWidth(270)
   Tools.locationSearch = ImGui.InputTextWithHint(
                             " ",
                             AMM.LocalizableString("Filter_Locations"),
@@ -1405,7 +1408,7 @@ function Tools:DrawLocationsDropdown()
   Tools.availableTags = Tools:GatherAllTagsForLocations(Tools.locations or {})
 
   -- If we have tags, show "Filter by Tag" button
-  if #Tools.availableTags > 0 and Tools.locationSearch ~= "" then
+  if #Tools.availableTags > 0 and Tools.locationSearch == "" then
     ImGui.SameLine()
     if ImGui.Button(AMM.LocalizableString("Button_FilterByTags")) then
       ImGui.OpenPopup("TagFilterPopup")
@@ -3672,6 +3675,22 @@ function Tools:GetRelicFlats()
 end
 
 -- Facial Expressions UI
+function Tools:ToggleFavoriteExpression(idle)
+  local found = false
+  for i, value in ipairs(Tools.favoriteExpressions) do
+    if value == idle then
+      table.remove(Tools.favoriteExpressions, i)
+      found = true
+      break
+    end
+  end
+  if not found then
+    table.insert(Tools.favoriteExpressions, idle)
+  end
+
+  AMM:UpdateSettings()
+end
+
 function Tools:DrawFacialExpressionDropdown()
 
   -- Keep a local or persistent search string for expressions:
@@ -3698,9 +3717,7 @@ function Tools:DrawFacialExpressionDropdown()
     end
 
   else
-    -- ========== Extra expressions installed! ==========
-
-    local mergedExpressions = AMM:GetAllExpressionsMerged()
+    -- ========== Extra expressions installed! ==========    
 
     -- 1) Search field
     ImGui.PushItemWidth(500)  -- or your variable Tools.searchBarWidth
@@ -3726,7 +3743,7 @@ function Tools:DrawFacialExpressionDropdown()
     local lowerSearch = Tools.searchExpression:lower()
     local filteredByCategory = {}  -- e.g. {["OG Expressions"] = { ... }, ["Negative Emotions"] = { ... }}
 
-    for _, face in ipairs(mergedExpressions) do
+    for _, face in ipairs(Tools.mergedExpressions) do
       local match = true
       if lowerSearch ~= "" then
         local faceNameLower = face.name:lower()
@@ -3742,6 +3759,7 @@ function Tools:DrawFacialExpressionDropdown()
 
     -- categories that actually have results
     local categories = {}
+
     for catName, faces in pairs(filteredByCategory) do
       if #faces > 0 then
         table.insert(categories, catName)
@@ -3749,11 +3767,19 @@ function Tools:DrawFacialExpressionDropdown()
     end
     table.sort(categories)
 
+    -- Add Favorites to the top of the categories list
+    if #Tools.favoriteExpressions > 0 then
+      table.insert(categories, 1, AMM.LocalizableString("Favorites"))
+    end
+
     -- If user’s selectedCategory is now empty, reset it
+    local isFavorites = (Tools.selectedCategory == AMM.LocalizableString("Favorites"))
     if Tools.selectedCategory 
       and (Tools.selectedCategory ~= AMM.LocalizableString("Select_Category"))
-      and (not filteredByCategory[Tools.selectedCategory] 
-           or #filteredByCategory[Tools.selectedCategory] == 0)
+      and (
+          (isFavorites and (#Tools.favoriteExpressions == 0))
+          or (not isFavorites and (not filteredByCategory[Tools.selectedCategory] or #filteredByCategory[Tools.selectedCategory] == 0))
+      )
     then
       Tools.selectedCategory = AMM.LocalizableString("Select_Category")
       Tools.selectedFace = { name = AMM.LocalizableString("Select_Expression") }
@@ -3785,10 +3811,23 @@ function Tools:DrawFacialExpressionDropdown()
         and Tools.selectedCategory ~= AMM.LocalizableString("Select_Category") 
       then
         if ImGui.BeginCombo("##ExpressionsCombo", Tools.selectedFace.name) then
-          local facesInCat = filteredByCategory[Tools.selectedCategory] or {}
+          local facesInCat = {}
+          if Tools.selectedCategory == AMM.LocalizableString("Favorites") then
+            for _, face in ipairs(Tools.mergedExpressions) do
+              for _, favIdle in ipairs(Tools.favoriteExpressions) do
+                if face.idle == favIdle then
+                  table.insert(facesInCat, face)
+                  break
+                end
+              end
+            end
+          else
+            facesInCat = filteredByCategory[Tools.selectedCategory] or {}
+          end
+
           for _, face in ipairs(facesInCat) do
             if ImGui.Selectable(face.name, (face.name == Tools.selectedFace.name)) then
-              Tools.selectedFace  = face
+              Tools.selectedFace = face
               Tools.activatedFace = false
             end
           end
@@ -3798,6 +3837,24 @@ function Tools:DrawFacialExpressionDropdown()
 
       -- Pop the item width
       ImGui.PopItemWidth()
+      
+      if Tools.selectedFace and Tools.selectedFace.name ~= AMM.LocalizableString("Select_Expression") then
+        -- Determine if the expression is favorited
+        local isFav = false
+        for _, favIdle in ipairs(Tools.favoriteExpressions) do
+          if Tools.selectedFace.idle == favIdle then
+            isFav = true
+            break
+          end
+        end
+
+        -- Draw the favorite button
+        local favLabel = isFav and AMM.LocalizableString("Label_Unfavorite") or AMM.LocalizableString("Label_Favorite")
+        ImGui.SameLine()
+        if ImGui.SmallButton(favLabel .. "##" .. Tools.selectedFace.idle) then
+          Tools:ToggleFavoriteExpression(Tools.selectedFace.idle)
+        end
+      end
 
       -- 4) Activation
       if (Tools.selectedFace.name ~= AMM.LocalizableString("Select_Expression")) 
@@ -4123,28 +4180,50 @@ function Tools:SpawnHelper(ent, pos, angles)
 	Cron.Every(0.1, {tick = 1}, timerFunc)
 end
 
-function Tools:UpdateAxisIndicatorPosition()
-  if Tools.currentTarget and Tools.axisIndicator and Tools.axisIndicator.handle then
-    local targetPosition = Tools.currentTarget.handle:GetWorldPosition()
-    local targetAngles = nil
+function Tools:UpdateAxisIndicatorPosition(pos, yaw)
+  -- Make sure we have an axis indicator to move
+  if not Tools.axisIndicator or not Tools.axisIndicator.handle then return end
+
+  local axis = Tools.axisIndicator.handle
+  local targetPosition
+  local targetAngles = EulerAngles.new(0, 0, 0)
+
+  if pos then
+    -- Use the provided position
+    targetPosition = pos
+
+    if yaw then
+      targetAngles = EulerAngles.new(0, 0, yaw)
+    end
+
+  elseif Tools.currentTarget and Tools.currentTarget.handle then
+    -- If pos not provided, fall back to the existing logic
+    targetPosition = Tools.currentTarget.handle:GetWorldPosition()
     if Tools.relativeMode then
       targetAngles = Tools.currentTarget.handle:GetWorldOrientation():ToEulerAngles()
     end
-
-    Game.GetTeleportationFacility():Teleport(Tools.axisIndicator.handle, targetPosition, targetAngles)
+  else
+    -- No pos given, no valid handle to get a position from,
+    -- so we can't do anything. Just return.
+    return
   end
+
+  -- Teleport the axis indicator to the chosen position/angles
+  Game.GetTeleportationFacility():Teleport(axis, targetPosition, targetAngles)
 end
 
-function Tools:ToggleAxisIndicator()
+function Tools:ToggleAxisIndicator(handle)
   if not Tools.axisIndicator and drawWindow then
+    if not handle then handle = Tools.currentTarget.handle end
+    
     Tools.axisIndicator = {}
     Tools.axisIndicator.template = "base\\amm_props\\entity\\axis_indicator.ent"
     Tools.axisIndicator = AMM.Entity:new(Tools.axisIndicator)
 
-    local targetPosition = Tools.currentTarget.handle:GetWorldPosition()
+    local targetPosition = handle:GetWorldPosition()
     local targetAngles = nil
     if Tools.relativeMode then
-      targetAngles = Tools.currentTarget.handle:GetWorldOrientation():ToEulerAngles()
+      targetAngles = handle:GetWorldOrientation():ToEulerAngles()
     end
 
     Tools:SpawnHelper(Tools.axisIndicator, targetPosition, targetAngles)

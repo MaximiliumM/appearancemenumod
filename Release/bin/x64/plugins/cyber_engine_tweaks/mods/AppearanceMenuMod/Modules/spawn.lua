@@ -69,7 +69,7 @@ function Spawn:Initialize()
 	Spawn.categories = Spawn:GetCategories()
 
 	-- Start Companions Distance tracker
-	-- AMM:CheckCompanionDistances()
+	AMM:CheckCompanionDistances()
 
 	if #Spawn.entitiesForRespawn == 0 then return end
 	Spawn.spawnedNPCs = {}

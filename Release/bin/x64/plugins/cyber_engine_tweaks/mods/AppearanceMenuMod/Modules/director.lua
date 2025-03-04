@@ -27,6 +27,8 @@ local Director = {
   teleportCommand = '',
   expressions = AMM:GetPersonalityOptions(),
   voData = AMM:GetPossibleVOs(),
+  testingPose = false,
+  wasPopupOpen_MoveMark = false,
 
   -- Camera Properites
   cameras = {},
@@ -781,7 +783,7 @@ function Director:DrawScriptTab()
             Director.selectedActor.autoTalk, used = ImGui.Checkbox(AMM.LocalizableString("AutoTalk"), Director.selectedActor.autoTalk)
 
             if ImGui.IsItemHovered() then
-              ImGui.SetTooltip(AMM.LocalizableString("This will make NPCs talk once every minute when within range (voiced NPCs only)"))
+              ImGui.SetTooltip(AMM.LocalizableString("Warn_AutoTalkNpc_Info"))
             end
 
             if ImGui.BeginListBox(AMM.LocalizableString("ActorMarks")) then
@@ -832,6 +834,18 @@ function Director:DrawScriptTab()
                 ImGui.OpenPopup("Node View")
               end
             end
+
+            ImGui.SameLine()
+            if ImGui.Button("Move Mark") then
+              AMM.Tools:ToggleAxisIndicator(Game.GetPlayer())
+              Cron.After(0.2, function()
+                Director:UpdateNodeMark(Director.selectedNode)
+              end)
+              ImGui.OpenPopup("Move Mark Popup")
+            end
+
+            -- Draw the popup for Move Mark
+            Director:DrawMoveMarkPopup()
           end
         end
       end
@@ -1105,7 +1119,7 @@ function Director:MoveActors(script, actors)
         elseif actor.activeCommand == 'done' then          
           if timer.tick > (node.holdDuration * 10) then
             if node.pose then
-              AMM.Poses:StopAnimation(node.pose)
+              AMM.Poses:StopAnimation(node.pose, 'Director')
             end
             if node.attackTarget then
               actor.activeCommand = 'attack'
@@ -1556,6 +1570,20 @@ function Director:DrawNodesPopup()
         end
         ImGui.EndCombo()
       end
+
+      ImGui.SameLine()
+
+      if Director.testingPose == false and Director.selectedNode ~= '' then
+        if ImGui.Button("Test Pose") then
+          Director:TestPose(Director.newNode)
+        end
+      elseif Director.testingPose then
+        if ImGui.Button("Stop Pose") then
+          AMM.Poses:StopAnimation(Director.testingPose, 'Director')
+          getEntitySystem():DeleteEntity(Director.selectedActor.entityID)
+          Director.testingPose = false
+        end
+      end
     else
       AMM.UI:TextError(AMM.LocalizableString("AddFavorites_Desc"))
     end
@@ -1804,12 +1832,41 @@ function Director:PrepareExportData(script)
 end
 
 function Director:SaveScript(script)
-  local file = io.open(f("./User/Scripts/%s.json", script.title), "w")
-  if file then
-    local exportData = Director:PrepareExportData(script)
-    local contents = json.encode(exportData)
-		file:write(contents)
-		file:close()
+  if not script or not script.title or script.title == "" then
+    log("[Director] ERROR: Invalid script title, cannot save.")
+    return
+  end
+
+  local path = f("./User/Scripts/%s.json", script.title)
+  local exportData = Director:PrepareExportData(script)
+  dumpTable(exportData)
+  local contents = json.encode(exportData)
+
+  -- Check that we actually produced valid JSON
+  if not contents or contents == "" then
+    log("[Director] ERROR: Failed to produce JSON for script '"..script.title.."'.")
+    return
+  end
+
+  -- Attempt to open the file
+  local file, err = io.open(path, "wb")  -- "wb" = write binary, safer on Windows
+  if not file then
+    log("[Director] ERROR opening file '"..path.."' for write: "..tostring(err))
+    return
+  end
+
+  -- Write in a protected call in case of unexpected error
+  local success, writeErr = pcall(function()
+    file:write(contents)
+  end)
+
+  file:close()
+
+  if not success then
+    log("[Director] ERROR writing to file '"..path.."': "..tostring(writeErr))
+    -- Optionally remove the partial file, or rename it, etc.
+  else
+    log("[Director] Saved script '"..script.title.."' successfully.")
   end
 end
 
@@ -1960,6 +2017,202 @@ function Director:DeleteScript(script)
       end
       timer.retries = timer.retries - 1
   end)
+end
+
+-- We'll store backup info about the node and a temp node
+local moveMarkData = {
+  tempNode = nil,   -- A shallow copy of the selected node
+  saved = false     -- Whether the user pressed "Save Mark"
+}
+
+function Director:DrawMoveMarkPopup()
+  local isOpen = ImGui.IsPopupOpen("Move Mark Popup")
+
+  -- 1) If the popup has just opened this frame, initialize our tempNode
+  if not Director.wasPopupOpen_MoveMark and isOpen then
+    moveMarkData.saved = false
+    local realNode = Director.selectedNode
+    if realNode and realNode.pos then
+      -- Make a shallow copy of the node so we don't mutate the real one
+      moveMarkData.tempNode = {
+        name  = realNode.name,
+        type  = realNode.type,
+        yaw   = realNode.yaw,
+        -- copy the vector
+        pos   = Vector4.new(realNode.pos.x, realNode.pos.y, realNode.pos.z, realNode.pos.w),
+      }
+    end
+  end
+
+  -- 2) If it was open and now isn't, user closed it by outside click/Esc/Cancel
+  if Director.wasPopupOpen_MoveMark and not isOpen then
+    -- If the user did NOT press "Save," we do nothing => revert to original automatically
+    if not moveMarkData.saved then
+      -- revert the marker to the original node's location
+      Director:UpdateNodeMark(Director.selectedNode, true)
+      -- toggle off axis indicator if you wish
+      AMM.Tools:ToggleAxisIndicator()
+    end
+  end
+
+  Director.wasPopupOpen_MoveMark = isOpen
+
+  if isOpen and ImGui.BeginPopup("Move Mark Popup", ImGuiWindowFlags.AlwaysAutoResize) then
+    local temp = moveMarkData.tempNode
+    if temp and temp.pos then
+
+      -- read local copies for the sliders
+      local x = temp.pos.x
+      local y = temp.pos.y
+      local z = temp.pos.z
+      local yaw = temp.yaw or 0
+
+      -- X
+      AMM.UI:PushStyleColor(ImGuiCol.FrameBg, {227, 42, 21, 1})
+      AMM.UI:PushStyleColor(ImGuiCol.Text, {0, 0, 0, 1})
+      x, changedX = ImGui.DragFloat("X", x, 0.1)
+      ImGui.PopStyleColor(2)
+
+      if changedX then
+        temp.pos.x = x
+        Director:UpdateNodeMark(temp)
+      end
+
+      if ImGui.IsItemDeactivatedAfterEdit() then
+        Director:UpdateNodeMark(temp, true)
+      end
+
+      -- Y
+      AMM.UI:PushStyleColor(ImGuiCol.FrameBg, {217, 212, 122, 1})
+      AMM.UI:PushStyleColor(ImGuiCol.Text, {0, 0, 0, 1})
+      y, changedY = ImGui.DragFloat("Y", y, 0.1)
+      ImGui.PopStyleColor(2)
+      if changedY then
+        temp.pos.y = y
+        Director:UpdateNodeMark(temp)
+      end
+
+      if ImGui.IsItemDeactivatedAfterEdit() then
+        Director:UpdateNodeMark(temp, true)
+      end
+
+      -- Z
+      AMM.UI:PushStyleColor(ImGuiCol.FrameBg, {79, 169, 195, 1})
+      AMM.UI:PushStyleColor(ImGuiCol.Text, {0, 0, 0, 1})
+      z, changedZ = ImGui.DragFloat("Z", z, 0.1)
+      ImGui.PopStyleColor(2)
+      if changedZ then
+        temp.pos.z = z
+        Director:UpdateNodeMark(temp)
+      end
+
+      if ImGui.IsItemDeactivatedAfterEdit() then
+        Director:UpdateNodeMark(temp, true)
+      end
+
+      -- Yaw
+      yaw, changedYaw = ImGui.DragFloat("Yaw", yaw, 0.1)
+      if changedYaw then
+        temp.yaw = yaw
+        Director:UpdateNodeMark(temp)
+      end
+
+      if ImGui.IsItemDeactivatedAfterEdit() then
+        Director:UpdateNodeMark(temp, true)
+      end
+
+      ImGui.Spacing()
+
+      -- 3) If user presses Save => copy tempNode back into the real node & Save
+      if ImGui.Button("Save", 80, 30) then
+        moveMarkData.saved = true
+        local realNode = Director.selectedNode
+        if realNode then
+          realNode.pos.x = temp.pos.x
+          realNode.pos.y = temp.pos.y
+          realNode.pos.z = temp.pos.z
+          realNode.yaw    = temp.yaw
+        end
+        Director:SaveScript(Director.selectedScript)
+        AMM.Tools:ToggleAxisIndicator()
+        ImGui.CloseCurrentPopup()
+      end
+
+      ImGui.SameLine()
+      -- 4) Cancel => just closes popup, revert on next frame
+      if ImGui.Button("Cancel", 80, 30) then
+        ImGui.CloseCurrentPopup()
+      end
+
+    else
+      ImGui.Text("No node selected.")
+    end
+    ImGui.EndPopup()
+  end
+end
+
+function Director:UpdateNodeMark(node, restartAnimation)
+   -- Update axis indicator position
+   AMM.Tools:UpdateAxisIndicatorPosition(node.pos, node.yaw)
+
+   -- Restart if animation is playing
+    if Director.testingPose and restartAnimation then
+      -- Now teleport and pose
+      Director:TeleportActorTo(actor, node.pos, node.yaw)
+      Cron.After(0.2, function()
+        AMM.Poses:RestartAnimation(Director.testingPose, 'Director')
+      end)
+    end
+end
+
+function Director:TestPose(node)
+  -- Make sure user selected a pose
+  if not node or not node.pose then
+    print("[Director] No pose selected to test.")
+    return
+  end
+
+  -- We will test with whichever actor is currently selected
+  local actor = Director.selectedActor
+  if not actor or actor == '' then
+    print("[Director] No actor selected to test the pose.")
+    return
+  end
+
+  -- If the actor isn't spawned yet, spawn them
+  if not actor.handle or (not actor.entityID or not Game.FindEntityByID(actor.entityID)) then
+    -- print("[Director] Actor not spawned yet. Spawning now...")
+    -- Create copy of the pose to avoid mutating the original
+    Director.testingPose = Util:ShallowCopy({}, node.pose)
+
+    -- We'll use the existing logic that spawns from your selected script
+    Director:SpawnActors(Director.selectedScript, { actor })
+
+    -- Give it a moment to actually appear in the world
+    Cron.Every(0.1, {tick = 1}, function(timer)
+
+      timer.tick = timer.tick + 1
+      if timer.tick > 100 then
+        print("[Director] Timed out. Actor did not spawn.")
+        Cron.Halt(timer)
+      end
+
+      local spawned = Game.FindEntityByID(actor.entityID)
+      if spawned then
+        actor.handle = spawned
+
+        -- Now teleport and pose
+        Director:TeleportActorTo(actor, node.pos, node.yaw)
+        
+        Cron.After(0.5, function()
+          -- Pose the actor
+          AMM.Poses:PlayAnimationOnTarget(actor, Director.testingPose, true, 'Director')
+        end)
+
+        Cron.Halt(timer)
+      end
+    end)
+  end
 end
 
 return Director

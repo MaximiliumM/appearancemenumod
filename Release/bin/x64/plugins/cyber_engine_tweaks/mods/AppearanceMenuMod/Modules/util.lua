@@ -520,6 +520,7 @@ function Util:AddPlayerEffects()
   Util:ApplyEffectOnPlayer("GameplayRestriction.NoCombat")
   Util:ApplyEffectOnPlayer("GameplayRestriction.VehicleNoSummoning")
   Util:ApplyEffectOnPlayer("GameplayRestriction.NoPhone")
+  Util:ApplyEffectOnPlayer("GameplayRestriction.NoDriving")
 end
 
 function Util:RemovePlayerEffects()
@@ -530,6 +531,7 @@ function Util:RemovePlayerEffects()
   Util:RemoveEffectOnPlayer("GameplayRestriction.NoCombat")
   Util:RemoveEffectOnPlayer("GameplayRestriction.VehicleNoSummoning")
   Util:RemoveEffectOnPlayer("GameplayRestriction.NoPhone")
+  Util:RemoveEffectOnPlayer("GameplayRestriction.NoDriving")
 end
 
 function Util:GetPlayerGender()
@@ -658,8 +660,8 @@ function Util:FollowTarget(targetPuppet, target, distance, walkType)
 end
 
 function Util:MoveTo(targetPuppet, pos, walkType, stealth)
-  local dest = NewObject('WorldPosition')
 
+  local dest = NewObject('WorldPosition')
   dest:SetVector4(dest, pos or AMM.player:GetWorldPosition())
 
   local positionSpec = NewObject('AIPositionSpec')
@@ -673,6 +675,25 @@ function Util:MoveTo(targetPuppet, pos, walkType, stealth)
   cmd.movementType = walkType or "Walk"
   cmd.finishWhenDestinationReached = true
   cmd.alwaysUseStealth = stealth or false
+
+  targetPuppet:GetAIControllerComponent():SendCommand(cmd)
+
+  return cmd, targetPuppet
+end
+
+function Util:RotateTo(targetPuppet, pos)
+
+  local dest = NewObject('WorldPosition')
+  dest:SetVector4(dest, pos or AMM.player:GetWorldPosition())
+  
+  local positionSpec = NewObject('AIPositionSpec')
+  positionSpec:SetWorldPosition(positionSpec, dest)
+
+  local cmd = NewObject('handle:AIRotateToCommand')
+  cmd.target = positionSpec
+  cmd.angleOffset = 50
+  cmd.angleTolerance = 180
+  cmd.speed = 1
 
   targetPuppet:GetAIControllerComponent():SendCommand(cmd)
 

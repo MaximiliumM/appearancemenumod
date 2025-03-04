@@ -1,5 +1,17 @@
 return {
 	{
+		'2.11.1',
+		'2025 Mar 04',
+		[[Added new Characters: Joytoy (PL), Businessman/woman, Hank Davis and more]],
+		[[Added Favorites system for Facial Expressions Overhaul]],
+		[[Added new buttons to Poses in Director:]],
+		[[-- Test Pose: Now you can select and test the pose to see how it will look before playing the script]],
+		[[-- Move Mark: Added X, Y, Z and rotation sliders to move the Mark and help visualize how the Pose will play]],
+		[[Adjusted Companions to look at you and look more lively even when using Close or Nearby follow distance]],
+		[[Fixed issue where Director Auto Talk tooltip would display as AMM ERROR]],
+		[[Fixed localization issues where the new Facial Expressions Overhaul would spam error logs]],
+	},
+	{
 		'2.11',
 		'2025 Mar 03',
 		[[Introducing AMM Facial Expressions Overhaul by Jamie]],

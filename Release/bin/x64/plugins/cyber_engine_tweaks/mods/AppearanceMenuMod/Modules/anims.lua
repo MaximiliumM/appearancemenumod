@@ -337,6 +337,7 @@ function Poses:PlayAnimationOnTarget(t, anim, instant, caller)
   spawnTransform:SetPosition(t.handle:GetWorldPosition())
   local angles = t.handle:GetWorldOrientation():ToEulerAngles()
   angles.yaw = angles.yaw + 180
+
   spawnTransform:SetOrientationEuler(EulerAngles.new(0, 0, angles.yaw))
 
   local entityID = exEntitySpawner.Spawn(anim.ent, spawnTransform, '')
@@ -366,7 +367,7 @@ function Poses:PlayAnimationOnTarget(t, anim, instant, caller)
   end)
 end
 
-function Poses:RestartAnimation(anim)
+function Poses:RestartAnimation(anim, caller)
   local target = anim.target
   
   Game.GetWorkspotSystem():StopInDevice(target.handle)
@@ -378,11 +379,11 @@ function Poses:RestartAnimation(anim)
   end
 
   Cron.After(0.3, function()
-    Poses:PlayAnimationOnTarget(target, anim, true)
+    Poses:PlayAnimationOnTarget(target, anim, true, caller)
   end)
 end
 
-function Poses:StopAnimation(anim, shouldKeep)
+function Poses:StopAnimation(anim, shouldKeep, caller)
   Game.GetWorkspotSystem():StopInDevice(anim.target.handle)
 
   if not shouldKeep then
@@ -391,7 +392,9 @@ function Poses:StopAnimation(anim, shouldKeep)
       anim.handle:Dispose()
     end
 
-    Poses.activeAnims[anim.hash] = nil
+    if not caller then
+      Poses.activeAnims[anim.hash] = nil
+    end
   end
 end
 
