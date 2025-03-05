@@ -101,6 +101,8 @@ return {
 	Warn_PlayerInMenu = "Player In Menu",
 	Warn_AMMonlyfunctions_ingame = "AMM only functions in game",
 	Warn_SpawnWorksInGame = "Spawning only works in game",
+	Warn_InitError = "Initialization Error",
+	Warn_InitError_Info = "Please check the AppearanceMenuMod.log for more information.",
 	
     --Text
 	Active_Spawns = "Active Spawns",
@@ -445,6 +447,7 @@ return {
 	Button_SaveChangesOnly = "Save Changes Only",
 	Button_RemoveMark = "Remove Mark",
 	Button_EditMark = "Edit Mark",
+	Button_MoveMark = "Move Mark",
 	Button_NewMark = "New Mark",
 	Button_AddActor = "Add Actor",
 	Button_RemoveActor = "Remove Actor",
@@ -457,6 +460,8 @@ return {
 	Button_NewScript = "New Script",
 	Button_DragSpeed = "Speed",
 	Button_ToggleMarker = "Toggle Marker",
+	Button_TestPose = "Test Pose",
+	Button_StopPose = "Stop Pose",
 	
     --Button Label
 	Button_Label_PlayScript = "Play Script",

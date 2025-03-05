@@ -101,8 +101,10 @@ return {
 	Warn_PlayerInMenu = "玩家菜单",
 	Warn_AMMonlyfunctions_ingame = "AMM仅在游戏内生效",
 	Warn_SpawnWorksInGame = "生成仅在游戏内生效",
+	Warn_InitError = "初始化错误",
+	Warn_InitError_Info = "请检查 AppearanceMenuMod.log 以获取更多信息。",
 
-    --Text
+	--Text
 	Active_Spawns = "生效的生成目标",
 	NoActiveSpawns = "无生效的生成目标",
 	Select_To_Spawn = "选择生成",
@@ -445,6 +447,7 @@ return {
 	Button_SaveChangesOnly = "仅保存修改",
 	Button_RemoveMark = "删除标记",
 	Button_EditMark = "编辑标记",
+	Button_MoveMark = "移动标记",
 	Button_NewMark = "新建标记",
 	Button_AddActor = "添加演员",
 	Button_RemoveActor = "移除演员",
@@ -457,8 +460,10 @@ return {
 	Button_NewScript = "新建脚本",
 	Button_DragSpeed = "速度",
 	Button_ToggleMarker = "切换标记",
+	Button_TestPose = "测试姿势",
+	Button_StopPose = "停止姿势",
 
-    --Button Label
+	--Button Label
 	Button_Label_PlayScript = "播放脚本",
 	Button_Label_StopScript = "停止播放",
 	Button_Label_Stopping = "停止...",

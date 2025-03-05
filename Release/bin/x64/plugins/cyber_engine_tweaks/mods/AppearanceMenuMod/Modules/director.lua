@@ -836,7 +836,7 @@ function Director:DrawScriptTab()
             end
 
             ImGui.SameLine()
-            if ImGui.Button("Move Mark") then
+            if ImGui.Button(AMM.LocalizableString("Button_MoveMark")) then
               AMM.Tools:ToggleAxisIndicator(Game.GetPlayer())
               Cron.After(0.2, function()
                 Director:UpdateNodeMark(Director.selectedNode)
@@ -1574,11 +1574,11 @@ function Director:DrawNodesPopup()
       ImGui.SameLine()
 
       if Director.testingPose == false and Director.selectedNode ~= '' then
-        if ImGui.Button("Test Pose") then
+        if ImGui.Button(AMM.LocalizableString("Button_TestPose")) then
           Director:TestPose(Director.newNode)
         end
       elseif Director.testingPose then
-        if ImGui.Button("Stop Pose") then
+        if ImGui.Button(AMM.LocalizableString("Button_StopPose")) then
           AMM.Poses:StopAnimation(Director.testingPose, 'Director')
           getEntitySystem():DeleteEntity(Director.selectedActor.entityID)
           Director.testingPose = false
@@ -1839,7 +1839,6 @@ function Director:SaveScript(script)
 
   local path = f("./User/Scripts/%s.json", script.title)
   local exportData = Director:PrepareExportData(script)
-  dumpTable(exportData)
   local contents = json.encode(exportData)
 
   -- Check that we actually produced valid JSON
@@ -2124,7 +2123,7 @@ function Director:DrawMoveMarkPopup()
       ImGui.Spacing()
 
       -- 3) If user presses Save => copy tempNode back into the real node & Save
-      if ImGui.Button("Save", 80, 30) then
+      if ImGui.Button(AMM.LocalizableString("Save"), 80, 30) then
         moveMarkData.saved = true
         local realNode = Director.selectedNode
         if realNode then
@@ -2140,7 +2139,7 @@ function Director:DrawMoveMarkPopup()
 
       ImGui.SameLine()
       -- 4) Cancel => just closes popup, revert on next frame
-      if ImGui.Button("Cancel", 80, 30) then
+      if ImGui.Button(AMM.LocalizableString("Label_Cancel"), 80, 30) then
         ImGui.CloseCurrentPopup()
       end
 

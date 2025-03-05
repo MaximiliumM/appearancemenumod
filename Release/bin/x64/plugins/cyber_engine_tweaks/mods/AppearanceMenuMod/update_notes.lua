@@ -1,5 +1,14 @@
 return {
 	{
+		'2.11.2',
+		'2025 Mar 05',
+		[[Added a new Warning when AMM fails to initialize]],
+		[[Fixed issue where AMM would not initialize without the new Facial Expressions Overhaul Collab]],
+		[[Fixed issue where Blacklisted appearances would only change in certain conditions]],
+		[[Fixed issue where Director Script would not start]],
+		[[Fixed localization for new Director buttons]],
+	},
+	{
 		'2.11.1',
 		'2025 Mar 04',
 		[[Added new Characters: Joytoy (PL), Businessman/woman, Hank Davis and more]],

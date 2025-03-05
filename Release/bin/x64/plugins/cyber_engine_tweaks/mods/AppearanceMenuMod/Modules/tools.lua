@@ -155,7 +155,10 @@ function Tools:Initialize()
   -- Initialize Strings here to be able to change localization language
   Tools.selectedLocation = {loc_name = AMM.LocalizableString("Select_Location")}
   Tools.selectedFace = {name = AMM.LocalizableString("Select_Expression")}
-  Tools.mergedExpressions = AMM:GetAllExpressionsMerged()
+
+  if AMM.extraExpressionsInstalled then
+    Tools.mergedExpressions = AMM:GetAllExpressionsMerged()
+  end
   
   Tools.playerVisibility = AMM.userSettings.passiveModeOnLaunch or true
   if not Tools.playerVisibility then

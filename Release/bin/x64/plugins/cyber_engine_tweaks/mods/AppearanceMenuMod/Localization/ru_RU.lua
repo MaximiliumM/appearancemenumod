@@ -101,8 +101,10 @@ return {
 	Warn_PlayerInMenu = "Игрок находится в меню",
 	Warn_AMMonlyfunctions_ingame = "АММ работает только в игре",
 	Warn_SpawnWorksInGame = "Спаун работает только во время игры",
+	Warn_InitError = "Ошибка инициализации",
+	Warn_InitError_Info = "Пожалуйста, проверьте AppearanceMenuMod.log для получения дополнительной информации.",
 
-    --Text
+	--Text
 	Active_Spawns = "Активные спауны",
 	NoActiveSpawns = "Нет активных спаунов",
 	Select_To_Spawn = "Выберите объект для спауна",
@@ -445,6 +447,7 @@ return {
 	Button_SaveChangesOnly = "Сохранение только изменений",
 	Button_RemoveMark = "Удалить метку",
 	Button_EditMark = "Редактировать метку",
+	Button_MoveMark = "Переместить метку",
 	Button_NewMark = "Новая мекаk",
 	Button_AddActor = "Добавить актёра",
 	Button_RemoveActor = "Удалить актёра",
@@ -457,8 +460,10 @@ return {
 	Button_NewScript = "Новый сценарий",
 	Button_DragSpeed = "Скорость",
 	Button_ToggleMarker = "Тумблер",
+	Button_TestPose = "Тестовая поза",
+	Button_StopPose = "Остановить позу",
 
-    --Button Label
+	--Button Label
 	Button_Label_PlayScript = "Воспроизвести сценарий",
 	Button_Label_StopScript = "Остановить сценарий",
 	Button_Label_Stopping = "Остановка...",

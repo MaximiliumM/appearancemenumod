@@ -101,8 +101,10 @@ return {
 	Warn_PlayerInMenu = "Oyuncu Menüde",
 	Warn_AMMonlyfunctions_ingame = "AMM sadece oyun içinde çalisir",
 	Warn_SpawnWorksInGame = "Yarat sadece oyun içinde çalisir",
+	Warn_InitError = "Başlatma Hatası",
+	Warn_InitError_Info = "Daha fazla bilgi için lütfen AppearanceMenuMod.log dosyasını kontrol edin.",
 
-    --Text
+	--Text
 	Active_Spawns = "Aktif Yaratilmislar",
 	NoActiveSpawns = "Aktif Yaratilmis Yok",
 	Select_To_Spawn = "Yaratmak Için Seç",
@@ -445,6 +447,7 @@ return {
 	Button_SaveChangesOnly = "Sadece Degisikleri Kaydet",
 	Button_RemoveMark = "Isareti Kaldir",
 	Button_EditMark = "Isareti Düzenle",
+	Button_MoveMark = "Isareti Tasi",
 	Button_NewMark = "Yeni Isaret",
 	Button_AddActor = "Aktör Ekle",
 	Button_RemoveActor = "Aktör Kaldir",
@@ -457,8 +460,10 @@ return {
 	Button_NewScript = "Yeni Senaryo",
 	Button_DragSpeed = "Hiz",
 	Button_ToggleMarker = "Isareti Aç/Kapat",
+	Button_TestPose = "Pozu Test Et",
+	Button_StopPose = "Pozu Durdur",
 
-    --Button Label
+	--Button Label
 	Button_Label_PlayScript = "Senaryoyu Oynat",
 	Button_Label_StopScript = "Senaryoyu Durdur",
 	Button_Label_Stopping = "Durduruluyor...",

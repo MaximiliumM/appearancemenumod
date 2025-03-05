@@ -4,6 +4,9 @@ AMM = {
 	description = "",
 }
 
+-- Global for Error Tracking --
+local initializationComplete = false
+
 -- ALIAS for spdlog.error --
 log = spdlog.error
 
@@ -84,7 +87,7 @@ function AMM:new()
 	 AMM.extraExpressionsInstalled = false
 
 	 -- Main Properties --
-	 AMM.currentVersion = "2.11.1"
+	 AMM.currentVersion = "2.11.2"
 	 AMM.CETVersion = parseVersion(GetVersion())
 	 AMM.CodewareVersion = 0
 	 AMM.updateNotes = require('update_notes.lua')
@@ -104,6 +107,7 @@ function AMM:new()
 	 AMM.archivesInfo = {missing = false, optional = true, sounds = true}
 	 AMM.collabArchives = {}
 	 AMM.savedAppearanceCheckCache = {}
+	 AMM.blacklistAppearanceCheckCache = {}
 	 AMM.cachedEntities = {}
 	 AMM.bannedWords = {"naked", "nude", "pp", "xxx", "penis", "birthday_suit", "shower"}
 	 AMM.cachedAppearanceOptions = {}
@@ -230,6 +234,8 @@ function AMM:new()
 
 		 -- Poses should be initialized after extra archives
 		 AMM.Poses:Initialize()
+
+		 initializationComplete = true
 
 		 -- Check if user is in-game using WorldPosition --
 		 -- Only way to set player attached if user reload all mods --
@@ -1614,8 +1620,13 @@ function AMM:Begin()
 					local notes = AMM.updateNotes
 
 					if finishedUpdate and AMM.playerAttached == false then
-						AMM.UI:TextColored(AMM.LocalizableString("Warn_PlayerInMenu"))
-						ImGui.Text(AMM.LocalizableString("Warn_AMMonlyfunctions_ingame"))
+						if initializationComplete == false then
+							AMM.UI:TextColored(AMM.LocalizableString("Warn_InitError"))
+							ImGui.Text(AMM.LocalizableString("Warn_InitError_Info"))
+						else
+							AMM.UI:TextColored(AMM.LocalizableString("Warn_PlayerInMenu"))
+							ImGui.Text(AMM.LocalizableString("Warn_AMMonlyfunctions_ingame"))
+						end
 
 						if AMM.updateLabel ~= AMM.LocalizableString("CREDITS") then
 							AMM.updateLabel = AMM.LocalizableString("UPDATE_HISTORY")
@@ -3945,18 +3956,20 @@ function AMM:CheckSavedAppearance(target)
 
 	Util:GetAllInRange(10, false, true, function(entity)
 		local ent = nil
-
-		if entity:IsNPC() then
-			ent = AMM:NewTarget(entity, "NPCPuppet", AMM:GetScanID(entity), AMM:GetNPCName(entity),AMM:GetScanAppearance(entity), nil)
-		elseif entity:IsVehicle() and entity:IsPlayerVehicle() then
+		
+		if entity.IsNPC and entity:IsNPC() then
+			ent = AMM:NewTarget(entity, "NPCPuppet", AMM:GetScanID(entity), AMM:GetNPCName(entity), AMM:GetScanAppearance(entity), nil)
+		elseif entity.IsVehicle and entity:IsVehicle() and entity:IsPlayerVehicle() then
 			ent = AMM:NewTarget(entity, 'vehicle', AMM:GetScanID(entity), AMM:GetVehicleName(entity), AMM:GetScanAppearance(entity), nil)
 		end
 
-		if ent ~= nil and (not AMM.savedAppearanceCheckCache[ent.hash] or AMM.savedAppearanceCheckCache[ent.hash] ~= ent.appearance) then
+		if ent ~= nil and (not AMM.savedAppearanceCheckCache[ent.hash] or AMM.savedAppearanceCheckCache[ent.hash] ~= ent.appearance
+		or not AMM.blacklistAppearanceCheckCache[ent.hash] or AMM.blacklistAppearanceCheckCache[ent.hash] == ent.appearance) then			
 			AMM.savedAppearanceCheckCache[ent.hash] = ent.appearance
+			AMM.blacklistAppearanceCheckCache[ent.hash] = ent.appearance
 			AMM:CheckCustomDefaults(ent)
-			AMM:CheckSavedAppearanceForEntity(ent)
-			AMM:CheckBlacklistAppearance(ent)
+			AMM:CheckSavedAppearanceForEntity(ent)			
+			AMM:CheckBlacklistAppearance(ent)			
 		end
 	end)
 end
@@ -4025,14 +4038,14 @@ function AMM:CheckBlacklistAppearance(ent)
 		if check == 0 then return end
     
 		local newApp = nil
-    local query = f("SELECT app_name FROM appearances WHERE app_name NOT IN (SELECT app_name FROM blacklist_appearances WHERE entity_id = '%s') AND app_name != '%s' AND entity_id = '%s' ORDER BY RANDOM() LIMIT 1", ent.id, ent.appearance, ent.id)
-    for app in db:urows(query) do
-      newApp = app
-    end
+		local query = f("SELECT app_name FROM appearances WHERE app_name NOT IN (SELECT app_name FROM blacklist_appearances WHERE entity_id = '%s') AND app_name != '%s' AND entity_id = '%s' ORDER BY RANDOM() LIMIT 1", ent.id, ent.appearance, ent.id)
+		for app in db:urows(query) do
+			newApp = app
+		end
 
-    if newApp then
-      AMM:ChangeScanAppearanceTo(ent, newApp)
-    end
+		if newApp then
+			AMM:ChangeScanAppearanceTo(ent, newApp)
+		end
   end
 end
 
