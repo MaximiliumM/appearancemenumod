@@ -277,9 +277,10 @@ return {
 	Button_TogglePiercings = "切换饰品",
 	Button_ToggleSeamfix = "切换接缝修复",
 	Button_TargetV = "切换 V",
-	Button_Target = "切换 ",
-	Button_TeleportToLocation = "传送到地点",
-	Button_ShareCurrentLocation = "保存当前的地点",
+        Button_Target = "切换 ",
+        Button_TeleportToLocation = "传送到地点",
+        Button_RandomLocation = "随机",
+        Button_ShareCurrentLocation = "保存当前的地点",
 	Button_GoBackToLastLocation = "回到上次所在的地点",
 	Button_DeleteSelectedUserLocation = "删除所选用户位置",
 

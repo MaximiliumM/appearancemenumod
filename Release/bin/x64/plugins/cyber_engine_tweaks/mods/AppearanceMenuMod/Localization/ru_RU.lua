@@ -277,9 +277,10 @@ return {
 	Button_TogglePiercings = "Вкл. пирсинг",
 	Button_ToggleSeamfix = "Вкл. Seamfix",
 	Button_TargetV = "Ви - Цель",
-	Button_Target = "Цель ",
-	Button_TeleportToLocation = "Телепорт к локации",
-	Button_ShareCurrentLocation = "Сохранить текущую локацию",
+        Button_Target = "Цель ",
+        Button_TeleportToLocation = "Телепорт к локации",
+        Button_RandomLocation = "Случайно",
+        Button_ShareCurrentLocation = "Сохранить текущую локацию",
 	Button_GoBackToLastLocation = "Вернуться к последней локации",
 	Button_DeleteSelectedUserLocation = "Удалить выбранную локацию пользователя",
 

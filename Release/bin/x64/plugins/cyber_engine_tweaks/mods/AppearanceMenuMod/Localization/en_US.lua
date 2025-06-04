@@ -277,9 +277,10 @@ return {
 	Button_TogglePiercings = "Toggle Piercings",
 	Button_ToggleSeamfix = "Toggle Seamfix",
 	Button_TargetV = "Target V",
-	Button_Target = "Target ",
-	Button_TeleportToLocation = "Teleport To Location",
-	Button_ShareCurrentLocation = "Share Current Location",
+        Button_Target = "Target ",
+        Button_TeleportToLocation = "Teleport To Location",
+        Button_RandomLocation = "Random",
+        Button_ShareCurrentLocation = "Share Current Location",
 	Button_GoBackToLastLocation = "Go Back To Last Location",
 	Button_DeleteSelectedUserLocation = "Delete Selected User Location",
 	

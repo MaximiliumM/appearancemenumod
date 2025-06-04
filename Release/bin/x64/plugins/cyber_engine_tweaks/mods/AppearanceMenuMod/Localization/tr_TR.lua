@@ -277,9 +277,10 @@ return {
 	Button_TogglePiercings = "Pirsingleri Aç/Kapat",
 	Button_ToggleSeamfix = "Dikis Yeri Fix Aç/Kapat",
 	Button_TargetV = "Hedef V",
-	Button_Target = "Hedef ",
-	Button_TeleportToLocation = "Konuma Isinla",
-	Button_ShareCurrentLocation = "Mevcut Konumu Paylas",
+        Button_Target = "Hedef ",
+        Button_TeleportToLocation = "Konuma Isinla",
+        Button_RandomLocation = "Rastgele",
+        Button_ShareCurrentLocation = "Mevcut Konumu Paylas",
 	Button_GoBackToLastLocation = "Son Konuma Geri Dön",
 	Button_DeleteSelectedUserLocation = "Seçilen Kullanici Konumunu Sil",
 
