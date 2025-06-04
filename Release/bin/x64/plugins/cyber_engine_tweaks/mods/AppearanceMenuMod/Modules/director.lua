@@ -556,6 +556,19 @@ function Director:DrawTriggerTab()
 
             ImGui.Spacing()
 
+            if ImGui.Button(AMM.LocalizableString("Button_TeleportToTrigger"), -1, 30) then
+              if Director.selectedTrigger.pos then
+                local loc = {
+                  x = Director.selectedTrigger.pos.x,
+                  y = Director.selectedTrigger.pos.y,
+                  z = Director.selectedTrigger.pos.z,
+                  w = Director.selectedTrigger.pos.w,
+                  yaw = 0
+                }
+                AMM.Tools:TeleportToLocation(loc)
+              end
+            end
+
             if ImGui.Button(AMM.LocalizableString("Button_SaveTrigger"), -1, 30) then
               if not Director.selectedTrigger.pos then
                 local pos = Game.GetPlayer():GetWorldPosition()
@@ -842,6 +855,20 @@ function Director:DrawScriptTab()
                 Director:UpdateNodeMark(Director.selectedNode)
               end)
               ImGui.OpenPopup("Move Mark Popup")
+            end
+
+            ImGui.SameLine()
+            if ImGui.Button(AMM.LocalizableString("Button_TeleportToMark")) then
+              if Director.selectedNode and Director.selectedNode.pos then
+                local loc = {
+                  x = Director.selectedNode.pos.x,
+                  y = Director.selectedNode.pos.y,
+                  z = Director.selectedNode.pos.z,
+                  w = Director.selectedNode.pos.w,
+                  yaw = Director.selectedNode.yaw or 0
+                }
+                AMM.Tools:TeleportToLocation(loc)
+              end
             end
 
             -- Draw the popup for Move Mark
