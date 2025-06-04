@@ -160,7 +160,7 @@ function Tools:Initialize()
     Tools.mergedExpressions = AMM:GetAllExpressionsMerged()
   end
   
-  Tools.playerVisibility = AMM.userSettings.passiveModeOnLaunch or true
+  Tools.playerVisibility = AMM.userSettings.passiveModeOnLaunch
   if not Tools.playerVisibility then
     Tools:ToggleInvisibility()
   end
@@ -888,6 +888,12 @@ end
 function Tools:DrawTeleportActions()
 
   Tools:DrawLocationsDropdown()
+
+  ImGui.SameLine()
+
+  if ImGui.SmallButton(AMM.LocalizableString("Button_RandomLocation")) then
+    Tools:TeleportToRandomLocation()
+  end
 
   ImGui.Spacing()
 
@@ -1635,6 +1641,24 @@ function Tools:GetLocations()
 
   return results
 end
+
+function Tools:TeleportToRandomLocation()
+  if not Tools.allLocations or #Tools.allLocations == 0 then
+    Tools:LoadAllLocations()
+  end
+
+  local locList = Tools.allLocations
+  if #locList == 0 then return end
+
+  local randIndex = math.random(#locList)
+  local loc = locList[randIndex]
+
+  Tools.selectedLocationCategory = Tools:GetCategoryNameForLocationID(loc.cat_id)
+  Tools.selectedLocation = loc
+
+  Tools:TeleportToLocation(loc)
+end
+
 
 function Tools:TeleportToLocation(loc)
   Tools.lastLocation = Tools:NewLocationData("Previous Location", Tools:GetPlayerLocation())
@@ -3186,6 +3210,16 @@ function Tools:DrawMovementWindow()
             end
           end
 
+          if Director.activeCamera then
+            local camera = Director.activeCamera
+            if camera and camera:IsValid() and camera:GetEntityID() then
+              local cameraHash = tostring(camera:GetEntityID().hash)
+              if Tools.currentTarget.hash ~= cameraHash then
+                table.insert(availableTargets, {name = "Camera", handle = camera})
+              end
+            end
+          end
+
           ImGui.Text(AMM.LocalizableString("Current_Target"))
 
           if ImGui.BeginCombo("##LookAt", lookAtTargetName) then
@@ -3618,18 +3652,33 @@ function Tools:SkipFrame()
 end
 
 function Tools:FreezeTime()
-  if Tools.timeState then
-    Game.GetTimeSystem():SetTimeDilation(CName.new("pause"), 0.0)
-		TimeDilationHelper.SetTimeDilationWithProfile(Game.GetPlayer(), "radialMenu", true, true)
-		TimeDilationHelper.SetIgnoreTimeDilationOnLocalPlayerZero(Game.GetPlayer(), true)
-  else
-    if Tools.slowMotionSpeed ~= 1 then
-      Tools:SetSlowMotionSpeed(Tools.slowMotionSpeed)
+  if AMM.userSettings.freezeInPhoto then
+    if Tools.timeState then
+      Game.GetTimeSystem():SetIgnoreTimeDilationOnLocalPlayerZero(true)
+      Game.GetTimeSystem():SetTimeDilation("consoleCommand", 0.0000000000001)
     else
-      Game.GetTimeSystem():UnsetTimeDilation(CName.new("pause"), "None")
-      TimeDilationHelper.SetTimeDilationWithProfile(Game.GetPlayer(), "radialMenu", false, true)
-		  TimeDilationHelper.SetIgnoreTimeDilationOnLocalPlayerZero(Game.GetPlayer(), false)
-      Tools.slowMotionSpeed = 1
+      if Tools.slowMotionSpeed ~= 1 then
+        Tools:SetSlowMotionSpeed(Tools.slowMotionSpeed)
+      else
+        Game.GetTimeSystem():SetIgnoreTimeDilationOnLocalPlayerZero(false)
+        Game.GetTimeSystem():UnsetTimeDilation("consoleCommand", "None")
+        Tools.slowMotionSpeed = 1
+      end
+    end
+  else
+    if Tools.timeState then
+      Game.GetTimeSystem():SetTimeDilation(CName.new("pause"), 0.0)
+      TimeDilationHelper.SetTimeDilationWithProfile(Game.GetPlayer(), "radialMenu", true, true)
+      TimeDilationHelper.SetIgnoreTimeDilationOnLocalPlayerZero(Game.GetPlayer(), true)
+    else
+      if Tools.slowMotionSpeed ~= 1 then
+        Tools:SetSlowMotionSpeed(Tools.slowMotionSpeed)
+      else
+        Game.GetTimeSystem():UnsetTimeDilation(CName.new("pause"), "None")
+        TimeDilationHelper.SetTimeDilationWithProfile(Game.GetPlayer(), "radialMenu", false, true)
+        TimeDilationHelper.SetIgnoreTimeDilationOnLocalPlayerZero(Game.GetPlayer(), false)
+        Tools.slowMotionSpeed = 1
+      end
     end
   end
 

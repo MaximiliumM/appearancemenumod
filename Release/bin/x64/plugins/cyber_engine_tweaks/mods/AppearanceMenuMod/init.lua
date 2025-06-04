@@ -312,10 +312,21 @@ function AMM:new()
 		 end)
 
 		 -- Setup Observers and Overrides --
-
+		 
 		--  Observe('ElevatorInkGameController', 'OnChangeFloor', function(this)
 		-- 	AMM:StartCompanionsFollowElevator()
-	 	--  end)
+	 	--  end)		  
+
+		AMM.activeFlag = false
+		Observe("Frame", "OnScreenshotChanged", function(this, screenshotSize, errorCode)
+			if AMM.activeFlag == false then
+				AMM.activePhotoID = this.activePhotoID
+				AMM.activePhotoHash = this.activePhotoHash
+				AMM.activePhotoUV = this.activePhotoUV	
+				AMM.activeFlag = true
+			end
+		end)
+
 
 		 local puppetSpawned = false
 		 ObserveAfter('PhotoModePlayerEntityComponent', 'SetupInventory', function(self)
@@ -1622,7 +1633,9 @@ function AMM:Begin()
 					if finishedUpdate and AMM.playerAttached == false then
 						if initializationComplete == false then
 							AMM.UI:TextColored(AMM.LocalizableString("Warn_InitError"))
-							ImGui.Text(AMM.LocalizableString("Warn_InitError_Info"))
+							ImGui.PushTextWrapPos(400)
+							ImGui.TextWrapped(AMM.LocalizableString("Warn_InitError_Info"))
+							ImGui.PopTextWrapPos()
 						else
 							AMM.UI:TextColored(AMM.LocalizableString("Warn_PlayerInMenu"))
 							ImGui.Text(AMM.LocalizableString("Warn_AMMonlyfunctions_ingame"))
@@ -5125,14 +5138,15 @@ function AMM:CheckCompanionDistances()
       if spawn.entityID and spawn.handle and spawn.handle:IsNPC() then
         local npcPos = spawn.handle:GetWorldPosition()
         local distance = Util:VectorDistance(playerPos, npcPos)
+		  local followDistance = AMM.followDistance[2] or 3
 
-        if distance > 3 then
+        if distance > followDistance then
           if not spawn.farDistance then
             spawn.farDistance = true
 				AMM:UpdateFollowDistance()
           end
         else
-          -- They are now within 3 meters
+          -- They are now within follow distance
           if spawn.farDistance then
             spawn.farDistance = false
             Util:RotateTo(spawn.handle)

@@ -185,6 +185,7 @@ end
 function Director:ActivateTrigger(trigger)
   local title = trigger.script
   local script = Director:GetScriptByTitle(title)
+  Director.selectedScript = script
   if not script.isRunning then
     if trigger.repeatable then script.repeatable = true end
     script.trigger = trigger
