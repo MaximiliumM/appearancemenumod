@@ -46,6 +46,9 @@ function Tools:new()
   Tools.defaultLocations = {}
   Tools.userLocations = {}
   Tools.favoriteLocations = {}
+  Tools.locationsMode = "Default"
+  Tools.selectedCollabCategory = AMM.LocalizableString("Select_Category")
+  Tools.selectedCollabLocation = { name = AMM.LocalizableString("Select_Location") }
   Tools.useTeleportAnimation = false
   Tools.selectedLocationCategory = AMM.LocalizableString("Select_Category")
   Tools.selectedCatIDForSaving = 11       -- default to 11 (UserLocations) 
@@ -154,6 +157,9 @@ end
 function Tools:Initialize()
   -- Initialize Strings here to be able to change localization language
   Tools.selectedLocation = {loc_name = AMM.LocalizableString("Select_Location")}
+  Tools.selectedCollabCategory = AMM.LocalizableString("Select_Category")
+  Tools.selectedCollabLocation = { name = AMM.LocalizableString("Select_Location") }
+  Tools.locationsMode = "Default"
   Tools.selectedFace = {name = AMM.LocalizableString("Select_Expression")}
 
   if AMM.extraExpressionsInstalled then
@@ -1387,8 +1393,20 @@ function Tools:DrawLocationsDropdown()
   Tools.locationSearch = Tools.locationSearch or ""
   Tools.selectedLocationCategory = Tools.selectedLocationCategory or AMM.LocalizableString("Select_Category")
   Tools.selectedLocation = Tools.selectedLocation or { loc_name = AMM.LocalizableString("Select_Location") }
+  Tools.selectedCollabCategory = Tools.selectedCollabCategory or AMM.LocalizableString("Select_Category")
+  Tools.selectedCollabLocation = Tools.selectedCollabLocation or { name = AMM.LocalizableString("Select_Location") }
+  Tools.locationsMode = Tools.locationsMode or "Default"
 
-  -- 1) The search field
+  if AMM.HasCollabLocations then
+    if ImGui.RadioButton(AMM.LocalizableString("Default_Locations"), Tools.locationsMode == "Default") then
+      Tools.locationsMode = "Default"
+    end
+    ImGui.SameLine()
+    if ImGui.RadioButton(AMM.LocalizableString("Collab_Locations"), Tools.locationsMode == "Collab") then
+      Tools.locationsMode = "Collab"
+    end
+  end
+
   ImGui.PushItemWidth(270)
   Tools.locationSearch = ImGui.InputTextWithHint(
                             " ",
@@ -1399,123 +1417,162 @@ function Tools:DrawLocationsDropdown()
   Tools.locationSearch = Tools.locationSearch:gsub('"', "")
   ImGui.PopItemWidth()
 
-  -- If there's text, show "Clear" button
   if Tools.locationSearch ~= "" then
     ImGui.SameLine()
     if ImGui.Button(AMM.LocalizableString("Clear")) then
       Tools.locationSearch = ""
     end
   end
-  
-  -- Re-fetch if text changed
-  if Tools.locationSearch ~= Tools.lastLocationSearch then
-    Tools.lastLocationSearch = Tools.locationSearch
-    Tools.locations = Tools:GetLocations()
-  end
 
-  -- Gather all tags from the current Tools.locations
-  Tools.availableTags = Tools:GatherAllTagsForLocations(Tools.locations or {})
-
-  -- If we have tags, show "Filter by Tag" button
-  if #Tools.availableTags > 0 and Tools.locationSearch == "" then
-    ImGui.SameLine()
-    if ImGui.Button(AMM.LocalizableString("Button_FilterByTags")) then
-      ImGui.OpenPopup("TagFilterPopup")
+  if Tools.locationsMode == "Default" then
+    if Tools.locationSearch ~= Tools.lastLocationSearch then
+      Tools.lastLocationSearch = Tools.locationSearch
+      Tools.locations = Tools:GetLocations()
     end
-    Tools:DrawTagFilterPopup()
-  end
 
-  --------------------------------------------------------
-  -- 2) Build categories -> matching locations
-  --------------------------------------------------------
-  local filteredByCategory = {}
-  local locList = Tools.locations or {}
+    Tools.availableTags = Tools:GatherAllTagsForLocations(Tools.locations or {})
 
-  -- Apply the tag filter logic to locList:
-  locList = Tools:ApplyTagFilters(locList)
-
-  for _, loc in ipairs(locList) do
-    local catName = Tools:GetCategoryNameForLocationID(loc.cat_id)
-    filteredByCategory[catName] = filteredByCategory[catName] or {}
-    table.insert(filteredByCategory[catName], loc)
-  end
-
-  -- We want Favorites (cat_id=12) at the top. So if there's a category "Favorites," we handle that first.
-  local categories = {}
-  for catName, arrayOfLocs in pairs(filteredByCategory) do
-    table.insert(categories, catName)
-  end
-  table.sort(categories)
-
-  -- If "Favorites" is among them, we move it to front:
-  local iFav = nil
-  for i, catName in ipairs(categories) do
-    if catName == AMM.LocalizableString("Favorites") then
-      iFav = i
-      break
+    if #Tools.availableTags > 0 and Tools.locationSearch == "" then
+      ImGui.SameLine()
+      if ImGui.Button(AMM.LocalizableString("Button_FilterByTags")) then
+        ImGui.OpenPopup("TagFilterPopup")
+      end
+      Tools:DrawTagFilterPopup()
     end
-  end
-  if iFav then
-    -- remove from that position
-    local favCat = table.remove(categories, iFav)
-    -- insert it at position 1
-    table.insert(categories, 1, favCat)
-  end
 
-  -- If user’s selectedCategory is no longer present, reset it
-  local function categoryExists(cname)
-    for _, c in ipairs(categories) do
-      if c == cname then return true end
+    local filteredByCategory = {}
+    local locList = Tools:ApplyTagFilters(Tools.locations or {})
+    for _, loc in ipairs(locList) do
+      local catName = Tools:GetCategoryNameForLocationID(loc.cat_id)
+      filteredByCategory[catName] = filteredByCategory[catName] or {}
+      table.insert(filteredByCategory[catName], loc)
     end
-    return false
-  end
-  if Tools.selectedLocationCategory ~= AMM.LocalizableString("Select_Category") 
-     and not categoryExists(Tools.selectedLocationCategory) 
-  then
-    Tools.selectedLocationCategory = AMM.LocalizableString("Select_Category")
-    Tools.selectedLocation = { loc_name = AMM.LocalizableString("Select_Location") }
-  end
 
-  --------------------------------------------------------
-  -- 3) If no categories, show "No Results"
-  --------------------------------------------------------
-  if #categories == 0 then
-    ImGui.Text(AMM.LocalizableString("No_Results"))
-    return
-  end
+    local categories = {}
+    for catName in pairs(filteredByCategory) do
+      table.insert(categories, catName)
+    end
+    table.sort(categories)
 
-  --------------------------------------------------------
-  -- 4) Category combo
-  --------------------------------------------------------
-  if ImGui.BeginCombo("##LocationsCategoryCombo", Tools.selectedLocationCategory) then
-    for _, catName in ipairs(categories) do
-      if ImGui.Selectable(catName, (catName == Tools.selectedLocationCategory)) then
-        Tools.selectedLocationCategory = catName
-        Tools.selectedLocation = { loc_name = AMM.LocalizableString("Select_Location") }
+    local iFav = nil
+    for i, catName in ipairs(categories) do
+      if catName == AMM.LocalizableString("Favorites") then
+        iFav = i
+        break
       end
     end
-    ImGui.EndCombo()
-  end
+    if iFav then
+      local favCat = table.remove(categories, iFav)
+      table.insert(categories, 1, favCat)
+    end
 
-  ImGui.SameLine()
+    local function categoryExists(cname)
+      for _, c in ipairs(categories) do if c == cname then return true end end
+      return false
+    end
+    if Tools.selectedLocationCategory ~= AMM.LocalizableString("Select_Category")
+       and not categoryExists(Tools.selectedLocationCategory) then
+      Tools.selectedLocationCategory = AMM.LocalizableString("Select_Category")
+      Tools.selectedLocation = { loc_name = AMM.LocalizableString("Select_Location") }
+    end
 
-  --------------------------------------------------------
-  -- 5) Location combo
-  --------------------------------------------------------
-  if Tools.selectedLocationCategory ~= AMM.LocalizableString("Select_Category") then
-    if ImGui.BeginCombo("##LocationsCombo", Tools.selectedLocation.loc_name) then
-      local matchedLocs = filteredByCategory[Tools.selectedLocationCategory] or {}
-      for i, location in ipairs(matchedLocs) do
-        local displayName = location.loc_name
-        local isSelected = (Tools.selectedLocation.loc_name == displayName)
-        if ImGui.Selectable(displayName.."##"..i, isSelected) then
-          Tools.selectedLocation = location
-        end
-        if isSelected then
-          ImGui.SetItemDefaultFocus()
+    if #categories == 0 then
+      ImGui.Text(AMM.LocalizableString("No_Results"))
+      return
+    end
+
+    if ImGui.BeginCombo("##LocationsCategoryCombo", Tools.selectedLocationCategory) then
+      for _, catName in ipairs(categories) do
+        if ImGui.Selectable(catName, (catName == Tools.selectedLocationCategory)) then
+          Tools.selectedLocationCategory = catName
+          Tools.selectedLocation = { loc_name = AMM.LocalizableString("Select_Location") }
         end
       end
       ImGui.EndCombo()
+    end
+
+    ImGui.SameLine()
+
+    if Tools.selectedLocationCategory ~= AMM.LocalizableString("Select_Category") then
+      if ImGui.BeginCombo("##LocationsCombo", Tools.selectedLocation.loc_name) then
+        local matchedLocs = filteredByCategory[Tools.selectedLocationCategory] or {}
+        for i, location in ipairs(matchedLocs) do
+          local displayName = location.loc_name
+          local isSelected = (Tools.selectedLocation.loc_name == displayName)
+          if ImGui.Selectable(displayName.."##"..i, isSelected) then
+            Tools.selectedLocation = location
+          end
+          if isSelected then ImGui.SetItemDefaultFocus() end
+        end
+        ImGui.EndCombo()
+      end
+    end
+
+  else -- Collab mode
+    local categories = {}
+    for catName in pairs(AMM.collabLocations or {}) do
+      table.insert(categories, catName)
+    end
+    table.sort(categories)
+
+    local function categoryExists(cname)
+      for _, c in ipairs(categories) do if c == cname then return true end end
+      return false
+    end
+    if Tools.selectedCollabCategory ~= AMM.LocalizableString("Select_Category")
+       and not categoryExists(Tools.selectedCollabCategory) then
+      Tools.selectedCollabCategory = AMM.LocalizableString("Select_Category")
+      Tools.selectedCollabLocation = { name = AMM.LocalizableString("Select_Location") }
+    end
+
+    if #categories == 0 then
+      ImGui.Text(AMM.LocalizableString("No_Results"))
+      return
+    end
+
+    if ImGui.BeginCombo("##LocationsCategoryCombo", Tools.selectedCollabCategory) then
+      for _, catName in ipairs(categories) do
+        if ImGui.Selectable(catName, (catName == Tools.selectedCollabCategory)) then
+          Tools.selectedCollabCategory = catName
+          Tools.selectedCollabLocation = { name = AMM.LocalizableString("Select_Location") }
+        end
+      end
+      ImGui.EndCombo()
+    end
+
+    ImGui.SameLine()
+
+    if Tools.selectedCollabCategory ~= AMM.LocalizableString("Select_Category") then
+      if ImGui.BeginCombo("##LocationsCombo", Tools.selectedCollabLocation.name) then
+        local locs = AMM.collabLocations[Tools.selectedCollabCategory] or {}
+        for i, loc in ipairs(locs) do
+          local search = (Tools.locationSearch or ""):lower()
+          local n = (loc.name or ""):lower()
+          local d = (loc.description or ""):lower()
+          local tags = table.concat(loc.tags or {}, " "):lower()
+          if search == "" or n:find(search,1,true) or d:find(search,1,true) or tags:find(search,1,true) then
+            local isSel = (Tools.selectedCollabLocation == loc)
+            if ImGui.Selectable(loc.name.."##"..i, isSel) then
+              Tools.selectedCollabLocation = loc
+              Tools.selectedLocation = {
+                loc_name = loc.name,
+                x = loc.x, y = loc.y, z = loc.z, w = loc.w, yaw = loc.yaw
+              }
+            end
+            if ImGui.IsItemHovered() then
+              ImGui.BeginTooltip()
+              ImGui.Text(AMM.LocalizableString("Source") .. " " .. loc.modder)
+              if loc.description then
+                ImGui.Separator()
+                ImGui.TextWrapped(loc.description)
+              end
+              ImGui.EndTooltip()
+            end
+            if isSel then ImGui.SetItemDefaultFocus() end
+          end
+        end
+        ImGui.EndCombo()
+      end
     end
   end
 end
