@@ -133,7 +133,9 @@ function AMM:new()
 	 -- Custom Entities Properties --
 	 AMM.modders = {}
 	 AMM.customNames = {}
-	 AMM.hasCustomProps = false
+        AMM.hasCustomProps = false
+        AMM.HasCollabLocations = false
+        AMM.collabLocations = {}
 
 	 -- Configs --
 	 AMM.playerAttached = false
@@ -3225,6 +3227,7 @@ end
 --------------------------------------------------------------------------------
 local typeDirectory = 'directory'
 local extensionLua  = '.lua$'
+local extensionJson = '.json$'
 
 local function getFilesRecursively(_dir, tbl)
   tbl = tbl or {}
@@ -3238,6 +3241,22 @@ local function getFilesRecursively(_dir, tbl)
 
     -- if it's a lua file: add to return list
     elseif string.find(file.name, extensionLua) then
+      table.insert(tbl, _dir .. '/' .. file.name)
+    end
+  end
+
+  return tbl
+end
+
+local function getJSONFilesRecursively(_dir, tbl)
+  tbl = tbl or {}
+  local files = dir(_dir)
+  if #files == 0 then return tbl end
+
+  for _, file in ipairs(files) do
+    if file.type == typeDirectory then
+      getJSONFilesRecursively(_dir .. '/' .. file.name, tbl)
+    elseif string.find(file.name, extensionJson) then
       table.insert(tbl, _dir .. '/' .. file.name)
     end
   end
@@ -3376,7 +3395,8 @@ function AMM:SetupCollabs()
 
 	AMM:SetupCustomEntities()
 	AMM:SetupCustomProps()
-	AMM:SetupCustomPoses()
+        AMM:SetupCustomPoses()
+        AMM:SetupCollabLocations()
 
 end
 
@@ -3685,9 +3705,55 @@ function AMM:SetupCollabAppearances()
     addCollab(mod)
   end
 
-  db:execute("COMMIT")
-  return collabs
+
+        db:execute("COMMIT")
+        return collabs
+ end
+
+function AMM:SetupCollabLocations()
+        AMM.collabLocations = {}
+
+        local folder = "./Collabs/Custom Locations"
+        local files  = getJSONFilesRecursively(folder, {})
+
+        if #files == 0 then
+                AMM.HasCollabLocations = false
+                return
+        end
+
+        for _, path in ipairs(files) do
+                local f = io.open(path, 'r')
+                if f then
+                        local contents = f:read('*a')
+                        f:close()
+                        local ok, data = pcall(function() return json.decode(contents) end)
+                        if ok and data and data.locations then
+                                local modder = data.modder or 'UNKNOWN'
+                                for _, loc in ipairs(data.locations) do
+                                        local cat = loc.category or 'Misc'
+                                        AMM.collabLocations[cat] = AMM.collabLocations[cat] or {}
+                                        table.insert(AMM.collabLocations[cat], {
+                                                name        = loc.name,
+                                                x           = loc.coords.x,
+                                                y           = loc.coords.y,
+                                                z           = loc.coords.z,
+                                                w           = loc.w,
+                                                yaw         = loc.yaw,
+                                                modder      = modder,
+                                                tags        = loc.tags,
+                                                description = loc.description,
+                                        })
+                                end
+                        else
+                                spdlog.error(string.format('Failed to parse collab location file: %s', path))
+                        end
+                end
+        end
+
+        AMM.HasCollabLocations = next(AMM.collabLocations) ~= nil
 end
+
+function AMM:SetupVehicleData()
 
 --------------------------------------------------------------------------------
 -- 6) Setup Custom Poses
