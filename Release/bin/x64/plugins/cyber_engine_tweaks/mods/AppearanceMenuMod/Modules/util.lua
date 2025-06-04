@@ -365,12 +365,20 @@ function Util:ShallowCopy(copy, orig)
 end
 
 function Util:CheckIfTableHasValue(tbl, value)
-  for k, v in ipairs(tbl) do -- iterate table (for sequential tables only)
-    if v == value or (type(v) == "table" and hasValue(v, value)) then -- Compare value from the table directly with the value we are looking for, otherwise if the value is table, check its content for this value.
-        return true -- Found in this or nested table
+  -- Iterate over both array and dictionary style keys
+  for _, v in pairs(tbl) do
+    -- Direct match
+    if v == value then
+      return true
+    end
+
+    -- If the entry is a table, recurse into it
+    if type(v) == "table" and Util:CheckIfTableHasValue(v, value) then
+      return true
     end
   end
-  return false -- Not found
+
+  return false
 end
 
 function Util:ReverseTable(tab)
