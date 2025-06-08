@@ -1562,6 +1562,14 @@ function Props:SavePropPosition(ent, callback)
   end
 
   local light = AMM.Light:GetLightData(ent)
+  local frameData = nil
+  if ent.photoID and ent.photoHash and ent.photoUV then
+    frameData = {
+      photoID = ent.photoID,
+      photoHash = ent.photoHash,
+      photoUV = ent.photoUV
+    }
+  end
 
   -- Do the database calls synchronously:
   if ent.uid then
@@ -1576,13 +1584,16 @@ function Props:SavePropPosition(ent, callback)
         light.color, light.intensity, light.radius, light.angles, ent.uid
       ))
     end
+    if frameData then
+      Props.framesData[ent.uid] = frameData
+    end
   else
     -- Otherwise, insert a fresh row
     db:execute(string.format(
       'INSERT INTO saved_props (entity_id, name, template_path, pos, trigger, scale, app, tag) VALUES ("%s", "%s", "%s", "%s", "%s", "%s", "%s", "%s")',
       ent.id, ent.name, ent.template, pos, trigger, scale, app, tag
     ))
-
+    local insertedUid = nil
     if light then
       -- Grab the newly inserted uid
       for uid in db:urows('SELECT uid FROM saved_props ORDER BY uid DESC LIMIT 1') do
@@ -1590,7 +1601,17 @@ function Props:SavePropPosition(ent, callback)
           'INSERT INTO saved_lights (uid, entity_id, color, intensity, radius, angles) VALUES (%i, "%s", "%s", %f, %f, "%s")',
           uid, ent.id, light.color, light.intensity, light.radius, light.angles
         ))
+        insertedUid = uid
       end
+    else
+      for uid in db:urows('SELECT uid FROM saved_props ORDER BY uid DESC LIMIT 1') do
+        insertedUid = uid
+        break
+      end
+    end
+
+    if frameData and insertedUid then
+      Props.framesData[insertedUid] = frameData
     end
   end
 

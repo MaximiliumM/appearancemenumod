@@ -319,22 +319,38 @@ function AMM:new()
 		-- 	AMM:StartCompanionsFollowElevator()
 	 	--  end)		  
 
-		Observe("Frame", "OnScreenshotChanged", function(this, screenshotSize, errorCode)
-			if next(AMM.Props.spawnedProps) ~= nil then
-				for _, prop in pairs(AMM.Props.spawnedProps) do
-					if prop.handle and NameToString(prop.handle:GetClassName()) == "Frame" then
-						prop.photoID = this.activePhotoID
-						prop.photoHash = this.activePhotoHash
-						prop.photoUV = {
-							Left = this.activePhotoUV.Left,
-							Right = this.activePhotoUV.Right,
-							Top = this.activePhotoUV.Top,
-							Bottom = this.activePhotoUV.Bottom				
-						}
-					end
-				end
-			end
-		end)
+                Observe("Frame", "OnScreenshotChanged", function(this, screenshotSize, errorCode)
+                        local props = AMM.Props.spawnedPropsList
+
+                        -- Fallback to spawnedProps map if the list is empty
+                        if not props or next(props) == nil then
+                                props = AMM.Props.spawnedProps
+                        end
+
+                        if props then
+                                local frameHash = tostring(this:GetEntityID().hash)
+
+                                for _, prop in pairs(props) do
+                                        if prop.handle and NameToString(prop.handle:GetClassName()) == "Frame" then
+                                                local propHash = tostring(prop.handle:GetEntityID().hash)
+
+                                                if propHash == frameHash then
+                                                        prop.photoID = this.activePhotoID
+                                                        prop.photoHash = this.activePhotoHash
+                                                        prop.photoUV = {
+                                                                Left = this.activePhotoUV.Left,
+                                                                Right = this.activePhotoUV.Right,
+                                                                Top = this.activePhotoUV.Top,
+                                                                Bottom = this.activePhotoUV.Bottom
+                                                        }
+
+                                                        -- Once the matching frame is updated we can stop searching
+                                                        break
+                                                end
+                                        end
+                                end
+                        end
+                end)
 
 
 		 local puppetSpawned = false
