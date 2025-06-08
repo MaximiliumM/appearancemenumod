@@ -319,20 +319,20 @@ function AMM:new()
 		-- 	AMM:StartCompanionsFollowElevator()
 	 	--  end)		  
 
-		AMM.activeFlag = false
 		Observe("Frame", "OnScreenshotChanged", function(this, screenshotSize, errorCode)
-			if AMM.activeFlag == false then
-				AMM.activePhotoID = this.activePhotoID
-				AMM.activePhotoHash = this.activePhotoHash
-				AMM.activePhotoUV = this.activePhotoUV
-				AMM.activePhotoUV = {
-					Left = this.activePhotoUV.Left,
-					Right = this.activePhotoUV.Right,
-					Top = this.activePhotoUV.Top,
-					Bottom = this.activePhotoUV.Bottom				
-				}
-				
-				AMM.activeFlag = true
+			if next(AMM.Props.spawnedProps) ~= nil then
+				for _, prop in pairs(AMM.Props.spawnedProps) do
+					if prop.handle and NameToString(prop.handle:GetClassName()) == "Frame" then
+						prop.photoID = this.activePhotoID
+						prop.photoHash = this.activePhotoHash
+						prop.photoUV = {
+							Left = this.activePhotoUV.Left,
+							Right = this.activePhotoUV.Right,
+							Top = this.activePhotoUV.Top,
+							Bottom = this.activePhotoUV.Bottom				
+						}
+					end
+				end
 			end
 		end)
 

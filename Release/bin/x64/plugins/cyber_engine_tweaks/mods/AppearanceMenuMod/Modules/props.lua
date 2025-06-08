@@ -1866,11 +1866,6 @@ function Props:SpawnProp(spawn, pos, angles)
       if lightData then
         Light:SetLightData(spawn, lightData)
       end
-
-      if spawn.uid and Props.framesData[spawn.uid] then
-        local fdata = Props.framesData[spawn.uid]
-        Props:SetFramePhoto(fdata.photoID, fdata.photoUV, fdata.photoHash)
-      end
       
       local components = Props:CheckForValidComponents(entity)
       if components then
