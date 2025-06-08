@@ -1,0 +1,28 @@
+{
+  "uid": "LocationPack123",          
+  "modder": "LocationKingGRP",       
+  "locations": [
+    {
+      "category": "Rooftop Bars", 
+      "name": "Neon Sky Rooftop Bar",
+      "coords": { "x": -495.28182983398, "y": 585.40258789063, "z": 31.802223205566 },
+      "yaw": 47.683013916016,
+      "tags": ["nightlife","bar"],         
+      "description": "Neon-lit bar overlooking downtown."
+    },
+    {
+      "category": "Rooftop Bars",
+      "name": "Sunset Lounge",
+      "coords": { "x": -480.12, "y": 590.23, "z": 32.00 },
+      "yaw": 120.5,
+      "tags": ["sunset","view"],         
+      "description": ""                     
+    },
+    {
+      "category": "Hotels",
+      "name": "Grand Imperial Hotel",
+      "coords": { "x": -520.00, "y": 600.00, "z": 33.00 },
+      "yaw": 90.0
+    }
+  ]
+}
