@@ -3327,13 +3327,9 @@ function Tools:DrawMovementWindow()
             end
           end
 
-          if Director.activeCamera then
-            local camera = Director.activeCamera
-            if camera and camera:IsValid() and camera:GetEntityID() then
-              local cameraHash = tostring(camera:GetEntityID().hash)
-              if Tools.currentTarget.hash ~= cameraHash then
-                table.insert(availableTargets, {name = "Camera", handle = camera})
-              end
+          if #AMM.Director.cameras > 0 then
+            for i, camera in ipairs(AMM.Director.cameras) do
+                table.insert(availableTargets, {name = f("Camera %i", i), handle = camera.handle})
             end
           end
 

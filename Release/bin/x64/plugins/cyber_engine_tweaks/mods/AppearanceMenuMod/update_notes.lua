@@ -8,6 +8,7 @@ return {
 		[[Added new Collab type: Locations]],
 		[[-- This allows you to add locations organized by categories and tags all set up by a single JSON file]],
 		
+
 	},
 	{
 		'2.11.2',
