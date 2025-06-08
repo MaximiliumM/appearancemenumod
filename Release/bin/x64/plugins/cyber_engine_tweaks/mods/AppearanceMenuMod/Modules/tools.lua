@@ -166,7 +166,7 @@ function Tools:Initialize()
     Tools.mergedExpressions = AMM:GetAllExpressionsMerged()
   end
   
-  Tools.playerVisibility = AMM.userSettings.passiveModeOnLaunch or true
+  Tools.playerVisibility = AMM.userSettings.passiveModeOnLaunch
   if not Tools.playerVisibility then
     Tools:ToggleInvisibility()
   end
@@ -895,6 +895,12 @@ function Tools:DrawTeleportActions()
 
   Tools:DrawLocationsDropdown()
 
+  ImGui.SameLine()
+
+  if ImGui.SmallButton(AMM.LocalizableString("Button_RandomLocation")) then
+    Tools:TeleportToRandomLocation()
+  end
+
   ImGui.Spacing()
 
   if Tools.selectedLocation.loc_name ~= AMM.LocalizableString("Select_Location") then
@@ -1069,6 +1075,7 @@ end
 function Tools:GatherAllTagsForLocations(locList)
   local tagsSet = {}
   for _, loc in ipairs(locList) do
+    printTable(loc)
     if loc.tags and #loc.tags > 0 then
       for _, t in ipairs(loc.tags) do
         tagsSet[t] = true
@@ -1130,6 +1137,13 @@ function Tools:LocationHasTag(loc, tag)
     end
   end
   return false
+end
+
+function Tools:ResetTags()
+  -- Reset all tag filters to false
+  for tag, _ in pairs(Tools.tagFilters) do
+    Tools.tagFilters[tag] = false
+  end
 end
 
 function Tools:DrawTagFilterPopup()
@@ -1201,9 +1215,7 @@ function Tools:DrawTagFilterPopup()
     -- Add a “Reset All” button to turn all checkboxes off:
     -----------------------------------------------------------------------
     if ImGui.Button(AMM.LocalizableString("Button_Reset")) then
-      for _, tag in ipairs(Tools.availableTags) do
-        Tools.tagFilters[tag] = false
-      end
+      Tools:ResetTags()
     end
 
     ImGui.SameLine()
@@ -1394,10 +1406,12 @@ function Tools:DrawLocationsDropdown()
   if AMM.HasCollabLocations then
     if ImGui.RadioButton(AMM.LocalizableString("Default_Locations"), Tools.locationsMode == "Default") then
       Tools.locationsMode = "Default"
+      Tools:ResetTags()
     end
     ImGui.SameLine()
     if ImGui.RadioButton(AMM.LocalizableString("Collab_Locations"), Tools.locationsMode == "Collab") then
       Tools.locationsMode = "Collab"
+      Tools:ResetTags()
     end
   end
 
@@ -1502,7 +1516,23 @@ function Tools:DrawLocationsDropdown()
       end
     end
 
-  else -- Collab mode
+  else -- Collab mode    
+    local locList = {}
+    for cat, list in pairs(AMM.collabLocations) do
+      for _, entry in ipairs(list) do
+        table.insert(locList, entry)
+      end
+    end
+    Tools.availableTags = Tools:GatherAllTagsForLocations(locList or {})
+
+    if #Tools.availableTags > 0 and Tools.locationSearch == "" then
+      ImGui.SameLine()
+      if ImGui.Button(AMM.LocalizableString("Button_FilterByTags")) then
+        ImGui.OpenPopup("TagFilterPopup")
+      end
+      Tools:DrawTagFilterPopup()
+    end
+    
     local categories = {}
     for catName in pairs(AMM.collabLocations or {}) do
       table.insert(categories, catName)
@@ -1555,8 +1585,8 @@ function Tools:DrawLocationsDropdown()
             end
             if ImGui.IsItemHovered() then
               ImGui.BeginTooltip()
-              ImGui.Text(AMM.LocalizableString("Source") .. " " .. loc.modder)
-              if loc.description then
+              ImGui.Text(loc.modder.."                  ")
+              if loc.description and loc.description ~= '' then
                 ImGui.Separator()
                 ImGui.TextWrapped(loc.description)
               end
@@ -1692,6 +1722,24 @@ function Tools:GetLocations()
 
   return results
 end
+
+function Tools:TeleportToRandomLocation()
+  if not Tools.allLocations or #Tools.allLocations == 0 then
+    Tools:LoadAllLocations()
+  end
+
+  local locList = Tools.allLocations
+  if #locList == 0 then return end
+
+  local randIndex = math.random(#locList)
+  local loc = locList[randIndex]
+
+  Tools.selectedLocationCategory = Tools:GetCategoryNameForLocationID(loc.cat_id)
+  Tools.selectedLocation = loc
+
+  Tools:TeleportToLocation(loc)
+end
+
 
 function Tools:TeleportToLocation(loc)
   Tools.lastLocation = Tools:NewLocationData("Previous Location", Tools:GetPlayerLocation())
@@ -3243,6 +3291,16 @@ function Tools:DrawMovementWindow()
             end
           end
 
+          if Director.activeCamera then
+            local camera = Director.activeCamera
+            if camera and camera:IsValid() and camera:GetEntityID() then
+              local cameraHash = tostring(camera:GetEntityID().hash)
+              if Tools.currentTarget.hash ~= cameraHash then
+                table.insert(availableTargets, {name = "Camera", handle = camera})
+              end
+            end
+          end
+
           ImGui.Text(AMM.LocalizableString("Current_Target"))
 
           if ImGui.BeginCombo("##LookAt", lookAtTargetName) then
@@ -3675,18 +3733,33 @@ function Tools:SkipFrame()
 end
 
 function Tools:FreezeTime()
-  if Tools.timeState then
-    Game.GetTimeSystem():SetTimeDilation(CName.new("pause"), 0.0)
-		TimeDilationHelper.SetTimeDilationWithProfile(Game.GetPlayer(), "radialMenu", true, true)
-		TimeDilationHelper.SetIgnoreTimeDilationOnLocalPlayerZero(Game.GetPlayer(), true)
-  else
-    if Tools.slowMotionSpeed ~= 1 then
-      Tools:SetSlowMotionSpeed(Tools.slowMotionSpeed)
+  if AMM.userSettings.freezeInPhoto then
+    if Tools.timeState then
+      Game.GetTimeSystem():SetIgnoreTimeDilationOnLocalPlayerZero(true)
+      Game.GetTimeSystem():SetTimeDilation("consoleCommand", 0.0000000000001)
     else
-      Game.GetTimeSystem():UnsetTimeDilation(CName.new("pause"), "None")
-      TimeDilationHelper.SetTimeDilationWithProfile(Game.GetPlayer(), "radialMenu", false, true)
-		  TimeDilationHelper.SetIgnoreTimeDilationOnLocalPlayerZero(Game.GetPlayer(), false)
-      Tools.slowMotionSpeed = 1
+      if Tools.slowMotionSpeed ~= 1 then
+        Tools:SetSlowMotionSpeed(Tools.slowMotionSpeed)
+      else
+        Game.GetTimeSystem():SetIgnoreTimeDilationOnLocalPlayerZero(false)
+        Game.GetTimeSystem():UnsetTimeDilation("consoleCommand", "None")
+        Tools.slowMotionSpeed = 1
+      end
+    end
+  else
+    if Tools.timeState then
+      Game.GetTimeSystem():SetTimeDilation(CName.new("pause"), 0.0)
+      TimeDilationHelper.SetTimeDilationWithProfile(Game.GetPlayer(), "radialMenu", true, true)
+      TimeDilationHelper.SetIgnoreTimeDilationOnLocalPlayerZero(Game.GetPlayer(), true)
+    else
+      if Tools.slowMotionSpeed ~= 1 then
+        Tools:SetSlowMotionSpeed(Tools.slowMotionSpeed)
+      else
+        Game.GetTimeSystem():UnsetTimeDilation(CName.new("pause"), "None")
+        TimeDilationHelper.SetTimeDilationWithProfile(Game.GetPlayer(), "radialMenu", false, true)
+        TimeDilationHelper.SetIgnoreTimeDilationOnLocalPlayerZero(Game.GetPlayer(), false)
+        Tools.slowMotionSpeed = 1
+      end
     end
   end
 

@@ -1292,6 +1292,12 @@ function Props:SpawnPropInPosition(ent, pos, angles)
       ent.parameters = {pos, angles}
       ent.spawned = true
 
+      -- Simple sound loop for shower
+      -- Temporary until I add the new sound/effect system
+      if ent.id == "0x4C913FD0, 21" then
+        Util:PlaySound("q001_sc_01_shower_start_loop", ent.handle)
+      end
+
       Props.cachedActivePropsByHash[ent.hash] = ent
 
       if AMM:GetScanClass(ent.handle) == typeEntEntity then -- 'entEntity'
@@ -1873,6 +1879,12 @@ function Props:SpawnProp(spawn, pos, angles)
             z = visualScale.z * 100,
            }
         end
+      end
+
+      -- Simple sound loop for shower
+      -- Temporary until I add the new sound/effect system
+      if spawn.id == "0x4C913FD0, 21" then
+        Util:PlaySound("q001_sc_01_shower_start_loop", spawn.handle)
       end
 
 			if AMM:GetScanClass(spawn.handle) == typeEntEntity or AMM:GetScanClass(spawn.handle) == typeEntGameEntity then -- entEntity, entGameEntity
