@@ -58,20 +58,20 @@ function Editor:Setup()
 end
 
 function Editor:Draw(AMM)
-  Editor.open = ImGui.Begin("Theme Editor", ImGuiWindowFlags.AlwaysAutoResize + ImGuiWindowFlags.NoCollapse)
+  Editor.open = ImGui.Begin(AMM.LocalizableString("Editor_Title"), ImGuiWindowFlags.AlwaysAutoResize + ImGuiWindowFlags.NoCollapse)
   if Editor.open then
     if Theme == '' then
       Editor.isEditing = true
       Editor:SetCurrentTheme(AMM.UI:Preload(AMM.selectedTheme..".json"))
     end
 
-    Editor.newThemeName = ImGui.InputTextWithHint("Theme Name", "Insert New Theme Name",Editor.newThemeName, 30)
+    Editor.newThemeName = ImGui.InputTextWithHint(AMM.LocalizableString("Editor_Field_ThemeName"), AMM.LocalizableString("Editor_Hint_InsertThemeName"), Editor.newThemeName, 30)
 
-    if ImGui.SmallButton("  Save  ") then
+    if ImGui.SmallButton(AMM.LocalizableString("Button_SmallSave")) then
       if Editor.newThemeName ~= '' then
         if Editor:CheckIfThemeExists() then
-          Editor.errorMessage = "Theme name already exists"
-          ImGui.OpenPopup("Error")
+          Editor.errorMessage = AMM.LocalizableString("Error_ThemeNameExists")
+          ImGui.OpenPopup(AMM.LocalizableString("Popup_Error_Title"))
         else
           local file = io.open("User/Themes/"..Editor.newThemeName..".json", "w")
           if file then
@@ -87,7 +87,7 @@ function Editor:Draw(AMM)
     end
 
     ImGui.SameLine()
-    if ImGui.SmallButton("  Cancel  ") then
+    if ImGui.SmallButton(AMM.LocalizableString("Button_SmallCancel")) then
       Editor.open = false
     end
 
@@ -118,9 +118,9 @@ function Editor:Draw(AMM)
     Theme.ResizeGripHovered = ImGui.ColorEdit4("ResizeGripHovered", Theme.ResizeGripHovered)
     Theme.ResizeGripActive = ImGui.ColorEdit4("ResizeGripActive", Theme.ResizeGripActive)
 
-    if ImGui.BeginPopupModal("Error") then
+    if ImGui.BeginPopupModal(AMM.LocalizableString("Popup_Error_Title")) then
       ImGui.Text(Editor.errorMessage)
-      if ImGui.SmallButton("  Ok  ") then
+      if ImGui.SmallButton(AMM.LocalizableString("Button_Ok")) then
         ImGui.CloseCurrentPopup()
       end
       ImGui.EndPopup()

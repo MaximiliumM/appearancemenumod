@@ -1297,8 +1297,8 @@ function Tools:DrawLocationPopup()
     -- If the user tried to save with an already existing name, show a short error and "Ok" button
     if Tools.shareLocationName == 'existing' then
       ImGui.TextColored(1, 0.16, 0.13, 0.75, AMM.LocalizableString("Existing_Name"))
-  
-      if ImGui.Button("Ok", -1, style.buttonHeight) then
+
+      if ImGui.Button(AMM.LocalizableString("Button_Ok"), -1, style.buttonHeight) then
         Tools.shareLocationName = ''
       end
   

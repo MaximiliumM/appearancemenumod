@@ -1073,11 +1073,11 @@ end
 
 function Util:SetupPopup()
   if Util.openPopup then
-    if ImGui.BeginPopupModal("Error", ImGuiWindowFlags.AlwaysAutoResize) then
+    if ImGui.BeginPopupModal(AMM.LocalizableString("Popup_Error_Title"), ImGuiWindowFlags.AlwaysAutoResize) then
       ImGui.Text(Util.popup.text)
       ImGui.Spacing()
 
-      if ImGui.Button("Ok", -1, 40) then
+      if ImGui.Button(AMM.LocalizableString("Button_Ok"), -1, 40) then
         Util.openPopup = false
         ImGui.CloseCurrentPopup()
       end
@@ -1091,7 +1091,7 @@ function Util:OpenPopup(popupInfo)
   Util.popup = {}
   Util.popup.text = popupInfo.text
   Util.openPopup = true
-  ImGui.OpenPopup("Error")
+  ImGui.OpenPopup(AMM.LocalizableString("Popup_Error_Title"))
 end
 
 function Util:CheckForPhotoComponent(ent)

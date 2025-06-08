@@ -564,7 +564,7 @@ function Props:DrawSavedProp(prop)
   ImGui.SameLine()
   if AMM.UI:SmallButton(AMM.LocalizableString("Button_SmallRename").."##"..prop.uid) then
     Props.rename = ''
-	  ImGui.OpenPopup("Rename Prop##"..prop.uid)
+    ImGui.OpenPopup(AMM.LocalizableString("Popup_RenameProp").."##"..prop.uid)
   end
 
   Props:RenamePropPopup(prop)
@@ -761,7 +761,7 @@ function Props:DrawPresetConfig()
 
     if ImGui.Button(AMM.LocalizableString("Rename"), Props.style.halfButtonWidth, Props.style.buttonHeight) then        
       Props.rename = ''
-      ImGui.OpenPopup("Rename Preset")
+      ImGui.OpenPopup(AMM.LocalizableString("Popup_RenamePreset"))
     end
 
     ImGui.SameLine()
@@ -1127,12 +1127,12 @@ function Props:RenamePresetPopup(style)
   ImGui.SetNextWindowPos(x + ((sizeX / 2) - 200), y - 40)
   ImGui.SetNextWindowSize(400, ImGui.GetFontSize() * 12)
 
-  if ImGui.BeginPopupModal("Rename Preset") then
+  if ImGui.BeginPopupModal(AMM.LocalizableString("Popup_RenamePreset")) then
     
     if Props.rename == 'existing' then
       ImGui.TextColored(1, 0.16, 0.13, 0.75, AMM.LocalizableString("Existing_Name"))
 
-      if ImGui.Button("Ok", -1, style.buttonHeight) then
+      if ImGui.Button(AMM.LocalizableString("Button_Ok"), -1, style.buttonHeight) then
         Props.rename = ''
       end
     else
@@ -1179,7 +1179,7 @@ function Props:RenamePropPopup(prop)
   ImGui.SetNextWindowPos(x + ((sizeX / 2) - 200), y - 40)
   ImGui.SetNextWindowSize(400, ImGui.GetFontSize() * 10)
 
-  if ImGui.BeginPopupModal("Rename Prop##"..prop.uid) then
+  if ImGui.BeginPopupModal(AMM.LocalizableString("Popup_RenameProp").."##"..prop.uid) then
     
     if Props.rename == '' then
       Props.rename = prop.name

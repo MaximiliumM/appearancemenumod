@@ -163,9 +163,10 @@ return {
 	--Button
 	Button_SmallClone = "Clone",
 	Button_SmallRemove = "Удалить##",
-	Button_SmallRename = "Переименовать##",
-	Button_SmallUpdate = "Обновить##",
-	Button_SmallCancel = " Отмена ",
+        Button_SmallRename = "Переименовать##",
+        Button_SmallUpdate = "Обновить##",
+        Button_SmallCancel = " Отмена ",
+        Button_Frame = "  Frame  ",
 
     --Button Label
 	Button_LabelHide = " Скрыть ",
@@ -1009,5 +1010,14 @@ return {
 	Warn_ConfirmDeleteCurrentAppearance = "Вы точоно хотите удалить ваш текущий пресет?",
 	Warn_WeaponizeNpcAnimationIssues = "Не каждый NPC будет иметь необходимые анимации для использования каждого вида оружия. Это может привести к неправильной анимации.\nВы уверены, что хотите включить эту функцию?",
 	Warn_ConfirmEnableExperimentalAndSave_Info = "Вы уверены, что хотите включить экспериментальные функции? AMM может работать не так, как ожидалось. Используйте его на свой страх и риск!",
-	Warn_DeleteFavoritesAskWhichOne_Info = "Если вы хотите удалить все избранное, выберите какой именно снизу:",
+        Warn_DeleteFavoritesAskWhichOne_Info = "Если вы хотите удалить все избранное, выберите какой именно снизу:",
+        Popup_Error_Title = "Error",
+        Button_Ok = "Ok",
+        Popup_FavoriteName = "Favorite Name",
+        Popup_RenamePreset = "Rename Preset",
+        Popup_RenameProp = "Rename Prop",
+        Editor_Title = "Theme Editor",
+        Editor_Field_ThemeName = "Theme Name",
+        Editor_Hint_InsertThemeName = "Insert New Theme Name",
+        Error_ThemeNameExists = "Theme name already exists",
 }
