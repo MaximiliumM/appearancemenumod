@@ -1107,26 +1107,52 @@ function Tools:ApplyTagFilters(locList)
     return locList
   end
 
-  -- Otherwise we do an AND approach: location must contain *all* requiredTags
-  local filtered = {}
-  for _, loc in ipairs(locList) do
-    local hasAll = true
-    if loc.tags == nil then
-      hasAll = false
-    else
-      for _, reqTag in ipairs(requiredTags) do
-        if not Tools:LocationHasTag(loc, reqTag) then
+  -- Determine if locList is an array or a dictionary keyed by category
+  if #locList > 0 then
+    -- Standard array of locations (default mode)
+    local filtered = {}
+    for _, loc in ipairs(locList) do
+      local hasAll = true
+      if loc.tags == nil then
+        hasAll = false
+      else
+        for _, reqTag in ipairs(requiredTags) do
+          if not Tools:LocationHasTag(loc, reqTag) then
+            hasAll = false
+            break
+          end
+        end
+      end
+      if hasAll then
+        table.insert(filtered, loc)
+      end
+    end
+    return filtered
+  else
+    -- Dictionary of categories -> array of locations (collab mode)
+    local filteredByCat = {}
+    for cat, list in pairs(locList or {}) do
+      for _, loc in ipairs(list) do
+        local hasAll = true
+        if loc.tags == nil then
           hasAll = false
-          break
+        else
+          for _, reqTag in ipairs(requiredTags) do
+            if not Tools:LocationHasTag(loc, reqTag) then
+              hasAll = false
+              break
+            end
+          end
+        end
+        if hasAll then
+          filteredByCat[cat] = filteredByCat[cat] or {}
+          table.insert(filteredByCat[cat], loc)
         end
       end
     end
-    if hasAll then
-      table.insert(filtered, loc)
-    end
-  end
 
-  return filtered
+    return filteredByCat
+  end
 end
 
 function Tools:LocationHasTag(loc, tag)
@@ -1516,14 +1542,26 @@ function Tools:DrawLocationsDropdown()
       end
     end
 
-  else -- Collab mode    
-    local locList = {}
-    for cat, list in pairs(AMM.collabLocations) do
+  else -- Collab mode
+    -- 1) Apply search filtering across all collab locations
+    local searchFiltered = {}
+    local flatList = {}
+    local search = (Tools.locationSearch or ""):lower()
+    for cat, list in pairs(AMM.collabLocations or {}) do
       for _, entry in ipairs(list) do
-        table.insert(locList, entry)
+        local n = (entry.name or ""):lower()
+        local d = (entry.description or ""):lower()
+        local tags = table.concat(entry.tags or {}, " "):lower()
+        if search == "" or n:find(search,1,true) or d:find(search,1,true) or tags:find(search,1,true) then
+          searchFiltered[cat] = searchFiltered[cat] or {}
+          table.insert(searchFiltered[cat], entry)
+          table.insert(flatList, entry)
+        end
       end
     end
-    Tools.availableTags = Tools:GatherAllTagsForLocations(locList or {})
+
+    -- 2) Gather tags from search filtered list
+    Tools.availableTags = Tools:GatherAllTagsForLocations(flatList or {})
 
     if #Tools.availableTags > 0 and Tools.locationSearch == "" then
       ImGui.SameLine()
@@ -1532,9 +1570,13 @@ function Tools:DrawLocationsDropdown()
       end
       Tools:DrawTagFilterPopup()
     end
-    
+
+    -- 3) Apply tag filters
+    local filteredByTags = Tools:ApplyTagFilters(searchFiltered)
+
+    -- 4) Build category list from filtered results
     local categories = {}
-    for catName in pairs(AMM.collabLocations or {}) do
+    for catName in pairs(filteredByTags or {}) do
       table.insert(categories, catName)
     end
     table.sort(categories)
@@ -1568,32 +1610,26 @@ function Tools:DrawLocationsDropdown()
 
     if Tools.selectedCollabCategory ~= AMM.LocalizableString("Select_Category") then
       if ImGui.BeginCombo("##LocationsCombo", Tools.selectedCollabLocation.name) then
-        local locs = AMM.collabLocations[Tools.selectedCollabCategory] or {}
+        local locs = filteredByTags[Tools.selectedCollabCategory] or {}
         for i, loc in ipairs(locs) do
-          local search = (Tools.locationSearch or ""):lower()
-          local n = (loc.name or ""):lower()
-          local d = (loc.description or ""):lower()
-          local tags = table.concat(loc.tags or {}, " "):lower()
-          if search == "" or n:find(search,1,true) or d:find(search,1,true) or tags:find(search,1,true) then
-            local isSel = (Tools.selectedCollabLocation == loc)
-            if ImGui.Selectable(loc.name.."##"..i, isSel) then
-              Tools.selectedCollabLocation = loc
-              Tools.selectedLocation = {
-                loc_name = loc.name,
-                x = loc.x, y = loc.y, z = loc.z, w = loc.w, yaw = loc.yaw
-              }
-            end
-            if ImGui.IsItemHovered() then
-              ImGui.BeginTooltip()
-              ImGui.Text(loc.modder.."                  ")
-              if loc.description and loc.description ~= '' then
-                ImGui.Separator()
-                ImGui.TextWrapped(loc.description)
-              end
-              ImGui.EndTooltip()
-            end
-            if isSel then ImGui.SetItemDefaultFocus() end
+          local isSel = (Tools.selectedCollabLocation == loc)
+          if ImGui.Selectable(loc.name.."##"..i, isSel) then
+            Tools.selectedCollabLocation = loc
+            Tools.selectedLocation = {
+              loc_name = loc.name,
+              x = loc.x, y = loc.y, z = loc.z, w = loc.w, yaw = loc.yaw
+            }
           end
+          if ImGui.IsItemHovered() then
+            ImGui.BeginTooltip()
+            ImGui.Text(loc.modder.."                  ")
+            if loc.description and loc.description ~= '' then
+              ImGui.Separator()
+              ImGui.TextWrapped(loc.description)
+            end
+            ImGui.EndTooltip()
+          end
+          if isSel then ImGui.SetItemDefaultFocus() end
         end
         ImGui.EndCombo()
       end
