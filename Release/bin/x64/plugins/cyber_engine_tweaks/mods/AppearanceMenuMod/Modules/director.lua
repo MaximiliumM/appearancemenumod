@@ -557,7 +557,7 @@ function Director:DrawTriggerTab()
 
             ImGui.Spacing()
 
-            if ImGui.Button(AMM.LocalizableString("Button_TeleportToTrigger"), -1, 30) then
+            if ImGui.Button(AMM.LocalizableString("Button_TeleportToTrigger"), -1, 40) then
               if Director.selectedTrigger.pos then
                 local loc = {
                   x = Director.selectedTrigger.pos.x,
@@ -570,7 +570,7 @@ function Director:DrawTriggerTab()
               end
             end
 
-            if ImGui.Button(AMM.LocalizableString("Button_SaveTrigger"), -1, 30) then
+            if ImGui.Button(AMM.LocalizableString("Button_SaveTrigger"), -1, 40) then
               if not Director.selectedTrigger.pos then
                 local pos = Game.GetPlayer():GetWorldPosition()
                 Director.selectedTrigger.pos = pos
@@ -586,7 +586,7 @@ function Director:DrawTriggerTab()
               Director.selectedTrigger.title = AMM.LocalizableString("Select_Trigger")
             end
 
-            if ImGui.Button(AMM.LocalizableString("Delete_Trigger"), -1, 30) then
+            if ImGui.Button(AMM.LocalizableString("Delete_Trigger"), -1, 40) then
               for i, trigger in ipairs(Director.triggers) do
                 if trigger.title == Director.selectedTrigger.title then
                   if Director.showTrigger then
@@ -822,6 +822,38 @@ function Director:DrawScriptTab()
               ImGui.EndListBox()
             end
 
+            local actor = Director.selectedActor
+            local nodeIndex = nil
+            if actor ~= '' then
+              for idx, n in ipairs(actor.nodes) do
+                if n == Director.selectedNode then nodeIndex = idx break end
+              end
+            end
+
+            local upDisabled = not (actor ~= '' and nodeIndex and nodeIndex > 1 and #actor.nodes > 1)
+            local downDisabled = not (actor ~= '' and nodeIndex and nodeIndex < #actor.nodes and #actor.nodes > 1)
+
+            if upDisabled then
+              ImGui.PushStyleColor(ImGuiCol.Button, 0.56, 0.06, 0.03, 0.25)
+              ImGui.PushStyleColor(ImGuiCol.ButtonHovered, 0.56, 0.06, 0.03, 0.25)
+              ImGui.PushStyleColor(ImGuiCol.ButtonActive, 0.56, 0.06, 0.03, 0.25)
+            end
+            if ImGui.Button(AMM.LocalizableString("Button_MoveUp")) and not upDisabled then
+              Director:MoveNodeUp()
+            end
+            if upDisabled then ImGui.PopStyleColor(3) end
+
+            ImGui.SameLine()
+            if downDisabled then
+              ImGui.PushStyleColor(ImGuiCol.Button, 0.56, 0.06, 0.03, 0.25)
+              ImGui.PushStyleColor(ImGuiCol.ButtonHovered, 0.56, 0.06, 0.03, 0.25)
+              ImGui.PushStyleColor(ImGuiCol.ButtonActive, 0.56, 0.06, 0.03, 0.25)
+            end
+            if ImGui.Button(AMM.LocalizableString("Button_MoveDown")) and not downDisabled then
+              Director:MoveNodeDown()
+            end
+            if downDisabled then ImGui.PopStyleColor(3) end
+
             if ImGui.Button(AMM.LocalizableString("Button_NewMark")) then
               Director.selectedNode = ''
               ImGui.OpenPopup("Node View")
@@ -849,7 +881,6 @@ function Director:DrawScriptTab()
               end
             end
 
-            ImGui.SameLine()
             if ImGui.Button(AMM.LocalizableString("Button_MoveMark")) then
               AMM.Tools:ToggleAxisIndicator(Game.GetPlayer())
               Cron.After(0.2, function()
@@ -857,39 +888,6 @@ function Director:DrawScriptTab()
               end)
               ImGui.OpenPopup("Move Mark Popup")
             end
-
-            local actor = Director.selectedActor
-            local nodeIndex = nil
-            if actor ~= '' then
-              for idx, n in ipairs(actor.nodes) do
-                if n == Director.selectedNode then nodeIndex = idx break end
-              end
-            end
-
-            local upDisabled = not (actor ~= '' and nodeIndex and nodeIndex > 1 and #actor.nodes > 1)
-            local downDisabled = not (actor ~= '' and nodeIndex and nodeIndex < #actor.nodes and #actor.nodes > 1)
-
-            ImGui.SameLine()
-            if upDisabled then
-              ImGui.PushStyleColor(ImGuiCol.Button, 0.56, 0.06, 0.03, 0.25)
-              ImGui.PushStyleColor(ImGuiCol.ButtonHovered, 0.56, 0.06, 0.03, 0.25)
-              ImGui.PushStyleColor(ImGuiCol.ButtonActive, 0.56, 0.06, 0.03, 0.25)
-            end
-            if ImGui.Button(AMM.LocalizableString("Button_MoveUp")) and not upDisabled then
-              Director:MoveNodeUp()
-            end
-            if upDisabled then ImGui.PopStyleColor(3) end
-
-            ImGui.SameLine()
-            if downDisabled then
-              ImGui.PushStyleColor(ImGuiCol.Button, 0.56, 0.06, 0.03, 0.25)
-              ImGui.PushStyleColor(ImGuiCol.ButtonHovered, 0.56, 0.06, 0.03, 0.25)
-              ImGui.PushStyleColor(ImGuiCol.ButtonActive, 0.56, 0.06, 0.03, 0.25)
-            end
-            if ImGui.Button(AMM.LocalizableString("Button_MoveDown")) and not downDisabled then
-              Director:MoveNodeDown()
-            end
-            if downDisabled then ImGui.PopStyleColor(3) end
 
             ImGui.SameLine()
             if ImGui.Button(AMM.LocalizableString("Button_TeleportToMark")) then
@@ -1210,7 +1208,12 @@ function Director:MoveActors(script, actors)
             end
 
             if node.pose then
-              AMM.Poses:PlayAnimationOnTarget(actor, node.pose, true, 'Director')
+              Director:TeleportActorTo(actor, node.pos, node.yaw)
+              Cron.After(1.0, function()
+                if actor.handle then
+                  AMM.Poses:PlayAnimationOnTarget(actor, node.pose, true, 'Director')
+                end
+              end)              
             end
           end)
         elseif actor.activeCommand == 'done' then          
@@ -1690,7 +1693,7 @@ function Director:DrawNodesPopup()
     local buttonLabel = AMM.LocalizableString("Button_Label_AddMark")
     if Director.selectedNode ~= '' then buttonLabel = AMM.LocalizableString("Button_Label_SaveWNewPos") end
 
-    if ImGui.Button(buttonLabel, -1, 30) then
+    if ImGui.Button(buttonLabel, -1, 40) then
       if Director.selectedNode ~= '' then
         Director:RemoveNodeMarks({Director.newNode})
         Director.newNode.pos = Game.GetPlayer():GetWorldPosition()
@@ -1722,7 +1725,7 @@ function Director:DrawNodesPopup()
     end
 
     if Director.selectedNode ~= '' then
-      if ImGui.Button(AMM.LocalizableString("Button_SaveChangesOnly"), -1, 30) then
+      if ImGui.Button(AMM.LocalizableString("Button_SaveChangesOnly"), -1, 40) then
         Director.selectedNode = Util:ShallowCopy(Director.selectedNode, Director.newNode)
         Director:SaveScript(Director.selectedScript)
         ImGui.CloseCurrentPopup()

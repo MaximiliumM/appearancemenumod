@@ -166,6 +166,7 @@ return {
 	Button_SmallRename = "Rename##",
 	Button_SmallUpdate = "Update##",
 	Button_SmallCancel = " Cancel ",
+	Button_Frame = "  Frame  ",
 	
     --Button Label
 	Button_LabelHide = " Hide ",
@@ -374,7 +375,6 @@ return {
         Locations = "Locations",
         Default_Locations = "Default Locations",
         Collab_Locations = "Collab Locations",
-        Source = "Source:",
         Button_AddTag = " Add Tag ",
 	Button_FilterByTags = "Filter By Tags",
 	Button_Close = "Close",
@@ -1011,4 +1011,13 @@ return {
 	Warn_WeaponizeNpcAnimationIssues = "Not every NPC will have the necessary animations to use every type of weapon. T-posing and incorrect animations might occur.\nAre you sure you want to enable it?",
 	Warn_ConfirmEnableExperimentalAndSave_Info = "Are you sure you want to enable experimental features? AMM might not work as expected. Use it at your own risk!",
 	Warn_DeleteFavoritesAskWhichOne_Info = "If you are sure you want to delete all your favorites, select which one below:",
+	Popup_Error_Title = "Error",
+	Button_Ok = "Ok",
+	Popup_FavoriteName = "Favorite Name",
+	Popup_RenamePreset = "Rename Preset",
+	Popup_RenameProp = "Rename Prop",
+	Editor_Title = "Theme Editor",
+	Editor_Field_ThemeName = "Theme Name",
+	Editor_Hint_InsertThemeName = "Insert New Theme Name",
+	Error_ThemeNameExists = "Theme name already exists",
 }

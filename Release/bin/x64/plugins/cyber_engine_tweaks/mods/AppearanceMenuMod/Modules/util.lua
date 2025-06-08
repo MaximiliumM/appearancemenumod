@@ -396,6 +396,14 @@ function Util:GetTableKeys(tab)
   return keyset
 end
 
+function Util:GetTableValues(t)
+  local vals = {}
+  for _, v in pairs(t) do
+    vals[#vals + 1] = v
+  end
+  return vals
+end
+
 function Util:GetKeysCount(t)
   local count = 0
   for k, v in pairs(t) do
@@ -1065,11 +1073,11 @@ end
 
 function Util:SetupPopup()
   if Util.openPopup then
-    if ImGui.BeginPopupModal("Error", ImGuiWindowFlags.AlwaysAutoResize) then
+    if ImGui.BeginPopupModal(AMM.LocalizableString("Popup_Error_Title"), ImGuiWindowFlags.AlwaysAutoResize) then
       ImGui.Text(Util.popup.text)
       ImGui.Spacing()
 
-      if ImGui.Button("Ok", -1, 40) then
+      if ImGui.Button(AMM.LocalizableString("Button_Ok"), -1, 40) then
         Util.openPopup = false
         ImGui.CloseCurrentPopup()
       end
@@ -1083,7 +1091,7 @@ function Util:OpenPopup(popupInfo)
   Util.popup = {}
   Util.popup.text = popupInfo.text
   Util.openPopup = true
-  ImGui.OpenPopup("Error")
+  ImGui.OpenPopup(AMM.LocalizableString("Popup_Error_Title"))
 end
 
 function Util:CheckForPhotoComponent(ent)
@@ -1137,7 +1145,7 @@ end
 
 function Util:CanBeHostile(t)
   local record = TweakDB:GetRecord(t.path)
-  if record then
+  if record and record.AbilitiesContains then
     local canBeHostile = record:AbilitiesContains(TweakDBInterface.GetGameplayAbilityRecord("Ability.CanCloseCombat"))
     if not(canBeHostile) then
       canBeHostile = record:AbilitiesContains(TweakDBInterface.GetGameplayAbilityRecord("Ability.HasChargeJump"))

@@ -163,9 +163,10 @@ return {
 	--Button
 	Button_SmallClone = "复制",
 	Button_SmallRemove = "移除##",
-	Button_SmallRename = "重命名##",
-	Button_SmallUpdate = "更新##",
-	Button_SmallCancel = " 取消 ##",
+        Button_SmallRename = "重命名##",
+        Button_SmallUpdate = "更新##",
+        Button_SmallCancel = " 取消 ##",
+        Button_Frame = "  Frame  ",
 
     --Button Label
 	Button_LabelHide = " 隐藏 ",
@@ -374,7 +375,6 @@ return {
         Locations = "地点",
         Default_Locations = "Default Locations",
         Collab_Locations = "Collab Locations",
-        Source = "Source:",
         Button_AddTag = " 添加标签 ",
 	Button_FilterByTags = "按标签筛选",
 	Button_Close = "关闭",
@@ -1011,4 +1011,13 @@ return {
 	Warn_WeaponizeNpcAnimationIssues = "并不是每个NPC都有必要的动画来使用每种武器。可能会出现t姿势和不正确的动画。\n你确定要启用它吗?",
 	Warn_ConfirmEnableExperimentalAndSave_Info = "你确定要启用实验性功能吗?AMM可能不会像预期的那样起作用。使用它的风险自负!",
 	Warn_DeleteFavoritesAskWhichOne_Info = "如果你确定要删除所有收藏夹,请选择下面的收藏夹:",
+	Popup_Error_Title         = "错误",
+	Button_Ok                 = "确定",
+	Popup_FavoriteName        = "收藏名称",
+	Popup_RenamePreset        = "重命名预设",
+	Popup_RenameProp          = "重命名属性",
+	Editor_Title              = "主题编辑器",
+	Editor_Field_ThemeName    = "主题名称",
+	Editor_Hint_InsertThemeName = "输入新的主题名称",
+	Error_ThemeNameExists     = "主题名称已存在",
 }

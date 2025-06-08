@@ -163,9 +163,10 @@ return {
 	--Button
 	Button_SmallClone = "Klonla",
 	Button_SmallRemove = "Kaldir##",
-	Button_SmallRename = "Yeniden Adlandir##",
-	Button_SmallUpdate = "Güncelle##",
-	Button_SmallCancel = " Iptal ",
+        Button_SmallRename = "Yeniden Adlandir##",
+        Button_SmallUpdate = "Güncelle##",
+        Button_SmallCancel = " Iptal ",
+        Button_Frame = "  Frame  ",
 
     --Button Label
 	Button_LabelHide = " Gizle ",
@@ -374,7 +375,6 @@ return {
         Locations = "Konumlar",
         Default_Locations = "Default Locations",
         Collab_Locations = "Collab Locations",
-        Source = "Source:",
         Button_AddTag = " Add Tag ",
 	Button_FilterByTags = "Filter By Tags",
 	Button_Close = "Close",
@@ -1011,4 +1011,13 @@ return {
 	Warn_WeaponizeNpcAnimationIssues = "Her NPC, bütün silah türlerini kullanmak için gerekli animasyonlara sahip olmayacaktır. T-poz ve hatali animasyonlar görebilirsiniz.\nEtkinlestirmek istediginize emin misiniz?",
 	Warn_ConfirmEnableExperimentalAndSave_Info = "Deneysel Özellikleri etkinlestirmek istediginizden emin misiniz? AMM istenilen sekilde çalismayabilir. Riski göze aliyorsaniz kullanin!",
 	Warn_DeleteFavoritesAskWhichOne_Info = "Eger tüm favorileri silmek istediginizden eminseniz, asagidakilerden hangisi olacagini seçin:",
+	Popup_Error_Title         = "Hata",
+	Button_Ok                 = "Tamam",
+	Popup_FavoriteName        = "Favori Adı",
+	Popup_RenamePreset        = "Ön ayarı yeniden adlandır",
+	Popup_RenameProp          = "Prop'u yeniden adlandır",
+	Editor_Title              = "Tema Düzenleyici",
+	Editor_Field_ThemeName    = "Tema Adı",
+	Editor_Hint_InsertThemeName = "Yeni tema adı girin",
+	Error_ThemeNameExists     = "Tema adı zaten var",
 }

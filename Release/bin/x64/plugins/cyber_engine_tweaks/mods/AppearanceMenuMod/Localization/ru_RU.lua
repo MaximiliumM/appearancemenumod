@@ -163,9 +163,10 @@ return {
 	--Button
 	Button_SmallClone = "Clone",
 	Button_SmallRemove = "Удалить##",
-	Button_SmallRename = "Переименовать##",
-	Button_SmallUpdate = "Обновить##",
-	Button_SmallCancel = " Отмена ",
+        Button_SmallRename = "Переименовать##",
+        Button_SmallUpdate = "Обновить##",
+        Button_SmallCancel = " Отмена ",
+        Button_Frame = "  Frame  ",
 
     --Button Label
 	Button_LabelHide = " Скрыть ",
@@ -374,7 +375,6 @@ return {
         Locations = "Локации",
         Default_Locations = "Default Locations",
         Collab_Locations = "Collab Locations",
-        Source = "Source:",
         Button_AddTag = " Add Tag ",
 	Button_FilterByTags = "Filter By Tags",
 	Button_Close = "Close",
@@ -1011,4 +1011,13 @@ return {
 	Warn_WeaponizeNpcAnimationIssues = "Не каждый NPC будет иметь необходимые анимации для использования каждого вида оружия. Это может привести к неправильной анимации.\nВы уверены, что хотите включить эту функцию?",
 	Warn_ConfirmEnableExperimentalAndSave_Info = "Вы уверены, что хотите включить экспериментальные функции? AMM может работать не так, как ожидалось. Используйте его на свой страх и риск!",
 	Warn_DeleteFavoritesAskWhichOne_Info = "Если вы хотите удалить все избранное, выберите какой именно снизу:",
+	Popup_Error_Title         = "Ошибка",
+	Button_Ok                 = "ОК",
+	Popup_FavoriteName        = "Имя избранного",
+	Popup_RenamePreset        = "Переименовать пресет",
+	Popup_RenameProp          = "Переименовать проп",
+	Editor_Title              = "Редактор тем",
+	Editor_Field_ThemeName    = "Название темы",
+	Editor_Hint_InsertThemeName = "Введите новое название темы",
+	Error_ThemeNameExists     = "Название темы уже существует",
 }

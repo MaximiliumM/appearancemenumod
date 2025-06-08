@@ -1,5 +1,15 @@
 return {
 	{
+		'2.12',
+		'2025 Jun 09',
+		[[Added new Vehicles: Nazare Racer and Porsche 911 Turbo Cabriolet]],
+		[[Added new Random button to locations that will teleport you to a random location from the list]],
+		[[Added new Teleport buttons to Director Triggers and Scripts]],
+		[[Added new Collab type: Locations]],
+		[[-- This allows you to add locations organized by categories and tags all set up by a single JSON file]],
+		
+	},
+	{
 		'2.11.2',
 		'2025 Mar 05',
 		[[Added a new Warning when AMM fails to initialize]],

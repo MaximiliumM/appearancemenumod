@@ -323,7 +323,7 @@ function Spawn:SetFavoriteNamePopup(entity)
 	ImGui.SetNextWindowSize(350, ImGui.GetFontSize() * 9)
 	Spawn.currentFavoriteName = entity.name
 	Spawn.popupEntity = entity
-	ImGui.OpenPopup("Favorite Name")
+        ImGui.OpenPopup(AMM.LocalizableString("Popup_FavoriteName"))
 end
 
 function Spawn:DrawFavoritesButton(buttonLabels, entity, fullButton)
@@ -372,11 +372,11 @@ function Spawn:DrawFavoritesButton(buttonLabels, entity, fullButton)
 		end
 	end
 
-	if ImGui.BeginPopupModal("Favorite Name") then
+        if ImGui.BeginPopupModal(AMM.LocalizableString("Popup_FavoriteName")) then
 		if Spawn.currentFavoriteName == 'existing' then
 			ImGui.TextColored(1, 0.16, 0.13, 0.75, AMM.LocalizableString("Existing_Name"))
 
-			if ImGui.Button("Ok", -1, style.buttonHeight) then
+                        if ImGui.Button(AMM.LocalizableString("Button_Ok"), -1, style.buttonHeight) then
 				Spawn.currentFavoriteName = ''
 			end
 		elseif Spawn.popupEntity.name == entity.name then

@@ -87,7 +87,7 @@ function AMM:new()
 	 AMM.extraExpressionsInstalled = false
 
 	 -- Main Properties --
-	 AMM.currentVersion = "2.11.2"
+	 AMM.currentVersion = "2.12"
 	 AMM.CETVersion = parseVersion(GetVersion())
 	 AMM.CodewareVersion = 0
 	 AMM.updateNotes = require('update_notes.lua')
@@ -319,14 +319,59 @@ function AMM:new()
 		-- 	AMM:StartCompanionsFollowElevator()
 	 	--  end)		  
 
-		AMM.activeFlag = false
 		Observe("Frame", "OnScreenshotChanged", function(this, screenshotSize, errorCode)
-			if AMM.activeFlag == false then
-				AMM.activePhotoID = this.activePhotoID
-				AMM.activePhotoHash = this.activePhotoHash
-				AMM.activePhotoUV = this.activePhotoUV	
-				AMM.activeFlag = true
-			end
+				local props = AMM.Props.spawnedPropsList
+
+				-- Fallback to spawnedProps map if the list is empty
+				if not props or next(props) == nil then
+					props = AMM.Props.spawnedProps
+				end
+
+				local updated = false
+				local frameHash = tostring(this:GetEntityID().hash)
+
+				if props then			
+					for _, prop in pairs(props) do
+						if prop.handle and NameToString(prop.handle:GetClassName()) == "Frame" then
+							local propHash = tostring(prop.handle:GetEntityID().hash)
+
+							if propHash == frameHash then
+								prop.photoID = this.activePhotoID
+								prop.photoHash = this.activePhotoHash
+								prop.photoUV = {
+											Left = this.activePhotoUV.Left,
+											Right = this.activePhotoUV.Right,
+											Top = this.activePhotoUV.Top,
+											Bottom = this.activePhotoUV.Bottom
+								}
+
+								updated = true
+								-- Once the matching frame is updated we can stop searching							
+								break
+							end
+						end
+					end
+				end
+
+				if not updated then
+					for _, prop in pairs(AMM.Props.activeProps) do
+						if prop.handle and NameToString(prop.handle:GetClassName()) == "Frame" then
+							if tostring(prop.handle:GetEntityID().hash) == frameHash then
+								prop.photoID = this.activePhotoID
+								prop.photoHash = this.activePhotoHash
+								prop.photoUV = {
+									Left = this.activePhotoUV.Left,
+									Right = this.activePhotoUV.Right,
+									Top = this.activePhotoUV.Top,
+									Bottom = this.activePhotoUV.Bottom
+								}
+
+								AMM.Props:SavePropPosition(prop)
+								break
+							end
+						end
+					end
+				end
 		end)
 
 
@@ -3244,17 +3289,27 @@ local extensionJson = '.json$'
 
 local function getFilesRecursively(_dir, tbl)
   tbl = tbl or {}
+
+  -- files to ignore
+  local ignore = {
+    ["appearance_template.lua"] = true,
+    ["entitity_template.lua"] = true,
+    ["pose_template.lua"]       = true,
+    ["prop_template.lua"]       = true,
+  }
+
   local files = dir(_dir)
   if #files == 0 then return tbl end
 
   for _, file in ipairs(files) do
-    -- if it's a directory: recurse
     if file.type == typeDirectory then
       getFilesRecursively(_dir .. '/' .. file.name, tbl)
 
-    -- if it's a lua file: add to return list
     elseif string.find(file.name, extensionLua) then
-      table.insert(tbl, _dir .. '/' .. file.name)
+      -- skip ignored filenames
+      if not ignore[file.name] then
+        table.insert(tbl, _dir .. '/' .. file.name)
+      end
     end
   end
 
@@ -3263,6 +3318,12 @@ end
 
 local function getJSONFilesRecursively(_dir, tbl)
   tbl = tbl or {}
+
+    -- files to ignore
+  local ignore = {
+    ["location_template.json"] = true
+  }
+
   local files = dir(_dir)
   if #files == 0 then return tbl end
 
@@ -3270,7 +3331,9 @@ local function getJSONFilesRecursively(_dir, tbl)
     if file.type == typeDirectory then
       getJSONFilesRecursively(_dir .. '/' .. file.name, tbl)
     elseif string.find(file.name, extensionJson) then
-      table.insert(tbl, _dir .. '/' .. file.name)
+		if not ignore[file.name] then
+      	table.insert(tbl, _dir .. '/' .. file.name)
+		end
     end
   end
 
@@ -3408,8 +3471,8 @@ function AMM:SetupCollabs()
 
 	AMM:SetupCustomEntities()
 	AMM:SetupCustomProps()
-        AMM:SetupCustomPoses()
-        AMM:SetupCollabLocations()
+	AMM:SetupCustomPoses()
+	AMM:SetupCollabLocations()
 
 end
 
@@ -3765,8 +3828,6 @@ function AMM:SetupCollabLocations()
 
         AMM.HasCollabLocations = next(AMM.collabLocations) ~= nil
 end
-
-function AMM:SetupVehicleData()
 
 --------------------------------------------------------------------------------
 -- 6) Setup Custom Poses
