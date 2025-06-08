@@ -857,6 +857,39 @@ function Director:DrawScriptTab()
               ImGui.OpenPopup("Move Mark Popup")
             end
 
+            local actor = Director.selectedActor
+            local nodeIndex = nil
+            if actor ~= '' then
+              for idx, n in ipairs(actor.nodes) do
+                if n == Director.selectedNode then nodeIndex = idx break end
+              end
+            end
+
+            local upDisabled = not (actor ~= '' and nodeIndex and nodeIndex > 1 and #actor.nodes > 1)
+            local downDisabled = not (actor ~= '' and nodeIndex and nodeIndex < #actor.nodes and #actor.nodes > 1)
+
+            ImGui.SameLine()
+            if upDisabled then
+              ImGui.PushStyleColor(ImGuiCol.Button, 0.56, 0.06, 0.03, 0.25)
+              ImGui.PushStyleColor(ImGuiCol.ButtonHovered, 0.56, 0.06, 0.03, 0.25)
+              ImGui.PushStyleColor(ImGuiCol.ButtonActive, 0.56, 0.06, 0.03, 0.25)
+            end
+            if ImGui.Button(AMM.LocalizableString("Button_MoveUp")) and not upDisabled then
+              Director:MoveNodeUp()
+            end
+            if upDisabled then ImGui.PopStyleColor(3) end
+
+            ImGui.SameLine()
+            if downDisabled then
+              ImGui.PushStyleColor(ImGuiCol.Button, 0.56, 0.06, 0.03, 0.25)
+              ImGui.PushStyleColor(ImGuiCol.ButtonHovered, 0.56, 0.06, 0.03, 0.25)
+              ImGui.PushStyleColor(ImGuiCol.ButtonActive, 0.56, 0.06, 0.03, 0.25)
+            end
+            if ImGui.Button(AMM.LocalizableString("Button_MoveDown")) and not downDisabled then
+              Director:MoveNodeDown()
+            end
+            if downDisabled then ImGui.PopStyleColor(3) end
+
             ImGui.SameLine()
             if ImGui.Button(AMM.LocalizableString("Button_TeleportToMark")) then
               if Director.selectedNode and Director.selectedNode.pos then
@@ -907,6 +940,42 @@ function Director:RemoveNodeFromActor(actor, node)
   Game.GetMappinSystem():UnregisterMappin(node.mappinData)
   local nodeNumber = tonumber(node.name:match("%d"))
   table.remove(actor.nodes, nodeNumber)
+end
+
+function Director:RenumberActorNodes(actor)
+  for i, node in ipairs(actor.nodes) do
+    node.name = node.name:gsub("Mark %d+", "Mark " .. tostring(i))
+  end
+end
+
+function Director:MoveNodeUp()
+  local actor = Director.selectedActor
+  if actor == '' or #actor.nodes <= 1 or Director.selectedNode == '' then return end
+
+  for i, node in ipairs(actor.nodes) do
+    if node == Director.selectedNode and i > 1 then
+      actor.nodes[i], actor.nodes[i-1] = actor.nodes[i-1], actor.nodes[i]
+      Director.selectedNode = actor.nodes[i-1]
+      Director:RenumberActorNodes(actor)
+      Director:SaveScript(Director.selectedScript)
+      break
+    end
+  end
+end
+
+function Director:MoveNodeDown()
+  local actor = Director.selectedActor
+  if actor == '' or #actor.nodes <= 1 or Director.selectedNode == '' then return end
+
+  for i, node in ipairs(actor.nodes) do
+    if node == Director.selectedNode and i < #actor.nodes then
+      actor.nodes[i], actor.nodes[i+1] = actor.nodes[i+1], actor.nodes[i]
+      Director.selectedNode = actor.nodes[i+1]
+      Director:RenumberActorNodes(actor)
+      Director:SaveScript(Director.selectedScript)
+      break
+    end
+  end
 end
 
 function Director:RemoveActorFromScript(script, actorName)
