@@ -326,6 +326,14 @@ local function drawSpawnedPropsList()
           if AMM.UI:SmallButton(AMM.LocalizableString("Button_SmallClone").."##"..spawn.name) then
             Props:DuplicateProp(spawn)
           end
+
+          ImGui.SameLine()
+
+          if AMM.UI:SmallButton(AMM.LocalizableString("Button_Frame")) then
+            if spawn.handle and spawn.handle ~= '' then              
+              spawn.handle:SpawnFrameSwitcherPopup()
+            end
+          end
         end
       end
     end
@@ -588,17 +596,17 @@ function Props:DrawSavedProp(prop)
       AMM.Tools.lockTarget = true
 
       Props:SavePreset(Props.activePreset)
-    end    
+    end
 
     if Props.editingTags[prop.uid] == nil then
       Props.editingTags[prop.uid] = prop.tag
     end
 
-    ImGui.PushItemWidth(248)
+    ImGui.PushItemWidth(228)
     Props.editingTags[prop.uid] = ImGui.InputText(" ##"..prop.uid, Props.editingTags[prop.uid], 100)
     ImGui.PopItemWidth()
 
-    ImGui.SameLine(272)
+    ImGui.SameLine(252)
 
     if AMM.UI:SmallButton(AMM.LocalizableString("Move_To_Tag").."##"..prop.uid) and Props.editingTags[prop.uid] ~= '' then
       Props:UpdatePropTag(prop, Props.editingTags[prop.uid])
@@ -620,6 +628,13 @@ function Props:DrawSavedProp(prop)
         Props.activeProps[prop.uid].mappinData = nil
       else
         Props.activeProps[prop.uid].mappinData = Props:ShowOnMap(prop.pos)
+      end
+    end
+
+    ImGui.SameLine()
+    if AMM.UI:SmallButton(AMM.LocalizableString("Button_Frame")) then
+      if Props.activeProps[prop.uid].handle and Props.activeProps[prop.uid].handle ~= '' then
+        Props.activeProps[prop.uid].handle:SpawnFrameSwitcherPopup()
       end
     end
   end
@@ -1235,11 +1250,6 @@ function Props:SpawnSavedProp(ent)
   local spawn = Props:SpawnPropInPosition(ent, ent.pos, ent.angles)
   Props.activeProps[ent.uid] = spawn
 
-  if Props.framesData[ent.uid] then
-    local fdata = Props.framesData[ent.uid]
-    Props:SetFramePhoto(fdata.photoID, fdata.photoUV, fdata.photoHash)
-  end
-
   if not Props.presetLoadInProgress and Props.total > 500 then
     Props.presetLoadInProgress = true
     Util:AddPlayerEffects()
@@ -1316,6 +1326,13 @@ function Props:SpawnPropInPosition(ent, pos, angles)
         for light in db:nrows(f(selectSaveLightsFormat, ent.uid)) do -- 'SELECT * FROM saved_lights WHERE uid = %i'
           AMM.Light:SetLightData(ent, light)
         end
+
+        Cron.After(0.5, function()
+          if Props.framesData[ent.uid] then
+            local fdata = Props.framesData[ent.uid]
+            Props:SetFramePhoto(ent, fdata.photoID, fdata.photoUV, fdata.photoHash)
+          end
+        end)
       end
 
       local components = Props:CheckForValidComponents(ent.handle)
@@ -2702,8 +2719,7 @@ function Props:CheckIfVehicle(id)
   if count ~= 0 then return true else return false end
 end
 
-function Props:SetFramePhoto(photoID, uv, hash)
-  local frame = Props.spawnedPropsList[#Props.spawnedPropsList]
+function Props:SetFramePhoto(frame, photoID, uv, hash)
   if not frame or not frame.handle then return end
 
   local uvTable = {
@@ -2712,7 +2728,7 @@ function Props:SetFramePhoto(photoID, uv, hash)
     Top = uv.Top,
     Bottom = uv.Bottom
   }
-
+  
   Props.framesData[frame.uid or frame.name or (#Props.framesData + 1)] = {
     photoID = photoID,
     photoUV = uvTable,

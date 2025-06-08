@@ -166,6 +166,7 @@ return {
 	Button_SmallRename = "Rename##",
 	Button_SmallUpdate = "Update##",
 	Button_SmallCancel = " Cancel ",
+	Button_Frame = "  Frame  ",
 	
     --Button Label
 	Button_LabelHide = " Hide ",

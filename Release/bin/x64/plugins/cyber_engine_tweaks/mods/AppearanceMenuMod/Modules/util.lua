@@ -1145,7 +1145,7 @@ end
 
 function Util:CanBeHostile(t)
   local record = TweakDB:GetRecord(t.path)
-  if record then
+  if record and record.AbilitiesContains then
     local canBeHostile = record:AbilitiesContains(TweakDBInterface.GetGameplayAbilityRecord("Ability.CanCloseCombat"))
     if not(canBeHostile) then
       canBeHostile = record:AbilitiesContains(TweakDBInterface.GetGameplayAbilityRecord("Ability.HasChargeJump"))

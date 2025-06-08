@@ -1,5 +1,10 @@
 return {
 	{
+		'2.12',
+		'2025 Jun 09',
+		[[Added new Vehicles: Nazare Racer and Porsche 911 Turbo Cabriolet]],
+	},
+	{
 		'2.11.2',
 		'2025 Mar 05',
 		[[Added a new Warning when AMM fails to initialize]],

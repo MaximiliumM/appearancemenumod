@@ -319,38 +319,60 @@ function AMM:new()
 		-- 	AMM:StartCompanionsFollowElevator()
 	 	--  end)		  
 
-                Observe("Frame", "OnScreenshotChanged", function(this, screenshotSize, errorCode)
-                        local props = AMM.Props.spawnedPropsList
+		Observe("Frame", "OnScreenshotChanged", function(this, screenshotSize, errorCode)
+				local props = AMM.Props.spawnedPropsList
 
-                        -- Fallback to spawnedProps map if the list is empty
-                        if not props or next(props) == nil then
-                                props = AMM.Props.spawnedProps
-                        end
+				-- Fallback to spawnedProps map if the list is empty
+				if not props or next(props) == nil then
+					props = AMM.Props.spawnedProps
+				end
 
-                        if props then
-                                local frameHash = tostring(this:GetEntityID().hash)
+				local updated = false
+				local frameHash = tostring(this:GetEntityID().hash)
 
-                                for _, prop in pairs(props) do
-                                        if prop.handle and NameToString(prop.handle:GetClassName()) == "Frame" then
-                                                local propHash = tostring(prop.handle:GetEntityID().hash)
+				if props then			
+					for _, prop in pairs(props) do
+						if prop.handle and NameToString(prop.handle:GetClassName()) == "Frame" then
+							local propHash = tostring(prop.handle:GetEntityID().hash)
 
-                                                if propHash == frameHash then
-                                                        prop.photoID = this.activePhotoID
-                                                        prop.photoHash = this.activePhotoHash
-                                                        prop.photoUV = {
-                                                                Left = this.activePhotoUV.Left,
-                                                                Right = this.activePhotoUV.Right,
-                                                                Top = this.activePhotoUV.Top,
-                                                                Bottom = this.activePhotoUV.Bottom
-                                                        }
+							if propHash == frameHash then
+								prop.photoID = this.activePhotoID
+								prop.photoHash = this.activePhotoHash
+								prop.photoUV = {
+											Left = this.activePhotoUV.Left,
+											Right = this.activePhotoUV.Right,
+											Top = this.activePhotoUV.Top,
+											Bottom = this.activePhotoUV.Bottom
+								}
 
-                                                        -- Once the matching frame is updated we can stop searching
-                                                        break
-                                                end
-                                        end
-                                end
-                        end
-                end)
+								updated = true
+								-- Once the matching frame is updated we can stop searching							
+								break
+							end
+						end
+					end
+				end
+
+				if not updated then
+					for _, prop in pairs(AMM.Props.activeProps) do
+						if prop.handle and NameToString(prop.handle:GetClassName()) == "Frame" then
+							if tostring(prop.handle:GetEntityID().hash) == frameHash then
+								prop.photoID = this.activePhotoID
+								prop.photoHash = this.activePhotoHash
+								prop.photoUV = {
+									Left = this.activePhotoUV.Left,
+									Right = this.activePhotoUV.Right,
+									Top = this.activePhotoUV.Top,
+									Bottom = this.activePhotoUV.Bottom
+								}
+
+								AMM.Props:SavePropPosition(prop)
+								break
+							end
+						end
+					end
+				end
+		end)
 
 
 		 local puppetSpawned = false
