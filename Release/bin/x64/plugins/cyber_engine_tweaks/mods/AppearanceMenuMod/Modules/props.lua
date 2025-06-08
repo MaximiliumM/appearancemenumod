@@ -94,6 +94,7 @@ function Props:new()
   Props.editingTags = {}
   Props.activeProps = {}
   Props.activeLights = {}
+  Props.framesData = {}
   Props.cachedActivePropsByHash = {}
   Props.presetLoadInProgress = false
   Props.activePreset = ''
@@ -167,7 +168,7 @@ function Props:Update()
     Props.presets = Props:LoadPresets()
     Props.moddersList = {}
     Props.activePreset.customIncluded = false
-    Props.activePreset.props, Props.activePreset.lights = Props:GetPropsForPreset()
+    Props.activePreset.props, Props.activePreset.lights, Props.activePreset.frames = Props:GetAllObjectsForPreset()
     Props.savedProps = {}
     Props.savedProps['all_props'] = Props:GetProps()
     Props.activeLights = {}
@@ -1234,6 +1235,11 @@ function Props:SpawnSavedProp(ent)
   local spawn = Props:SpawnPropInPosition(ent, ent.pos, ent.angles)
   Props.activeProps[ent.uid] = spawn
 
+  if Props.framesData[ent.uid] then
+    local fdata = Props.framesData[ent.uid]
+    Props:SetFramePhoto(fdata.photoID, fdata.photoUV, fdata.photoHash)
+  end
+
   if not Props.presetLoadInProgress and Props.total > 500 then
     Props.presetLoadInProgress = true
     Util:AddPlayerEffects()
@@ -1860,6 +1866,11 @@ function Props:SpawnProp(spawn, pos, angles)
       if lightData then
         Light:SetLightData(spawn, lightData)
       end
+
+      if spawn.uid and Props.framesData[spawn.uid] then
+        local fdata = Props.framesData[spawn.uid]
+        Props:SetFramePhoto(fdata.photoID, fdata.photoUV, fdata.photoHash)
+      end
       
       local components = Props:CheckForValidComponents(entity)
       if components then
@@ -2004,6 +2015,7 @@ function Props:DeleteAll()
   db:execute("DELETE FROM saved_lights")
   db:execute("UPDATE sqlite_sequence SET seq = 0 WHERE name = 'saved_props'")
   db:execute("UPDATE sqlite_sequence SET seq = 0 WHERE name = 'saved_lights'")
+  Props.framesData = {}
 end
 
 function Props:ActivatePreset(preset)
@@ -2013,6 +2025,7 @@ function Props:ActivatePreset(preset)
 
   local savedProps =  Util:ShallowCopy({}, preset.props)
   local savedLights =  Util:ShallowCopy({}, preset.lights)
+  local savedFrames =  Util:ShallowCopy({}, preset.frames or {})
   pcall(function() spdlog.info('Before saving '..(Props.activePreset.file_name or "no file name")) end)
 
   -- Probably don't need to save here
@@ -2026,6 +2039,7 @@ function Props:ActivatePreset(preset)
     if not despawnInProgress then
       local props = {}
       local lights = {}
+      Props.framesData = {}
       for i, prop in ipairs(savedProps) do
         local scale = prop.scale
         if scale == -1 then scale = { x = 1, y = 1, z = 1 } end
@@ -2036,6 +2050,14 @@ function Props:ActivatePreset(preset)
 
       for _, light in ipairs(savedLights) do
         table.insert(lights, f('(%i, "%s", "%s", %f, %f, "%s")', light.uid, light.entity_id, light.color, light.intensity, light.radius, light.angles))
+      end
+
+      for _, frame in ipairs(savedFrames) do
+        Props.framesData[frame.uid] = {
+          photoID = frame.photoID,
+          photoUV = frame.photoUV,
+          photoHash = frame.photoHash
+        }
       end
 
       db:execute(f('INSERT INTO saved_props (uid, entity_id, name, template_path, pos, trigger, scale, app, tag) VALUES %s', table.concat(props, ", ")))
@@ -2121,12 +2143,12 @@ end
 
 function Props:LoadPreset(fileName)
   if fileName ~= '' then
-    local name, props, lights = Props:LoadPresetData(fileName)
+    local name, props, lights, frames = Props:LoadPresetData(fileName)
     if name then
       if string.find(name, 'backup') then
         name = name:match("[^-backup-]+")
       end
-      Props.activePreset = {file_name = fileName, name = name, props = props, lights = lights}
+      Props.activePreset = {file_name = fileName, name = name, props = props, lights = lights, frames = frames}
       Props:ActivatePreset(Props.activePreset)
     else
       Props.activePreset = ''
@@ -2138,9 +2160,9 @@ function Props:LoadPresetData(preset)
   local file = io.open('./User/Decor/'..preset, 'r')
   if file then
     local contents = file:read( "*a" )
-		local presetData = json.decode(contents)
+                local presetData = json.decode(contents)
     file:close()
-    return presetData['name'], presetData['props'], presetData['lights'] or {}
+    return presetData['name'], presetData['props'], presetData['lights'] or {}, presetData['frames'] or {}
   end
 
   return false
@@ -2154,8 +2176,8 @@ function Props:LoadPresets()
     for _, file in ipairs(files) do
       -- Only load files ending in .json (excluding .tmp files)
       if file.name:match("%.json$") then
-        local name, props, lights = Props:LoadPresetData(file.name)
-        table.insert(presets, {file_name = file.name, name = name, props = props, lights = lights})
+        local name, props, lights, frames = Props:LoadPresetData(file.name)
+        table.insert(presets, {file_name = file.name, name = name, props = props, lights = lights, frames = frames})
       end
     end
     return presets
@@ -2236,8 +2258,11 @@ function Props:SavePreset(preset, path, fromDB)
     presetFromDB.file_name = presetFromDB.name .. ".json"
     presetFromDB.props = props
     presetFromDB.lights = lights
+    presetFromDB.frames = Props:SaveFramesForPreset(presetFromDB.name)
     preset = presetFromDB
   end
+
+  preset.frames = preset.frames or Props:SaveFramesForPreset(preset.name)
 
   local contents = json.encode(preset)
   if not contents or contents == "" then
@@ -2418,20 +2443,85 @@ function Props:GetPropsCount(tag)
   return count
 end
 
-function Props:GetPropsForPreset()
+function Props:GetAllObjectsForPreset()
   local dbQuery = 'SELECT * FROM saved_props ORDER BY name ASC'
-  if query then dbQuery = 'SELECT * FROM saved_props WHERE name LIKE "%'..query..'%" OR tag LIKE "%'..query..'%" ORDER BY name ASC' end
+  if query then
+    dbQuery = 'SELECT * FROM saved_props WHERE name LIKE "%'..query..'%" OR tag LIKE "%'..query..'%" ORDER BY name ASC'
+  end
+
   local props = {}
   local lights = {}
+  local frames = {}
+
   for prop in db:nrows(dbQuery) do
     table.insert(props, prop)
 
     for light in db:nrows(f('SELECT * FROM saved_lights WHERE uid = %i', prop.uid)) do
       table.insert(lights, light)
     end
+
+    local fdata = Props.framesData[prop.uid]
+    if fdata then
+      table.insert(frames, {
+        uid = prop.uid,
+        photoID = fdata.photoID,
+        photoUV = fdata.photoUV,
+        photoHash = fdata.photoHash
+      })
+    end
   end
 
-  return props, lights
+  return props, lights, frames
+end
+
+function Props:GetFramesForPreset(presetName)
+  local filePath = './User/Decor/'..presetName
+  if not filePath:match('%.json$') then
+    filePath = filePath .. '.json'
+  end
+
+  local file = io.open(filePath, 'r')
+  if not file then return {} end
+
+  local contents = file:read('*a')
+  file:close()
+
+  local data = json.decode(contents) or {}
+  local frames = data.frames or {}
+  for _, frame in ipairs(frames) do
+    if frame.photoUV then
+      frame.photoUV = {
+        Left = tonumber(frame.photoUV.Left),
+        Right = tonumber(frame.photoUV.Right),
+        Top = tonumber(frame.photoUV.Top),
+        Bottom = tonumber(frame.photoUV.Bottom)
+      }
+    end
+  end
+
+  return frames
+end
+
+function Props:SaveFramesForPreset()
+  local frames = {}
+  for uid, data in pairs(Props.framesData) do
+    local uv = data.photoUV or {}
+    uv = {
+      Left = uv.Left,
+      Right = uv.Right,
+      Top = uv.Top,
+      Bottom = uv.Bottom
+    }
+
+    table.insert(frames, {
+      uid = uid,
+      photoID = data.photoID,
+      photoUV = uv,
+      photoHash = data.photoHash
+    })
+  end
+
+  return frames
 end
 
 function Props:GetProps(query, tag)
@@ -2594,6 +2684,39 @@ function Props:CheckIfVehicle(id)
   end
 
   if count ~= 0 then return true else return false end
+end
+
+function Props:SetFramePhoto(photoID, uv, hash)
+  local frame = Props.spawnedPropsList[#Props.spawnedPropsList]
+  if not frame or not frame.handle then return end
+
+  local uvTable = {
+    Left = uv.Left,
+    Right = uv.Right,
+    Top = uv.Top,
+    Bottom = uv.Bottom
+  }
+
+  Props.framesData[frame.uid or frame.name or (#Props.framesData + 1)] = {
+    photoID = photoID,
+    photoUV = uvTable,
+    photoHash = hash
+  }
+
+  local target = frame.handle
+  target.activePhotoHash = hash
+  target.activePhotoID = photoID
+
+  local newRect = RectF.new()
+  newRect.Top = uv.Top
+  newRect.Left = uv.Left
+  newRect.Right = uv.Right
+  newRect.Bottom = uv.Bottom
+  target.activePhotoUV = newRect
+
+  if target.UpdateCurrentPhoto then
+    pcall(function() target:UpdateCurrentPhoto() end)
+  end
 end
 
 return Props:new()
