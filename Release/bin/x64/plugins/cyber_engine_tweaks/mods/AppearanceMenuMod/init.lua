@@ -6,9 +6,17 @@ AMM = {
 
 -- Global for Error Tracking --
 local initializationComplete = false
+local lastError = nil
 
 -- ALIAS for spdlog.error --
-log = spdlog.error
+log = function(...)
+	if initializationComplete then
+		spdlog.error(...)
+	else
+		lastError = string.format(...)
+		spdlog.error(...)
+	end
+end
 
 -- ALIAS for string.format --
 f = string.format
@@ -87,7 +95,7 @@ function AMM:new()
 	 AMM.extraExpressionsInstalled = false
 
 	 -- Main Properties --
-	 AMM.currentVersion = "2.12"
+	 AMM.currentVersion = "2.12.1"
 	 AMM.CETVersion = parseVersion(GetVersion())
 	 AMM.CodewareVersion = 0
 	 AMM.updateNotes = require('update_notes.lua')
@@ -317,7 +325,7 @@ function AMM:new()
 		 
 		--  Observe('ElevatorInkGameController', 'OnChangeFloor', function(this)
 		-- 	AMM:StartCompanionsFollowElevator()
-	 	--  end)		  
+	 	--  end)
 
 		Observe("Frame", "OnScreenshotChanged", function(this, screenshotSize, errorCode)
 				local props = AMM.Props.spawnedPropsList
@@ -1682,6 +1690,9 @@ function AMM:Begin()
 							AMM.UI:TextColored(AMM.LocalizableString("Warn_InitError"))
 							ImGui.PushTextWrapPos(400)
 							ImGui.TextWrapped(AMM.LocalizableString("Warn_InitError_Info"))
+							if lastError ~= nil and lastError ~= "" then
+								ImGui.TextWrapped(lastError)
+							end							
 							ImGui.PopTextWrapPos()
 						else
 							AMM.UI:TextColored(AMM.LocalizableString("Warn_PlayerInMenu"))
@@ -2833,6 +2844,10 @@ end
 
 function AMM:GetExtraPersonalityOptions()
 	local data = require('Collabs/Extra_Expressions_AMM.lua')
+	if not data or not data.personalities then
+		log("[AMM Error] Extra Expressions data is missing or malformed.")
+		initializationComplete = false
+	end
 	local personalities = data.personalities
 
 	for i, personality in ipairs(personalities) do
@@ -2840,7 +2855,7 @@ function AMM:GetExtraPersonalityOptions()
 		if localizedName == "AMM_ERROR" then
 			personality.name = AMM:ParsePersonalityName(personality.name)
 		else
-			personality.name = localizedName
+			personality.name = localizedName	
 		end
 
 		local localizedCatName = AMM.LocalizableString(personality.cat_name)
@@ -3647,7 +3662,7 @@ function AMM:SetupCustomProps()
             entity_id,
             prop.name,
             category,
-            prop.distanceFromGround,
+            prop.distanceFromGround or "NULL",
             0,
             epath,
             1,
