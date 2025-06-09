@@ -329,8 +329,8 @@ local function drawSpawnedPropsList()
 
           ImGui.SameLine()
 
-          if AMM.UI:SmallButton(AMM.LocalizableString("Button_Frame")) then
-            if spawn.handle and spawn.handle ~= '' then              
+          if spawn.handle and NameToString(spawn.handle:GetClassName()) == "Frame" then
+            if AMM.UI:SmallButton(AMM.LocalizableString("Button_Frame")) then              
               spawn.handle:SpawnFrameSwitcherPopup()
             end
           end
@@ -632,9 +632,11 @@ function Props:DrawSavedProp(prop)
     end
 
     ImGui.SameLine()
-    if AMM.UI:SmallButton(AMM.LocalizableString("Button_Frame")) then
-      if Props.activeProps[prop.uid].handle and Props.activeProps[prop.uid].handle ~= '' then
-        Props.activeProps[prop.uid].handle:SpawnFrameSwitcherPopup()
+    if Props.activeProps[prop.uid].handle and NameToString(Props.activeProps[prop.uid].handle:GetClassName()) == "Frame" then
+      if AMM.UI:SmallButton(AMM.LocalizableString("Button_Frame")) then
+        if Props.activeProps[prop.uid].handle and Props.activeProps[prop.uid].handle ~= '' then
+          Props.activeProps[prop.uid].handle:SpawnFrameSwitcherPopup()
+        end
       end
     end
   end

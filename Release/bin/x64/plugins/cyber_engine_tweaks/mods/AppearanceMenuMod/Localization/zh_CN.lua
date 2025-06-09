@@ -596,6 +596,7 @@ return {
 	Checkbox_AllowPlayerAnimationsonNPCs = "允许在NPC上使用玩家动画姿势",
 	Checkbox_AllowExpressionOnNpcPM = "在照片模式下允许设置NPC的表情和注视目标",
 	Checkbox_ResetTargetPositionPM = "重置照片模式NPC的目标位置",
+	Checkbox_EnableRandomLocation = "启用随机地点按钮：将玩家传送到列表中的随机地点",
 
     --Warning / Info / Tool Tip
 	Warn_RespawnOnLaunch_Info = "此设置将在游戏加载时启用/禁用先前保存的npc重生。当你退出游戏时,AMM会自动保存你生成的npc.",

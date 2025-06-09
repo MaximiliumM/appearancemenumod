@@ -2231,6 +2231,9 @@ function AMM:DrawExperimentalSettingsTab(style)
 			if ImGui.IsItemHovered() then
 				ImGui.SetTooltip(AMM.LocalizableString("Warn_UnpauseRequiresIGSC"))
 			end
+
+			AMM.userSettings.allowRandomLocationButton, clicked = ImGui.Checkbox(AMM.LocalizableString("Checkbox_EnableRandomLocation"), AMM.userSettings.allowRandomLocationButton)
+			if clicked then settingChanged = true end
 		end
 
 		if expClicked then
@@ -3813,7 +3816,7 @@ function AMM:SetupCollabLocations()
                                                 x           = loc.coords.x,
                                                 y           = loc.coords.y,
                                                 z           = loc.coords.z,
-                                                w           = loc.w,
+                                                w           = 1,
                                                 yaw         = loc.yaw,
                                                 modder      = modder,
                                                 tags        = loc.tags,
@@ -5498,7 +5501,7 @@ function AMM:OpenPopup(name)
 	end
 
 	popupWidth = math.max(messageWidth, buttonWidth)
-	popupHeight = 40 + (#popupDelegate.buttons * 66)
+	popupHeight = 100 + (#popupDelegate.buttons * 66)
 
 	 -- Adjust the popup size dynamically
     popupWidth = math.max(popupWidth, 300) -- Minimum width

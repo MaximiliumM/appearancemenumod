@@ -596,6 +596,7 @@ return {
 	Checkbox_AllowPlayerAnimationsonNPCs = "Allow Player Animations on NPCs",
 	Checkbox_AllowExpressionOnNpcPM = "Allow Expressions and Look At for NPCs in Photo Mode",
 	Checkbox_ResetTargetPositionPM = "Reset Target Position for Photo Mode NPCs",
+	Checkbox_EnableRandomLocation = "Enable Random button: teleport player to a random location from the list",
 	
     --Warning / Info / Tool Tip
 	Warn_RespawnOnLaunch_Info = "This setting will enable/disable respawn previously saved NPCs on game load. AMM automatically saves your spawned NPCs when you exit the game.",

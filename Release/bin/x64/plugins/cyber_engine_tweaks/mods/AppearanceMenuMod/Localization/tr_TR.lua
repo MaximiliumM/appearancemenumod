@@ -596,6 +596,7 @@ return {
 	Checkbox_AllowPlayerAnimationsonNPCs = "NPC'ler Üzerinde Oyuncu Animasyonlarina Izin Ver",
 	Checkbox_AllowExpressionOnNpcPM = "Fotograf Modunda Ifadelere ve NPC'lere Bak'a Izin Ver",
 	Checkbox_ResetTargetPositionPM = "Fotoğraf Modu NPC'leri için Hedef Pozisyonunu Sıfırla",
+	Checkbox_EnableRandomLocation = "Rastgele Konum düğmesini etkinleştir: oyuncuyu listeden rastgele bir konuma ışınlar",
 
     --Warning / Info / Tool Tip
 	Warn_RespawnOnLaunch_Info = "Bu ayar, önceden kaydedilmis NPC'lerin oyun yüklendiginde yeniden dogmasini etkin/devre disi birakir. AMM, oyundan çiktiginizda yaratilan NPC'lerinizi otomatik olarak kaydeder.",

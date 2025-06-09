@@ -2,13 +2,22 @@ return {
 	{
 		'2.12',
 		'2025 Jun 09',
+		[[Added support for Smart Frames]],
+		[[-- You can save Smart Frames as Props and use them in Decor tab]],
+		[[-- There are 7 types: Square, Vertical, Circle and more]],
 		[[Added new Vehicles: Nazare Racer and Porsche 911 Turbo Cabriolet]],
 		[[Added new Random button to locations that will teleport you to a random location from the list]],
 		[[Added new Teleport buttons to Director Triggers and Scripts]],
-		[[Added new Collab type: Locations]],
+		[[Added new Collab type: Locations Packs]],
 		[[-- This allows you to add locations organized by categories and tags all set up by a single JSON file]],
-		
-
+		[[Added Shower sound effect for Shower Water prop]],
+		[[Added Director Cameras to available Look At Targets]],
+		[[Added Move Up/Down buttons to reorder Actor Marks]],
+		[[Fixed behavior for Freeze Target in Photo Mode when Experimental is enabled to use alongside IGCS]],
+		[[Fixed issue where Toggle Engine would not turn interior lights and dashboard on]],
+		[[Fixed issue where Companions would stop following prematurely]],
+		[[Fixed issue where Actors would not orient themselves correctly when playing Poses]],
+		[[-- The fix is kind of janky but it works for now]],
 	},
 	{
 		'2.11.2',
