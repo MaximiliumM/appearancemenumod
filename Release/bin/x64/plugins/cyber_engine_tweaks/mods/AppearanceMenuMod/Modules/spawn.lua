@@ -71,6 +71,9 @@ function Spawn:Initialize()
 	-- Start Companions Distance tracker
 	AMM:CheckCompanionDistances()
 
+	-- Load Equipment Options
+	AMM.equipmentOptions = AMM:GetEquipmentOptions()
+
 	if #Spawn.entitiesForRespawn == 0 then return end
 	Spawn.spawnedNPCs = {}
 	for _, ent in pairs(AMM:GetSavedSpawnData(Spawn.entitiesForRespawn)) do
