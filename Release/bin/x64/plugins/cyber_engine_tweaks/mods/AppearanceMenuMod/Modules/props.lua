@@ -78,6 +78,7 @@ function Props:new()
 
   -- Main Properties
   Props.presets = {}
+  Props.favoritePresets = {}
   Props.entities = {}
   Props.spawnedPropsList = {}
   Props.spawnedProps = {}
@@ -677,6 +678,16 @@ function Props:DrawPresetConfig()
     ImGui.SetTooltip(AMM.LocalizableString("Warn_PresetsFolder_Info"))
   end
 
+  ImGui.SameLine()
+
+  local favLabel = AMM.LocalizableString("Label_Favorite")
+  if Props:IsFavoritePreset(Props.selectedPreset.file_name) then
+    favLabel = AMM.LocalizableString("Label_Unfavorite")
+  end
+  if ImGui.SmallButton(favLabel .. "##PresetFavorite") then
+    Props:ToggleFavoritePreset(Props.selectedPreset)
+    Props.presets = Props:LoadPresets()
+  end
   ImGui.SameLine()
 
   if ImGui.SmallButton(AMM.LocalizableString("Button_Refresh")) then
@@ -2215,10 +2226,37 @@ function Props:LoadPresets()
         table.insert(presets, {file_name = file.name, name = name, props = props, lights = lights, frames = frames})
       end
     end
+
+    table.sort(presets, function(a, b)
+      local favA = Props:IsFavoritePreset(a.file_name)
+      local favB = Props:IsFavoritePreset(b.file_name)
+      if favA ~= favB then return favA end
+      return a.name:lower() < b.name:lower()
+    end)
+
     return presets
   else
     return Props.presets
   end
+end
+
+function Props:IsFavoritePreset(fileName)
+  for _, fav in ipairs(Props.favoritePresets) do
+    if fav == fileName then return true end
+  end
+  return false
+end
+
+function Props:ToggleFavoritePreset(preset)
+  for i, fav in ipairs(Props.favoritePresets) do
+    if fav == preset.file_name then
+      table.remove(Props.favoritePresets, i)
+      AMM:ExportUserData()
+      return
+    end
+  end
+  table.insert(Props.favoritePresets, preset.file_name)
+  AMM:ExportUserData()
 end
 
 function Props:DeletePreset(preset)
