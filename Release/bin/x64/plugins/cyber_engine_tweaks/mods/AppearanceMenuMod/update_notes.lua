@@ -1,7 +1,27 @@
 return {
 	{
+		'2.12.3',
+		'2025 Jun 10',
+		[[Added new Character: FIA Agent]],
+		[[Added legs to Judy's Two Years Later appearance]],
+		[[Improved error logging to display the last error message in the initialization screen]],
+		[[Removed Repair vehicle button since it no longer works]],
+		[[Fixed issue loading Custom Props with 'nil' value that would cause the Prop pack to not load at all]],
+		[[Fixed layout issue for Doors and Windows control buttons]],
+	},
+	{
+		'2.12.2',
+		'2025 Jun 10',
+		[[Added new Character: FIA Agent]],
+		[[Added legs to Judy's Two Years Later appearance]],
+		[[Improved error logging to display the last error message in the initialization screen]],
+		[[Removed Repair vehicle button since it no longer works]],
+		[[Fixed issue loading Custom Props with 'nil' value that would cause the Prop pack to not load at all]],
+		[[Fixed layout issue for Doors and Windows control buttons]],
+	},
+	{
 		'2.12.1',
-		'2025 Jun 09',
+		'2025 Jun 10',
 		[[Added new Character: FIA Agent]],
 		[[Added legs to Judy's Two Years Later appearance]],
 		[[Improved error logging to display the last error message in the initialization screen]],
