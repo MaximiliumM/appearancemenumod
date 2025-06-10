@@ -105,7 +105,8 @@ function AMM:new()
 	 AMM.player = nil
 	 AMM.currentTarget = ''
 	 AMM.allowedNPCs = AMM:GetSaveables()
-	 AMM.equipmentOptions = AMM:GetEquipmentOptions()
+         AMM.equipmentOptions = AMM:GetEquipmentOptions()
+         AMM.equipmentSearch = ''
 	 AMM.followDistanceOptions = AMM:GetFollowDistanceOptions()
 	 AMM.companionAttackMultiplier = 0
 	 AMM.companionResistanceMultiplier = 0
@@ -5380,8 +5381,8 @@ end
  
 
 function AMM:ChangeNPCEquipment(ent, equipmentPath)
-	local npcPath = ent.path
-	TweakDB:SetFlat(TweakDBID.new(npcPath..".primaryEquipment"), TweakDBID.new(equipmentPath))
+        local npcPath = ent.path
+        TweakDB:SetFlat(TweakDBID.new(npcPath..".primaryEquipment"), TweakDBID.new(equipmentPath))
 	
 	AMM:ResetFollowCommandAfterAction(ent, function(handle)
 		Util:EquipPrimaryWeaponCommand(handle)
@@ -5389,7 +5390,7 @@ function AMM:ChangeNPCEquipment(ent, equipmentPath)
 
 	-- AMM.Spawn:Respawn(ent)
 
-	-- New Approach: Inventory
+        -- New Approach: Inventory
 	-- local equipmentItems = TweakDB:GetFlat(equipmentPath..".equipmentItems")
 	-- local primaryEquipRecord = TweakDB:GetFlat(TweakDBID.new(equipmentItems[1], ".item"))
 	-- local weaponTDBID = TweakDB:GetRecord(primaryEquipRecord)
@@ -5398,6 +5399,71 @@ function AMM:ChangeNPCEquipment(ent, equipmentPath)
 
   	-- Game.GetTransactionSystem():GiveItem(ent.handle, itemID, quantity)
    -- Util:EquipGivenWeapon(ent.handle, weaponTDBID, true)
+end
+
+function AMM:DrawEquipmentPopup(title, ent, style)
+        local popup = ImGui.BeginPopup(title, ImGuiWindowFlags.NoResize)
+        if popup then
+                self.equipmentSearch = self.equipmentSearch or ''
+
+                ImGui.PushItemWidth(ImGui.GetWindowContentRegionWidth() - 50)
+                self.equipmentSearch = ImGui.InputTextWithHint('##equipSearch', AMM.LocalizableString('Search'), self.equipmentSearch, 100)
+                ImGui.PopItemWidth()
+
+                if self.equipmentSearch ~= '' then
+                        ImGui.SameLine()
+                        if ImGui.SmallButton(AMM.LocalizableString('Clear')) then
+                                self.equipmentSearch = ''
+                        end
+                end
+
+                ImGui.Separator()
+
+                local search = string.lower(self.equipmentSearch)
+                local categories = {}
+                local order = {}
+
+                for _, item in ipairs(self.equipmentOptions) do
+                        local n = string.lower(item.name)
+                        local m = string.lower(item.maker or '')
+                        if search == '' or string.find(n, search, 1, true) or string.find(m, search, 1, true) then
+                                if not categories[item.category] then
+                                        categories[item.category] = {}
+                                        table.insert(order, item.category)
+                                end
+                                table.insert(categories[item.category], item)
+                        end
+                end
+
+                table.sort(order)
+
+                local itemHeight = (style and style.buttonHeight) or ImGui.GetFontSize() * 2
+
+                for _, category in ipairs(order) do
+                        local items = categories[category]
+                        if #items > 0 then
+                                if ImGui.CollapsingHeader(category) then
+                                        local clipper = ImGuiListClipper.new()
+                                        clipper:Begin(#items, itemHeight)
+                                        while clipper:Step() do
+                                                for i = clipper.DisplayStart + 1, clipper.DisplayEnd do
+                                                        local equipment = items[i]
+                                                        local label = equipment.name
+                                                        if equipment.maker ~= '' then
+                                                                label = label .. ' [' .. equipment.maker .. ']'
+                                                        end
+                                                        if ImGui.Button(label, -1, itemHeight) then
+                                                                AMM:ChangeNPCEquipment(ent, equipment.id)
+                                                                ImGui.CloseCurrentPopup()
+                                                        end
+                                                end
+                                        end
+                                end
+                        end
+                end
+
+                ImGui.EndPopup()
+        end
 end
 
 function AMM:ProcessCompanionAttack(hitEvent)
@@ -5517,15 +5583,13 @@ function AMM:OpenPopup(name)
 	local popupWidth = 0
 	local popupHeight = 0
 
-	if string.find(name, "Equipment") then
-		popupDelegate.message = "Select " .. name .. ":"
-		for _, equipment in ipairs(self.equipmentOptions) do
-			table.insert(popupDelegate.buttons, {
-				label = equipment.name,
-				action = function(ent) AMM:ChangeNPCEquipment(ent, equipment.path) end
-			})
-		end
-	elseif name == "Experimental" then
+        if string.find(name, "Equipment") then
+                popupDelegate.kind = 'equipment'
+                popupDelegate.message = ''
+                ImGui.SetNextWindowSize(400, 500)
+                ImGui.OpenPopup(name)
+                return popupDelegate
+        elseif name == "Experimental" then
 		popupDelegate.message = AMM.LocalizableString("Warn_ConfirmEnableExperimentalAndSave_Info")
 		table.insert(popupDelegate.buttons, {label = AMM.LocalizableString("Button_Yes"), action = ''})
 		table.insert(popupDelegate.buttons, {label = AMM.LocalizableString("Button_No"), action = function() AMM.userSettings.experimental = false end})
@@ -5595,29 +5659,34 @@ function AMM:OpenPopup(name)
 end
 
 function AMM:BeginPopup(popupTitle, popupActionArg, popupModal, popupDelegate, style)
-	local popup
-	if popupModal then
-		popup = ImGui.BeginPopupModal(popupTitle, ImGuiWindowFlags.NoResize)
-	else
-		popup = ImGui.BeginPopup(popupTitle, ImGuiWindowFlags.NoResize)
-	end
-	if popup then
-		 -- Display the message
-		 ImGui.TextWrapped(popupDelegate.message)
+        if popupDelegate and popupDelegate.kind == 'equipment' then
+                AMM:DrawEquipmentPopup(popupTitle, popupActionArg, style)
+                return
+        end
 
-		-- Add an invisible spacer to stabilize the layout
-		local spacerWidth = ImGui.GetWindowContentRegionWidth()
-		ImGui.Dummy(spacerWidth, 0)
+        local popup
+        if popupModal then
+                popup = ImGui.BeginPopupModal(popupTitle, ImGuiWindowFlags.NoResize)
+        else
+                popup = ImGui.BeginPopup(popupTitle, ImGuiWindowFlags.NoResize)
+        end
+        if popup then
+                -- Display the message
+                ImGui.TextWrapped(popupDelegate.message)
 
-		-- Display buttons
-		for _, button in ipairs(popupDelegate.buttons) do
-			if ImGui.Button(button.label, style.buttonWidth, style.buttonHeight) then
-				if button.action ~= '' then button.action(popupActionArg) end
-				ImGui.CloseCurrentPopup()
-			end
-		end
-		ImGui.EndPopup()
-	end
+                -- Add an invisible spacer to stabilize the layout
+                local spacerWidth = ImGui.GetWindowContentRegionWidth()
+                ImGui.Dummy(spacerWidth, 0)
+
+                -- Display buttons
+                for _, button in ipairs(popupDelegate.buttons) do
+                        if ImGui.Button(button.label, style.buttonWidth, style.buttonHeight) then
+                                if button.action ~= '' then button.action(popupActionArg) end
+                                ImGui.CloseCurrentPopup()
+                        end
+                end
+                ImGui.EndPopup()
+        end
 end
 
 function AMM:DrawButton(title, width, height, action, target)
