@@ -95,7 +95,7 @@ function AMM:new()
 	 AMM.extraExpressionsInstalled = false
 
 	 -- Main Properties --
-	 AMM.currentVersion = "2.12.1"
+	 AMM.currentVersion = "2.12.3"
 	 AMM.CETVersion = parseVersion(GetVersion())
 	 AMM.CodewareVersion = 0
 	 AMM.updateNotes = require('update_notes.lua')
@@ -105,7 +105,9 @@ function AMM:new()
 	 AMM.player = nil
 	 AMM.currentTarget = ''
 	 AMM.allowedNPCs = AMM:GetSaveables()
-	 AMM.equipmentOptions = AMM:GetEquipmentOptions()
+	 AMM.equipmentOptions = nil
+	 AMM.equipmentSearch = ''
+	 AMM.favoriteEquipment = {}
 	 AMM.followDistanceOptions = AMM:GetFollowDistanceOptions()
 	 AMM.companionAttackMultiplier = 0
 	 AMM.companionResistanceMultiplier = 0
@@ -1855,11 +1857,12 @@ function AMM:Begin()
 						AMM.UI:TextColored(CodewareVersion)
 
 						ImGui.SameLine()
-						if ImGui.InvisibleButton(AMM.LocalizableString("Button_InvMachineGun"), 20, 30) then
-							local popupInfo = {text = AMM.LocalizableString("Warn_InvButtonMachineGun_Info")}
-							Util:OpenPopup(popupInfo)
-							AMM.equipmentOptions = AMM:GetEquipmentOptions(true)
-						end
+						-- Old Invisible Button for Machine Gun --
+						-- if ImGui.InvisibleButton(AMM.LocalizableString("Button_InvMachineGun"), 20, 30) then
+						-- 	local popupInfo = {text = AMM.LocalizableString("Warn_InvButtonMachineGun_Info")}
+						-- 	Util:OpenPopup(popupInfo)
+						-- 	AMM.equipmentOptions = AMM:GetEquipmentOptions(true)
+						-- end
 
 						if ImGui.IsItemHovered() then
 							ImGui.SetTooltip(AMM.LocalizableString("InvButtonTip2"))
@@ -2553,8 +2556,9 @@ function AMM:ImportUserData()
 				self.selectedLanguage = self:GetLanguageIndex(userData['selectedLanguage'] or "en_US")
 				self.UI.style.listScaleFactor = userData['listScaleFactor'] or 0
 				self.Props.presetTriggerDistance = userData['presetTriggerDistance'] or 60
-                                self.Tools.favoriteExpressions = userData['favoriteExpressions'] or {}
-                                self.Props.favoritePresets = userData['favoritePresets'] or {}
+				self.Tools.favoriteExpressions = userData['favoriteExpressions'] or {}
+				self.Props.favoritePresets = userData['favoritePresets'] or {}
+				self.favoriteEquipment = self:ImportFavoriteEquipment(userData) or {}		
 
 				if userData['settings'] ~= nil then
 					for _, obj in ipairs(userData['settings']) do
@@ -2704,8 +2708,9 @@ function AMM:ExportUserData()
 		userData['selectedLanguage'] = self.availableLanguages[self.selectedLanguage].name or "en_US"
 		userData['listScaleFactor'] = self.UI.style.listScaleFactor
 		userData['presetTriggerDistance'] = self.Props.presetTriggerDistance
-                userData['favoriteExpressions'] = self.Tools.favoriteExpressions
-                userData['favoritePresets'] = self.Props.favoritePresets
+		userData['favoriteExpressions'] = self.Tools.favoriteExpressions
+		userData['favoritePresets'] = self.Props.favoritePresets
+		userData['favoriteEquipment'] = self:ExportFavoriteEquipment()
 
 		local validJson, contents = pcall(function() return json.encode(userData) end)
 		if validJson and contents ~= nil then
@@ -2921,31 +2926,156 @@ function AMM:GetSortedCategories()
 	return categoriesList
 end
 
-function AMM:GetEquipmentOptions(HMG)
-	local equipments = {
-		{name = 'Fists', path = 'Character.wraiths_strongarms_hmelee3_fists_mb_elite_inline0'},
-		{name = 'Katana', path = 'Character.afterlife_rare_fmelee3_katana_wa_elite_inline0'},
-		{name = 'Mantis Blades', path = 'Character.afterlife_rare_fmelee3_mantis_ma_elite_inline2'},
-		{name = 'Neon Red Mantis Blades', path = 'Character.main_boss_oda_inline0'},
-		{name = 'Machete', path = 'Character.aldecaldos_grunt2_melee2__ma_inline0'},
-		{name = 'Hammer', path = 'Character.maelstrom_grunt2_melee2_hammer_wa_inline0'},
-		{name = 'Baton', path = 'Character.animals_bouncer1_melee1_baton_mb_inline0'},
-		{name = 'Knife', path = 'Character.tyger_claws_gangster1_melee1_knife_wa_inline2'},
-		{name = 'Crowbar', path = 'Character.wraiths_grunt2_melee2_crowbar_ma_inline0'},
-		{name = 'Baseball Bat', path = 'Character.animals_grunt1_melee1_baseball_mb_inline0'},
-		{name = 'Assault Rifle', path = 'Character.arasaka_ranger1_ranged2_masamune_ma_inline2'},
-		{name = 'Sidewinder', path = 'Character.tyger_claws_gangster2_ranged2_sidewinder_wa_inline2'},
-		{name = 'Sniper Rifle', path = 'Character.afterlife_rare_sniper3_ashura_ma_elite_inline0'},
-		{name = 'Shotgun', path = 'Character.afterlife_rare_fshotgun3_zhuo_mb_elite_inline0'},
-		{name = 'SMG', path = 'Character.afterlife_rare_franged2_saratoga_ma_rare_inline0'},
-		{name = 'Handgun', path = 'Character.afterlife_rare_franged2_overture_wa_rare_inline0'},
-	}
+-- ========== Equipment Database ==========
+-- Builds a table   { name = "...", category = "...", maker = "..." }
+-- for every unique item whose EquipmentGroup ultimately resolves
+-- to ONE equipment record (directly or through a single-entry pool).
 
-	if HMG then
-		table.insert(equipments, {name = 'Machine Gun', path = 'Character.militech_enforcer3_gunner3_HMG_mb_elite_inline2'})
+-- ---------- helpers ----------
+local function Capitalize(str)
+    if type(str) ~= "string" or str == "" then
+        return ""
+    end
+    return str:sub(1,1):upper() .. str:sub(2):lower()
+end
+
+-- If the token is exactly 3 letters, return it uppercased (e.g. "smg" → "SMG"), else Capitalize.
+local function FormatCategoryToken(token)
+    if type(token) == "string" and #token == 3 then
+        return token:upper()
+    end
+    return Capitalize(token)
+end
+
+-- Parse friendlyName → category, maker
+local function ParseFriendly(friendly)
+    -- special “blunt” weapons all map to Melee
+    if friendly == "w_two_hand_blunt" or friendly == "w_melee_one_hand_blunt" then
+        return "Melee", ""
+    end
+
+    -- split on "_" into parts
+    local parts = {}
+    for p in string.gmatch(friendly or "", "([^_]+)") do
+        table.insert(parts, p)
+    end
+
+    -- remove unwanted tokens
+    local toRemove = { ["2020"]=true, ["militech"]=true }
+    for i = #parts, 1, -1 do
+        if toRemove[parts[i]] then
+            table.remove(parts, i)
+        end
+    end
+
+    -- replace certain categories
+    if parts[2] == "submachinegun" then
+        parts[2] = "smg"
+    elseif parts[2] == "special" then
+        parts[2] = "smg"
+    end
+
+    -- defaults
+    local category = "Misc"
+    local maker    = ""
+
+    -- if this is a weapon token with leading "w"
+    if parts[1] == "w" then
+        if #parts >= 3 then
+            -- e.g. ["w","hmg"] or ["w","hmg","budget"]
+            category = FormatCategoryToken(parts[2])
+            -- only set maker if there's a third token
+            if parts[3] then
+                maker = Capitalize(parts[3])
+            end
+        elseif #parts == 2 then
+            -- e.g. ["w","hmg"] after removal of militech
+            category = FormatCategoryToken(parts[2])
+        end
+
+    elseif #parts == 2 then
+        -- two-token non-'w' case e.g. "mantis_blade"
+        local cat = Capitalize(parts[1]) .. " " .. Capitalize(parts[2])
+        if cat ~= "" then category = cat end
+
+    else
+        -- fallback: try 2nd part, then 1st
+        local rawCat = parts[2] or parts[1]
+        local cat    = FormatCategoryToken(rawCat)
+        if cat ~= "" then category = cat end
+        if parts[3] then
+            maker = Capitalize(parts[3])
+        end
+    end
+
+    return category, maker
+end
+
+function AMM:GetEquipmentOptions()
+	-- ---------- main containers ----------
+	local equipmentDB = {}  -- the resulting in-memory “database”
+	local dupeChecker = {}  -- to avoid duplicate display names
+
+	-- ---------- convenience: add an item once ----------
+	local function AddItem(rec, item)
+		local friendlyName = item:FriendlyName()                     -- raw id string
+		local itemName     = Game.GetLocalizedTextByKey(item:DisplayName())
+		if itemName and itemName ~= "" and itemName == '!OBSOLETE' then
+			return
+		end
+
+		if itemName == "" then
+			itemName = Util:CapitalizeWords(NameToString(item:EntityName()))
+		end
+
+		-- skip duplicates
+		if dupeChecker[itemName] then return end
+		dupeChecker[itemName] = true
+
+		local category, maker = "Misc", ""
+
+		-- if friendlyName is w_melee_fists, then it is a special case
+		if friendlyName == "w_melee_fists" then			
+			itemName = AMM.LocalizableString("Fists")
+			category = "Melee"
+			maker    = "N/A"
+		else
+			category, maker = ParseFriendly(friendlyName)
+		end
+
+		table.insert(equipmentDB, {
+			id		 	= rec:GetID(),  -- TweakDBID
+			id_str 	= AMM:GetScanID(rec),  -- string representation
+			name     = itemName,
+			category = category,
+			maker    = maker,
+		})
 	end
 
-	return equipments
+	-- ---------- iterate through all NPCEquipmentGroup records ----------
+	local records = TweakDB:GetRecords("gamedataNPCEquipmentGroup_Record")
+
+	for _, rec in ipairs(records) do
+		for _, eqItem in ipairs(rec:EquipmentItems()) do
+			local className = NameToString(eqItem:GetClassName())
+
+			if className == "gamedataNPCEquipmentItem_Record" then
+					-- direct equipment item
+					AddItem(rec, eqItem:Item())
+
+			else  -- it's an EquipmentPool
+					local pool = eqItem:Pool()
+					if pool and #pool == 1 then
+						local items = pool[1]:Items()
+						if items and #items == 1 then
+							AddItem(rec, items[1]:Item())
+						end
+					end
+			end
+		end
+	end
+
+	return equipmentDB
 end
 
 function AMM:GetCustomAppearanceDefaults()
@@ -5315,8 +5445,8 @@ end
  
 
 function AMM:ChangeNPCEquipment(ent, equipmentPath)
-	local npcPath = ent.path
-	TweakDB:SetFlat(TweakDBID.new(npcPath..".primaryEquipment"), TweakDBID.new(equipmentPath))
+        local npcPath = ent.path
+        TweakDB:SetFlat(TweakDBID.new(npcPath..".primaryEquipment"), TweakDBID.new(equipmentPath))
 	
 	AMM:ResetFollowCommandAfterAction(ent, function(handle)
 		Util:EquipPrimaryWeaponCommand(handle)
@@ -5324,7 +5454,7 @@ function AMM:ChangeNPCEquipment(ent, equipmentPath)
 
 	-- AMM.Spawn:Respawn(ent)
 
-	-- New Approach: Inventory
+        -- New Approach: Inventory
 	-- local equipmentItems = TweakDB:GetFlat(equipmentPath..".equipmentItems")
 	-- local primaryEquipRecord = TweakDB:GetFlat(TweakDBID.new(equipmentItems[1], ".item"))
 	-- local weaponTDBID = TweakDB:GetRecord(primaryEquipRecord)
@@ -5333,6 +5463,175 @@ function AMM:ChangeNPCEquipment(ent, equipmentPath)
 
   	-- Game.GetTransactionSystem():GiveItem(ent.handle, itemID, quantity)
    -- Util:EquipGivenWeapon(ent.handle, weaponTDBID, true)
+end
+
+function AMM:ToggleEquipmentFavorite(id)
+    if self.favoriteEquipment[id] then
+        self.favoriteEquipment[id] = nil
+    else
+        self.favoriteEquipment[id] = true
+    end
+
+    AMM:ExportUserData()
+end
+
+function AMM:ImportFavoriteEquipment(userData)
+	if not userData or not userData['favoriteEquipment'] then
+		log("[AMM] No favorite equipment found in user data.")
+		return nil
+	end
+	
+	if userData['favoriteEquipment'] ~= nil then
+		for _, id in ipairs(userData['favoriteEquipment']) do
+			self.favoriteEquipment[id] = true
+		end
+	end
+end
+
+function AMM:ExportFavoriteEquipment()
+	local fav = {}
+	for id, _ in pairs(self.favoriteEquipment) do
+		table.insert(fav, id)
+	end
+	return fav
+end
+
+function AMM:DrawEquipmentPopup(title, ent, style)
+    local popup = ImGui.BeginPopup(title, ImGuiWindowFlags.NoResize)
+    if not popup then return end
+
+    ----------------------------------------------------------------
+    --  Search bar
+    ----------------------------------------------------------------
+    self.equipmentSearch = self.equipmentSearch or ""
+    ImGui.PushItemWidth(400)
+    self.equipmentSearch = ImGui.InputTextWithHint(
+        "##equipSearch",
+        AMM.LocalizableString("Search"),
+        self.equipmentSearch,
+        100
+    )
+    ImGui.PopItemWidth()
+
+    if self.equipmentSearch ~= "" then
+        ImGui.SameLine()
+        if ImGui.SmallButton(AMM.LocalizableString("Clear")) then
+            self.equipmentSearch = ""
+        end
+    end
+
+    ImGui.Separator()
+
+    ----------------------------------------------------------------
+    -- Build filtered list
+    ----------------------------------------------------------------
+    local search      = string.lower(self.equipmentSearch)
+    local categories  = {}
+    local order       = {}
+	 local favorites   = {}
+
+    for _, item in ipairs(self.equipmentOptions) do
+        local n = string.lower(item.name)
+        local m = string.lower(item.maker or "")
+        if search == "" or string.find(n, search, 1, true) or string.find(m, search, 1, true) then
+            if not categories[item.category] then
+                categories[item.category] = {}
+                table.insert(order, item.category)
+            end
+            table.insert(categories[item.category], item)
+				if self.favoriteEquipment[item.id_str] then
+                table.insert(favorites, item)
+            end
+        end
+    end
+    table.sort(order)
+
+    local itemHeight = (style and style.buttonHeight) or ImGui.GetFontSize() * 2
+
+	 local function drawRow(equipment)
+		local label = equipment.name
+		if equipment.maker ~= "" then
+			label = label .. " [" .. equipment.maker .. "]"
+		end
+
+		-- compute widths & heights
+		local avail     = ImGui.GetContentRegionAvail()
+		local starSize  = itemHeight - 25
+		local spacing   = ImGui.GetStyle().ItemSpacing.x
+		local btnW      = avail - starSize - spacing
+
+		-- draw the main equipment button
+		if ImGui.Button(label, btnW, itemHeight) then
+			AMM:ChangeNPCEquipment(ent, equipment.id)
+			ImGui.CloseCurrentPopup()
+		end
+
+		-- same line for the star
+		ImGui.SameLine()
+
+		-- vertical center the star relative to the main button:
+		local mainH     = itemHeight
+		local iconH     = starSize
+		local offsetY   = (mainH - iconH) * 0.3
+		ImGui.SetCursorPosY(ImGui.GetCursorPosY() + offsetY)
+
+		-- choose the glyph
+		local starGlyph = IconGlyphs
+			and (AMM.favoriteEquipment[equipment.id_str]
+					and IconGlyphs.Star
+					or IconGlyphs.StarOutline)
+			or "*"
+
+		-- finally draw the star toggle
+		if AMM.UI:GlyphButton(starGlyph .. "##" .. equipment.id_str, true) then
+			AMM:ToggleEquipmentFavorite(equipment.id_str)
+		end
+	end
+
+
+    ----------------------------------------------------------------
+    --  Draw favorites section
+    ----------------------------------------------------------------
+    if ImGui.CollapsingHeader(AMM.LocalizableString("Favorites")) then
+        if #favorites == 0 then
+            ImGui.Text(AMM.LocalizableString("ItsEmpty"))
+        else
+            ImGui.PushID("favorites")
+            AMM.UI:List(
+                "favlist",
+                #favorites,
+                itemHeight,
+                function(idx)
+                    drawRow(favorites[idx])
+                end
+            )
+            ImGui.PopID()
+        end
+    end
+
+    ----------------------------------------------------------------
+    --  Draw categories
+    ----------------------------------------------------------------
+    for _, category in ipairs(order) do
+        local items = categories[category]
+        if #items > 0 and ImGui.CollapsingHeader(category) then
+            -- localised ID so each List child is unique
+            ImGui.PushID(category)
+				
+            AMM.UI:List(
+					category,
+					#items,
+					itemHeight,
+					function(idx)
+						drawRow(items[idx])
+					end
+            )
+
+            ImGui.PopID()
+        end
+    end
+
+    ImGui.EndPopup()
 end
 
 function AMM:ProcessCompanionAttack(hitEvent)
@@ -5453,13 +5752,11 @@ function AMM:OpenPopup(name)
 	local popupHeight = 0
 
 	if string.find(name, "Equipment") then
-		popupDelegate.message = "Select " .. name .. ":"
-		for _, equipment in ipairs(self.equipmentOptions) do
-			table.insert(popupDelegate.buttons, {
-				label = equipment.name,
-				action = function(ent) AMM:ChangeNPCEquipment(ent, equipment.path) end
-			})
-		end
+		popupDelegate.kind = 'equipment'
+		popupDelegate.message = ''
+		ImGui.SetNextWindowSize(400, 500)
+		ImGui.OpenPopup(name)
+		return popupDelegate
 	elseif name == "Experimental" then
 		popupDelegate.message = AMM.LocalizableString("Warn_ConfirmEnableExperimentalAndSave_Info")
 		table.insert(popupDelegate.buttons, {label = AMM.LocalizableString("Button_Yes"), action = ''})
@@ -5530,15 +5827,20 @@ function AMM:OpenPopup(name)
 end
 
 function AMM:BeginPopup(popupTitle, popupActionArg, popupModal, popupDelegate, style)
+	if popupDelegate and popupDelegate.kind == 'equipment' then
+		AMM:DrawEquipmentPopup(popupTitle, popupActionArg, style)
+		return
+	end
+
 	local popup
 	if popupModal then
-		popup = ImGui.BeginPopupModal(popupTitle, ImGuiWindowFlags.NoResize)
+				popup = ImGui.BeginPopupModal(popupTitle, ImGuiWindowFlags.NoResize)
 	else
-		popup = ImGui.BeginPopup(popupTitle, ImGuiWindowFlags.NoResize)
+				popup = ImGui.BeginPopup(popupTitle, ImGuiWindowFlags.NoResize)
 	end
 	if popup then
-		 -- Display the message
-		 ImGui.TextWrapped(popupDelegate.message)
+		-- Display the message
+		ImGui.TextWrapped(popupDelegate.message)
 
 		-- Add an invisible spacer to stabilize the layout
 		local spacerWidth = ImGui.GetWindowContentRegionWidth()
@@ -5546,10 +5848,10 @@ function AMM:BeginPopup(popupTitle, popupActionArg, popupModal, popupDelegate, s
 
 		-- Display buttons
 		for _, button in ipairs(popupDelegate.buttons) do
-			if ImGui.Button(button.label, style.buttonWidth, style.buttonHeight) then
-				if button.action ~= '' then button.action(popupActionArg) end
-				ImGui.CloseCurrentPopup()
-			end
+				if ImGui.Button(button.label, style.buttonWidth, style.buttonHeight) then
+							if button.action ~= '' then button.action(popupActionArg) end
+							ImGui.CloseCurrentPopup()
+				end
 		end
 		ImGui.EndPopup()
 	end

@@ -268,42 +268,38 @@ end
 
 function UI:List(id, itemCount, baseItemHeight, func)
 
-  -- Adjust size to avoid the area being too small
-  if itemCount == 1 or itemCount == 2 then baseItemHeight = baseItemHeight * 2 end
-  if itemCount == 3 or itemCount == 4 then baseItemHeight = baseItemHeight * 1.5 end
+    -- Adjust size to avoid the area being too small
+    if itemCount == 1 or itemCount == 2 then baseItemHeight = baseItemHeight * 2 end
+    if itemCount == 3 or itemCount == 4 then baseItemHeight = baseItemHeight * 1.5 end
 
-  -- Apply user scale factor
-  local sliderValue = UI.style.listScaleFactor
+    -- Apply user scale factor
+    local sliderValue      = UI.style.listScaleFactor
+    local fractionOfWindow = 0.7 + (sliderValue * 0.3)
 
-  -- Map slider value to the output range
-  local fractionOfWindow = 0.7 + (sliderValue * 0.3)
+    local padding          = 4
+    local scaledItemHeight = baseItemHeight + padding
 
-  local padding = 4
-  local scaledItemHeight  = baseItemHeight + padding
+    -- Remaining vertical space in the current window
+    local available        = ImGui.GetContentRegionAvail()
+    local totalNeeded      = itemCount * scaledItemHeight
+    local maxHeight        = available * fractionOfWindow
+    local childHeight      = math.min(totalNeeded + padding, maxHeight)
 
-  -- How big is the window’s remaining vertical space?
-  local available         = ImGui.GetContentRegionAvail()
+    if ImGui.BeginChild("List##"..id, -1, childHeight, true) then
+        local clipper = ImGuiListClipper.new()
+        clipper:Begin(itemCount, scaledItemHeight)
 
-  -- How much height would we need if we showed all items at once?
-  local totalNeeded       = itemCount * scaledItemHeight
-  local maxHeight         = available * fractionOfWindow
-
-  -- The final child height is either the full item list or that fraction of the window, whichever is smaller
-  local childHeight       = math.min(totalNeeded + padding, maxHeight)
-
-  if ImGui.BeginChild("List##"..id, -1, childHeight, true) then
-    local clipper = ImGuiListClipper.new()
-    -- Pass scaledItemHeight to match the actual item size
-    clipper:Begin(itemCount, scaledItemHeight)
-
-    while (clipper:Step()) do
-      for i = clipper.DisplayStart + 1, clipper.DisplayEnd do
-        func(i)
-      end
+        while clipper:Step() do
+            -- ImGui clipper: DisplayStart / DisplayEnd are **0-based** and
+            -- DisplayEnd is **exclusive**. Convert to Lua’s 1-based tables.
+            for row = clipper.DisplayStart, clipper.DisplayEnd - 1 do
+                func(row + 1)            -- +1 for Lua indexing
+            end
+        end
     end
-  end
-  ImGui.EndChild()
+    ImGui.EndChild()
 end
+
 
 function UI:DrawCrossHair()
   if AMM.userSettings.scanningReticle then

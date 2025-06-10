@@ -657,6 +657,7 @@ function Props:DrawPresetConfig()
     Props.selectedPreset = Props.activePreset
   end
 
+  ImGui.PushItemWidth(300)
   if despawnInProgress then
     ImGui.Spacing()
     ImGui.Text(AMM.LocalizableString("Warn_DespawnInProgress_PleaseWait"))
@@ -673,6 +674,7 @@ function Props:DrawPresetConfig()
     end
     ImGui.EndCombo()
   end
+  ImGui.PopItemWidth()
 
   if ImGui.IsItemHovered() then
     ImGui.SetTooltip(AMM.LocalizableString("Warn_PresetsFolder_Info"))
@@ -698,22 +700,35 @@ function Props:DrawPresetConfig()
 
   if Props.activePreset.customIncluded then
     -- Define a smaller size for the square button
-    local buttonSize = 25
+    local buttonSize = 30
 
-    ImGui.PushStyleVar(ImGuiStyleVar.FramePadding, 2, 2) -- Reduces inner padding
-    ImGui.PushStyleVar(ImGuiStyleVar.ItemSpacing, 4, 4)  -- Adjusts spacing around items
+    -- Reduce the padding a bit so nothing feels too loose
+    ImGui.PushStyleVar(ImGuiStyleVar.FramePadding, 2, 2)
+    ImGui.PushStyleVar(ImGuiStyleVar.ItemSpacing, 4, 4)
 
+    -- Draw your text and align to frame padding so you know where the baseline is
     ImGui.AlignTextToFramePadding()
-
     ImGui.Text(AMM.LocalizableString("Warn_CustomPresets_Info").."  ")
 
+    -- Move to same line for the button
     ImGui.SameLine()
-    
-    -- Create the button
-    ImGui.Button(" ? ", buttonSize, buttonSize)
 
-    -- Pop the style changes to restore defaults
+    -- Calculate how much to push the button down:
+    -- GetFrameHeight() is the total height of a standard button/text frame,
+    -- GetTextLineHeight() is the height of the plain text itself.
+    local frameH    = ImGui.GetFrameHeight()
+    local textH     = ImGui.GetTextLineHeight()
+    local offsetY   = (textH - buttonSize) * -0.5
+
+    -- Apply the vertical offset so the button is vertically centered on the text
+    ImGui.SetCursorPosY(ImGui.GetCursorPosY() + offsetY)
+
+    -- Finally draw the “?” button
+    ImGui.Button("?", buttonSize, buttonSize)
+
+    -- restore your original styling
     ImGui.PopStyleVar(2)
+
 
     if ImGui.IsItemHovered() then
       local modders = {}

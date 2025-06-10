@@ -1,0 +1,12 @@
+resource:
+  scope:
+    player_ma.ent:
+      - base\amm_characters\entity\player_ma_tpp.ent
+      - base\amm_characters\entity\player_ma_tpp_unique.ent
+      - base\amm_characters\entity\player_ma_tpp_walking.ent
+      - base\amm_characters\entity\player_ma_tpp_walking_unique.ent
+    player_wa.ent:
+      - base\amm_characters\entity\player_wa_tpp.ent
+      - base\amm_characters\entity\player_wa_tpp_unique.ent
+      - base\amm_characters\entity\player_wa_tpp_walking.ent
+      - base\amm_characters\entity\player_wa_tpp_walking_unique.ent

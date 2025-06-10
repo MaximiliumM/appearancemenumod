@@ -136,7 +136,15 @@ function Poses:Draw(AMM, target)
       end
     end
 
-    if target == nil and AMM.userSettings.animPlayerSelfTarget then
+    -- Cache “bad” targets (NPCs or Replacers)
+    local isBadTarget = target
+        and ( target.handle:IsNPC()      -- true if NPC
+          or   target.handle:IsReplacer() )  -- true if Replacer
+
+    -- Only allow when the setting is on AND the target is either nil or not “bad”
+    if AMM.userSettings.animPlayerSelfTarget
+      and ( target == nil or not isBadTarget )
+    then
       local entity = Game.GetPlayer()
       target = AMM:NewTarget(entity, "Player", AMM:GetScanID(entity), "V", nil, nil)
       if AMM.playerGender == "_Female" then target.rig = 'player_woman_skeleton' else target.rig = 'player_man_skeleton' end

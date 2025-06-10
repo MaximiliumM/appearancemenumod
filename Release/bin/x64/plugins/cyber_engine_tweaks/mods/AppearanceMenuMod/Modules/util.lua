@@ -131,6 +131,16 @@ function Util:FixPositionsForFavorites(tableName)
 end
 
 -- Code Helper Methods
+function Util:CapitalizeWords(str)
+    local words = {}
+    for word in string.gmatch(str, "[^_]+") do
+        local first = string.sub(word, 1, 1):upper()
+        local rest = string.sub(word, 2):lower()
+        table.insert(words, first .. rest)
+    end
+    return table.concat(words, " ")
+end
+
 function Util:SelectRandomPair(tbl)
   local keys = {} -- Store all keys
   for key in pairs(tbl) do
