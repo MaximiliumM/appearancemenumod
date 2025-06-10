@@ -2553,7 +2553,8 @@ function AMM:ImportUserData()
 				self.selectedLanguage = self:GetLanguageIndex(userData['selectedLanguage'] or "en_US")
 				self.UI.style.listScaleFactor = userData['listScaleFactor'] or 0
 				self.Props.presetTriggerDistance = userData['presetTriggerDistance'] or 60
-				self.Tools.favoriteExpressions = userData['favoriteExpressions'] or {}
+                                self.Tools.favoriteExpressions = userData['favoriteExpressions'] or {}
+                                self.Props.favoritePresets = userData['favoritePresets'] or {}
 
 				if userData['settings'] ~= nil then
 					for _, obj in ipairs(userData['settings']) do
@@ -2703,7 +2704,8 @@ function AMM:ExportUserData()
 		userData['selectedLanguage'] = self.availableLanguages[self.selectedLanguage].name or "en_US"
 		userData['listScaleFactor'] = self.UI.style.listScaleFactor
 		userData['presetTriggerDistance'] = self.Props.presetTriggerDistance
-		userData['favoriteExpressions'] = self.Tools.favoriteExpressions
+                userData['favoriteExpressions'] = self.Tools.favoriteExpressions
+                userData['favoritePresets'] = self.Props.favoritePresets
 
 		local validJson, contents = pcall(function() return json.encode(userData) end)
 		if validJson and contents ~= nil then
