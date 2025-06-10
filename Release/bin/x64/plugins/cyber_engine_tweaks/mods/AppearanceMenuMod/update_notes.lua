@@ -1,5 +1,11 @@
 return {
 	{
+		'2.12.4',
+		'2025 Jun 11',
+		[[Fixed performance issue where stuttering would occur due to background tasks]],
+		[[Fixed issue where Saved Appearances would not change in certain conditions]],
+	},
+	{
 		'2.12.3',
 		'2025 Jun 11',
 		[[Added new Character: Costin Lahovary]],

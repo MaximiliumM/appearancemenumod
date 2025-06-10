@@ -1440,10 +1440,14 @@ function AMM:new()
      	Cron.Update(deltaTime)
 
 		 if AMM.playerAttached and (not(AMM.playerInMenu) or AMM.playerInPhoto) then
-
 				frameCounter = frameCounter + 1
 
-				if frameCounter >= 2 then
+				local fps = 1 / deltaTime
+				local C = 4800
+				local computed = math.ceil(C / fps)
+				local threshold = math.max(math.min(computed, 120), 60)
+
+				if frameCounter >= threshold then
 					AMM.currentTarget = AMM:GetTarget()
 					frameCounter = 0
 					
@@ -1451,6 +1455,14 @@ function AMM:new()
 						-- Check Custom Defaults --
 						local target = AMM.currentTarget
 						AMM:CheckCustomDefaults(target)
+
+						-- Timer before checking Saved Appearance again --
+						Cron.After(1, function()
+							if not AMM.shouldCheckSavedAppearance then
+								AMM.shouldCheckSavedAppearance = true
+							end
+						end)
+
 							-- Load Saved Appearance --
 						if not drawWindow and AMM.shouldCheckSavedAppearance then
 							local count = 0
@@ -1462,18 +1474,7 @@ function AMM:new()
 							if count ~= 0 then
 								AMM:CheckSavedAppearance(target)
 								AMM.shouldCheckSavedAppearance = false
-							end
-							elseif AMM.shouldCheckSavedAppearance == false then
-							delayTimer = delayTimer + deltaTime
-							delay = 1.0
-
-							if buttonPressed then delay = 8 end
-
-							if delayTimer > delay then
-								delayTimer = 0.0
-								AMM.shouldCheckSavedAppearance = true
-								if buttonPressed then buttonPressed = false end
-							end
+							end						
 						end
 					end
 
@@ -4235,14 +4236,21 @@ function AMM:CheckCustomDefaults(target)
 end
 
 function AMM:CheckSavedAppearance(target)
-	if target ~= nil and (target.type == "NPCPuppet" or target.type == "vehicle") then
-		if not AMM.savedAppearanceCheckCache[target.hash] then
-			AMM.savedAppearanceCheckCache[target.hash] = target.appearance
-			if AMM:CheckSavedAppearanceForEntity(target) then return end
-		end
-	end
+	if target and (target.type == "NPCPuppet" or target.type == "vehicle") then
+    -- Combine first-time and changed-appearance into one check:
+    local old = AMM.savedAppearanceCheckCache[target.hash]
+	 target.appearance = AMM:GetScanAppearance(target.handle)
+    if not old or old ~= target.appearance then
+      AMM.savedAppearanceCheckCache[target.hash] = target.appearance
+      if AMM:CheckSavedAppearanceForEntity(target) then
+        return
+      end
+    end
+  end
 
-	if AMM:CheckSavedAppearanceForMountedVehicle() then return end
+  if AMM:CheckSavedAppearanceForMountedVehicle() then
+    return
+  end
 
 	Util:GetAllInRange(10, false, true, function(entity)
 		local ent = nil
@@ -4252,16 +4260,21 @@ function AMM:CheckSavedAppearance(target)
 		elseif entity.IsVehicle and entity:IsVehicle() and entity:IsPlayerVehicle() then
 			ent = AMM:NewTarget(entity, 'vehicle', AMM:GetScanID(entity), AMM:GetVehicleName(entity), AMM:GetScanAppearance(entity), nil)
 		end
+		
+		if not ent then return end
 
-		if ent ~= nil and (not AMM.savedAppearanceCheckCache[ent.hash] or AMM.savedAppearanceCheckCache[ent.hash] ~= ent.appearance
-		or not AMM.blacklistAppearanceCheckCache[ent.hash] or AMM.blacklistAppearanceCheckCache[ent.hash] == ent.appearance) then			
+		local oldSaved = AMM.savedAppearanceCheckCache[ent.hash]
+		local oldBlacklist = AMM.blacklistAppearanceCheckCache[ent.hash]
+		
+		if not oldSaved or oldSaved ~= ent.appearance then
 			AMM.savedAppearanceCheckCache[ent.hash] = ent.appearance
 			AMM.blacklistAppearanceCheckCache[ent.hash] = ent.appearance
+
 			AMM:CheckCustomDefaults(ent)
-			AMM:CheckSavedAppearanceForEntity(ent)			
-			AMM:CheckBlacklistAppearance(ent)			
+			AMM:CheckSavedAppearanceForEntity(ent)
+			AMM:CheckBlacklistAppearance(ent)
 		end
-	end)
+  end)
 end
 
 function AMM:CheckSavedAppearanceForEntity(ent)
