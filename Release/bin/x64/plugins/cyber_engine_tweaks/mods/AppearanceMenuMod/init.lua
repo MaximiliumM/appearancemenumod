@@ -95,7 +95,7 @@ function AMM:new()
 	 AMM.extraExpressionsInstalled = false
 
 	 -- Main Properties --
-	 AMM.currentVersion = "2.12.3"
+	 AMM.currentVersion = "2.12.4"
 	 AMM.CETVersion = parseVersion(GetVersion())
 	 AMM.CodewareVersion = 0
 	 AMM.updateNotes = require('update_notes.lua')
