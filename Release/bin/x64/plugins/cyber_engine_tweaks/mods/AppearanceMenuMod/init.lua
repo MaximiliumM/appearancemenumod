@@ -107,6 +107,7 @@ function AMM:new()
 	 AMM.allowedNPCs = AMM:GetSaveables()
 	 AMM.equipmentOptions = nil
 	 AMM.equipmentSearch = ''
+	 AMM.favoriteEquipment = {}
 	 AMM.followDistanceOptions = AMM:GetFollowDistanceOptions()
 	 AMM.companionAttackMultiplier = 0
 	 AMM.companionResistanceMultiplier = 0
@@ -2555,8 +2556,9 @@ function AMM:ImportUserData()
 				self.selectedLanguage = self:GetLanguageIndex(userData['selectedLanguage'] or "en_US")
 				self.UI.style.listScaleFactor = userData['listScaleFactor'] or 0
 				self.Props.presetTriggerDistance = userData['presetTriggerDistance'] or 60
-                                self.Tools.favoriteExpressions = userData['favoriteExpressions'] or {}
-                                self.Props.favoritePresets = userData['favoritePresets'] or {}
+				self.Tools.favoriteExpressions = userData['favoriteExpressions'] or {}
+				self.Props.favoritePresets = userData['favoritePresets'] or {}
+				self.favoriteEquipment = self:ImportFavoriteEquipment(userData) or {}		
 
 				if userData['settings'] ~= nil then
 					for _, obj in ipairs(userData['settings']) do
@@ -2706,8 +2708,9 @@ function AMM:ExportUserData()
 		userData['selectedLanguage'] = self.availableLanguages[self.selectedLanguage].name or "en_US"
 		userData['listScaleFactor'] = self.UI.style.listScaleFactor
 		userData['presetTriggerDistance'] = self.Props.presetTriggerDistance
-                userData['favoriteExpressions'] = self.Tools.favoriteExpressions
-                userData['favoritePresets'] = self.Props.favoritePresets
+		userData['favoriteExpressions'] = self.Tools.favoriteExpressions
+		userData['favoritePresets'] = self.Props.favoritePresets
+		userData['favoriteEquipment'] = self:ExportFavoriteEquipment()
 
 		local validJson, contents = pcall(function() return json.encode(userData) end)
 		if validJson and contents ~= nil then
@@ -3042,7 +3045,7 @@ function AMM:GetEquipmentOptions()
 
 		table.insert(equipmentDB, {
 			id		 	= rec:GetID(),  -- TweakDBID
-			id_str 	= NameToString(rec:GetID()),  -- string representation
+			id_str 	= AMM:GetScanID(rec),  -- string representation
 			name     = itemName,
 			category = category,
 			maker    = maker,
@@ -5462,6 +5465,37 @@ function AMM:ChangeNPCEquipment(ent, equipmentPath)
    -- Util:EquipGivenWeapon(ent.handle, weaponTDBID, true)
 end
 
+function AMM:ToggleEquipmentFavorite(id)
+    if self.favoriteEquipment[id] then
+        self.favoriteEquipment[id] = nil
+    else
+        self.favoriteEquipment[id] = true
+    end
+
+    AMM:ExportUserData()
+end
+
+function AMM:ImportFavoriteEquipment(userData)
+	if not userData or not userData['favoriteEquipment'] then
+		log("[AMM] No favorite equipment found in user data.")
+		return nil
+	end
+	
+	if userData['favoriteEquipment'] ~= nil then
+		for _, id in ipairs(userData['favoriteEquipment']) do
+			self.favoriteEquipment[id] = true
+		end
+	end
+end
+
+function AMM:ExportFavoriteEquipment()
+	local fav = {}
+	for id, _ in pairs(self.favoriteEquipment) do
+		table.insert(fav, id)
+	end
+	return fav
+end
+
 function AMM:DrawEquipmentPopup(title, ent, style)
     local popup = ImGui.BeginPopup(title, ImGuiWindowFlags.NoResize)
     if not popup then return end
@@ -5494,6 +5528,7 @@ function AMM:DrawEquipmentPopup(title, ent, style)
     local search      = string.lower(self.equipmentSearch)
     local categories  = {}
     local order       = {}
+	 local favorites   = {}
 
     for _, item in ipairs(self.equipmentOptions) do
         local n = string.lower(item.name)
@@ -5504,11 +5539,75 @@ function AMM:DrawEquipmentPopup(title, ent, style)
                 table.insert(order, item.category)
             end
             table.insert(categories[item.category], item)
+				if self.favoriteEquipment[item.id_str] then
+                table.insert(favorites, item)
+            end
         end
     end
     table.sort(order)
 
     local itemHeight = (style and style.buttonHeight) or ImGui.GetFontSize() * 2
+
+	 local function drawRow(equipment)
+		local label = equipment.name
+		if equipment.maker ~= "" then
+			label = label .. " [" .. equipment.maker .. "]"
+		end
+
+		-- compute widths & heights
+		local avail     = ImGui.GetContentRegionAvail()
+		local starSize  = itemHeight - 25
+		local spacing   = ImGui.GetStyle().ItemSpacing.x
+		local btnW      = avail - starSize - spacing
+
+		-- draw the main equipment button
+		if ImGui.Button(label, btnW, itemHeight) then
+			AMM:ChangeNPCEquipment(ent, equipment.id)
+			ImGui.CloseCurrentPopup()
+		end
+
+		-- same line for the star
+		ImGui.SameLine()
+
+		-- vertical center the star relative to the main button:
+		local mainH     = itemHeight
+		local iconH     = starSize
+		local offsetY   = (mainH - iconH) * 0.3
+		ImGui.SetCursorPosY(ImGui.GetCursorPosY() + offsetY)
+
+		-- choose the glyph
+		local starGlyph = IconGlyphs
+			and (AMM.favoriteEquipment[equipment.id_str]
+					and IconGlyphs.Star
+					or IconGlyphs.StarOutline)
+			or "*"
+
+		-- finally draw the star toggle
+		if AMM.UI:GlyphButton(starGlyph .. "##" .. equipment.id_str, true) then
+			AMM:ToggleEquipmentFavorite(equipment.id_str)
+		end
+	end
+
+
+    ----------------------------------------------------------------
+    --  Draw favorites section
+    ----------------------------------------------------------------
+    if ImGui.CollapsingHeader(AMM.LocalizableString("Favorites")) then
+        if #favorites == 0 then
+            ImGui.Text(AMM.LocalizableString("ItsEmpty"))
+        else
+            ImGui.PushID("favorites")
+            AMM.UI:List(
+                "favlist",
+                #favorites,
+                itemHeight,
+                function(idx)
+                    drawRow(favorites[idx])
+                end
+            )
+            ImGui.PopID()
+        end
+    end
 
     ----------------------------------------------------------------
     --  Draw categories
@@ -5520,21 +5619,12 @@ function AMM:DrawEquipmentPopup(title, ent, style)
             ImGui.PushID(category)
 				
             AMM.UI:List(
-                category,                 -- unique id
-                #items,                   -- total rows
-                itemHeight,               -- base height
-                function(idx)             -- draw one row
-                    local equipment = items[idx]      -- idx is 1-based
-                    local label = equipment.name
-                    if equipment.maker ~= "" then
-                        label = label .. " [" .. equipment.maker .. "]"
-                    end
-
-                    if ImGui.Button(label, -1, itemHeight) then
-                        AMM:ChangeNPCEquipment(ent, equipment.id)
-                        ImGui.CloseCurrentPopup()
-                    end
-                end
+					category,
+					#items,
+					itemHeight,
+					function(idx)
+						drawRow(items[idx])
+					end
             )
 
             ImGui.PopID()
