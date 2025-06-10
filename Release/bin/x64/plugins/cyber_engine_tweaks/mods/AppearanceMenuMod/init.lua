@@ -6,9 +6,17 @@ AMM = {
 
 -- Global for Error Tracking --
 local initializationComplete = false
+local lastError = nil
 
 -- ALIAS for spdlog.error --
-log = spdlog.error
+log = function(...)
+	if initializationComplete then
+		spdlog.error(...)
+	else
+		lastError = string.format(...)
+		spdlog.error(...)
+	end
+end
 
 -- ALIAS for string.format --
 f = string.format
@@ -87,7 +95,7 @@ function AMM:new()
 	 AMM.extraExpressionsInstalled = false
 
 	 -- Main Properties --
-	 AMM.currentVersion = "2.11.2"
+	 AMM.currentVersion = "2.12.1"
 	 AMM.CETVersion = parseVersion(GetVersion())
 	 AMM.CodewareVersion = 0
 	 AMM.updateNotes = require('update_notes.lua')
@@ -317,7 +325,7 @@ function AMM:new()
 		 
 		--  Observe('ElevatorInkGameController', 'OnChangeFloor', function(this)
 		-- 	AMM:StartCompanionsFollowElevator()
-	 	--  end)		  
+	 	--  end)
 
 		Observe("Frame", "OnScreenshotChanged", function(this, screenshotSize, errorCode)
 				local props = AMM.Props.spawnedPropsList
@@ -1682,6 +1690,9 @@ function AMM:Begin()
 							AMM.UI:TextColored(AMM.LocalizableString("Warn_InitError"))
 							ImGui.PushTextWrapPos(400)
 							ImGui.TextWrapped(AMM.LocalizableString("Warn_InitError_Info"))
+							if lastError ~= nil and lastError ~= "" then
+								ImGui.TextWrapped(lastError)
+							end							
 							ImGui.PopTextWrapPos()
 						else
 							AMM.UI:TextColored(AMM.LocalizableString("Warn_PlayerInMenu"))
@@ -1844,11 +1855,12 @@ function AMM:Begin()
 						AMM.UI:TextColored(CodewareVersion)
 
 						ImGui.SameLine()
-						if ImGui.InvisibleButton(AMM.LocalizableString("Button_InvMachineGun"), 20, 30) then
-							local popupInfo = {text = AMM.LocalizableString("Warn_InvButtonMachineGun_Info")}
-							Util:OpenPopup(popupInfo)
-							AMM.equipmentOptions = AMM:GetEquipmentOptions(true)
-						end
+						-- Old Invisible Button for Machine Gun --
+						-- if ImGui.InvisibleButton(AMM.LocalizableString("Button_InvMachineGun"), 20, 30) then
+						-- 	local popupInfo = {text = AMM.LocalizableString("Warn_InvButtonMachineGun_Info")}
+						-- 	Util:OpenPopup(popupInfo)
+						-- 	AMM.equipmentOptions = AMM:GetEquipmentOptions(true)
+						-- end
 
 						if ImGui.IsItemHovered() then
 							ImGui.SetTooltip(AMM.LocalizableString("InvButtonTip2"))
@@ -2231,6 +2243,9 @@ function AMM:DrawExperimentalSettingsTab(style)
 			if ImGui.IsItemHovered() then
 				ImGui.SetTooltip(AMM.LocalizableString("Warn_UnpauseRequiresIGSC"))
 			end
+
+			AMM.userSettings.allowRandomLocationButton, clicked = ImGui.Checkbox(AMM.LocalizableString("Checkbox_EnableRandomLocation"), AMM.userSettings.allowRandomLocationButton)
+			if clicked then settingChanged = true end
 		end
 
 		if expClicked then
@@ -2539,7 +2554,8 @@ function AMM:ImportUserData()
 				self.selectedLanguage = self:GetLanguageIndex(userData['selectedLanguage'] or "en_US")
 				self.UI.style.listScaleFactor = userData['listScaleFactor'] or 0
 				self.Props.presetTriggerDistance = userData['presetTriggerDistance'] or 60
-				self.Tools.favoriteExpressions = userData['favoriteExpressions'] or {}
+                                self.Tools.favoriteExpressions = userData['favoriteExpressions'] or {}
+                                self.Props.favoritePresets = userData['favoritePresets'] or {}
 
 				if userData['settings'] ~= nil then
 					for _, obj in ipairs(userData['settings']) do
@@ -2689,7 +2705,8 @@ function AMM:ExportUserData()
 		userData['selectedLanguage'] = self.availableLanguages[self.selectedLanguage].name or "en_US"
 		userData['listScaleFactor'] = self.UI.style.listScaleFactor
 		userData['presetTriggerDistance'] = self.Props.presetTriggerDistance
-		userData['favoriteExpressions'] = self.Tools.favoriteExpressions
+                userData['favoriteExpressions'] = self.Tools.favoriteExpressions
+                userData['favoritePresets'] = self.Props.favoritePresets
 
 		local validJson, contents = pcall(function() return json.encode(userData) end)
 		if validJson and contents ~= nil then
@@ -2830,6 +2847,10 @@ end
 
 function AMM:GetExtraPersonalityOptions()
 	local data = require('Collabs/Extra_Expressions_AMM.lua')
+	if not data or not data.personalities then
+		log("[AMM Error] Extra Expressions data is missing or malformed.")
+		initializationComplete = false
+	end
 	local personalities = data.personalities
 
 	for i, personality in ipairs(personalities) do
@@ -2837,7 +2858,7 @@ function AMM:GetExtraPersonalityOptions()
 		if localizedName == "AMM_ERROR" then
 			personality.name = AMM:ParsePersonalityName(personality.name)
 		else
-			personality.name = localizedName
+			personality.name = localizedName	
 		end
 
 		local localizedCatName = AMM.LocalizableString(personality.cat_name)
@@ -2901,31 +2922,95 @@ function AMM:GetSortedCategories()
 	return categoriesList
 end
 
-function AMM:GetEquipmentOptions(HMG)
-	local equipments = {
-		{name = 'Fists', path = 'Character.wraiths_strongarms_hmelee3_fists_mb_elite_inline0'},
-		{name = 'Katana', path = 'Character.afterlife_rare_fmelee3_katana_wa_elite_inline0'},
-		{name = 'Mantis Blades', path = 'Character.afterlife_rare_fmelee3_mantis_ma_elite_inline2'},
-		{name = 'Neon Red Mantis Blades', path = 'Character.main_boss_oda_inline0'},
-		{name = 'Machete', path = 'Character.aldecaldos_grunt2_melee2__ma_inline0'},
-		{name = 'Hammer', path = 'Character.maelstrom_grunt2_melee2_hammer_wa_inline0'},
-		{name = 'Baton', path = 'Character.animals_bouncer1_melee1_baton_mb_inline0'},
-		{name = 'Knife', path = 'Character.tyger_claws_gangster1_melee1_knife_wa_inline2'},
-		{name = 'Crowbar', path = 'Character.wraiths_grunt2_melee2_crowbar_ma_inline0'},
-		{name = 'Baseball Bat', path = 'Character.animals_grunt1_melee1_baseball_mb_inline0'},
-		{name = 'Assault Rifle', path = 'Character.arasaka_ranger1_ranged2_masamune_ma_inline2'},
-		{name = 'Sidewinder', path = 'Character.tyger_claws_gangster2_ranged2_sidewinder_wa_inline2'},
-		{name = 'Sniper Rifle', path = 'Character.afterlife_rare_sniper3_ashura_ma_elite_inline0'},
-		{name = 'Shotgun', path = 'Character.afterlife_rare_fshotgun3_zhuo_mb_elite_inline0'},
-		{name = 'SMG', path = 'Character.afterlife_rare_franged2_saratoga_ma_rare_inline0'},
-		{name = 'Handgun', path = 'Character.afterlife_rare_franged2_overture_wa_rare_inline0'},
-	}
+-- ========== Equipment Database ==========
+-- Builds a table   { name = "...", category = "...", maker = "..." }
+-- for every unique item whose EquipmentGroup ultimately resolves
+-- to ONE equipment record (directly or through a single-entry pool).
 
-	if HMG then
-		table.insert(equipments, {name = 'Machine Gun', path = 'Character.militech_enforcer3_gunner3_HMG_mb_elite_inline2'})
+-- ---------- helpers ----------
+local function Capitalize(str)
+    return str ~= "" and (str:sub(1,1):upper() .. str:sub(2):lower()) or ""
+end
+
+-- Parse friendlyName → category, maker
+local function ParseFriendly(friendly)
+    -- split on "_" into parts
+    local parts = {}
+    for p in string.gmatch(friendly, "([^_]+)") do
+        table.insert(parts, p)
+    end
+
+    -- default values
+    local category, maker = "Unknown", ""
+
+    if #parts == 2 then
+        -- e.g. "mantis_blade"
+        category = Capitalize(parts[1]) .. " " .. Capitalize(parts[2])
+        maker    = ""
+    elseif parts[1] == "w" and #parts >= 3 then
+        -- e.g. "w_revolver_militech_crusher"
+        category = Capitalize(parts[2])
+        maker    = Capitalize(parts[3] or "")
+    else
+        -- anything else → take second part as category, third as maker if present
+        category = Capitalize(parts[2] or parts[1])
+        maker    = Capitalize(parts[3] or "")
+    end
+
+    return category, maker
+end
+
+function AMM:GetEquipmentOptions()
+	-- ---------- main containers ----------
+	local equipmentDB = {}  -- the resulting in-memory “database”
+	local dupeChecker = {}  -- to avoid duplicate display names
+
+	-- ---------- convenience: add an item once ----------
+	local function AddItem(item)
+		local friendlyName = item:FriendlyName()                       -- raw id string
+		local itemName     = Game.GetLocalizedTextByKey(item:DisplayName())
+		if itemName == "" then
+			itemName = Util:CapitalizeWords(NameToString(item:EntityName()))
+		end
+
+		-- skip duplicates
+		if dupeChecker[itemName] then return end
+		dupeChecker[itemName] = true
+
+		local category, maker = ParseFriendly(friendlyName)
+
+		table.insert(equipmentDB, {
+			id		 	= rec:ID(),  -- TweakDBID
+			name     = itemName,
+			category = category,
+			maker    = maker,
+		})
 	end
 
-	return equipments
+	-- ---------- iterate through all NPCEquipmentGroup records ----------
+	local records = TweakDB:GetRecords("gamedataNPCEquipmentGroup_Record")
+
+	for _, rec in ipairs(records) do
+		for _, eqItem in ipairs(rec:EquipmentItems()) do
+			local className = NameToString(eqItem:GetClassName())
+
+			if className == "gamedataNPCEquipmentItem_Record" then
+					-- direct equipment item
+					AddItem(rec, eqItem:Item())
+
+			else  -- it's an EquipmentPool
+					local pool = eqItem:Pool()
+					if pool and #pool == 1 then
+						local items = pool[1]:Items()
+						if items and #items == 1 then
+							AddItem(rec, items[1]:Item())
+						end
+					end
+			end
+		end
+	end
+
+	return equipmentDB
 end
 
 function AMM:GetCustomAppearanceDefaults()
@@ -3289,17 +3374,27 @@ local extensionJson = '.json$'
 
 local function getFilesRecursively(_dir, tbl)
   tbl = tbl or {}
+
+  -- files to ignore
+  local ignore = {
+    ["appearance_template.lua"] = true,
+    ["entitity_template.lua"] = true,
+    ["pose_template.lua"]       = true,
+    ["prop_template.lua"]       = true,
+  }
+
   local files = dir(_dir)
   if #files == 0 then return tbl end
 
   for _, file in ipairs(files) do
-    -- if it's a directory: recurse
     if file.type == typeDirectory then
       getFilesRecursively(_dir .. '/' .. file.name, tbl)
 
-    -- if it's a lua file: add to return list
     elseif string.find(file.name, extensionLua) then
-      table.insert(tbl, _dir .. '/' .. file.name)
+      -- skip ignored filenames
+      if not ignore[file.name] then
+        table.insert(tbl, _dir .. '/' .. file.name)
+      end
     end
   end
 
@@ -3308,6 +3403,12 @@ end
 
 local function getJSONFilesRecursively(_dir, tbl)
   tbl = tbl or {}
+
+    -- files to ignore
+  local ignore = {
+    ["location_template.json"] = true
+  }
+
   local files = dir(_dir)
   if #files == 0 then return tbl end
 
@@ -3315,7 +3416,9 @@ local function getJSONFilesRecursively(_dir, tbl)
     if file.type == typeDirectory then
       getJSONFilesRecursively(_dir .. '/' .. file.name, tbl)
     elseif string.find(file.name, extensionJson) then
-      table.insert(tbl, _dir .. '/' .. file.name)
+		if not ignore[file.name] then
+      	table.insert(tbl, _dir .. '/' .. file.name)
+		end
     end
   end
 
@@ -3626,7 +3729,7 @@ function AMM:SetupCustomProps()
             entity_id,
             prop.name,
             category,
-            prop.distanceFromGround,
+            prop.distanceFromGround or "NULL",
             0,
             epath,
             1,
@@ -3795,7 +3898,7 @@ function AMM:SetupCollabLocations()
                                                 x           = loc.coords.x,
                                                 y           = loc.coords.y,
                                                 z           = loc.coords.z,
-                                                w           = loc.w,
+                                                w           = 1,
                                                 yaw         = loc.yaw,
                                                 modder      = modder,
                                                 tags        = loc.tags,
@@ -5480,7 +5583,7 @@ function AMM:OpenPopup(name)
 	end
 
 	popupWidth = math.max(messageWidth, buttonWidth)
-	popupHeight = 40 + (#popupDelegate.buttons * 66)
+	popupHeight = 100 + (#popupDelegate.buttons * 66)
 
 	 -- Adjust the popup size dynamically
     popupWidth = math.max(popupWidth, 300) -- Minimum width

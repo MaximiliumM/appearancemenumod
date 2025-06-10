@@ -411,7 +411,7 @@ function Director:DrawCamerasTab()
 
           local buttonWidth = AMM.UI.style.halfButtonWidth - 10
 
-          if ImGui.Button(buttonLabel.."##"..i, buttonWidth, 30) then
+          if ImGui.Button(buttonLabel.."##"..i, buttonWidth, 40) then
             if buttonLabel == AMM.LocalizableString("Activate") then
               Director.activeCamera = camera
               camera:Activate(1)
@@ -419,17 +419,19 @@ function Director:DrawCamerasTab()
               Director.activeCamera = nil
               camera:Deactivate(1)
             end
-          end
+          end          
 
           ImGui.SameLine()
 
+          ImGui.PushItemWidth(300)
           camera.fov, fovUsed = ImGui.DragInt(AMM.LocalizableString("FOV").."##"..i, camera.fov, 1, 1, 175)
+          ImGui.PopItemWidth()
 
           if fovUsed then
             camera:SetFOV(camera.fov)
           end
 
-          if ImGui.Button(AMM.LocalizableString("Button_ToggleMarker").."##"..i, buttonWidth, 30) then
+          if ImGui.Button(AMM.LocalizableString("Button_ToggleMarker").."##"..i, buttonWidth, 40) then
             if camera.mappinID then
               Game.GetMappinSystem():UnregisterMappin(camera.mappinID)
               camera.mappinID = nil
@@ -440,13 +442,15 @@ function Director:DrawCamerasTab()
 
           ImGui.SameLine()
 
+          ImGui.PushItemWidth(300)
           camera.zoom, zoomUsed = ImGui.DragFloat(AMM.LocalizableString("Zoom").."##"..i, camera.zoom, 0.1, 1, 175, "%.1f")
+          ImGui.PopItemWidth()
 
           if zoomUsed then
             camera:SetZoom(camera.zoom)
           end
 
-          if ImGui.Button(AMM.LocalizableString("Button_SmallDespawn").."##"..i, buttonWidth, 30) then
+          if ImGui.Button(AMM.LocalizableString("Button_SmallDespawn").."##"..i, buttonWidth, 40) then
             if Director.activeCamera and Director.activeCamera.hash == camera.hash then
               Director.activeCamera = nil
             end
@@ -458,8 +462,11 @@ function Director:DrawCamerasTab()
           ImGui.SameLine()
 
           local speed = camera.speed * 100
+          ImGui.PushItemWidth(300)
           speed = ImGui.DragFloat(AMM.LocalizableString("Button_DragSpeed").."##"..i, speed, 1, 1, 100, "%.0f")
+          ImGui.PopItemWidth()
           camera.speed = speed / 100
+
 
           camera.lock = ImGui.Checkbox(AMM.LocalizableString("LockFrame"), camera.lock)
           camera:SetLock(camera.lock)
@@ -533,7 +540,7 @@ function Director:DrawTriggerTab()
 
         AMM.UI:Separator()
 
-        Director.selectedTrigger.title = ImGui.InputText(AMM.LocalizableString("Title"), Director.selectedTrigger.title, 30)
+        Director.selectedTrigger.title = ImGui.InputText(AMM.LocalizableString("Title"), Director.selectedTrigger.title, 40)
 
         ImGui.Spacing()
 
@@ -689,7 +696,7 @@ function Director:DrawScriptTab()
 
           AMM.UI:TextCenter(AMM.LocalizableString("Editing"), true)
 
-          Director.selectedScript.title = ImGui.InputText(AMM.LocalizableString("Title"), Director.selectedScript.title, 30)
+          Director.selectedScript.title = ImGui.InputText(AMM.LocalizableString("Title"), Director.selectedScript.title, 40)
 
           ImGui.Spacing()
 
@@ -1876,11 +1883,11 @@ function Director:DrawWarningPopup(popupDelegate)
   local sizeX = ImGui.GetWindowSize()
 	local x, y = ImGui.GetWindowPos()
 	ImGui.SetNextWindowPos(x + ((sizeX / 2) - 200), y - 40)
-  ImGui.SetNextWindowSize(400, 140)
+  ImGui.SetNextWindowSize(400, 180)
 	if ImGui.BeginPopupModal(AMM.LocalizableString("Warning"), ImGuiWindowFlags.AlwaysAutoResize) then
 		ImGui.TextWrapped(popupDelegate.message)
 		for _, button in ipairs(popupDelegate.buttons) do
-			if ImGui.Button(button.label, ImGui.GetWindowContentRegionWidth() / 2, 30) then
+			if ImGui.Button(button.label, ImGui.GetWindowContentRegionWidth() / 2, 40) then
 				if button.action ~= '' then button.action(popupDelegate.actionArg) end
 				ImGui.CloseCurrentPopup()
 			end
@@ -2223,7 +2230,7 @@ function Director:DrawMoveMarkPopup()
       ImGui.Spacing()
 
       -- 3) If user presses Save => copy tempNode back into the real node & Save
-      if ImGui.Button(AMM.LocalizableString("Save"), 80, 30) then
+      if ImGui.Button(AMM.LocalizableString("Save"), 80, 40) then
         moveMarkData.saved = true
         local realNode = Director.selectedNode
         if realNode then
@@ -2239,7 +2246,7 @@ function Director:DrawMoveMarkPopup()
 
       ImGui.SameLine()
       -- 4) Cancel => just closes popup, revert on next frame
-      if ImGui.Button(AMM.LocalizableString("Label_Cancel"), 80, 30) then
+      if ImGui.Button(AMM.LocalizableString("Label_Cancel"), 80, 40) then
         ImGui.CloseCurrentPopup()
       end
 

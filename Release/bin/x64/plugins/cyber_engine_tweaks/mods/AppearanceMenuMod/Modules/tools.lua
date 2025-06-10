@@ -895,12 +895,6 @@ function Tools:DrawTeleportActions()
 
   Tools:DrawLocationsDropdown()
 
-  ImGui.SameLine()
-
-  if ImGui.SmallButton(AMM.LocalizableString("Button_RandomLocation")) then
-    Tools:TeleportToRandomLocation()
-  end
-
   ImGui.Spacing()
 
   if Tools.selectedLocation.loc_name ~= AMM.LocalizableString("Select_Location") then
@@ -1075,7 +1069,6 @@ end
 function Tools:GatherAllTagsForLocations(locList)
   local tagsSet = {}
   for _, loc in ipairs(locList) do
-    printTable(loc)
     if loc.tags and #loc.tags > 0 then
       for _, t in ipairs(loc.tags) do
         tagsSet[t] = true
@@ -1472,6 +1465,12 @@ function Tools:DrawLocationsDropdown()
         ImGui.OpenPopup("TagFilterPopup")
       end
       Tools:DrawTagFilterPopup()
+    end
+
+    ImGui.SameLine()
+
+    if AMM.userSettings.allowRandomLocationButton and ImGui.Button(AMM.LocalizableString("Button_RandomLocation")) then
+      Tools:TeleportToRandomLocation()
     end
 
     local filteredByCategory = {}
@@ -3327,13 +3326,9 @@ function Tools:DrawMovementWindow()
             end
           end
 
-          if Director.activeCamera then
-            local camera = Director.activeCamera
-            if camera and camera:IsValid() and camera:GetEntityID() then
-              local cameraHash = tostring(camera:GetEntityID().hash)
-              if Tools.currentTarget.hash ~= cameraHash then
-                table.insert(availableTargets, {name = "Camera", handle = camera})
-              end
+          if #AMM.Director.cameras > 0 then
+            for i, camera in ipairs(AMM.Director.cameras) do
+                table.insert(availableTargets, {name = f("Camera %i", i), handle = camera.handle})
             end
           end
 

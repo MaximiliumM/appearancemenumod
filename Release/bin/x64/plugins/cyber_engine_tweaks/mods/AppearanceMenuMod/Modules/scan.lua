@@ -353,14 +353,14 @@ function Scan:DrawTargetActions(target)
       Util:RestoreElevator(target.handle)
     end
   elseif target.handle:IsVehicle() then
-    if ImGui.Button(AMM.LocalizableString("Button_UnlockVehicle"), style.halfButtonWidth, style.buttonHeight - 5) then
+    if ImGui.Button(AMM.LocalizableString("Button_UnlockVehicle"), style.buttonWidth, style.buttonHeight - 5) then
       Util:UnlockVehicle(target.handle)
     end
 
-    ImGui.SameLine()
-    if ImGui.Button(AMM.LocalizableString("Button_RepairVehicle"), style.halfButtonWidth, style.buttonHeight - 5) then
-      Util:RepairVehicle(target.handle)
-    end
+    -- ImGui.SameLine()
+    -- if ImGui.Button(AMM.LocalizableString("Button_RepairVehicle"), style.halfButtonWidth, style.buttonHeight - 5) then
+    --   Util:RepairVehicle(target.handle)
+    -- end
 
     local vehicleSeats = {}
 
@@ -390,16 +390,18 @@ function Scan:DrawTargetActions(target)
         if windowState then windowGlyph = IconGlyphs.CheckBold end
 
         if i == 1 or i == 2 or i == 5 or i == 6 then
-          if ImGui.Button(doorGlyph.." "..AMM.LocalizableString("Label_Door").." "..seat.name, (ImGui.GetWindowContentRegionWidth() / 4) - 7, style.buttonHeight - 5) then
+          if ImGui.Button(doorGlyph.." "..AMM.LocalizableString("Label_Door").." "..seat.name, style.halfButtonWidth, style.buttonHeight - 5) then
             Util:ToggleDoor(target.handle:GetVehiclePS(), seat.cname, doorState)
           end
         else
-          if ImGui.Button(windowGlyph.." "..AMM.LocalizableString("Label_Window").." "..seat.name, (ImGui.GetWindowContentRegionWidth() / 4) - 7, style.buttonHeight - 5) then
+          if ImGui.Button(windowGlyph.." "..AMM.LocalizableString("Label_Window").." "..seat.name, style.halfButtonWidth, style.buttonHeight - 5) then
             Util:ToggleWindow(target.handle:GetVehiclePS(), seat.cname, windowState)
           end
         end
 
-        if i ~= 4 and i ~= #vehicleSeats then ImGui.SameLine() end
+        if i % 2 ~= 0 and i ~= #vehicleSeats then
+          ImGui.SameLine()
+        end
       end
     end
 

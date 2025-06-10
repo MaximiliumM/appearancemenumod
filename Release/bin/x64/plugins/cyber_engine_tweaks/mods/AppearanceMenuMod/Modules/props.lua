@@ -78,6 +78,7 @@ function Props:new()
 
   -- Main Properties
   Props.presets = {}
+  Props.favoritePresets = {}
   Props.entities = {}
   Props.spawnedPropsList = {}
   Props.spawnedProps = {}
@@ -329,8 +330,8 @@ local function drawSpawnedPropsList()
 
           ImGui.SameLine()
 
-          if AMM.UI:SmallButton(AMM.LocalizableString("Button_Frame")) then
-            if spawn.handle and spawn.handle ~= '' then              
+          if spawn.handle and NameToString(spawn.handle:GetClassName()) == "Frame" then
+            if AMM.UI:SmallButton(AMM.LocalizableString("Button_Frame")) then              
               spawn.handle:SpawnFrameSwitcherPopup()
             end
           end
@@ -557,13 +558,13 @@ function Props:DrawSavedProp(prop)
     AMM.UI:TextColored(AMM.LocalizableString("In_World"))
   end
 
-  if AMM.UI:SmallButton(AMM.LocalizableString("Button_SmallRemove").."##"..prop.uid) then    
+  if AMM.UI:SmallButton(AMM.LocalizableString("Button_SmallRemove")..prop.uid) then    
     Props:RemoveProp(prop)
   end
 
   ImGui.SameLine()
-  if AMM.UI:SmallButton(AMM.LocalizableString("Button_SmallRename").."##"..prop.uid) then
-    Props.rename = ''
+  if AMM.UI:SmallButton(AMM.LocalizableString("Button_SmallRename")..prop.uid) then
+    Props.rename = ''    
     ImGui.OpenPopup(AMM.LocalizableString("Popup_RenameProp").."##"..prop.uid)
   end
 
@@ -571,7 +572,7 @@ function Props:DrawSavedProp(prop)
 
   if Props.activeProps[prop.uid] ~= nil and Props.activeProps[prop.uid].handle and Props.activeProps[prop.uid].handle ~= '' then
     ImGui.SameLine()
-    if AMM.UI:SmallButton(AMM.LocalizableString("Button_SmallUpdate").."##"..prop.uid) then
+    if AMM.UI:SmallButton(AMM.LocalizableString("Button_SmallUpdate")..prop.uid) then
       Props:SavePropPosition(Props.activeProps[prop.uid])
     end
 
@@ -631,10 +632,12 @@ function Props:DrawSavedProp(prop)
       end
     end
 
-    ImGui.SameLine()
-    if AMM.UI:SmallButton(AMM.LocalizableString("Button_Frame")) then
-      if Props.activeProps[prop.uid].handle and Props.activeProps[prop.uid].handle ~= '' then
-        Props.activeProps[prop.uid].handle:SpawnFrameSwitcherPopup()
+    if Props.activeProps[prop.uid].handle and NameToString(Props.activeProps[prop.uid].handle:GetClassName()) == "Frame" then
+      ImGui.SameLine()
+      if AMM.UI:SmallButton(AMM.LocalizableString("Button_Frame")) then
+        if Props.activeProps[prop.uid].handle and Props.activeProps[prop.uid].handle ~= '' then
+          Props.activeProps[prop.uid].handle:SpawnFrameSwitcherPopup()
+        end
       end
     end
   end
@@ -654,6 +657,7 @@ function Props:DrawPresetConfig()
     Props.selectedPreset = Props.activePreset
   end
 
+  ImGui.PushItemWidth(300)
   if despawnInProgress then
     ImGui.Spacing()
     ImGui.Text(AMM.LocalizableString("Warn_DespawnInProgress_PleaseWait"))
@@ -670,11 +674,22 @@ function Props:DrawPresetConfig()
     end
     ImGui.EndCombo()
   end
+  ImGui.PopItemWidth()
 
   if ImGui.IsItemHovered() then
     ImGui.SetTooltip(AMM.LocalizableString("Warn_PresetsFolder_Info"))
   end
 
+  ImGui.SameLine()
+
+  local favLabel = AMM.LocalizableString("Label_Favorite")
+  if Props:IsFavoritePreset(Props.selectedPreset.file_name) then
+    favLabel = AMM.LocalizableString("Label_Unfavorite")
+  end
+  if ImGui.SmallButton(favLabel .. "##PresetFavorite") then
+    Props:ToggleFavoritePreset(Props.selectedPreset)
+    Props.presets = Props:LoadPresets()
+  end
   ImGui.SameLine()
 
   if ImGui.SmallButton(AMM.LocalizableString("Button_Refresh")) then
@@ -2213,10 +2228,37 @@ function Props:LoadPresets()
         table.insert(presets, {file_name = file.name, name = name, props = props, lights = lights, frames = frames})
       end
     end
+
+    table.sort(presets, function(a, b)
+      local favA = Props:IsFavoritePreset(a.file_name)
+      local favB = Props:IsFavoritePreset(b.file_name)
+      if favA ~= favB then return favA end
+      return a.name:lower() < b.name:lower()
+    end)
+
     return presets
   else
     return Props.presets
   end
+end
+
+function Props:IsFavoritePreset(fileName)
+  for _, fav in ipairs(Props.favoritePresets) do
+    if fav == fileName then return true end
+  end
+  return false
+end
+
+function Props:ToggleFavoritePreset(preset)
+  for i, fav in ipairs(Props.favoritePresets) do
+    if fav == preset.file_name then
+      table.remove(Props.favoritePresets, i)
+      AMM:ExportUserData()
+      return
+    end
+  end
+  table.insert(Props.favoritePresets, preset.file_name)
+  AMM:ExportUserData()
 end
 
 function Props:DeletePreset(preset)
