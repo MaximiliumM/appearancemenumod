@@ -328,9 +328,9 @@ local function drawSpawnedPropsList()
             Props:DuplicateProp(spawn)
           end
 
-          ImGui.SameLine()
-
+          
           if spawn.handle and NameToString(spawn.handle:GetClassName()) == "Frame" then
+            ImGui.SameLine()
             if AMM.UI:SmallButton(AMM.LocalizableString("Button_Frame")) then              
               spawn.handle:SpawnFrameSwitcherPopup()
             end

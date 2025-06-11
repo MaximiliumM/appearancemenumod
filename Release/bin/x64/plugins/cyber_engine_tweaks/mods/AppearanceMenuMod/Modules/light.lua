@@ -547,10 +547,22 @@ function Light:SetLightData(light, data)
     newColor.Green = rgbColor[2]
     newColor.Blue = rgbColor[3]
     newColor.Alpha = rgbColor[4]
-    component:SetColor(newColor)
-    component:SetIntensity(data.intensity)
-    component:SetRadius(data.radius)
-    component:SetAngles(angles.inner, angles.outer)
+
+    if component.SetColor then
+      component:SetColor(newColor)
+    end
+
+    if component.SetIntensity then
+      component:SetIntensity(data.intensity)
+    end
+
+    if component.SetRadius then
+      component:SetRadius(data.radius)
+    end
+
+    if component.SetAngles then
+      component:SetAngles(angles.inner, angles.outer)
+    end
   else
     Util:AMMError("Light Data is missing")
   end
