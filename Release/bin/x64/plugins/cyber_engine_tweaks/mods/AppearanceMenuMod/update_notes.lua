@@ -1,5 +1,14 @@
 return {
 	{
+		'2.12.5',
+		'2025 Jun 11',
+		[[Extended Companion Equipment System]],
+		[[-- Added Slot picker so you can select which slot the NPC will equip the weapon]],
+		[[-- Added Restore On Launch checkbox so next time you start the game the NPC will have the same Equipment]],
+		[[-- Keep in mind that not all Weapons may work with every NPC or Slot]],	
+		[[Fixed issue where Favorited Equipment would not load properly after restart]],
+	},
+	{
 		'2.12.4',
 		'2025 Jun 11',
 		[[Fixed performance issue where stuttering would occur due to background tasks]],

@@ -95,7 +95,7 @@ function AMM:new()
 	 AMM.extraExpressionsInstalled = false
 
 	 -- Main Properties --
-	 AMM.currentVersion = "2.12.4"
+	 AMM.currentVersion = "2.12.5"
 	 AMM.CETVersion = parseVersion(GetVersion())
 	 AMM.CodewareVersion = 0
 	 AMM.updateNotes = require('update_notes.lua')
@@ -107,7 +107,10 @@ function AMM:new()
 	 AMM.allowedNPCs = AMM:GetSaveables()
 	 AMM.equipmentOptions = nil
 	 AMM.equipmentSearch = ''
-	 AMM.favoriteEquipment = {}
+        AMM.favoriteEquipment = {}
+        AMM.savedEquipments = {}
+        AMM.selectedEquipSlot = "primary"
+        AMM.restoreEquipmentOnLaunch = false
 	 AMM.followDistanceOptions = AMM:GetFollowDistanceOptions()
 	 AMM.companionAttackMultiplier = 0
 	 AMM.companionResistanceMultiplier = 0
@@ -294,9 +297,10 @@ function AMM:new()
 			 AMM.playerLastPos = ''
 			 Util.playerLastPos = ''
 
-			 AMM.Scan:ResetSavedDespawns()
+			AMM.Scan:ResetSavedDespawns()
 
-			 AMM.Director:StopAll()
+			AMM.Director:StopAll()
+			AMM:ReapplySavedEquipment()
 		 end)
 
 		 GameSession.OnEnd(function()
@@ -2559,7 +2563,8 @@ function AMM:ImportUserData()
 				self.Props.presetTriggerDistance = userData['presetTriggerDistance'] or 60
 				self.Tools.favoriteExpressions = userData['favoriteExpressions'] or {}
 				self.Props.favoritePresets = userData['favoritePresets'] or {}
-				self.favoriteEquipment = self:ImportFavoriteEquipment(userData) or {}		
+				self.favoriteEquipment = self:ImportFavoriteEquipment(userData) or {}
+				self.savedEquipments = userData['savedEquipment'] or {}
 
 				if userData['settings'] ~= nil then
 					for _, obj in ipairs(userData['settings']) do
@@ -2712,6 +2717,7 @@ function AMM:ExportUserData()
 		userData['favoriteExpressions'] = self.Tools.favoriteExpressions
 		userData['favoritePresets'] = self.Props.favoritePresets
 		userData['favoriteEquipment'] = self:ExportFavoriteEquipment()
+		userData['savedEquipment'] = self.savedEquipments
 
 		local validJson, contents = pcall(function() return json.encode(userData) end)
 		if validJson and contents ~= nil then
@@ -5459,11 +5465,17 @@ end
 
 function AMM:ChangeNPCEquipment(ent, equipmentPath)
         local npcPath = ent.path
-        TweakDB:SetFlat(TweakDBID.new(npcPath..".primaryEquipment"), TweakDBID.new(equipmentPath))
+        if self.selectedEquipSlot == "secondary" then
+                TweakDB:SetFlat(TweakDBID.new(npcPath..".secondaryEquipment"), TweakDBID.new(equipmentPath))
+        else
+                TweakDB:SetFlat(TweakDBID.new(npcPath..".primaryEquipment"), TweakDBID.new(equipmentPath))
+        end
 	
-	AMM:ResetFollowCommandAfterAction(ent, function(handle)
-		Util:EquipPrimaryWeaponCommand(handle)
-	end)
+	if ent.handle then
+		AMM:ResetFollowCommandAfterAction(ent, function(handle)
+			Util:EquipPrimaryWeaponCommand(handle)
+		end)
+	end
 
 	-- AMM.Spawn:Respawn(ent)
 
@@ -5494,11 +5506,14 @@ function AMM:ImportFavoriteEquipment(userData)
 		return nil
 	end
 	
+	local favs = {}
 	if userData['favoriteEquipment'] ~= nil then
 		for _, id in ipairs(userData['favoriteEquipment']) do
-			self.favoriteEquipment[id] = true
+			favs[id] = true
 		end
 	end
+
+	return favs
 end
 
 function AMM:ExportFavoriteEquipment()
@@ -5507,6 +5522,32 @@ function AMM:ExportFavoriteEquipment()
 		table.insert(fav, id)
 	end
 	return fav
+end
+
+function AMM:SaveNPCEquipment(ent, id_str)
+        self.savedEquipments[ent.path] = {slot = self.selectedEquipSlot, id_str = id_str}
+        self:ExportUserData()
+end
+
+function AMM:ReapplySavedEquipment()
+	local paths = Util:GetTableKeys(self.savedEquipments)
+	for _, path in ipairs(paths) do
+		local saved = self.savedEquipments[path]
+		local eqID = nil
+		for _, eq in ipairs(self.equipmentOptions or {}) do
+			if eq.id_str == saved.id_str then
+				eqID = eq.id
+				break
+			end
+		end
+		if eqID then
+			local previous = self.selectedEquipSlot
+			self.selectedEquipSlot = saved.slot
+			local ent = {path = path}
+			self:ChangeNPCEquipment(ent, eqID)
+			self.selectedEquipSlot = previous
+		end
+	end
 end
 
 function AMM:DrawEquipmentPopup(title, ent, style)
@@ -5532,6 +5573,16 @@ function AMM:DrawEquipmentPopup(title, ent, style)
             self.equipmentSearch = ""
         end
     end
+
+    if ImGui.RadioButton(AMM.LocalizableString("Radio_PrimarySlot"), self.selectedEquipSlot == "primary") then
+        self.selectedEquipSlot = "primary"
+    end
+    ImGui.SameLine()
+    if ImGui.RadioButton(AMM.LocalizableString("Radio_SecondarySlot"), self.selectedEquipSlot == "secondary") then
+        self.selectedEquipSlot = "secondary"
+    end
+    ImGui.SameLine()
+    self.restoreEquipmentOnLaunch, _ = ImGui.Checkbox(AMM.LocalizableString("Checkbox_RestoreOnLaunch"), self.restoreEquipmentOnLaunch)
 
     ImGui.Separator()
 
@@ -5576,6 +5627,9 @@ function AMM:DrawEquipmentPopup(title, ent, style)
 		-- draw the main equipment button
 		if ImGui.Button(label, btnW, itemHeight) then
 			AMM:ChangeNPCEquipment(ent, equipment.id)
+			if AMM.restoreEquipmentOnLaunch then
+					AMM:SaveNPCEquipment(ent, equipment.id_str)
+			end
 			ImGui.CloseCurrentPopup()
 		end
 
