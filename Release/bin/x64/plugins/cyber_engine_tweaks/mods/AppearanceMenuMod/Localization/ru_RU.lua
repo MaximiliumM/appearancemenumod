@@ -595,8 +595,11 @@ return {
 	Checkbox_AllowPlayerToBeTargetedinPosestab = "Разрешить ставить игрока как цель в 'Позах'",
 	Checkbox_AllowPlayerAnimationsonNPCs = "Разрешить анимации игрока на NPC",
 	Checkbox_AllowExpressionOnNpcPM = "Разрешить выражения лиц и направления взглядов для НПС в фоторежиме",
-	Checkbox_ResetTargetPositionPM = "Сброс позиции цели для NPC в режиме фотосъемки",
-	Checkbox_EnableRandomLocation = "Включить кнопку 'Случайная локация': телепортирует игрока в случайную локацию из списка",
+        Checkbox_ResetTargetPositionPM = "Сброс позиции цели для NPC в режиме фотосъемки",
+        Checkbox_EnableRandomLocation = "Включить кнопку 'Случайная локация': телепортирует игрока в случайную локацию из списка",
+        Checkbox_RestoreOnLaunch = "Восстанавливать при запуске",
+        Radio_PrimarySlot = "Основной слот",
+        Radio_SecondarySlot = "Второй слот",
 
     --Warning / Info / Tool Tip
 	Warn_RespawnOnLaunch_Info = "Эта настройка включает/выключает респаун ранее сохраненных NPC при загрузке игры. AMM автоматически сохраняет спавн NPC при выходе из игры.",
