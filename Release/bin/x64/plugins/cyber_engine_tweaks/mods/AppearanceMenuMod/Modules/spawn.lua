@@ -73,6 +73,7 @@ function Spawn:Initialize()
 
 	-- Load Equipment Options
 	AMM.equipmentOptions = AMM:GetEquipmentOptions()
+	AMM:ReapplySavedEquipment()
 
 	if #Spawn.entitiesForRespawn == 0 then return end
 	Spawn.spawnedNPCs = {}
@@ -167,6 +168,12 @@ function Spawn:DrawActiveSpawns(style)
 
         ImGui.SameLine()
         if AMM.UI:SmallButton(AMM.LocalizableString("Button_SmallEquipment").."##"..spawn.name) then
+			 AMM.restoreEquipmentOnLaunch = false
+
+			 if AMM.savedEquipments[spawn.path] then
+				AMM.restoreEquipmentOnLaunch = true
+			 end
+
           popupDelegate = AMM:OpenPopup(spawn.name.."'s Equipment")
         end
 
@@ -583,6 +590,8 @@ function Spawn:SpawnNPC(spawn, notCompanionOverride)
 		TweakDB:SetFlat(spawn.path..".primaryEquipment", TweakDB:GetFlat("Character.Judy.primaryEquipment"))
 		TweakDB:SetFlat(spawn.path..".secondaryEquipment", TweakDB:GetFlat("Character.Judy.secondaryEquipment"))
 		TweakDB:SetFlat(spawn.path..".archetypeData", TweakDB:GetFlat("Character.Judy.archetypeData"))
+
+		AMM:ReapplySavedEquipment()
 	end
 
 	local path = spawn.path

@@ -5,7 +5,8 @@ return {
 		[[Extended Companion Equipment System]],
 		[[-- Added Slot picker so you can select which slot the NPC will equip the weapon]],
 		[[-- Added Restore On Launch checkbox so next time you start the game the NPC will have the same Equipment]],
-		[[-- Keep in mind that not all Weapons may work with every NPC or Slot]],	
+		[[-- Added Reset button to restore original Equipment]],
+		[[-- Keep in mind that not all Weapons may work with every NPC or Slot]],
 		[[Fixed issue where Favorited Equipment would not load properly after restart]],
 	},
 	{

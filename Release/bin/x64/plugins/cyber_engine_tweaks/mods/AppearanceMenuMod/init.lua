@@ -107,10 +107,11 @@ function AMM:new()
 	 AMM.allowedNPCs = AMM:GetSaveables()
 	 AMM.equipmentOptions = nil
 	 AMM.equipmentSearch = ''
-        AMM.favoriteEquipment = {}
-        AMM.savedEquipments = {}
-        AMM.selectedEquipSlot = "primary"
-        AMM.restoreEquipmentOnLaunch = false
+	 AMM.favoriteEquipment = {}
+	 AMM.savedEquipments = {}
+	 AMM.originalEquipments = {}
+	 AMM.selectedEquipSlot = "primary"
+	 AMM.restoreEquipmentOnLaunch = false
 	 AMM.followDistanceOptions = AMM:GetFollowDistanceOptions()
 	 AMM.companionAttackMultiplier = 0
 	 AMM.companionResistanceMultiplier = 0
@@ -299,8 +300,7 @@ function AMM:new()
 
 			AMM.Scan:ResetSavedDespawns()
 
-			AMM.Director:StopAll()
-			AMM:ReapplySavedEquipment()
+			AMM.Director:StopAll()			
 		 end)
 
 		 GameSession.OnEnd(function()
@@ -3081,7 +3081,7 @@ function AMM:GetEquipmentOptions()
 			end
 		end
 	end
-
+	
 	return equipmentDB
 end
 
@@ -5461,33 +5461,75 @@ end
 	local currentAppearance = spawn.appearance or "default"
 	self:ChangeAppearanceTo(spawn, currentAppearance)
  end
- 
 
-function AMM:ChangeNPCEquipment(ent, equipmentPath)
-        local npcPath = ent.path
-        if self.selectedEquipSlot == "secondary" then
-                TweakDB:SetFlat(TweakDBID.new(npcPath..".secondaryEquipment"), TweakDBID.new(equipmentPath))
-        else
-                TweakDB:SetFlat(TweakDBID.new(npcPath..".primaryEquipment"), TweakDBID.new(equipmentPath))
+ function AMM:GetCurrentEquipment(ent)
+	local slot  = self.selectedEquipSlot or "primary"
+	local field = (slot == "secondary") and ".secondaryEquipment" or ".primaryEquipment"
+	local record = TweakDB:GetRecord(TweakDBID.new(ent.path))
+	local equip = (slot == "secondary") and record:SecondaryEquipment() or record:PrimaryEquipment()
+	return AMM:GetScanID(equip)
+ end
+
+-- Change the NPC equipment or revert it.
+-- ent           : NPC entry (has .path and maybe .handle)
+-- equipmentPath : TweakDBID string of the new item (ignored when reverting)
+-- revert        : boolean, true = restore original gear for the current slot
+function AMM:ChangeNPCEquipment(ent, equipmentPath, revert)
+    -------------------------------------------------------------------------
+    -- Resolve which slot is currently selected in the UI
+    -------------------------------------------------------------------------
+    local slot  = self.selectedEquipSlot or "primary"
+    local field = (slot == "secondary") and ".secondaryEquipment" or ".primaryEquipment"
+    local npc   = ent.path
+
+    -- Make sure the cache exists
+    self.originalEquipments[npc] = self.originalEquipments[npc] or {}
+
+    -------------------------------------------------------------------------
+    -- 1) Save the original item on the first swap only
+    -------------------------------------------------------------------------
+    if not revert and not self.originalEquipments[npc][slot] then
+        local original = TweakDB:GetFlat(TweakDBID.new(npc .. field))
+        self.originalEquipments[npc][slot] = original
+    end
+
+    -------------------------------------------------------------------------
+    -- 2) Decide what record we will write back into TweakDB
+    -------------------------------------------------------------------------
+    local record
+    if revert then
+        record = self.originalEquipments[npc][slot]                -- restore
+    else
+        record = TweakDBID.new(equipmentPath)                      -- new gear
+    end
+
+    if record then
+        TweakDB:SetFlat(TweakDBID.new(npc .. field), record)
+    end
+
+    -------------------------------------------------------------------------
+    -- 3) If we just reverted, wipe the cached original for THIS slot only
+    -------------------------------------------------------------------------
+    if revert then
+        self.originalEquipments[npc][slot] = nil
+        -- If no other slots are cached, drop the whole entry
+        if next(self.originalEquipments[npc]) == nil then
+            self.originalEquipments[npc] = nil
         end
-	
-	if ent.handle then
-		AMM:ResetFollowCommandAfterAction(ent, function(handle)
-			Util:EquipPrimaryWeaponCommand(handle)
-		end)
-	end
+    end
 
-	-- AMM.Spawn:Respawn(ent)
-
-        -- New Approach: Inventory
-	-- local equipmentItems = TweakDB:GetFlat(equipmentPath..".equipmentItems")
-	-- local primaryEquipRecord = TweakDB:GetFlat(TweakDBID.new(equipmentItems[1], ".item"))
-	-- local weaponTDBID = TweakDB:GetRecord(primaryEquipRecord)
-	-- local itemID = ItemID.FromTDBID(weaponTDBID.tdbid)
-  	-- local quantity = 1
-
-  	-- Game.GetTransactionSystem():GiveItem(ent.handle, itemID, quantity)
-   -- Util:EquipGivenWeapon(ent.handle, weaponTDBID, true)
+    -------------------------------------------------------------------------
+    -- 4) Force the NPC to actually equip the item in-game
+    -------------------------------------------------------------------------
+    if ent.handle then
+        AMM:ResetFollowCommandAfterAction(ent, function(handle)
+            if slot == "primary" then
+                Util:EquipPrimaryWeaponCommand(handle)
+            else
+                Util:EquipSecondaryWeaponCommand(handle)
+            end
+        end)
+    end
 end
 
 function AMM:ToggleEquipmentFavorite(id)
@@ -5574,6 +5616,16 @@ function AMM:DrawEquipmentPopup(title, ent, style)
         end
     end
 
+	 if self.originalEquipments[ent.path] then
+		ImGui.SameLine()
+		if ImGui.SmallButton(AMM.LocalizableString("Button_SmallReset")) then
+			self.restoreEquipmentOnLaunch = false
+			self.savedEquipments[ent.path] = nil
+
+			AMM:ChangeNPCEquipment(ent, nil, true)
+		end
+	end
+
     if ImGui.RadioButton(AMM.LocalizableString("Radio_PrimarySlot"), self.selectedEquipSlot == "primary") then
         self.selectedEquipSlot = "primary"
     end
@@ -5582,7 +5634,16 @@ function AMM:DrawEquipmentPopup(title, ent, style)
         self.selectedEquipSlot = "secondary"
     end
     ImGui.SameLine()
-    self.restoreEquipmentOnLaunch, _ = ImGui.Checkbox(AMM.LocalizableString("Checkbox_RestoreOnLaunch"), self.restoreEquipmentOnLaunch)
+    self.restoreEquipmentOnLaunch, clicked = ImGui.Checkbox(AMM.LocalizableString("Checkbox_RestoreOnLaunch"), self.restoreEquipmentOnLaunch)
+	 if clicked then
+		if self.restoreEquipmentOnLaunch == false then
+			self.savedEquipments[ent.path] = nil
+			AMM:ChangeNPCEquipment(ent, nil, true)
+		elseif self.restoreEquipmentOnLaunch and self.originalEquipments[ent.path] then
+			local equipmentID = AMM:GetCurrentEquipment(ent)
+			AMM:SaveNPCEquipment(ent, equipmentID)
+		end
+	 end
 
     ImGui.Separator()
 
@@ -5628,8 +5689,9 @@ function AMM:DrawEquipmentPopup(title, ent, style)
 		if ImGui.Button(label, btnW, itemHeight) then
 			AMM:ChangeNPCEquipment(ent, equipment.id)
 			if AMM.restoreEquipmentOnLaunch then
-					AMM:SaveNPCEquipment(ent, equipment.id_str)
+				AMM:SaveNPCEquipment(ent, equipment.id_str)
 			end
+
 			ImGui.CloseCurrentPopup()
 		end
 
