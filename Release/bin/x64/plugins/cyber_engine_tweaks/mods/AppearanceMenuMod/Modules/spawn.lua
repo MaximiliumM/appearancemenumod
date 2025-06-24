@@ -306,18 +306,18 @@ function Spawn:DrawEntitiesButtons(entities, categoryName, style)
 			isFavorite = fav
 		end
 
-		if Spawn.spawnedNPCs[newSpawn.uniqueName()] and AMM:IsUnique(newSpawn.id) then
-			ImGui.PushStyleColor(ImGuiCol.Button, 0.56, 0.06, 0.03, 0.25)
-			ImGui.PushStyleColor(ImGuiCol.ButtonHovered, 0.56, 0.06, 0.03, 0.25)
-			ImGui.PushStyleColor(ImGuiCol.ButtonActive, 0.56, 0.06, 0.03, 0.25)
-			AMM:DrawButton(buttonLabel, -1 - favOffset, style.buttonHeight, "Disabled", nil)
-			ImGui.PopStyleColor(3)
-		elseif not(Spawn.spawnedNPCs[newSpawn.uniqueName()] ~= nil and AMM:IsUnique(newSpawn.id)) then
-			local action = "SpawnNPC"
-			if string.find(tostring(newSpawn.path), "Vehicle") then action = "SpawnVehicle" end
-			if string.find(tostring(newSpawn.path), "Props") then action = "SpawnProp" end
-			AMM:DrawButton(buttonLabel, -1 - favOffset, style.buttonHeight, action, newSpawn)
-		end
+                if not AMM.userSettings.experimental and Spawn.spawnedNPCs[newSpawn.uniqueName()] and AMM:IsUnique(newSpawn.id) then
+                        ImGui.PushStyleColor(ImGuiCol.Button, 0.56, 0.06, 0.03, 0.25)
+                        ImGui.PushStyleColor(ImGuiCol.ButtonHovered, 0.56, 0.06, 0.03, 0.25)
+                        ImGui.PushStyleColor(ImGuiCol.ButtonActive, 0.56, 0.06, 0.03, 0.25)
+                        AMM:DrawButton(buttonLabel, -1 - favOffset, style.buttonHeight, "Disabled", nil)
+                        ImGui.PopStyleColor(3)
+                else
+                        local action = "SpawnNPC"
+                        if string.find(tostring(newSpawn.path), "Vehicle") then action = "SpawnVehicle" end
+                        if string.find(tostring(newSpawn.path), "Props") then action = "SpawnProp" end
+                        AMM:DrawButton(buttonLabel, -1 - favOffset, style.buttonHeight, action, newSpawn)
+                end
 
 		if categoryName == 'Favorites' then
 			ImGui.SameLine()
