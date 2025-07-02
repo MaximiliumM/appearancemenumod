@@ -2451,10 +2451,18 @@ function Tools:FreezeNPC(handle, freeze)
       Game.GetWorkspotSystem():StopInDevice(handle)
     end
 
-    TimeDilationHelper.SetIndividualTimeDilation(handle, CName.new("radialMenu"), 0.0)
+    if AMM.userSettings.freezeInPhoto then
+      handle:SetIndividualTimeDilation(CName.new("AMM"), 0.0000000000001, 99, CName.new(""), CName.new(""), true)
+    else
+      TimeDilationHelper.SetIndividualTimeDilation(handle, CName.new("radialMenu"), 0.0)
+    end
     Tools.frozenNPCs[tostring(handle:GetEntityID().hash)] = true
   else
-    TimeDilationHelper.UnsetIndividualTimeDilation(handle)
+    if AMM.userSettings.freezeInPhoto then
+      TimeDilationHelper.UnsetIndividualTimeDilation(handle)
+    else
+      handle:SetIndividualTimeDilation(CName.new("AMM"), 1.0, 2.5, CName.new(""), CName.new(""), false)
+    end
     Tools.frozenNPCs[tostring(handle:GetEntityID().hash)] = nil
 
     if AMM.Poses.activeAnims[tostring(handle:GetEntityID().hash)] then
