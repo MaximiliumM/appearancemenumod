@@ -1978,52 +1978,89 @@ end
 
 function Director:LoadScriptData(title)
   local file = io.open('./User/Scripts/'..title, 'r')
-  if file then
-    local contents = file:read( "*a" )
-		local scriptData = json.decode(contents)
-    file:close()
-    local newScript = Director:NewScript(scriptData["title"])
+  if not file then
+    log("[Director] ERROR: Cannot open script file: " .. tostring(title))
+    return nil
+  end
 
-    -- Migrating old script
-    local migrate = {}
-    for i, actorData in pairs(scriptData["actors"]) do
-      if type(i) == 'number' then break end
+  local contents = file:read("*a")
+  file:close()
+  
+  if not contents or contents == "" then
+    log("[Director] ERROR: Script file is empty or unreadable: " .. tostring(title))
+    return nil
+  end
 
+  local success, scriptData = pcall(json.decode, contents)
+  if not success then
+    log("[Director] ERROR: Invalid JSON in script file: " .. tostring(title) .. " - " .. tostring(scriptData))
+    return nil
+  end
+
+  if not scriptData or not scriptData.title then
+    log("[Director] ERROR: Script data missing title: " .. tostring(title))
+    return nil
+  end
+
+  local newScript = Director:NewScript(scriptData.title)
+
+  -- Migrating old script
+  local migrate = {}
+  for i, actorData in pairs(scriptData.actors or {}) do
+    if type(i) == 'number' then break end
+
+    if actorData then
       actorData.name = i
       table.insert(migrate, actorData)
     end
+  end
 
-    if #migrate > 0 then scriptData['actors'] = migrate end
+  if #migrate > 0 then scriptData.actors = migrate end
 
-    for i, actorData in ipairs(scriptData["actors"]) do
-      local newActor = Director:NewActor(actorData.name)
-      newActor.sequenceType = actorData.sequenceType
-      newActor.autoTalk = intToBool(actorData.autoTalk or 0)
-      newActor.team = actorData.team or ''
-      newActor.uniqueName = actorData.uniqueName or (actorData.name.."##"..i..tostring(os.clock()))
-
-      for _, node in ipairs(actorData.nodes) do
-        local newNode = Director:NewNode(node.name)
-        newNode.pos = Vector4.new(node.pos.x, node.pos.y, node.pos.z, node.pos.w)
-        newNode.yaw = node.yaw
-        newNode.holdDuration = node.holdDuration
-        newNode.startApp = node.startApp or nil
-        newNode.endApp = node.endApp or nil
-        newNode.goTo = node.goTo or nil
-        newNode.attackTarget = node.attackTarget or nil
-        newNode.lookAt = node.lookAt or nil
-        newNode.playVO = node.playVO or nil
-        newNode.expression = node.expression or nil
-        newNode.movementType = node.movementType or "Walk"
-        newNode.pose = node.pose or nil
-        table.insert(newActor.nodes, newNode)
-      end
-
-      newScript.actors[newActor.uniqueName] = newActor
+  for i, actorData in ipairs(scriptData.actors or {}) do
+    if not actorData or not actorData.name then
+      log("[Director] WARNING: Skipping invalid actor data in script: " .. tostring(title))
+      goto continue
     end
 
-    return newScript
+    local newActor = Director:NewActor(actorData.name)
+    newActor.sequenceType = actorData.sequenceType
+    newActor.autoTalk = intToBool(actorData.autoTalk or 0)
+    newActor.team = actorData.team or ''
+    newActor.uniqueName = actorData.uniqueName or (actorData.name.."##"..i..tostring(os.clock()))
+
+    for _, node in ipairs(actorData.nodes or {}) do
+      if not node then
+        log("[Director] WARNING: Skipping invalid node in script: " .. tostring(title))
+        goto continue_node
+      end
+
+      local newNode = Director:NewNode(node.name)
+      if node.pos then
+        newNode.pos = Vector4.new(node.pos.x, node.pos.y, node.pos.z, node.pos.w)
+      end
+      newNode.yaw = node.yaw
+      newNode.holdDuration = node.holdDuration
+      newNode.startApp = node.startApp or nil
+      newNode.endApp = node.endApp or nil
+      newNode.goTo = node.goTo or nil
+      newNode.attackTarget = node.attackTarget or nil
+      newNode.lookAt = node.lookAt or nil
+      newNode.playVO = node.playVO or nil
+      newNode.expression = node.expression or nil
+      newNode.movementType = node.movementType or "Walk"
+      newNode.pose = node.pose or nil
+      table.insert(newActor.nodes, newNode)
+      
+      ::continue_node::
+    end
+
+    newScript.actors[newActor.uniqueName] = newActor
+    
+    ::continue::
   end
+
+  return newScript
 end
 
 function Director:SaveTriggers()
@@ -2094,7 +2131,12 @@ function Director:GetScripts()
   if #Director.scripts ~= #files then
     for _, script in ipairs(files) do
       if script.name and string.find(script.name, '.json') then
-        table.insert(scripts, Director:LoadScriptData(script.name))
+        local scriptData = Director:LoadScriptData(script.name)
+        if scriptData then
+          table.insert(scripts, scriptData)
+        else
+          log("[Director] WARNING: Failed to load script: " .. tostring(script.name))
+        end
       end
     end
     return scripts
