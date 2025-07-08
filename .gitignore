@@ -1,2 +1,4 @@
 Release/AppearanceMenuMod.zip
 *.archive
+.DS_Store
+.idea/
